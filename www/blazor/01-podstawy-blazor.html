@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy Blazor</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">WWW</a><span class="sep">/</span><a href="index.html">Blazor</a><span class="sep">/</span><span class="title">Podstawy Blazor</span></div>
+<div class="container">
+<h1>Podstawy Blazor</h1>
+<p class="subtitle">Razor syntax, komponenty, parametry, eventy, two-way binding, lifecycle</p>
+
+<h2>Czym jest Blazor?</h2>
+<p><strong>Blazor</strong> to framework od Microsoftu, ktory pozwala tworzyc interaktywne aplikacje webowe w <strong>C#</strong> zamiast w JavaScript. Komponenty pisze sie w plikach <code>.razor</code> &mdash; mieszanka HTML, C# i Razor syntax.</p>
+<p>W .NET 9 (2024) i wkrotce .NET 10 Blazor zunifikowalo modele renderowania &mdash; mozna mieszac SSR, Server (SignalR) i WebAssembly w jednej aplikacji <strong>per komponent</strong>.</p>
+
+<h2>Razor syntax</h2>
+<p>Razor to silnik szablonow z prefixem <code>@</code> oznaczajacym C#.</p>
+<pre><code>@page "/dashboard"
+
+&lt;h1&gt;Witaj, @userName!&lt;/h1&gt;
+
+@if (isLoggedIn)
+{
+    &lt;p&gt;Masz @messageCount nowych wiadomosci.&lt;/p&gt;
+}
+else
+{
+    &lt;p&gt;Zaloguj sie aby zobaczyc skrzynke.&lt;/p&gt;
+}
+
+&lt;ul&gt;
+@foreach (var item in items)
+{
+    &lt;li&gt;@item.Title - @item.Date.ToShortDateString()&lt;/li&gt;
+}
+&lt;/ul&gt;
+
+@code {
+    private string userName = "Marcin";
+    private bool isLoggedIn = true;
+    private int messageCount = 5;
+    private List&lt;Item&gt; items = new();
+}</code></pre>
+
+<h2>Komponenty</h2>
+<p>Komponent to plik <code>.razor</code> &mdash; nazwa pliku staje sie nazwa komponentu (PascalCase). W innym komponencie uzywasz go jak HTML elementu.</p>
+
+<pre><code>&lt;!-- Counter.razor --&gt;
+&lt;h2&gt;Licznik: @count&lt;/h2&gt;
+&lt;button @onclick="Increment" class="btn btn-primary"&gt;+1&lt;/button&gt;
+
+@code {
+    private int count = 0;
+    private void Increment() =&gt; count++;
+}</code></pre>
+
+<pre><code>&lt;!-- Page.razor --&gt;
+@page "/"
+&lt;h1&gt;Strona glowna&lt;/h1&gt;
+&lt;Counter /&gt;</code></pre>
+
+<h2>Parametry</h2>
+<p>Komponent moze przyjmowac dane z rodzica przez atrybut <code>[Parameter]</code>.</p>
+
+<pre><code>&lt;!-- ProductCard.razor --&gt;
+&lt;div class="card"&gt;
+  &lt;h3&gt;@Name&lt;/h3&gt;
+  &lt;p&gt;Cena: @Price.ToString("C")&lt;/p&gt;
+  @if (IsOnSale)
+  {
+    &lt;span class="badge bg-danger"&gt;Promocja&lt;/span&gt;
+  }
+&lt;/div&gt;
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public decimal Price { get; set; }
+    [Parameter] public bool IsOnSale { get; set; }
+}</code></pre>
+
+<pre><code>&lt;!-- Uzycie --&gt;
+&lt;ProductCard Name="Laptop" Price="3499.99m" IsOnSale="true" /&gt;</code></pre>
+
+<h2>Eventy &mdash; EventCallback</h2>
+<p>Aby komponent dziecko mogl powiadomic rodzica o zdarzeniu, uzywamy <code>EventCallback</code>.</p>
+
+<pre><code>&lt;!-- DeleteButton.razor --&gt;
+&lt;button @onclick="HandleClick"&gt;Usun&lt;/button&gt;
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Parameter] public EventCallback&lt;int&gt; OnDeleted { get; set; }
+
+    private async Task HandleClick()
+    {
+        await OnDeleted.InvokeAsync(Id);
+    }
+}</code></pre>
+
+<pre><code>&lt;!-- Rodzic --&gt;
+&lt;DeleteButton Id="42" OnDeleted="HandleDelete" /&gt;
+
+@code {
+    private void HandleDelete(int id)
+    {
+        // ... logika
+    }
+}</code></pre>
+
+<h2>Two-way binding (@bind)</h2>
+<p>Specjalna skladnia <code>@bind</code> automatyzuje synchronizacje wartosci miedzy modelem i kontrolka.</p>
+
+<pre><code>&lt;input @bind="userName" /&gt;
+&lt;p&gt;Witaj, @userName&lt;/p&gt;
+
+&lt;!-- Domyslnie aktualizacja na onchange (po blur) --&gt;
+
+&lt;!-- Aktualizacja na kazdy keypress --&gt;
+&lt;input @bind="userName" @bind:event="oninput" /&gt;
+
+@code {
+    private string userName = "";
+}</code></pre>
+
+<p>Mozesz tworzyc <strong>wlasne komponenty z dwukierunkowym bindingiem</strong>:</p>
+<pre><code>&lt;!-- ColorPicker.razor --&gt;
+&lt;input type="color" value="@Value" @oninput="OnInput" /&gt;
+
+@code {
+    [Parameter] public string Value { get; set; } = "#000000";
+    [Parameter] public EventCallback&lt;string&gt; ValueChanged { get; set; }
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString() ?? "";
+        await ValueChanged.InvokeAsync(Value);
+    }
+}
+
+&lt;!-- Uzycie --&gt;
+&lt;ColorPicker @bind-Value="selectedColor" /&gt;</code></pre>
+
+<h2>Lifecycle methods</h2>
+
+<table>
+<thead><tr><th>Metoda</th><th>Wywolywana</th></tr></thead>
+<tbody>
+<tr><td>OnInitialized / OnInitializedAsync</td><td>Raz, przy stworzeniu komponentu</td></tr>
+<tr><td>OnParametersSet / OnParametersSetAsync</td><td>Po kazdej zmianie parametrow</td></tr>
+<tr><td>OnAfterRender / OnAfterRenderAsync</td><td>Po renderze (firstRender = true tylko za pierwszym razem)</td></tr>
+<tr><td>ShouldRender</td><td>Czy komponent ma sie ponownie wyrenderowac</td></tr>
+<tr><td>Dispose / DisposeAsync</td><td>Cleanup przy usuwaniu (IDisposable / IAsyncDisposable)</td></tr>
+</tbody>
+</table>
+
+<pre><code>@implements IDisposable
+@inject IDataService DataService
+
+&lt;h1&gt;Lista produktow&lt;/h1&gt;
+
+@code {
+    private List&lt;Product&gt; products = new();
+    private Timer? refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        products = await DataService.GetProductsAsync();
+        refreshTimer = new Timer(_ =&gt; InvokeAsync(StateHasChanged), null, 0, 5000);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // np. inicjalizacja JS interop
+        }
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+}</code></pre>
+
+<h2>StateHasChanged</h2>
+<p>Blazor automatycznie re-renderuje komponent po zdarzeniu @onclick, EventCallback, OnInitialized itp. Jednak gdy zmieniasz state z innego watku (Timer, callback z biblioteki JS), trzeba recznie:</p>
+<pre><code>await InvokeAsync(StateHasChanged);</code></pre>
+
+<h2>@rendermode (od .NET 8/9)</h2>
+<p>W Blazor United mozesz zadeklarowac na kazdy komponent, w jakim modelu ma sie renderowac:</p>
+<pre><code>&lt;!-- Statyczny SSR (default) --&gt;
+&lt;ProductList /&gt;
+
+&lt;!-- Server (SignalR) --&gt;
+&lt;CartWidget @rendermode="InteractiveServer" /&gt;
+
+&lt;!-- WebAssembly --&gt;
+&lt;Editor @rendermode="InteractiveWebAssembly" /&gt;
+
+&lt;!-- Auto: Server na pierwszy load, potem WASM --&gt;
+&lt;Map @rendermode="InteractiveAuto" /&gt;</code></pre>
+
+<div class="card">
+<h3>Konwencje plikow Razor</h3>
+<ul>
+<li><strong>Pages/</strong> &mdash; komponenty z <code>@page</code> (routing)</li>
+<li><strong>Components/</strong> lub <strong>Shared/</strong> &mdash; reusable komponenty</li>
+<li><strong>_Imports.razor</strong> &mdash; globalne <code>@using</code> directives</li>
+<li><strong>App.razor</strong> &mdash; root komponent z routingiem</li>
+<li><strong>Program.cs</strong> &mdash; konfiguracja DI, builder.Services.AddRazorComponents itp.</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="index.html">&larr; Powrot do Blazor</a>
+<a href="02-routing-i-nawigacja.html">Routing i nawigacja &rarr;</a>
+</div>
+</div>
+</body>
+</html>

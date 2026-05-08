@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linux - siec i firewall</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fb923c;--accent-hover:#fdba74;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Linux</a><span class="sep">/</span><span class="title">Siec i firewall</span></div>
+<div class="container">
+<h1>Siec i firewall w Linuxie</h1>
+<p class="subtitle">ip, ss, dig, ufw, nftables, SSH hardening, WireGuard</p>
+
+<h2>Konfiguracja sieci - polecenia ip</h2>
+<p>Pakiet <code>iproute2</code> zastapil stare narzedzia (<code>ifconfig</code>, <code>route</code>, <code>arp</code>). W nowoczesnym Linuxie uzywa sie <strong>ip</strong> jako uniwersalnego narzedzia.</p>
+
+<pre><code># Lista interfejsow z adresami
+ip a
+ip address show
+
+# Tylko interfejsy bez adresow (warstwa link)
+ip link show
+
+# Tablica routingu
+ip route
+ip r
+
+# Tablica ARP/sasiadow
+ip neigh
+
+# Statystyki interfejsu
+ip -s link show eth0
+
+# Konkretne IP/interfejs
+ip a show dev eth0
+
+# Tymczasowe dodanie/usuniecie adresu
+sudo ip addr add 192.168.1.100/24 dev eth0
+sudo ip addr del 192.168.1.100/24 dev eth0
+
+# Wlacz/wylacz interfejs
+sudo ip link set eth0 up
+sudo ip link set eth0 down
+
+# Dodanie trasy statycznej
+sudo ip route add 10.0.0.0/24 via 192.168.1.1 dev eth0
+
+# Domyslna brama
+sudo ip route add default via 192.168.1.1</code></pre>
+
+<h3>Trwala konfiguracja - Netplan (Ubuntu)</h3>
+<p>Ubuntu 18+ uzywa <strong>Netplan</strong> jako abstrakcji nad NetworkManager/systemd-networkd. Konfiguracja w plikach YAML w <code>/etc/netplan/</code>.</p>
+
+<pre><code># /etc/netplan/01-netcfg.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: true
+    eth1:
+      addresses:
+        - 192.168.1.100/24
+      routes:
+        - to: default
+          via: 192.168.1.1
+      nameservers:
+        addresses:
+          - 1.1.1.1
+          - 9.9.9.9</code></pre>
+
+<pre><code># Walidacja konfiguracji
+sudo netplan generate
+
+# Test (cofa zmiany po 120 sekundach)
+sudo netplan try
+
+# Zastosowanie zmian
+sudo netplan apply
+
+# Tryb debug
+sudo netplan --debug apply</code></pre>
+
+<h2>ss - nowoczesny netstat</h2>
+<p><strong>ss</strong> (socket statistics) zastapil <code>netstat</code>. Jest szybszy i pokazuje wiecej informacji.</p>
+
+<pre><code># Wszystkie nasluchujace porty TCP/UDP z PID procesu
+sudo ss -tulpn
+
+# Tylko TCP
+ss -tn
+
+# Tylko nasluchujace
+ss -lt
+
+# Wszystkie polaczenia (ESTABLISHED + LISTEN)
+ss -tan
+
+# Tylko polaczenia w stanie ESTABLISHED
+ss state established
+
+# Statystyki
+ss -s
+
+# Polaczenia do konkretnego portu
+ss -tn dst :443
+ss -tn src :22
+
+# Filtr po procesie
+ss -tlnp '( sport = :80 or sport = :443 )'</code></pre>
+
+<h2>DNS - dig, host, nslookup</h2>
+<pre><code># Instalacja dig (Ubuntu)
+sudo apt install dnsutils
+
+# Podstawowe zapytanie A
+dig example.com
+
+# Krotka odpowiedz
+dig +short example.com
+
+# Konkretny rekord
+dig example.com A
+dig example.com AAAA      # IPv6
+dig example.com MX        # mail
+dig example.com TXT       # SPF, DKIM, DMARC
+dig example.com NS        # serwery nazw
+dig example.com SOA       # autorytet domeny
+
+# Zapytanie do konkretnego serwera DNS
+dig @1.1.1.1 example.com
+dig @8.8.8.8 example.com
+
+# Reverse DNS (PTR)
+dig -x 1.1.1.1
+
+# Sledzenie odpowiedzi (od root serverow)
+dig +trace example.com
+
+# host - prostszy interfejs
+host example.com
+host -t MX example.com
+
+# nslookup (legacy, ale wciaz uzywany)
+nslookup example.com</code></pre>
+
+<h2>Diagnostyka polaczen</h2>
+<pre><code># Ping IPv4 i IPv6
+ping example.com
+ping -c 4 example.com
+ping6 example.com
+
+# Trasa do hosta
+traceroute example.com
+tracepath example.com    # bez roota
+
+# mtr - polaczenie traceroute + ping (najlepsze do diagnostyki)
+sudo apt install mtr
+mtr example.com
+mtr --report --report-cycles 10 example.com
+
+# Test polaczenia TCP do konkretnego portu (bez ICMP)
+nc -zv example.com 443
+telnet example.com 80
+
+# Sprawdzenie sciezki MTU
+tracepath example.com
+
+# Test predkosci sieci
+sudo apt install iperf3
+iperf3 -s        # serwer
+iperf3 -c serwer.com   # klient</code></pre>
+
+<h2>wget i curl</h2>
+<pre><code># wget - prosty pobieracz
+wget https://example.com/file.tar.gz
+wget -c URL                 # kontynuuj przerwany pobieranie
+wget -r -np URL             # rekursywnie, bez parent
+wget --limit-rate=200k URL  # limit predkosci
+
+# curl - wszechstronny klient HTTP
+curl https://example.com
+curl -O URL                 # zapisz pod oryginalna nazwa
+curl -L URL                 # podazaj za przekierowaniami
+curl -I URL                 # tylko naglowki HEAD
+curl -v URL                 # verbose
+curl -X POST -d "key=val" URL
+curl -H "Authorization: Bearer token" URL
+curl --resolve example.com:443:1.2.3.4 https://example.com  # custom DNS
+
+# Test API z formatowaniem JSON
+curl -s https://api.example.com/users | jq</code></pre>
+
+<h2>UFW - prosty firewall (Ubuntu)</h2>
+<p><strong>UFW</strong> (Uncomplicated Firewall) to nakladka na iptables/nftables, domyslna w Ubuntu. Idealny dla pojedynczych serwerow i desktopow.</p>
+
+<pre><code># Status
+sudo ufw status verbose
+sudo ufw status numbered
+
+# Wlaczenie/wylaczenie
+sudo ufw enable
+sudo ufw disable
+
+# Domyslne polityki (zalecane)
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# Zezwol na konkretny port
+sudo ufw allow 22/tcp
+sudo ufw allow 80,443/tcp
+sudo ufw allow ssh           # uzywa /etc/services
+
+# Zezwol z konkretnego IP
+sudo ufw allow from 192.168.1.100
+sudo ufw allow from 192.168.1.0/24 to any port 22
+
+# Rate limiting (chroni przed brute-force)
+sudo ufw limit ssh
+
+# Zablokowanie portu
+sudo ufw deny 23
+
+# Usuniecie reguly
+sudo ufw delete allow 80/tcp
+sudo ufw delete 3            # po numerze (z status numbered)
+
+# Reset wszystkich regul
+sudo ufw reset
+
+# Logi
+sudo ufw logging on
+sudo tail -f /var/log/ufw.log</code></pre>
+
+<h2>iptables (legacy)</h2>
+<p><strong>iptables</strong> to klasyczne narzedzie konfiguracji firewalla. W Ubuntu 22+ jest stopniowo zastepowane przez nftables, ale wciaz dostepne dla kompatybilnosci.</p>
+
+<pre><code># Lista wszystkich regul
+sudo iptables -L -v -n
+
+# Lista regul w lancuchu INPUT z numerami
+sudo iptables -L INPUT --line-numbers
+
+# Domyslna polityka DROP
+sudo iptables -P INPUT DROP
+sudo iptables -P FORWARD DROP
+
+# Zezwol na ESTABLISHED i RELATED (krytyczne!)
+sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Zezwol loopback
+sudo iptables -A INPUT -i lo -j ACCEPT
+
+# Zezwol SSH
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+
+# Zezwol HTTP/HTTPS
+sudo iptables -A INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT
+
+# Zapis regul (Ubuntu)
+sudo apt install iptables-persistent
+sudo netfilter-persistent save</code></pre>
+
+<h2>nftables - nowoczesny standard</h2>
+<p><strong>nftables</strong> to nastepca iptables - prostsza skladnia, lepsza wydajnosc, jeden binary dla IPv4 i IPv6. W Ubuntu 22+ to domyslny backend.</p>
+
+<pre><code># Lista regul
+sudo nft list ruleset
+
+# Plik konfiguracyjny /etc/nftables.conf
+#!/usr/sbin/nft -f
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority 0; policy drop;
+
+        # Zezwol na loopback
+        iif lo accept
+
+        # ESTABLISHED i RELATED
+        ct state established,related accept
+
+        # ICMP
+        ip protocol icmp accept
+        ip6 nexthdr icmpv6 accept
+
+        # SSH z rate limiting
+        tcp dport 22 ct state new limit rate 5/minute accept
+
+        # HTTP/HTTPS
+        tcp dport { 80, 443 } accept
+
+        # Drop wszystko inne (nie loguj zwykle)
+        # log prefix "nft drop: " counter drop
+        counter drop
+    }
+
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+    }
+
+    chain output {
+        type filter hook output priority 0; policy accept;
+    }
+}</code></pre>
+
+<pre><code># Zaladowanie konfiguracji
+sudo nft -f /etc/nftables.conf
+
+# Wlaczenie autostartu
+sudo systemctl enable --now nftables</code></pre>
+
+<h2>SSH - hardening</h2>
+<p>SSH jest pierwszym celem atakow. Konfiguracja w <code>/etc/ssh/sshd_config</code>. Po zmianach: <code>sudo systemctl reload ssh</code>.</p>
+
+<pre><code># /etc/ssh/sshd_config - przyklad bezpiecznej konfiguracji
+
+# Zmien port (utrudnia automatyczne skanery)
+Port 2222
+
+# Wylacz logowanie roota
+PermitRootLogin no
+
+# Wylacz logowanie haslem - tylko klucze
+PasswordAuthentication no
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+
+# Tylko nowoczesne klucze
+HostKeyAlgorithms ssh-ed25519,rsa-sha2-512,rsa-sha2-256
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com
+
+# Limit prob logowania
+MaxAuthTries 3
+MaxSessions 10
+
+# Timeout sesji bez aktywnosci (15 min)
+ClientAliveInterval 300
+ClientAliveCountMax 3
+
+# Tylko konkretni uzytkownicy
+AllowUsers jkowalski deploy
+AllowGroups ssh-users
+
+# Wylacz X11 forwarding jesli niepotrzebne
+X11Forwarding no
+
+# Banner przy logowaniu
+Banner /etc/issue.net</code></pre>
+
+<h3>Generowanie kluczy SSH</h3>
+<pre><code># ed25519 (zalecany - szybki, nowoczesny)
+ssh-keygen -t ed25519 -C "kontakt@i4n.pl"
+
+# RSA jesli wymagana kompatybilnosc (min. 4096 bit)
+ssh-keygen -t rsa -b 4096 -C "kontakt@i4n.pl"
+
+# Skopiowanie klucza publicznego na serwer
+ssh-copy-id -p 2222 jkowalski@serwer.pl
+
+# Test polaczenia
+ssh -p 2222 jkowalski@serwer.pl
+
+# Konfiguracja w ~/.ssh/config dla wygody
+Host moj-serwer
+    HostName serwer.pl
+    Port 2222
+    User jkowalski
+    IdentityFile ~/.ssh/id_ed25519</code></pre>
+
+<h2>fail2ban - ochrona przed brute-force</h2>
+<pre><code>sudo apt install fail2ban
+
+# Konfiguracja w /etc/fail2ban/jail.local (NIE jail.conf)
+[DEFAULT]
+bantime = 1h
+findtime = 10m
+maxretry = 5
+
+[sshd]
+enabled = true
+port = 2222
+filter = sshd
+logpath = /var/log/auth.log
+
+# Restart i sprawdzenie statusu
+sudo systemctl restart fail2ban
+sudo fail2ban-client status
+sudo fail2ban-client status sshd
+
+# Odbanowanie IP
+sudo fail2ban-client set sshd unbanip 1.2.3.4</code></pre>
+
+<h2>WireGuard VPN</h2>
+<p><strong>WireGuard</strong> to nowoczesny VPN wbudowany w jadro Linuxa od 5.6. Prostszy, szybszy i bezpieczniejszy niz OpenVPN/IPsec.</p>
+
+<pre><code># Instalacja
+sudo apt install wireguard
+
+# Generowanie kluczy serwera
+wg genkey | sudo tee /etc/wireguard/private.key | wg pubkey | sudo tee /etc/wireguard/public.key
+sudo chmod 600 /etc/wireguard/private.key
+
+# Konfiguracja serwera /etc/wireguard/wg0.conf
+[Interface]
+Address = 10.0.0.1/24
+ListenPort = 51820
+PrivateKey = SERWER_PRIVATE_KEY
+
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+[Peer]
+PublicKey = KLIENT_PUBLIC_KEY
+AllowedIPs = 10.0.0.2/32
+
+# Wlaczenie forwardowania pakietow
+echo 'net.ipv4.ip_forward=1' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+
+# Uruchomienie
+sudo wg-quick up wg0
+sudo systemctl enable wg-quick@wg0
+
+# Status
+sudo wg show</code></pre>
+
+<div class="card">
+<strong>Checklist hardeningu serwera:</strong>
+<ul>
+<li>UFW skonfigurowany i wlaczony (default deny incoming)</li>
+<li>SSH tylko na klucze, alternatywny port, fail2ban</li>
+<li>Wszystkie publiczne porty maja uzasadnienie biznesowe</li>
+<li>Aktualizacje bezpieczenstwa automatyczne (unattended-upgrades)</li>
+<li>Monitoring otwartych portow (cron z ss -tulpn do logu)</li>
+<li>Regularne audyty: <code>sudo lynis audit system</code></li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="04-procesy-i-zasoby.html">&larr; Procesy i zasoby</a>
+<a href="06-bash-skrypty.html">Bash skrypty &rarr;</a>
+</div>
+</div>
+</body>
+</html>

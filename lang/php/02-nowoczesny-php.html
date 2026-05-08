@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nowoczesny PHP</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#8b5cf6;--accent-hover:#a78bfa;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">PHP</a>
+    <span class="sep">/</span>
+    <span class="title">Nowoczesny PHP</span>
+</div>
+
+<div class="container">
+<h1>Nowoczesny PHP (8.1 - 8.4)</h1>
+<p class="subtitle">Najwazniejsze cechy nowoczesnego PHP - readonly, enums, attributes, fibers, JIT, asymmetric visibility i wiecej.</p>
+
+<h2>strict_types &mdash; podstawa nowoczesnego PHP</h2>
+<p>Domyslnie PHP wykonuje konwersje typow. <code>declare(strict_types=1)</code> wylacza to zachowanie i wymusza pelna zgodnosc typow.</p>
+
+<pre><code>// Bez strict_types
+function dodaj(int $a, int $b): int { return $a + $b; }
+echo dodaj(1, "5"); // 6 - automatyczna konwersja
+
+// Z declare(strict_types=1)
+declare(strict_types=1);
+echo dodaj(1, "5"); // TypeError</code></pre>
+
+<h2>Readonly properties (PHP 8.1+)</h2>
+<p>Wartosc mozna ustawic tylko raz - w konstruktorze. Idealne dla DTO i value objects.</p>
+
+<pre><code>final class Money {
+    public function __construct(
+        public readonly int $amount,
+        public readonly string $currency,
+    ) {}
+}
+
+$m = new Money(100, 'PLN');
+$m-&gt;amount = 200; // Error: Cannot modify readonly property
+
+// PHP 8.2+ - readonly classes (cala klasa readonly)
+readonly class Point {
+    public function __construct(
+        public float $x,
+        public float $y,
+    ) {}
+}</code></pre>
+
+<h2>Enums (PHP 8.1+)</h2>
+<p>Pelnoprawne typy enum - wreszcie, po dlugich latach uzywania stalych klasowych.</p>
+
+<pre><code>// Pure enum
+enum Status {
+    case Active;
+    case Inactive;
+    case Pending;
+}
+
+// Backed enum (z wartoscia)
+enum Color: string {
+    case Red = 'red';
+    case Green = 'green';
+    case Blue = 'blue';
+
+    public function hex(): string {
+        return match($this) {
+            Color::Red =&gt; '#ff0000',
+            Color::Green =&gt; '#00ff00',
+            Color::Blue =&gt; '#0000ff',
+        };
+    }
+}
+
+$c = Color::Red;
+echo $c-&gt;value;     // 'red'
+echo $c-&gt;hex();     // '#ff0000'
+echo $c-&gt;name;      // 'Red'
+
+// Z wartosci
+$c2 = Color::from('green');
+$c3 = Color::tryFrom('invalid'); // null
+
+// Wszystkie cases
+foreach (Color::cases() as $case) {
+    echo $case-&gt;value;
+}</code></pre>
+
+<h2>Attributes (PHP 8.0+)</h2>
+<p>Metadane przyczepiane do klas, metod, properties, parametrow. Zastapily docblock-based annotations (Doctrine).</p>
+
+<pre><code>#[Attribute(Attribute::TARGET_METHOD)]
+class Route {
+    public function __construct(
+        public string $path,
+        public string $method = 'GET',
+    ) {}
+}
+
+class UserController {
+    #[Route('/users', method: 'GET')]
+    public function index() { /* ... */ }
+
+    #[Route('/users/{id}', method: 'GET')]
+    public function show(int $id) { /* ... */ }
+}
+
+// Reflection
+$ref = new ReflectionMethod(UserController::class, 'index');
+foreach ($ref-&gt;getAttributes(Route::class) as $attr) {
+    $route = $attr-&gt;newInstance();
+    echo $route-&gt;path; // /users
+}</code></pre>
+
+<h2>Constructor property promotion</h2>
+<p>Skraca boilerplate definicji klas o ~70%.</p>
+
+<pre><code>// Stary styl
+class User {
+    private string $name;
+    private string $email;
+
+    public function __construct(string $name, string $email) {
+        $this-&gt;name = $name;
+        $this-&gt;email = $email;
+    }
+}
+
+// Nowy styl (PHP 8.0+)
+class User {
+    public function __construct(
+        private string $name,
+        private string $email,
+    ) {}
+}</code></pre>
+
+<h2>Fibers (PHP 8.1+)</h2>
+<p>Lekkie korutyny - umozliwiaja prawdziwa wspolbieznosc bez zmian w istniejacym kodzie. Podstawa dla bibliotek async (ReactPHP, Amp).</p>
+
+<pre><code>$fiber = new Fiber(function (): void {
+    echo "Fiber start\n";
+    $value = Fiber::suspend('zawieszony');
+    echo "Wznowiony z: $value\n";
+});
+
+$ret = $fiber-&gt;start();
+echo "Otrzymano: $ret\n";
+$fiber-&gt;resume('hello');
+// Output:
+// Fiber start
+// Otrzymano: zawieszony
+// Wznowiony z: hello</code></pre>
+
+<h2>Named arguments (PHP 8.0+)</h2>
+<pre><code>function createUser(
+    string $name,
+    string $email,
+    int $age = 0,
+    bool $active = true,
+    string $role = 'user',
+) { /* ... */ }
+
+// Zamiast pamietac kolejnosc
+createUser('Anna', 'anna@example.com', 0, true, 'admin');
+
+// Mozna uzyc nazw
+createUser(
+    name: 'Anna',
+    email: 'anna@example.com',
+    role: 'admin'
+);</code></pre>
+
+<h2>Match expression (PHP 8.0+)</h2>
+<p>Lepsza wersja switch - z type-safe porownaniem (===), grupowanie wartosci, zwraca wartosc.</p>
+
+<pre><code>$wynik = match($code) {
+    200, 201, 204 =&gt; 'Sukces',
+    301, 302 =&gt; 'Przekierowanie',
+    400, 401, 403, 404 =&gt; 'Blad klienta',
+    500, 502, 503 =&gt; 'Blad serwera',
+    default =&gt; 'Nieznany status',
+};
+
+// Bez default - rzuca UnhandledMatchError jesli brak dopasowania</code></pre>
+
+<h2>Arrow functions (PHP 7.4+)</h2>
+<pre><code>// Krotkie funkcje z auto-capture
+$users = [/* ... */];
+$names = array_map(fn($u) =&gt; $u-&gt;name, $users);
+
+$threshold = 18;
+$adults = array_filter($users, fn($u) =&gt; $u-&gt;age &gt;= $threshold);</code></pre>
+
+<h2>JIT (Just-In-Time compilation)</h2>
+<p>Od PHP 8.0 dostepny jest JIT compiler. Konfiguracja w <code>php.ini</code>:</p>
+
+<pre><code>; opcache wymagane dla JIT
+opcache.enable=1
+opcache.enable_cli=1
+opcache.jit_buffer_size=128M
+opcache.jit=tracing</code></pre>
+
+<p><strong>JIT najbardziej pomaga w:</strong> obliczeniach matematycznych, manipulacjach na duzych tablicach, kodzie CPU-bound. Dla typowych aplikacji webowych (CRUD, API) JIT nie daje znaczacej poprawy &mdash; tam wygrywa OPcache.</p>
+
+<h2>Asymmetric visibility (PHP 8.4)</h2>
+<p>Inna widocznosc dla odczytu i zapisu. Czesto chcemy public-read, private-write.</p>
+
+<pre><code>class User {
+    public private(set) string $email;
+
+    public function __construct(string $email) {
+        $this-&gt;email = $email; // OK - z wewnatrz
+    }
+}
+
+$u = new User('a@b.pl');
+echo $u-&gt;email;        // OK - public read
+$u-&gt;email = 'x@y.pl';  // Error - private set</code></pre>
+
+<h2>Property hooks (PHP 8.4)</h2>
+<p>Computed properties bez magicznych metod __get/__set.</p>
+
+<pre><code>class User {
+    public string $firstName;
+    public string $lastName;
+
+    public string $fullName {
+        get =&gt; "$this-&gt;firstName $this-&gt;lastName";
+    }
+
+    public string $email {
+        set(string $value) {
+            $this-&gt;email = strtolower(trim($value));
+        }
+    }
+}
+
+$u = new User();
+$u-&gt;firstName = 'Anna';
+$u-&gt;lastName = 'Kowalska';
+echo $u-&gt;fullName;    // 'Anna Kowalska'</code></pre>
+
+<div class="card">
+<h3>Migracja: stary kod &rarr; nowoczesny PHP</h3>
+<ul>
+<li>array() &rarr; [] (krotsza skladnia tablic)</li>
+<li>Stale klasowe na statusy &rarr; <strong>enum</strong></li>
+<li>Stary konstruktor z $this-&gt;x = $x &rarr; <strong>property promotion</strong></li>
+<li>switch &rarr; <strong>match</strong> dla zwracajacych wartosc</li>
+<li>DTO bez setterow &rarr; <strong>readonly</strong></li>
+<li>__get/__set &rarr; <strong>property hooks</strong> (8.4+)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="01-podstawy-php.html">&larr; Podstawy PHP</a>
+<a href="03-frameworki-i-ekosystem.html">Frameworki i ekosystem &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Publikowanie uslug</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">Publikowanie uslug</span>
+</div>
+
+<div class="container">
+<h1>Publikowanie uslug do Internetu</h1>
+<p class="subtitle">Reverse proxy, DMZ, WAF i nowoczesne podejscia zero trust dla bezpiecznej publikacji aplikacji.</p>
+
+<h2>Architektura reverse proxy</h2>
+<p>Bezposrednie wystawienie serwera aplikacyjnego do Internetu jest niebezpieczne. Standardowy wzorzec to umieszczenie reverse proxy/WAF w warstwie publicznej, ktory terminuje TLS, filtruje ruch i przekazuje do backendu w sieci wewnetrznej.</p>
+
+<div class="card">
+<p><strong>Schemat ruchu:</strong></p>
+<p style="margin:0">Klient (Internet) -&gt; CDN/WAF (Cloudflare/Azure FD) -&gt; Firewall zewnetrzny -&gt; Reverse Proxy (DMZ) -&gt; Firewall wewnetrzny -&gt; Serwer aplikacji (LAN) -&gt; Baza danych</p>
+</div>
+
+<h3>Zalety reverse proxy</h3>
+<ul>
+<li>Ukrycie topologii wewnetrznej (klient nie zna IP backendu)</li>
+<li>SSL termination - centralne zarzadzanie certyfikatami</li>
+<li>Load balancing miedzy wieloma instancjami backendu</li>
+<li>Caching odpowiedzi statycznych</li>
+<li>Compression (gzip, brotli)</li>
+<li>WAF - filtrowanie ruchu HTTP wg regul OWASP</li>
+<li>Rate limiting i ochrona przed L7 DDoS</li>
+</ul>
+
+<h2>Two-firewall DMZ pattern</h2>
+<p>Klasyczny wzorzec DMZ wykorzystuje dwa firewalle (najlepiej od roznych producentow), miedzy ktorymi znajduje sie strefa zdemilitaryzowana. Reverse proxy znajduje sie w DMZ.</p>
+<table>
+<tr><th>Strefa</th><th>Co zawiera</th><th>Reguly firewall</th></tr>
+<tr><td>Internet</td><td>Klienci, atakujacy</td><td>brak</td></tr>
+<tr><td>Frontend Firewall</td><td>Pierwszy poziom obrony</td><td>Tylko 80/443 in -&gt; DMZ</td></tr>
+<tr><td>DMZ</td><td>Reverse proxy, WAF, mail relay, public DNS</td><td>Brak inicjowanego ruchu do LAN</td></tr>
+<tr><td>Backend Firewall</td><td>Drugi poziom</td><td>Tylko proxy -&gt; konkretne porty backendu</td></tr>
+<tr><td>Internal LAN</td><td>App servers, DB, AD</td><td>Brak ekspozycji do Internetu</td></tr>
+</table>
+
+<h3>Reverse proxy w IIS+ARR</h3>
+<pre><code># Instalacja modulow
+# 1. URL Rewrite Module
+# 2. Application Request Routing (ARR)
+
+# Wlaczenie proxy globalnie (powershell appcmd)
+&amp; "$env:windir\system32\inetsrv\appcmd.exe" set config `
+  -section:system.webServer/proxy /enabled:"True" /commit:apphost
+
+# Routing /api/ do backendu
+&amp; "$env:windir\system32\inetsrv\appcmd.exe" set config `
+  "Default Web Site" -section:system.webServer/rewrite/rules `
+  /+"[name='ApiProxy',stopProcessing='True']" /commit:apphost</code></pre>
+
+<h2>Web Application Firewall (WAF)</h2>
+<p>WAF analizuje ruch HTTP/HTTPS na warstwie L7 (aplikacyjnej) i blokuje zlosliwe requesty. Najczestszy ruleset to <strong>OWASP Core Rule Set (CRS)</strong> obejmujacy najpopularniejsze ataki.</p>
+
+<table>
+<tr><th>Atak (OWASP Top 10)</th><th>Mitygacja WAF</th></tr>
+<tr><td>SQL Injection</td><td>Wykrywanie wzorcow ' OR 1=1 --, UNION SELECT</td></tr>
+<tr><td>XSS (Cross-Site Scripting)</td><td>Filtrowanie &lt;script&gt;, javascript:, on*=</td></tr>
+<tr><td>RCE (Remote Code Execution)</td><td>Blokowanie cmd= , powershell, /bin/sh</td></tr>
+<tr><td>Path Traversal</td><td>Detekcja ../, encoded ..%2f</td></tr>
+<tr><td>SSRF</td><td>Blokowanie wywolan do 169.254.169.254 (metadata)</td></tr>
+<tr><td>Bot scraping</td><td>Bot management, rate limiting</td></tr>
+</table>
+
+<h3>Opcje WAF</h3>
+<table>
+<tr><th>Rozwiazanie</th><th>Typ</th><th>Charakterystyka</th></tr>
+<tr><td>Cloudflare</td><td>Cloud (managed)</td><td>Free tier solidny, anycast CDN, latwy onboarding (DNS change)</td></tr>
+<tr><td>Azure Application Gateway WAF</td><td>Cloud (Azure)</td><td>Integracja z Azure VNet, WAFv2 z OWASP 3.2/4.0, custom rules</td></tr>
+<tr><td>Azure Front Door (Premium)</td><td>Cloud (Azure)</td><td>Globalny anycast, Microsoft Threat Intelligence rules</td></tr>
+<tr><td>AWS WAF</td><td>Cloud (AWS)</td><td>Integracja z CloudFront, ALB, API Gateway</td></tr>
+<tr><td>F5 BIG-IP ASM</td><td>Hardware/VE</td><td>Enterprise, on-prem appliances</td></tr>
+<tr><td>Imperva, Akamai</td><td>Cloud</td><td>Top-tier, koszt znaczacy, oferty enterprise</td></tr>
+<tr><td>ModSecurity + Nginx</td><td>Open source</td><td>Self-hosted, wymaga utrzymania, OWASP CRS</td></tr>
+</table>
+
+<h2>Direct Access - przestarzaly</h2>
+<p>Direct Access byl Microsoftowa technologia zdalnego dostepu (zawsze on, IPv6/IPSec) wprowadzona w Server 2008 R2. Wspierany do konca Server 2022.</p>
+<div class="card">
+<p><strong>Status:</strong> Direct Access jest <strong>deprecated</strong> w Windows Server 2025 - Microsoft rekomenduje migracje do <strong>Always On VPN</strong> (klient VPN z IKEv2 + RADIUS) lub modeli Zero Trust (Azure AD App Proxy, Cloudflare Access, Tailscale, Twingate).</p>
+</div>
+
+<h2>Always On VPN</h2>
+<p>Nastepca DirectAccess - VPN klient skonfigurowany przez ProfileXML lub Intune, dziala na zwyklym kliencie Windows 10/11 + Server VPN/RAS lub appliances trzeciej strony.</p>
+<ul>
+<li><strong>Device tunnel</strong> - laczy maszyne przed logowaniem (pre-logon), umozliwia pobranie GPO, certyfikatow</li>
+<li><strong>User tunnel</strong> - po logowaniu, ruch uzytkownika</li>
+<li>IKEv2 + EAP-TLS (certyfikaty) lub PEAP-MSCHAPv2 (haslo + MFA)</li>
+<li>Conditional Access integration via Azure AD</li>
+</ul>
+
+<h2>Azure AD Application Proxy (Entra App Proxy)</h2>
+<p>Bardzo nowoczesne podejscie zero trust. Connector Application Proxy instalowany w sieci wewnetrznej nawiazuje <strong>wychodzace</strong> polaczenie do Azure - aplikacja webowa publikowana z lokalnego serwera bez otwierania <strong>zadnych portow inbound</strong> w firewallu.</p>
+<pre><code># Architektura Application Proxy
+# Client (internet) -> login.microsoftonline.com -> Azure AD App Proxy
+#                                                          |
+#                                  outbound TLS (port 443) | (HTTPS)
+#                                                          v
+#                                      App Proxy Connector (LAN)
+#                                                          |
+#                                                          v
+#                                  Internal app server (np. IIS)
+</code></pre>
+
+<h3>Zalety Application Proxy</h3>
+<ul>
+<li>Brak inbound rules - tylko outbound 443 (zwykle juz dozwolony)</li>
+<li>Pre-authentication w Azure AD - tylko zalogowani uzytkownicy widza aplikacje</li>
+<li>Conditional Access (MFA, location, device compliance, risk-based)</li>
+<li>Brak DMZ - aplikacja zostaje w prywatnej sieci</li>
+<li>Single Sign-On (Kerberos Constrained Delegation, headers, SAML)</li>
+</ul>
+
+<h3>Konkurencja</h3>
+<table>
+<tr><th>Rozwiazanie</th><th>Filozofia</th></tr>
+<tr><td>Azure AD App Proxy</td><td>Microsoft, integracja z Entra ID, dla aplikacji web</td></tr>
+<tr><td>Cloudflare Access</td><td>Cloudflare Tunnel + ZTNA, dowolny protokol</td></tr>
+<tr><td>Tailscale / Headscale</td><td>WireGuard mesh VPN, latwy setup</td></tr>
+<tr><td>Twingate</td><td>Komercyjne ZTNA dla zespolow</td></tr>
+<tr><td>Zscaler Private Access (ZPA)</td><td>Enterprise ZTNA platform</td></tr>
+</table>
+
+<h2>Modern publishing checklist</h2>
+<ul>
+<li>Aplikacja wystawiona przez WAF (np. Cloudflare, Azure Front Door)</li>
+<li>Certyfikat SSL od zaufanego CA (Let's Encrypt, DigiCert)</li>
+<li>HTTP/2 i HTTP/3 (QUIC) wlaczone</li>
+<li>HSTS header z preload</li>
+<li>CSP (Content Security Policy) dla aplikacji web</li>
+<li>Pre-authentication przed dotarciem ruchu do aplikacji (zero trust)</li>
+<li>Logging na poziomie WAF + aplikacji do SIEM</li>
+<li>Rate limiting na poziomie WAF</li>
+<li>Geo-blocking dla regionow nieobslugiwanych biznesowo</li>
+<li>Bot management (CAPTCHA, fingerprinting)</li>
+<li>Regularne testy penetracyjne aplikacji</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="08-firewall-i-siec.html">&larr; Firewall i siec</a>
+    <a href="10-monitoring-i-logowanie.html">Monitoring i logowanie &rarr;</a>
+</div>
+</div>
+</body>
+</html>

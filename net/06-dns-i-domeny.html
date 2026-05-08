@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>DNS i domeny</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}
+.card.orange{border-left:4px solid var(--orange)}
+.card.red{border-left:4px solid var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Sieci</a><span class="sep">/</span><span class="title">DNS i domeny</span></div>
+<div class="container">
+<h1>DNS i domeny</h1>
+<p class="subtitle">System nazw domenowych - hierarchia, rekordy, DNSSEC, DoH, DoT, email auth</p>
+
+<h2>Hierarchia DNS</h2>
+<p>DNS (Domain Name System, RFC 1034/1035, 1987) tlumaczy nazwy ludzkie (example.com) na adresy IP. Jest hierarchiczny - kazda czesc nazwy odpowiada za inny poziom zarzadzania.</p>
+
+<pre><code># Czytanie nazwy od prawej do lewej:
+www.example.com.
+ |    |     |  |
+ |    |     |  +--- root (domyslnie .)
+ |    |     +------ TLD (.com, .pl, .org)
+ |    +------------ SLD (Second Level Domain)
+ +----------------- subdomena</code></pre>
+
+<h3>Rola serwerow DNS</h3>
+<table>
+<tr><th>Typ</th><th>Funkcja</th></tr>
+<tr><td><strong>Root servers</strong></td><td>13 logicznych serwerow (a.root-servers.net do m.root-servers.net), w praktyce setki fizycznych przez anycast. Odpowiadaja na zapytania o TLD.</td></tr>
+<tr><td><strong>TLD servers</strong></td><td>Serwery dla .com, .pl, .org itp. Wskazuja na authoritative serwery dla konkretnej domeny.</td></tr>
+<tr><td><strong>Authoritative</strong></td><td>Wlasciwe serwery domeny - wlasciciel rekordow. Tu trzymaja sie A, MX, TXT itp.</td></tr>
+<tr><td><strong>Recursive resolver</strong></td><td>Serwer ktory dla klienta wykonuje pelne odpytywanie hierarchii i cache'uje wyniki. Cloudflare 1.1.1.1, Google 8.8.8.8, ISP DNS.</td></tr>
+</table>
+
+<h3>Proces resolucji nazwy</h3>
+<pre><code># Klient pyta "www.example.com":
+1. Klient -> Recursive Resolver (1.1.1.1)
+2. Recursive -> Root Server: "kto wie o .com?"
+3. Root -> "Spytaj a.gtld-servers.net (TLD .com)"
+4. Recursive -> .com TLD: "kto wie o example.com?"
+5. TLD -> "Spytaj ns1.example.com (authoritative)"
+6. Recursive -> Authoritative: "jaki A dla www.example.com?"
+7. Authoritative -> "93.184.216.34"
+8. Recursive cache'uje wynik (TTL) i zwraca klientowi</code></pre>
+
+<h2>Rejestracja domeny</h2>
+<p>Domeny rejestruje sie u rejestratora (registrar), ktory jest autoryzowany przez ICANN/NASK (dla .pl). Ceny zaleza od TLD i czasu rejestracji.</p>
+
+<table>
+<tr><th>Rejestrator</th><th>Specjalizacja</th><th>Ceny startowe (PLN/rok)</th></tr>
+<tr><td><strong>Cloudflare Registrar</strong></td><td>At cost (cena hurtowa), wymaga konta Cloudflare</td><td>.com: ~40, .pl: niedostepna</td></tr>
+<tr><td><strong>Namecheap</strong></td><td>Tanio, dobry support</td><td>.com: ~60, .io: ~140</td></tr>
+<tr><td><strong>OVH</strong></td><td>Europejski, .pl jest tanio</td><td>.com: ~50, .pl: ~30</td></tr>
+<tr><td><strong>home.pl</strong></td><td>Polski klasyk</td><td>.pl: ~50, .com: ~80</td></tr>
+<tr><td><strong>nazwa.pl</strong></td><td>Polski, popularny</td><td>.pl: ~50</td></tr>
+<tr><td><strong>GoDaddy</strong></td><td>Globalny, drogszy</td><td>.com: ~100</td></tr>
+</table>
+
+<h2>Rekordy DNS</h2>
+
+<h3>Rekord A i AAAA</h3>
+<p><strong>A</strong> mapuje nazwe na adres IPv4, <strong>AAAA</strong> na IPv6.</p>
+<pre><code>example.com.       3600  IN  A     93.184.216.34
+example.com.       3600  IN  AAAA  2606:2800:220:1:248:1893:25c8:1946
+
+# Wiele rekordow A = round-robin DNS:
+example.com.       3600  IN  A     1.2.3.4
+example.com.       3600  IN  A     1.2.3.5
+example.com.       3600  IN  A     1.2.3.6</code></pre>
+
+<h3>CNAME - Canonical Name</h3>
+<p>CNAME tworzy alias - nazwa wskazuje na inna nazwe (nie IP). NIE moze byc na apex (sama domena), tylko na subdomene.</p>
+<pre><code># OK:
+www.example.com.   3600  IN  CNAME  example.com.
+shop.example.com.  3600  IN  CNAME  shopify.com.
+
+# ZLE - nie wolno na apex:
+example.com.       3600  IN  CNAME  www.example.com.    ! BLAD
+
+# Alternatywa: ALIAS / ANAME (nie standard, niektorzy DNS providers):
+example.com.       3600  IN  ALIAS  shopify.com.</code></pre>
+
+<h3>MX - Mail Exchange</h3>
+<p>MX wskazuje serwer pocztowy odpowiedzialny za odbieranie maili dla domeny. Kazdy MX ma priority - mniejsza wartosc = wyzszy priorytet.</p>
+<pre><code>example.com.    3600  IN  MX  10  mail1.example.com.
+example.com.    3600  IN  MX  20  mail2.example.com.    # backup
+example.com.    3600  IN  MX  30  mail3.backup.com.
+
+# Google Workspace przyklad:
+example.com.    3600  IN  MX   1  smtp.google.com.</code></pre>
+
+<h3>TXT - Text records</h3>
+<p>Generyczne pole tekstowe. Uzywane do SPF, DKIM, DMARC, weryfikacji wlasnosci domeny przez Google/Microsoft, etc.</p>
+<pre><code>example.com.            IN  TXT  "v=spf1 ip4:1.2.3.4 include:_spf.google.com -all"
+default._domainkey.example.com.  IN  TXT  "v=DKIM1; k=rsa; p=MIGfMA0..."
+_dmarc.example.com.     IN  TXT  "v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com"
+
+# Google verification:
+example.com.   IN  TXT  "google-site-verification=abc123..."</code></pre>
+
+<h3>NS - Name Server</h3>
+<p>NS wskazuje delegacje na inne serwery DNS odpowiedzialne za podstrefe lub cala domene.</p>
+<pre><code>example.com.            IN  NS  ns1.example.com.
+example.com.            IN  NS  ns2.example.com.
+
+# Subdelegacja:
+sub.example.com.        IN  NS  ns1.subprovider.com.
+sub.example.com.        IN  NS  ns2.subprovider.com.</code></pre>
+
+<h3>SOA - Start of Authority</h3>
+<p>SOA opisuje "wlasciciela" strefy - master serwer, email administratora, parametry replikacji.</p>
+<pre><code>example.com.   IN  SOA  ns1.example.com. admin.example.com. (
+                       2026050701  ; serial (yyyymmddNN)
+                       3600        ; refresh (1 godzina)
+                       1800        ; retry (30 min)
+                       604800      ; expire (7 dni)
+                       300         ; minimum TTL (5 min - dla NXDOMAIN)
+                       )</code></pre>
+
+<h3>CAA - Certificate Authority Authorization</h3>
+<p>CAA mowi ktora CA moze wystawiac certyfikaty dla domeny. Zabezpieczenie przed bledna CA wystawiajaca cert.</p>
+<pre><code>example.com.    IN  CAA  0 issue "letsencrypt.org"
+example.com.    IN  CAA  0 issue "digicert.com"
+example.com.    IN  CAA  0 iodef "mailto:security@example.com"
+
+# Brak CAA = kazda CA moze wystawic cert</code></pre>
+
+<h3>SRV - Service Locator</h3>
+<p>SRV pozwala znalezc serwer dla konkretnej uslugi. Format: <code>_service._proto.name</code>.</p>
+<pre><code>_xmpp-server._tcp.example.com.  IN  SRV  10 5  5269  xmpp.example.com.
+_sip._tcp.example.com.          IN  SRV  10 60 5060  sip.example.com.
+_minecraft._tcp.example.com.    IN  SRV  0  5  25565 mc.example.com.
+
+# Format: priority weight port target</code></pre>
+
+<h3>PTR - reverse DNS</h3>
+<p>PTR mapuje IP na nazwe (odwrotnosc A). Wymagany dla niektorych aplikacji (mail server reverse DNS check przez SPF).</p>
+<pre><code># Dla 93.184.216.34:
+34.216.184.93.in-addr.arpa.  IN  PTR  example.com.
+
+# IPv6 - dluzszy zapis (nibble format):
+6.4.9.1.8.c.5.2.3.9.8.1.8.4.2.0.1.0.0.0.0.2.2.0.0.0.8.2.6.0.6.2.ip6.arpa.
+                              IN  PTR  example.com.</code></pre>
+
+<h2>DNSSEC - DNS Security Extensions</h2>
+<p>DNSSEC (RFC 4033-4035) podpisuje rekordy DNS cyfrowo. Klient moze sprawdzic czy odpowiedz nie zostala sfalszowana.</p>
+
+<ul>
+<li><strong>DNSKEY</strong> - klucz publiczny strefy</li>
+<li><strong>DS</strong> - Delegation Signer (w strefie nadrzednej, np. .com)</li>
+<li><strong>RRSIG</strong> - podpis rekordu</li>
+<li><strong>NSEC / NSEC3</strong> - dowod nieistnienia rekordu</li>
+</ul>
+
+<pre><code># Sprawdzenie DNSSEC:
+dig example.com +dnssec
+
+# Walidacja DNSSEC:
+dig +dnssec +cd example.com    # CD = checking disabled
+dig +dnssec example.com         # walidacja przez resolver
+
+# Komenda DNSViz (online tool):
+# https://dnsviz.net/d/example.com/dnssec/</code></pre>
+
+<h2>DoH i DoT - szyfrowane DNS</h2>
+
+<h3>DoH (DNS over HTTPS)</h3>
+<p>RFC 8484 (2018) - DNS zapakowany w HTTPS POST/GET. Port 443. Niemozliwy do filtrowania bez deep packet inspection.</p>
+<pre><code># Cloudflare DoH endpoint:
+https://cloudflare-dns.com/dns-query
+
+# Test curl:
+curl -H 'Accept: application/dns-json' \
+  'https://cloudflare-dns.com/dns-query?name=example.com&type=A'</code></pre>
+
+<h3>DoT (DNS over TLS)</h3>
+<p>RFC 7858 - DNS przez TLS na porcie 853. Latwiej go zablokowac niz DoH (port 853 mozna zfiltrowac).</p>
+
+<table>
+<tr><th>Resolver</th><th>IPv4</th><th>IPv6</th><th>DoH endpoint</th></tr>
+<tr><td>Cloudflare</td><td>1.1.1.1, 1.0.0.1</td><td>2606:4700:4700::1111</td><td>cloudflare-dns.com/dns-query</td></tr>
+<tr><td>Google</td><td>8.8.8.8, 8.8.4.4</td><td>2001:4860:4860::8888</td><td>dns.google/dns-query</td></tr>
+<tr><td>Quad9</td><td>9.9.9.9, 149.112.112.112</td><td>2620:fe::fe</td><td>dns.quad9.net/dns-query</td></tr>
+<tr><td>OpenDNS</td><td>208.67.222.222</td><td>2620:119:35::35</td><td>doh.opendns.com/dns-query</td></tr>
+<tr><td>AdGuard</td><td>94.140.14.14</td><td>2a10:50c0::ad1:ff</td><td>dns.adguard.com/dns-query</td></tr>
+</table>
+
+<h2>Self-hosted DNS</h2>
+
+<h3>BIND9</h3>
+<p>Najstarszy (z 1980), najczesciej uzywany. ISC BIND. Stabilny, dokumentowany, ale konfiguracja moze byc skomplikowana.</p>
+
+<h3>Unbound</h3>
+<p>Lekki, szybki recursive resolver. Idealne polaczenie z Pi-hole jako blocking resolver. Walidacja DNSSEC, DoT, DoH.</p>
+
+<h3>PowerDNS</h3>
+<p>Modularny, wspiera wiele backendow (MySQL, PostgreSQL, LDAP). Authoritative + Recursor.</p>
+
+<h3>dnsmasq</h3>
+<p>Mini DNS+DHCP+TFTP w jednym binarce. Idealne dla malych sieci, OpenWrt.</p>
+
+<pre><code># dnsmasq - prosta konfiguracja /etc/dnsmasq.conf:
+domain=lan.local
+interface=eth0
+listen-address=127.0.0.1,192.168.1.1
+no-resolv
+server=1.1.1.1
+server=9.9.9.9
+cache-size=10000
+
+# Lokalne hosty:
+address=/router.lan/192.168.1.1
+address=/nas.lan/192.168.1.10
+
+# DHCP:
+dhcp-range=192.168.1.100,192.168.1.200,24h
+dhcp-host=AA:BB:CC:DD:EE:FF,192.168.1.50,nas</code></pre>
+
+<h2>Cloud DNS</h2>
+<table>
+<tr><th>Provider</th><th>Cena</th><th>Specjalne</th></tr>
+<tr><td><strong>Cloudflare DNS</strong></td><td>Free (basic), Pro+ za $20/mc</td><td>Najszybszy, free DDoS protection</td></tr>
+<tr><td><strong>AWS Route 53</strong></td><td>$0.50/mc/zone + queries</td><td>Health checks, geolocation, weighted routing</td></tr>
+<tr><td><strong>Google Cloud DNS</strong></td><td>$0.20/mc/zone + queries</td><td>Anycast, integracja z GCP</td></tr>
+<tr><td><strong>Azure DNS</strong></td><td>$0.50/mc/zone + queries</td><td>Integracja z Azure resources</td></tr>
+<tr><td><strong>DigitalOcean DNS</strong></td><td>Free (z VPS)</td><td>Proste, bez fanaberii</td></tr>
+</table>
+
+<h2>Email authentication: SPF, DKIM, DMARC</h2>
+
+<h3>SPF (Sender Policy Framework)</h3>
+<p>SPF lista dozwolonych serwerow wysylajacych mail dla danej domeny. Zapobiega spoofingowi.</p>
+<pre><code>example.com.   IN  TXT  "v=spf1 ip4:1.2.3.4 ip4:5.6.7.0/24 include:_spf.google.com ~all"
+
+# Mechanizmy:
+ip4:    konkretne IP/CIDR
+mx:     uzyj rekordow MX
+include: zalacz inny SPF rekord
+all:    catch-all z modyfikatorem
+        +all -> permit (NIE UZYWAC)
+        ~all -> softfail (markuj jako podejrzany)
+        -all -> hardfail (odrzuc)
+        ?all -> neutral</code></pre>
+
+<h3>DKIM (DomainKeys Identified Mail)</h3>
+<p>DKIM podpisuje cyfrowo wychodzace emaile. Odbiorca weryfikuje podpis kluczem publicznym z TXT rekordu.</p>
+<pre><code>default._domainkey.example.com.  IN  TXT  "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA..."
+
+# Multi-line dla dlugich kluczy 2048-bit (laczone):
+"v=DKIM1; k=rsa; "
+"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDU..."
+"...AQAB"</code></pre>
+
+<h3>DMARC (Domain-based Message Authentication, Reporting & Conformance)</h3>
+<p>DMARC laczy SPF + DKIM i mowi co robic z mailami ktore zawiodly weryfikacje.</p>
+<pre><code>_dmarc.example.com.   IN  TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@example.com; ruf=mailto:dmarc@example.com; pct=100; aspf=s; adkim=s"
+
+# Polityki:
+p=none       -> tylko monitoring
+p=quarantine -> spam folder
+p=reject     -> odrzucaj
+
+# rua  - aggregate reports
+# ruf  - forensic reports
+# pct  - procent zastosowania polityki</code></pre>
+
+<div class="card green">
+<strong>Zalecane minimum dla domen wysylajacych mail (2026)</strong>: SPF (-all), DKIM 2048-bit, DMARC p=reject. Gmail i Outlook od 2024 wymuszaja DMARC dla mass senders.
+</div>
+
+<h2>Komendy diagnostyczne</h2>
+<pre><code># dig - szwajcarski scyzoryk DNS:
+dig example.com                    # pelne wyniki
+dig +short example.com             # tylko adresy
+dig MX example.com                 # rekord MX
+dig AAAA example.com               # IPv6
+dig @1.1.1.1 example.com           # specyficzny resolver
+dig +trace example.com             # sledz przez root, TLD, authoritative
+dig -x 8.8.8.8                     # reverse lookup
+dig ANY example.com                # wszystkie typy (wiele DNS odmawia)
+
+# nslookup - klasyczny:
+nslookup example.com
+nslookup example.com 1.1.1.1
+nslookup -type=MX example.com
+
+# host - uproszczone:
+host example.com
+host -t TXT example.com
+host -a example.com               # all records
+
+# Windows PowerShell:
+Resolve-DnsName example.com
+Resolve-DnsName example.com -Type MX
+
+# Sprawdzenie SPF/DKIM/DMARC online:
+# https://dmarcian.com/dmarc-inspector/
+# https://mxtoolbox.com</code></pre>
+
+<h2>TTL i propagacja</h2>
+<p>TTL (Time To Live) okresla na ile sekund recursive resolver moze cache'owac odpowiedz. Wieksze TTL = mniej zapytan, ale zmiana zajmie wiecej czasu.</p>
+
+<table>
+<tr><th>TTL</th><th>Czas</th><th>Zastosowanie</th></tr>
+<tr><td>60</td><td>1 minuta</td><td>Failover, czesto zmienne</td></tr>
+<tr><td>300</td><td>5 minut</td><td>Dynamic DNS</td></tr>
+<tr><td>3600</td><td>1 godzina</td><td>Standard dla wiekszosci</td></tr>
+<tr><td>86400</td><td>1 dzien</td><td>Stabilne rekordy</td></tr>
+<tr><td>604800</td><td>1 tydzien</td><td>NS, MX rzadko zmienne</td></tr>
+</table>
+
+<div class="card orange">
+<strong>Migrujesz domene</strong>? Obniz TTL do 300 sekund 24-48 godzin przed zmiana - resolver'y szybciej zauwaza zmiane. Po stabilizacji podnies z powrotem.
+</div>
+
+<div class="nav-bottom">
+<a href="05-routery-i-switche.html">&larr; Routery i switche</a>
+<a href="07-certyfikaty-ssl-tls.html">Certyfikaty SSL/TLS &rarr;</a>
+</div>
+</div>
+</body>
+</html>

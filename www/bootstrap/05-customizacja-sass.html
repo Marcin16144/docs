@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customizacja Bootstrap przez Sass</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#7c3aed;--accent-hover:#a78bfa;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">WWW</a><span class="sep">/</span><a href="index.html">Bootstrap</a><span class="sep">/</span><span class="title">Customizacja Sass</span></div>
+<div class="container">
+<h1>Customizacja przez Sass</h1>
+<p class="subtitle">Wlasne kolory, breakpointy, ograniczenie bundle do potrzebnych komponentow</p>
+
+<h2>Po co Sass w Bootstrap?</h2>
+<p>Domyslny gotowy plik <code>bootstrap.min.css</code> wazy okolo 230 KB (przed gzip), bo zawiera wszystkie komponenty i utilities. Wiele projektow uzywa tylko 30&ndash;40% tej zawartosci. Kompilacja z Sass pozwala:</p>
+<ul>
+<li>Modyfikowac <strong>zmienne</strong> (kolory, breakpointy, fonty)</li>
+<li>Importowac tylko <strong>te moduly</strong>, ktorych uzywasz</li>
+<li>Dodawac <strong>wlasne</strong> utilities i komponenty</li>
+<li>Tworzyc spojne <strong>theming</strong> dla brandu</li>
+</ul>
+
+<h2>Setup projektu z Sass</h2>
+<pre><code>npm init -y
+npm install bootstrap@5.3.3 sass</code></pre>
+<p>Struktura plikow:</p>
+<pre><code>my-app/
+  scss/
+    _variables.scss   # Twoje nadpisania
+    custom.scss       # Punkt wejscia
+  dist/
+    custom.css        # Wynik kompilacji
+  package.json</code></pre>
+<p>W <code>package.json</code> dopisz skrypt:</p>
+<pre><code>"scripts": {
+  "build:css": "sass scss/custom.scss dist/custom.css --style=compressed",
+  "watch:css": "sass scss/custom.scss dist/custom.css --watch"
+}</code></pre>
+
+<h2>Najwazniejsze zmienne</h2>
+<p>Bootstrap wystawia setki zmiennych SCSS. Najczesciej modyfikowane to:</p>
+<table>
+<thead><tr><th>Zmienna</th><th>Default</th><th>Opis</th></tr></thead>
+<tbody>
+<tr><td>$primary</td><td>#0d6efd</td><td>Kolor podstawowy</td></tr>
+<tr><td>$secondary</td><td>#6c757d</td><td>Kolor wtorny</td></tr>
+<tr><td>$success / $danger / $warning / $info</td><td>standard</td><td>Kolory funkcyjne</td></tr>
+<tr><td>$body-bg</td><td>#fff</td><td>Tlo body</td></tr>
+<tr><td>$body-color</td><td>#212529</td><td>Kolor tekstu</td></tr>
+<tr><td>$border-radius</td><td>0.375rem</td><td>Bazowe zaokraglenie</td></tr>
+<tr><td>$enable-shadows</td><td>false</td><td>Cienie na komponentach</td></tr>
+<tr><td>$enable-rounded</td><td>true</td><td>Czy ma byc rounded</td></tr>
+<tr><td>$enable-gradients</td><td>false</td><td>Gradienty na btn i bg</td></tr>
+<tr><td>$grid-breakpoints</td><td>map</td><td>Niestandardowe breakpoints</td></tr>
+<tr><td>$font-family-sans-serif</td><td>system-ui...</td><td>Font</td></tr>
+<tr><td>$font-size-base</td><td>1rem</td><td>Bazowy rozmiar</td></tr>
+</tbody>
+</table>
+
+<h2>Wlasny theme &mdash; krok po kroku</h2>
+<p>Plik <code>custom.scss</code>:</p>
+<pre><code>// 1. Default function (potrzebne do darken/lighten)
+@import "../node_modules/bootstrap/scss/functions";
+
+// 2. Modyfikacje zmiennych
+$primary: #6f42c1;
+$secondary: #495057;
+$success: #20c997;
+$danger: #e83e8c;
+$body-bg: #f8f9fa;
+$enable-shadows: true;
+$border-radius: 0.5rem;
+
+$font-family-sans-serif: "Inter", system-ui, sans-serif;
+$font-size-base: 0.95rem;
+
+// 3. Wlasne breakpointy (opcjonalne)
+$grid-breakpoints: (
+  xs: 0,
+  sm: 640px,
+  md: 800px,
+  lg: 1024px,
+  xl: 1280px,
+  xxl: 1600px
+);
+
+// 4. Variables i mixins (Bootstrap zaleznosci)
+@import "../node_modules/bootstrap/scss/variables";
+@import "../node_modules/bootstrap/scss/mixins";
+@import "../node_modules/bootstrap/scss/maps";
+@import "../node_modules/bootstrap/scss/utilities";
+
+// 5. Reszta Bootstrap
+@import "../node_modules/bootstrap/scss/bootstrap";
+
+// 6. Twoje wlasne style
+.my-component {
+  background: $primary;
+  border-radius: $border-radius;
+}</code></pre>
+
+<h2>Dolaczanie tylko potrzebnych komponentow</h2>
+<p>Zamiast importowac caly <code>bootstrap.scss</code>, mozesz wybrac konkretne moduly. Tu szkielet drastycznie zmniejszajacy bundle:</p>
+<pre><code>// Required
+@import "../node_modules/bootstrap/scss/functions";
+@import "../node_modules/bootstrap/scss/variables";
+@import "../node_modules/bootstrap/scss/maps";
+@import "../node_modules/bootstrap/scss/mixins";
+@import "../node_modules/bootstrap/scss/root";
+
+// Reset i base
+@import "../node_modules/bootstrap/scss/reboot";
+@import "../node_modules/bootstrap/scss/type";
+
+// Layout
+@import "../node_modules/bootstrap/scss/grid";
+@import "../node_modules/bootstrap/scss/containers";
+
+// Tylko wybrane komponenty
+@import "../node_modules/bootstrap/scss/buttons";
+@import "../node_modules/bootstrap/scss/forms";
+@import "../node_modules/bootstrap/scss/card";
+@import "../node_modules/bootstrap/scss/navbar";
+@import "../node_modules/bootstrap/scss/modal";
+
+// Utilities (musi byc na koncu)
+@import "../node_modules/bootstrap/scss/utilities";
+@import "../node_modules/bootstrap/scss/utilities/api";</code></pre>
+
+<h2>Custom theme colors</h2>
+<p>Mozesz dodac wlasny kolor (np. <em>brand</em>) do mapy kolorow theme i automatycznie wygeneruja sie klasy <code>.btn-brand</code>, <code>.text-brand</code>, <code>.bg-brand</code> itd.</p>
+<pre><code>$theme-colors: (
+  "primary": #6f42c1,
+  "brand": #ff6b35,
+  "neutral": #6c757d
+);
+
+@import "../node_modules/bootstrap/scss/bootstrap";
+
+// Generuje:
+// .btn-brand, .text-brand, .bg-brand, .border-brand, .alert-brand itd.</code></pre>
+
+<h2>Color modes (5.3+)</h2>
+<p>Bootstrap 5.3 wprowadzil natywne wsparcie dla trybu ciemnego oparte na <code>data-bs-theme</code>. W Sass mozesz dodac wlasny mode (np. company-dark).</p>
+<pre><code>&lt;html data-bs-theme="dark"&gt;...&lt;/html&gt;
+&lt;!-- lub w sekcji --&gt;
+&lt;div data-bs-theme="dark"&gt;Ciemna sekcja w jasnym layout&lt;/div&gt;</code></pre>
+
+<h2>Build process</h2>
+
+<h3>Tylko Sass CLI</h3>
+<pre><code>npm run watch:css</code></pre>
+
+<h3>Z Vite (zalecane w 2026)</h3>
+<pre><code>npm install -D vite
+
+// vite.config.js
+import { defineConfig } from 'vite';
+export default defineConfig({
+  css: {
+    preprocessorOptions: {
+      scss: { silenceDeprecations: ['mixed-decls'] }
+    }
+  }
+});
+
+// main.js
+import './scss/custom.scss';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';</code></pre>
+
+<h3>Z PostCSS i autoprefixerem</h3>
+<pre><code>npm install -D postcss postcss-cli autoprefixer cssnano
+
+// postcss.config.js
+module.exports = {
+  plugins: [
+    require('autoprefixer'),
+    require('cssnano')({ preset: 'default' })
+  ]
+};</code></pre>
+
+<div class="card">
+<h3>Wskazowka &mdash; rozmiar bundle</h3>
+<p>Po wlasnej kompilacji z usunietymi nieuzywanymi komponentami mozesz zejsc z 230 KB do <strong>40&ndash;80 KB</strong> CSS. Dodatkowo dolozenie PurgeCSS lub UnoCSS w roli post-processora moze obciac niewykorzystane klasy &mdash; ostateczne CSS schodzi nawet do 15&ndash;20 KB.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="04-utilities-i-helpers.html">&larr; Utilities i helpers</a>
+<a href="06-bootstrap-vs-tailwind.html">Bootstrap vs Tailwind &rarr;</a>
+</div>
+</div>
+</body>
+</html>

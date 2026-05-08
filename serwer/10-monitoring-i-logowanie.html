@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoring i logowanie</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">Monitoring i logowanie</span>
+</div>
+
+<div class="container">
+<h1>Monitoring i logowanie</h1>
+<p class="subtitle">Event Viewer, Performance Monitor, Sysmon i centralne SIEM - od logow lokalnych po wykrywanie zagrozen.</p>
+
+<h2>Event Viewer</h2>
+<p>Event Viewer (<code>eventvwr.msc</code>) to centralna konsola logow Windows. Logi rozdzielone sa na kilka glownych kategorii.</p>
+<table>
+<tr><th>Log</th><th>Zawartosc</th></tr>
+<tr><td>Application</td><td>Zdarzenia generowane przez aplikacje (np. .NET, IIS, SQL)</td></tr>
+<tr><td>System</td><td>Komponenty systemu (sterowniki, uslugi, kernel)</td></tr>
+<tr><td>Security</td><td>Logon/logoff, audit policy, zmiany kont, sukces/porazka uwierzytelniania</td></tr>
+<tr><td>Setup</td><td>Instalacje, aktualizacje</td></tr>
+<tr><td>Forwarded Events</td><td>Logi otrzymane z innych serwerow (Event Forwarding)</td></tr>
+<tr><td>Applications and Services Logs</td><td>Specyficzne logi (PowerShell, Sysmon, IIS, AppLocker, Defender)</td></tr>
+</table>
+
+<h3>Kluczowe Event ID Security</h3>
+<table>
+<tr><th>Event ID</th><th>Znaczenie</th></tr>
+<tr><td>4624</td><td>Udane logowanie (Logon Type wskazuje typ: 2=interactive, 3=network, 10=RemoteInteractive)</td></tr>
+<tr><td>4625</td><td>Nieudane logowanie</td></tr>
+<tr><td>4634/4647</td><td>Logoff</td></tr>
+<tr><td>4672</td><td>Specjalne uprawnienia przyznane (admin)</td></tr>
+<tr><td>4688</td><td>Utworzenie procesu (CommandLine logging)</td></tr>
+<tr><td>4720/4722/4725/4738</td><td>Konto utworzone / wlaczone / zablokowane / zmienione</td></tr>
+<tr><td>4768/4769/4771</td><td>Kerberos TGT/TGS/preauth failure</td></tr>
+<tr><td>1102</td><td>Audit log wyczyszczony - kluczowy alert (atakujacy zaciera slady)</td></tr>
+</table>
+
+<h2>Audit Policy (auditpol)</h2>
+<p>Domyslna polityka audytu jest skromna. Microsoft Security Baseline rekomenduje wlaczenie szczegolowych kategorii.</p>
+<pre><code># Lista aktualnych ustawien audytu
+auditpol /get /category:*
+
+# Ustawienie audytu Logon (success+failure) globalnie
+auditpol /set /subcategory:"Logon" /success:enable /failure:enable
+auditpol /set /subcategory:"Special Logon" /success:enable
+auditpol /set /subcategory:"Process Creation" /success:enable
+auditpol /set /subcategory:"Account Lockout" /success:enable /failure:enable
+auditpol /set /subcategory:"Sensitive Privilege Use" /success:enable /failure:enable
+
+# Wlaczenie zapisu CommandLine w Process Creation Event 4688
+# (musi byc tez ustawione w GPO: Administrative Templates -&gt; System -&gt; Audit Process Creation)
+reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit" `
+    /v ProcessCreationIncludeCmdLine_Enabled /t REG_DWORD /d 1 /f</code></pre>
+
+<h2>Windows Event Forwarding (WEF)</h2>
+<p>WEF pozwala scentralizowac zbieranie zdarzen z wielu serwerow do jednego kolektora bez agentow trzecich. Dziala przez WS-Management (WinRM) - protokol oparty na HTTP/HTTPS.</p>
+<pre><code># Konfiguracja kolektora
+wecutil qc /q
+
+# Konfiguracja zrodla (kazdy klient)
+winrm quickconfig -q
+winrm set winrm/config/client/auth '@{Kerberos="true"}'
+# Dodanie kolektora do uprawnien Network Service na log Security
+# (rece lub przez GPO: Configure target Subscription Manager)
+
+# Tworzenie subskrypcji w XML / GUI
+wecutil cs subscription.xml</code></pre>
+
+<h2>Performance Monitor (perfmon)</h2>
+<p>Konsola <code>perfmon.msc</code> sluzy do monitorowania metryk wydajnosciowych w czasie rzeczywistym i zapisywania ich do plikow .blg.</p>
+
+<h3>Kluczowe liczniki</h3>
+<table>
+<tr><th>Obiekt</th><th>Licznik</th><th>Co monitoruje</th></tr>
+<tr><td>Processor</td><td>% Processor Time</td><td>Wykorzystanie CPU (cel: <80% sustained)</td></tr>
+<tr><td>Memory</td><td>Available MBytes, Pages/sec</td><td>Wolna pamiec (cel: >10% RAM), pagowanie</td></tr>
+<tr><td>PhysicalDisk</td><td>Avg. Disk Queue Length, sec/Read, sec/Write</td><td>Latencja dyskow (cel: <20ms)</td></tr>
+<tr><td>Network Interface</td><td>Bytes Total/sec, Output Queue Length</td><td>Przepustowosc, zatory sieciowe</td></tr>
+<tr><td>Web Service</td><td>Current Connections, Total Method Requests/sec</td><td>Obciazenie IIS</td></tr>
+<tr><td>ASP.NET</td><td>Requests Queued, Requests/Sec, Requests Rejected</td><td>Performance .NET app</td></tr>
+</table>
+
+<h3>Data Collector Set</h3>
+<pre><code># Tworzenie data collector set z PowerShell
+$dc = New-Object -ComObject "Pla.DataCollectorSet"
+$dc.SetCredentials($null, $null)
+
+# Wczytanie z XML (eksport z perfmon GUI)
+$xml = Get-Content "C:\PerfTemplates\BaselineWindows.xml" -Raw
+$dc.SetXml($xml)
+$dc.Commit("Baseline_Windows", $null, 0x0003)
+
+# Uruchomienie / zatrzymanie z linii polecen
+logman start "Baseline_Windows"
+logman stop  "Baseline_Windows"</code></pre>
+
+<h2>Sysmon (Sysinternals)</h2>
+<p>System Monitor (Sysmon) to darmowy, bardzo zaawansowany agent loggingu od Sysinternals/Microsoft. Wzbogaca standardowe logi Windows o szczegoly nieosiagalne z pudelka - hash plikow, parent process, sciezki sieciowe, DNS queries, manipulacje rejestrem.</p>
+
+<h3>Kluczowe Event ID Sysmon</h3>
+<table>
+<tr><th>Event ID</th><th>Znaczenie</th></tr>
+<tr><td>1</td><td>Process creation (z hash, command line, parent)</td></tr>
+<tr><td>3</td><td>Network connection</td></tr>
+<tr><td>7</td><td>Image loaded (DLLs)</td></tr>
+<tr><td>8</td><td>CreateRemoteThread (process injection)</td></tr>
+<tr><td>10</td><td>ProcessAccess (np. dostep do lsass = mimikatz)</td></tr>
+<tr><td>11</td><td>FileCreate</td></tr>
+<tr><td>22</td><td>DNSEvent (DNS queries)</td></tr>
+<tr><td>24</td><td>ClipboardChange</td></tr>
+</table>
+
+<pre><code># Instalacja Sysmon z konfiguracja SwiftOnSecurity
+Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Sysmon.zip" `
+                  -OutFile "$env:TEMP\Sysmon.zip"
+Expand-Archive "$env:TEMP\Sysmon.zip" "$env:TEMP\Sysmon"
+
+# Pobranie cenionej konfiguracji bazowej
+Invoke-WebRequest `
+  "https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml" `
+  -OutFile "C:\Sysmon\sysmonconfig.xml"
+
+# Instalacja
+&amp; "$env:TEMP\Sysmon\Sysmon64.exe" -accepteula -i C:\Sysmon\sysmonconfig.xml
+
+# Aktualizacja konfiguracji bez reinstalacji
+&amp; sysmon64 -c C:\Sysmon\sysmonconfig.xml</code></pre>
+
+<h2>Centralizacja - SIEM</h2>
+<p>SIEM (Security Information and Event Management) zbiera logi z wielu zrodel, normalizuje je, koreluje i alertuje na anomalie. Bez SIEM logi sa rozproszone i nie sa praktyczne do detekcji.</p>
+
+<h3>Microsoft Sentinel (cloud SIEM)</h3>
+<p>Cloud-native SIEM Microsoftu zbudowany na Log Analytics. Integruje sie natywnie z Defender XDR, Azure resources, M365.</p>
+<ul>
+<li>Data connectors: AAD logs, Defender, IIS, Windows Security Events, Syslog, Common Event Format</li>
+<li>Analytic rules - zapytania KQL (Kusto Query Language) wykrywajace anomalia</li>
+<li>Workbooks - dashboardy</li>
+<li>Playbooks - automatyzacja przez Azure Logic Apps (SOAR)</li>
+<li>UEBA (User and Entity Behavior Analytics)</li>
+</ul>
+
+<h3>Azure Monitor (telemetria)</h3>
+<p>Platforma do zbierania i analizy metryk i logow Azure resources i hybrydowych. Wykorzystuje Log Analytics jako backend - to samo zaplecze co Sentinel.</p>
+
+<h3>Splunk Enterprise</h3>
+<p>Lider rynku komercyjnego, bardzo elastyczny - moze chlonac dowolne formaty logow. Splunk SPL (Search Processing Language) bardzo bogaty.</p>
+
+<h3>Wazuh / OSSEC (open source)</h3>
+<p>Darmowy SIEM/EDR oparty na agencie OSSEC + ElasticSearch + Kibana. Wbudowane reguly OWASP, CIS, MITRE ATT&amp;CK mappings. Dobre dla mniejszych srodowisk i labow.</p>
+
+<h3>Inne</h3>
+<table>
+<tr><th>Narzedzie</th><th>Charakterystyka</th></tr>
+<tr><td>Elastic Security (ELK)</td><td>Elastic + Kibana + Beats. Free + paid tiers. Bardzo elastyczne</td></tr>
+<tr><td>Graylog</td><td>Open source, prostszy niz ELK, dobre UI</td></tr>
+<tr><td>QRadar (IBM)</td><td>Enterprise SIEM klasy ulta</td></tr>
+<tr><td>Sumo Logic</td><td>Cloud SIEM, korelacja wieloczynnikowa</td></tr>
+<tr><td>Datadog SIEM</td><td>SaaS, integracja z monitoring stack</td></tr>
+</table>
+
+<h2>Best practices loggingowe</h2>
+<ul>
+<li>Logi krytyczne (Security, PowerShell, Sysmon) zawsze do centralnego SIEM (lokalna kompromitacja kasuje logi)</li>
+<li>Retencja zdarzen audytowych: minimum 90 dni (zgodne z GDPR/NIS2 nawet dluzej)</li>
+<li>Wlaczyc PowerShell logging: Module Logging + Script Block Logging + Transcription</li>
+<li>IIS logs w formacie W3C, parsowane do SIEM (np. fail2ban dla IIS)</li>
+<li>Alerty na: 1102 (audit log cleared), 4625 burst, 4720 (admin creation), 7045 (new service)</li>
+<li>Synchronizacja czasu (NTP) - bez tego korelacja zdarzen z roznych serwerow nie dziala</li>
+<li>Regularne sprawdzanie poprawnosci alertow (false positive review)</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="09-publikowanie-uslug.html">&larr; Publikowanie uslug</a>
+    <a href="11-backup-i-recovery.html">Backup i recovery &rarr;</a>
+</div>
+</div>
+</body>
+</html>

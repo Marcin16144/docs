@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zarzadzanie uprawnieniami</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="07-bezpieczenstwo-fundamenty.html">Bezpieczenstwo - fundamenty</a>
+    <span class="sep">/</span>
+    <span class="title">Zarzadzanie uprawnieniami</span>
+</div>
+
+<div class="container">
+<h1>Zarzadzanie uprawnieniami</h1>
+<p class="subtitle">RBAC, JEA, PAM/PIM i Tier Model - kompletna kontrola dostepu do administracji.</p>
+
+<h2>RBAC - Role-Based Access Control</h2>
+<p>RBAC zaklada przyznawanie uprawnien do <strong>roli</strong>, nie pojedynczego uzytkownika. Uzytkownik dostaje role, role ma uprawnienia. Latwe do audytu, latwe do odbierania (usuwa sie z roli, nie odbiera kazdego uprawnienia z osobna).</p>
+
+<h3>Zasady projektowania RBAC</h3>
+<ul>
+<li><strong>Least privilege</strong> - minimum uprawnien wymaganych do pracy</li>
+<li><strong>Separation of duties</strong> - krytyczne operacje wymagaja dwoch osob (np. tworca konta != approver)</li>
+<li><strong>Role mining</strong> - identyfikacja rol na podstawie obecnych uprawnien</li>
+<li><strong>Role explosion antipattern</strong> - zbyt wiele rol = trudne zarzadzanie</li>
+<li><strong>Attribute-Based</strong> (ABAC) jako rozszerzenie - dodatkowe atrybuty (czas, lokalizacja, device compliance)</li>
+</ul>
+
+<h3>Przyklad rol w organizacji</h3>
+<table>
+<tr><th>Rola</th><th>Uprawnienia</th></tr>
+<tr><td>Helpdesk Tier 1</td><td>Reset hasel zwyklych uzytkownikow, odblokowanie kont</td></tr>
+<tr><td>Helpdesk Tier 2</td><td>Tworzenie kont w specyficznych OU, dodawanie do non-privileged grup</td></tr>
+<tr><td>Server Operator</td><td>Restart uslug, monitoring, ale brak instalacji</td></tr>
+<tr><td>Server Admin</td><td>Pelna kontrola nad serwerami aplikacyjnymi (Tier 1)</td></tr>
+<tr><td>AD Admin</td><td>Domain Admin - tylko Tier 0 (DC)</td></tr>
+<tr><td>SQL DBA</td><td>SQL Server admin, brak access do OS</td></tr>
+<tr><td>Backup Operator</td><td>Wbudowana grupa - prawo do backup/restore</td></tr>
+<tr><td>Audytor</td><td>Read-only do logow i konfiguracji - bez modyfikacji</td></tr>
+</table>
+
+<h2>Tier Model (Enterprise Access Model)</h2>
+<p>Microsoft promuje model warstw rozdzielajacy konta wg poziomu wrazliwosci zasobow. Konta jednego tieru <strong>nie loguja sie</strong> na nizszych poziomach - eliminuje to ryzyko ruchu lateralnego (atakujacy z compromised stacji nie moze uzyskac credentials Domain Admina).</p>
+
+<h3>Trzy warstwy</h3>
+<table>
+<tr><th>Tier</th><th>Aktywa</th><th>Konta administracyjne</th><th>Reguly</th></tr>
+<tr><td>Tier 0</td><td>Domain Controllers, ADCS, ADFS, Azure AD Connect, hypervisors hostujace DC, PAM/PAW</td><td>Domain Admin, Enterprise Admin, Schema Admin</td><td>Konta Tier 0 loguja sie TYLKO na Tier 0. Krytyczne aktywa - mozliwy pelny take-over domeny</td></tr>
+<tr><td>Tier 1</td><td>Servery aplikacyjne, baz danych, plikow, IIS, Exchange, SQL</td><td>Server Admin, App Admin, DBA</td><td>Konta Tier 1 NIE loguja sie na DC ani na stacje robocze</td></tr>
+<tr><td>Tier 2</td><td>Stacje robocze, laptopy, drukarki</td><td>Helpdesk, Workstation Admin</td><td>Konta Tier 2 NIE loguja sie na serwery ani DC</td></tr>
+</table>
+
+<div class="card">
+<p><strong>Rule of three:</strong> Admin powinien miec <strong>trzy konta</strong>:
+<br/>1) zwykle konto uzytkownika (poczta, dokumenty, browsing) - codzienna praca,
+<br/>2) konto Tier 1/2 admin do operacji administracyjnych na serwerach/stacjach,
+<br/>3) konto Tier 0 admin (jezeli zarzadza DC) - logowanie wylacznie z PAW (Privileged Access Workstation).</p>
+</div>
+
+<h3>Implementacja Tier Model</h3>
+<pre><code># Strukturalizacja OU
+OU=Tiers
+   OU=Tier0   - DCs, ADCS, ADFS hosts
+   OU=Tier1   - servery aplikacyjne
+   OU=Tier2   - stacje robocze
+   OU=Admins
+      OU=Tier0Admins
+      OU=Tier1Admins
+      OU=Tier2Admins
+
+# GPO: User Rights Assignment - "Deny logon"
+# GPO link na Tier0:
+#   "Deny logon as a service" / "interactively" -&gt; Tier1Admins, Tier2Admins
+# GPO link na Tier1:
+#   "Deny logon as a service" / "interactively" -&gt; Tier0Admins, Tier2Admins
+# GPO link na Tier2:
+#   "Deny logon as a service" / "interactively" -&gt; Tier0Admins, Tier1Admins</code></pre>
+
+<h2>Just Enough Administration (JEA)</h2>
+<p>JEA pozwala tworzyc <strong>ograniczone PowerShell endpoints</strong> wystawiajace wybrane cmdlety dla okreslonych grup. Uzytkownik widzi tylko zatwierdzone polecenia, nie dostaje pelnego dostepu do systemu.</p>
+
+<h3>Skladniki JEA</h3>
+<table>
+<tr><th>Skladnik</th><th>Opis</th></tr>
+<tr><td>Role Capability File (.psrc)</td><td>Co dany rola moze zrobic - lista cmdletow, modulow</td></tr>
+<tr><td>Session Configuration File (.pssc)</td><td>Konfiguracja sesji - virtual account, role mapping</td></tr>
+<tr><td>JEA Endpoint</td><td>WinRM listener z polityka session config</td></tr>
+<tr><td>Virtual Account</td><td>Konto tworzone na czas sesji - admin uprawnienia bez stalego konta</td></tr>
+</table>
+
+<h3>Przyklad - JEA dla helpdesku (restart uslug)</h3>
+<pre><code># 1. Role Capability - co rola moze zrobic
+$rolePath = "C:\Program Files\WindowsPowerShell\Modules\HelpdeskJEA\1.0.0\RoleCapabilities"
+New-Item -Path $rolePath -ItemType Directory -Force
+
+New-PSRoleCapabilityFile -Path "$rolePath\HelpdeskRole.psrc" `
+    -VisibleCmdlets @(
+        @{ Name = "Restart-Service"; Parameters = @{ Name = "Name"; ValidateSet = "Spooler","wuauserv","BITS" } },
+        "Get-Service",
+        "Get-Process",
+        "Get-EventLog"
+    ) `
+    -VisibleFunctions @() `
+    -VisibleAliases  @() `
+    -VisibleExternalCommands @()
+
+# 2. Session Configuration
+New-PSSessionConfigurationFile -Path "C:\JEA\HelpdeskEndpoint.pssc" `
+    -SessionType RestrictedRemoteServer `
+    -RunAsVirtualAccount `
+    -TranscriptDirectory "C:\JEA\Transcripts" `
+    -RoleDefinitions @{
+        "CONTOSO\Helpdesk-T1" = @{ RoleCapabilities = "HelpdeskRole" }
+    }
+
+# 3. Rejestracja endpointu
+Register-PSSessionConfiguration -Name "JEA-Helpdesk" `
+    -Path "C:\JEA\HelpdeskEndpoint.pssc" `
+    -Force
+
+# 4. Uzycie przez helpdesk
+Enter-PSSession -ComputerName SRV-APP01 -ConfigurationName "JEA-Helpdesk"
+# Helpdesk widzi tylko: Restart-Service (Spooler|wuauserv|BITS), Get-Service, Get-Process, Get-EventLog
+# Wszystko innne: "The term 'X' is not recognized..."</code></pre>
+
+<h2>Privileged Identity Management (PIM)</h2>
+<p>PIM to chmurowa funkcja Microsoft Entra ID (Azure AD) pozwalajaca <strong>aktywowac role tylko gdy potrzeba</strong>. Zamiast permanentnego Domain Admin, uzytkownik aktywuje role na okreslony czas (np. 4 godziny) z dodatkowa autoryzacja (MFA, justification, approval workflow).</p>
+
+<h3>Cechy PIM</h3>
+<ul>
+<li><strong>Just-in-Time access</strong> - role aktywne tylko podczas wykonywania zadania</li>
+<li><strong>MFA required</strong> przed aktywacja</li>
+<li><strong>Approval workflow</strong> - inny administrator musi zatwierdzic</li>
+<li><strong>Time-bound</strong> - automatyczna deaktywacja po N godzinach</li>
+<li><strong>Justification</strong> - uzytkownik podaje powod aktywacji (audit trail)</li>
+<li><strong>Access reviews</strong> - okresowy przeglad uprawnien (czy nadal potrzebne)</li>
+<li><strong>Audit logs</strong> - kto, kiedy, dlaczego, na jak dlugo</li>
+</ul>
+
+<div class="card">
+<p><strong>Wymagania:</strong> Microsoft Entra ID P2 (P1 nie wystarczy) lub Microsoft 365 E5. Cena: ok. 9 USD/uzytkownik/miesiac.</p>
+</div>
+
+<h3>Konfiguracja PIM</h3>
+<ol>
+<li>Entra ID Portal -&gt; Privileged Identity Management</li>
+<li>Azure AD Roles -&gt; Roles -&gt; wybor roli (np. Global Administrator)</li>
+<li>Add assignments -&gt; user/group -&gt; Eligible (zamiast Active)</li>
+<li>Settings:
+    <ul>
+        <li>Activation maximum duration: 4 hours</li>
+        <li>Require justification: Yes</li>
+        <li>Require MFA: Yes</li>
+        <li>Require approval: Yes (z listy approverow)</li>
+    </ul>
+</li>
+<li>Uzytkownik aktywuje role w "My roles" -&gt; "Activate"</li>
+</ol>
+
+<h2>Microsoft Identity Manager (MIM)</h2>
+<p>MIM to on-premises platforma do zarzadzania tozsamoscia. Wspiera scenariusze identity lifecycle (joiner-mover-leaver), self-service password reset, group management, certificate management. Nastepca FIM 2010.</p>
+<ul>
+<li>Synchronizacja miedzy systemami HR i AD</li>
+<li>Workflow approval dla zmian uprawnien</li>
+<li>MIM Privileged Access Management - bastion forest dla Tier 0</li>
+<li>Self-service portal</li>
+</ul>
+
+<h3>MIM PAM (bastion forest)</h3>
+<p>MIM PAM tworzy <strong>osobny las administracyjny</strong> ("bastion forest") z relacja zaufania do produkcyjnego. Konta admina istnieja tylko w bastion - logowanie do produkcji wymaga aktywacji shadow account z czasowym SID history.</p>
+
+<h2>Privileged Access Workstation (PAW)</h2>
+<p>PAW to dedykowana stacja robocza dla administratorow Tier 0/1 - tylko do administracji, oddzielona od codziennej pracy.</p>
+<ul>
+<li>Czysta instalacja Windows 11 Enterprise</li>
+<li>BitLocker, Secure Boot, TPM 2.0, Credential Guard, Application Control (WDAC)</li>
+<li>Brak dostepu do Internetu / poczty / Office</li>
+<li>Brak USB (Group Policy denial)</li>
+<li>Tylko aplikacje administracyjne (RSAT, MMC, PowerShell ISE)</li>
+<li>Logowanie tylko Smart Card / FIDO2</li>
+<li>Monitorowanie zwiekszone (Defender for Endpoint, Sysmon)</li>
+</ul>
+
+<h2>Audytowanie i monitoring</h2>
+<pre><code># Eventy do monitorowania w SIEM
+# 4672 - Special Logon (admin)
+# 4720 - Account created
+# 4732 - User added to Local Admin group
+# 4756 - User added to Universal Security group (Domain Admin)
+# 4625 - Failed logon
+# 4768/4769 - Kerberos TGT/TGS request
+
+# PowerShell logging:
+# Module Logging:        wszystkie zaladowane modules
+# Script Block Logging:  zawartosc kazdego script blocku (transparency)
+# Transcription:         pelny log sesji
+
+# Wlaczenie przez GPO:
+# Computer Configuration -&gt; Administrative Templates -&gt; Windows Components
+#   -&gt; Windows PowerShell -&gt;
+#      [x] Turn on Module Logging      (Module: *)
+#      [x] Turn on PowerShell Script Block Logging
+#      [x] Turn on PowerShell Transcription</code></pre>
+
+<h2>Best practices</h2>
+<ul>
+<li>Tier model - rozdzielenie kont admina, nigdy mieszanie tierow</li>
+<li>Trzy konta dla admina (uzytkownik, T1/T2 admin, T0 admin)</li>
+<li>JEA dla helpdesku/operatorow zamiast Local Admin</li>
+<li>PIM dla rol Azure - eligible, nie active</li>
+<li>PAW dla T0 admina - dedykowana stacja</li>
+<li>Smart Card / FIDO2 dla wszystkich admin accounts (no password)</li>
+<li>Service accounts gMSA zamiast domain user accounts</li>
+<li>LAPS (Local Administrator Password Solution) - unikalne hasla local admin per maszyna</li>
+<li>Quarterly access review - czy nadal potrzebne</li>
+<li>Off-boarding checklist - automatyczna deaktywacja konta po wyjsciu</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="07-bezpieczenstwo-fundamenty.html">&larr; Bezpieczenstwo - fundamenty</a>
+    <a href="07-02-hardening-checklist.html">Hardening checklist &rarr;</a>
+</div>
+</div>
+</body>
+</html>

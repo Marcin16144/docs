@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hardening Checklist</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="07-bezpieczenstwo-fundamenty.html">Bezpieczenstwo - fundamenty</a>
+    <span class="sep">/</span>
+    <span class="title">Hardening Checklist</span>
+</div>
+
+<div class="container">
+<h1>Windows Server Hardening Checklist</h1>
+<p class="subtitle">Kompleksowa lista wzmocnien systemu oparta na CIS Benchmarks i Microsoft Security Baseline.</p>
+
+<h2>Standardy odniesienia</h2>
+<table>
+<tr><th>Standard</th><th>Charakterystyka</th></tr>
+<tr><td>CIS Benchmarks</td><td>Najpopularniejsze, szczegolowe (~400 ustawien per OS), darmowe PDF</td></tr>
+<tr><td>Microsoft Security Baseline</td><td>GPO templates do importu, czesc Security Compliance Toolkit</td></tr>
+<tr><td>DISA STIGs</td><td>US Department of Defense, najsurowsze, dla rzadu</td></tr>
+<tr><td>NIST SP 800-53 / 800-171</td><td>Rzadowy USA, control catalog</td></tr>
+<tr><td>NSA Hardening Guides</td><td>Bezpieczenstwo agencyjne</td></tr>
+</table>
+
+<h2>Wylaczanie protokolow legacy</h2>
+
+<h3>SMBv1 - krytyczne</h3>
+<p>SMBv1 jest podatny na <strong>EternalBlue / WannaCry / NotPetya</strong>. Nieuzywany od Windows 8 / Server 2012 - wylaczyc bezwzglednie.</p>
+<pre><code># Sprawdzenie i wylaczenie SMBv1
+Get-WindowsOptionalFeature -Online -FeatureName SMB1Protocol
+Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol -NoRestart
+
+# Lub przez registr
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" `
+                 -Name SMB1 -Value 0 -Type DWord
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters" `
+                 -Name SMB1 -Value 0 -Type DWord
+
+# Wymuszenie SMB signing (chroni przed relay attacks)
+Set-SmbServerConfiguration -RequireSecuritySignature $true -EnableSecuritySignature $true -Confirm:$false
+Set-SmbClientConfiguration -RequireSecuritySignature $true -EnableSecuritySignature $true -Confirm:$false</code></pre>
+
+<h3>NTLMv1 / LM</h3>
+<pre><code># LMCompatibilityLevel
+# 0 - LM &amp; NTLM
+# 1 - LM &amp; NTLM, use NTLMv2 if negotiated
+# 2 - NTLM only
+# 3 - NTLMv2 only (klient)
+# 4 - NTLMv2 only (DC accept), refuse LM
+# 5 - NTLMv2 only (DC accept), refuse LM &amp; NTLM (zalecane!)
+
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" `
+                 -Name LmCompatibilityLevel -Value 5 -Type DWord
+
+# Brak hash LM w SAM
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" `
+                 -Name NoLMHash -Value 1 -Type DWord</code></pre>
+
+<h3>LLMNR i NetBIOS</h3>
+<p>LLMNR (Link-Local Multicast Name Resolution) i NetBIOS sa wykorzystywane do <strong>Responder.py / NTLM relay attacks</strong>. Wylaczyc bezwzglednie.</p>
+<pre><code># LLMNR
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient" `
+                 -Name "EnableMulticast" -Value 0 -Type DWord -Force
+
+# NetBIOS over TCP/IP - per adapter
+Get-CimInstance -Class Win32_NetworkAdapterConfiguration |
+    Where-Object { $_.IPEnabled -eq $true } |
+    ForEach-Object {
+        $_.SetTcpipNetbios(2)  # 2 = Disabled
+    }</code></pre>
+
+<h2>Credential protection</h2>
+
+<h3>Credential Guard (Windows Defender Credential Guard)</h3>
+<p>Credential Guard izoluje LSA (lsass.exe) w wirtualnym kontenerze opartym na Hyper-V (VBS - Virtualization-Based Security). Atakujacy z SYSTEM <strong>nie moze</strong> wyciagnac hashy/biletow z lsass nawet z mimikatz.</p>
+
+<div class="card">
+<p><strong>Windows Server 2025:</strong> Credential Guard jest <strong>domyslnie wlaczony</strong> na supportowanych systemach (TPM 2.0 + UEFI Secure Boot + Hyper-V). To wielki krok naprzod w bezpieczenstwie domeny.</p>
+</div>
+
+<pre><code># Sprawdzenie statusu Credential Guard
+$dgs = Get-CimInstance -ClassName Win32_DeviceGuard `
+                       -Namespace "root\Microsoft\Windows\DeviceGuard"
+"Required Security: $($dgs.RequiredSecurityProperties)"
+"Available:         $($dgs.AvailableSecurityProperties)"
+"Running:           $($dgs.SecurityServicesRunning)"
+# Running musi zawierac 1 (Credential Guard) i 2 (HVCI)
+
+# Wlaczenie GPO:
+# Computer Configuration -&gt; Administrative Templates -&gt; System -&gt; Device Guard
+#   Turn On Virtualization Based Security:
+#     Platform Security Level:        Secure Boot and DMA Protection
+#     Credential Guard Configuration: Enabled with UEFI lock</code></pre>
+
+<h3>LSA Protection</h3>
+<pre><code># RunAsPPL = 1 oznacza ze lsass.exe jest Protected Process Light
+# inne procesy (nawet z Local System) nie moga wstrzyknac kodu do lsass
+
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" `
+                 -Name "RunAsPPL" -Value 1 -Type DWord</code></pre>
+
+<h3>Protected Users group</h3>
+<p>Czlonkowie grupy <strong>Protected Users</strong> w AD maja:</p>
+<ul>
+<li>Brak NTLM authentication</li>
+<li>Brak Kerberos pre-auth z DES/RC4 (tylko AES)</li>
+<li>Krotsze TGT (4 godziny zamiast 10)</li>
+<li>Brak default delegation</li>
+<li>Brak credentials cached na maszynie</li>
+</ul>
+<pre><code># Dodanie konta admina do Protected Users
+Add-ADGroupMember -Identity "Protected Users" -Members "DomainAdmin1"
+
+# WAZNE: Przed dodaniem przetestowac! Niektore aplikacje legacy moga przestac dzialac
+# (np. Schedule Task ze stalym haslem - wymaga NTLM)</code></pre>
+
+<h2>BitLocker</h2>
+<pre><code># Wlaczenie BitLocker na C: z TPM
+Enable-BitLocker -MountPoint "C:" `
+                 -EncryptionMethod XtsAes256 `
+                 -UsedSpaceOnly `
+                 -TpmProtector
+
+# Backup recovery key do AD
+Add-BitLockerKeyProtector -MountPoint "C:" -RecoveryPasswordProtector
+
+$bl = Get-BitLockerVolume -MountPoint "C:"
+$rk = $bl.KeyProtector | Where-Object { $_.KeyProtectorType -eq "RecoveryPassword" }
+Backup-BitLockerKeyProtector -MountPoint "C:" -KeyProtectorId $rk.KeyProtectorId
+
+# Sprawdzenie statusu
+manage-bde -status
+
+# Status wszystkich wolumenow
+Get-BitLockerVolume | Format-Table MountPoint, EncryptionMethod, EncryptionPercentage, ProtectionStatus</code></pre>
+
+<h2>Account policy</h2>
+<pre><code># Account lockout
+net accounts /lockoutthreshold:5    # 5 nieudanych prob
+net accounts /lockoutwindow:30      # liczone w ciagu 30 min
+net accounts /lockoutduration:30    # blokada na 30 min
+
+# Password policy (lub przez Default Domain Policy GPO)
+net accounts /minpwlen:14           # min 14 znakow
+net accounts /maxpwage:90           # zmiana co 90 dni
+net accounts /minpwage:1            # nie czesciej niz raz na dzien
+net accounts /uniquepw:24           # historia 24 haseł
+net accounts /forcelogoff:0         # wymuszenie wylogowania po expiracji
+
+# CIS rekomenduje:
+# - Min 14 znakow (NIST 2017+ dopuszcza dlugie passphrase bez complexity)
+# - Brak wymogu zmiany cyklicznej (NIST SP 800-63B) - tylko po podejrzeniu kompromitacji
+# - MFA jako fundament zamiast czestych zmian hasla</code></pre>
+
+<h2>PowerShell hardening</h2>
+<pre><code># Wlaczenie pelnego loggingu PowerShell przez GPO:
+# Computer Configuration -&gt; Administrative Templates -&gt; Windows Components
+#   -&gt; Windows PowerShell
+
+# 1. Turn on Module Logging
+#    Module names to log: *
+
+# 2. Turn on PowerShell Script Block Logging
+#    [x] Log script block invocation start/stop
+
+# 3. Turn on PowerShell Transcription
+#    Transcript output directory: \\fs01\PSTranscripts$
+#    [x] Include invocation headers
+
+# Constrained Language Mode dla nieadmin uzytkownikow
+[Environment]::SetEnvironmentVariable("__PSLockdownPolicy","4","Machine")
+
+# AppLocker / WDAC dla blokowania niezatwierdzonych skryptow
+# (rozdzial Application Control)</code></pre>
+
+<h2>Ograniczenie powierzchni ataku</h2>
+
+<h3>Wylaczenie nieuzywanych uslug</h3>
+<table>
+<tr><th>Usluga</th><th>Status zalecany</th><th>Powod</th></tr>
+<tr><td>Server (LanmanServer)</td><td>Wlaczona tylko jak udzielany jest SMB</td><td>Dla samego serwera aplikacji nie potrzebna</td></tr>
+<tr><td>Print Spooler</td><td>Wylaczona na serwerach nie-print</td><td>PrintNightmare CVE-2021-34527</td></tr>
+<tr><td>Remote Registry</td><td>Wylaczona</td><td>Klasyczny vector ataku</td></tr>
+<tr><td>Routing and Remote Access</td><td>Wylaczona, jezeli nie VPN/RAS</td><td>Reduce attack surface</td></tr>
+<tr><td>SNMP</td><td>Wylaczona lub SNMPv3 only</td><td>SNMPv1/v2 plain text</td></tr>
+<tr><td>Telnet Server / TFTP</td><td>Wylaczona</td><td>Plain text protocols</td></tr>
+<tr><td>FTP Server</td><td>Wylaczona, FTPS/SFTP only</td><td>Plain text auth</td></tr>
+</table>
+
+<h3>Application Control - WDAC / AppLocker</h3>
+<pre><code># WDAC (Windows Defender Application Control) - wbudowany w Windows
+# Zalecane dla nowych deployment
+# AppLocker - starsze, ale szeroko uzywane w GPO
+
+# Tworzenie polityki AppLocker (GUI: secpol.msc -&gt; Application Control Policies)
+# Domyslne reguly + konkretne whitelist:
+#   - Allow: %WINDIR%\* (Windows binaries)
+#   - Allow: %PROGRAMFILES%\* (apps installed by admin)
+#   - Deny:  %TEMP%\*, %APPDATA%\* (writable by user)
+#   - Deny:  PowerShell ISE (uzytkownicy bez admina)
+
+# Skanowanie biezacych binarek do polityki
+Get-AppLockerFileInformation -Directory "C:\Program Files" -Recurse -FileType Exe |
+    New-AppLockerPolicy -RuleType Publisher,Hash -User "Everyone" |
+    Set-AppLockerPolicy -Merge -Force</code></pre>
+
+<h2>Defender for Endpoint (EDR)</h2>
+<ul>
+<li><strong>Microsoft Defender Antivirus</strong> - wbudowany, free</li>
+<li><strong>Defender for Endpoint Plan 1/2</strong> - cloud EDR, behavioral analytics, SIEM integration</li>
+<li>Attack Surface Reduction (ASR) rules - blokowanie zachowan typowych dla malware</li>
+<li>Tamper Protection - ochrona Defendera przed wylaczeniem</li>
+<li>Cloud-delivered protection (MAPS) wlaczona</li>
+<li>Real-time protection wlaczone na wszystkich serwerach</li>
+</ul>
+<pre><code># Konfiguracja Defendera
+Set-MpPreference -CloudBlockLevel High `
+                  -CloudExtendedTimeout 50 `
+                  -PUAProtection Enabled `
+                  -EnableNetworkProtection Enabled `
+                  -SubmitSamplesConsent SendSafeSamples `
+                  -DisableRealtimeMonitoring $false
+
+# ASR rules - kluczowe dla Office attack chains
+$asrRules = @{
+    "BE9BA2D9-53EA-4CDC-84E5-9B1EEEE46550" = "Block executable content from email"
+    "D4F940AB-401B-4EFC-AADC-AD5F3C50688A" = "Block all Office apps from creating child processes"
+    "3B576869-A4EC-4529-8536-B80A7769E899" = "Block Office apps from creating executable content"
+    "75668C1F-73B5-4CF0-BB93-3ECF5CB7CC84" = "Block Office apps from injecting code into other processes"
+    "D3E037E1-3EB8-44C8-A917-57927947596D" = "Block JavaScript or VBScript from launching downloaded executables"
+    "5BEB7EFE-FD9A-4556-801D-275E5FFC04CC" = "Block execution of potentially obfuscated scripts"
+}
+$asrRules.GetEnumerator() | ForEach-Object {
+    Set-MpPreference -AttackSurfaceReductionRules_Ids $_.Key -AttackSurfaceReductionRules_Actions Enabled
+}</code></pre>
+
+<h2>Hardening checklist - one-page summary</h2>
+<div class="card">
+<ul>
+<li>SMBv1 wylaczone, SMB signing required</li>
+<li>NTLMv1 / LM wylaczone (LMCompatibilityLevel = 5)</li>
+<li>LLMNR + NetBIOS wylaczone</li>
+<li>Credential Guard wlaczony (default w 2025)</li>
+<li>LSA Protection (RunAsPPL = 1)</li>
+<li>BitLocker na wszystkich woluminach</li>
+<li>TPM 2.0, UEFI Secure Boot wlaczone</li>
+<li>Account lockout policy (5 prob, 30 min)</li>
+<li>Password policy: min 14 znakow, NIST guidelines</li>
+<li>MFA dla wszystkich admin accounts</li>
+<li>PowerShell logging: Module + Script Block + Transcription</li>
+<li>Constrained Language Mode dla nieadminow</li>
+<li>Defender for Endpoint z ASR rules</li>
+<li>WDAC / AppLocker - whitelisting aplikacji</li>
+<li>Print Spooler wylaczony na serwerach nie-print</li>
+<li>Remote Registry wylaczony</li>
+<li>Audit Policy - pelne kategorie zgodnie z baseline</li>
+<li>Sysmon wlaczony z konfiguracja SwiftOnSecurity</li>
+<li>Logi do centralnego SIEM</li>
+<li>Patche aktualne (max 30 dni opoznienia dla critical)</li>
+<li>Firewall: default deny inbound, log dropped packets</li>
+<li>Tier model wdrozony, separate admin accounts</li>
+<li>LAPS dla local admin passwords</li>
+<li>gMSA dla service accounts</li>
+<li>Backup System State + test restore co miesiac</li>
+</ul>
+</div>
+
+<h2>Tools do automatyzacji audytu</h2>
+<ul>
+<li><strong>PingCastle</strong> - audyt AD, ranking ryzyka, raporty (free version)</li>
+<li><strong>BloodHound</strong> - graphical AD attack paths analysis</li>
+<li><strong>Microsoft MBSA</strong> - Baseline Security Analyzer (deprecated, ale dla starszych OS)</li>
+<li><strong>Microsoft Security Compliance Toolkit</strong> - Policy Analyzer, LGPO</li>
+<li><strong>CIS-CAT</strong> - automatyczne skanowanie zgodnosci z CIS Benchmarks</li>
+<li><strong>HardeningKitty</strong> - PowerShell, sprawdza setki ustawien</li>
+<li><strong>Microsoft Defender Vulnerability Management</strong> - integracja z Defender for Endpoint</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="07-01-zarzadzanie-uprawnieniami.html">&larr; Zarzadzanie uprawnieniami</a>
+    <a href="07-bezpieczenstwo-fundamenty.html">Bezpieczenstwo - fundamenty &rarr;</a>
+</div>
+</div>
+</body>
+</html>

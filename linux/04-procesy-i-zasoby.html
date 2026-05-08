@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linux - procesy i zasoby</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fb923c;--accent-hover:#fdba74;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Linux</a><span class="sep">/</span><span class="title">Procesy i zasoby</span></div>
+<div class="container">
+<h1>Procesy, systemd i monitorowanie zasobow</h1>
+<p class="subtitle">ps, top, htop, kill, systemd, journalctl, cgroups, monitoring</p>
+
+<h2>Czym jest proces?</h2>
+<p>Proces to dzialajaca instancja programu. Kazdy proces ma unikalny <strong>PID</strong> (Process ID), <strong>PPID</strong> (Parent PID), uzytkownika, grupy, otwarte deskryptory plikow, mape pamieci i stan. W Linuxie kazdy proces jest stworzony przez inny proces (poza init/systemd o PID=1).</p>
+
+<table>
+<tr><th>Stan</th><th>Symbol</th><th>Opis</th></tr>
+<tr><td>Running</td><td>R</td><td>Wykonywany lub w kolejce do CPU</td></tr>
+<tr><td>Sleeping</td><td>S</td><td>Czeka na zdarzenie (przerywalne)</td></tr>
+<tr><td>Disk Sleep</td><td>D</td><td>Czeka na I/O (nieprzerywalne)</td></tr>
+<tr><td>Stopped</td><td>T</td><td>Zatrzymany sygnalem</td></tr>
+<tr><td>Zombie</td><td>Z</td><td>Zakonczony, oczekuje na rodzica</td></tr>
+</table>
+
+<h2>ps - lista procesow</h2>
+<pre><code># Klasyczne BSD-style: wszystkie procesy systemu
+ps aux
+
+# UNIX-style: pelne argumenty komend
+ps -ef
+
+# Tylko procesy konkretnego uzytkownika
+ps -u jkowalski
+
+# Drzewo procesow z relacjami parent-child
+ps auxf
+pstree -p
+
+# Sortowanie po zuzyciu CPU
+ps aux --sort=-%cpu | head -10
+
+# Sortowanie po pamieci
+ps aux --sort=-%mem | head -10
+
+# Konkretny proces po PID
+ps -p 1234
+
+# Format niestandardowy
+ps -eo pid,ppid,user,%cpu,%mem,cmd --sort=-%mem</code></pre>
+
+<h2>top, htop, btop</h2>
+<p><strong>top</strong> to klasyczne narzedzie monitorowania w czasie rzeczywistym. <strong>htop</strong> to przyjazniejsza wersja z kolorami i obsluga myszki. <strong>btop</strong> to nowoczesny TUI z pieknym interfejsem (Python/C++).</p>
+
+<pre><code># Instalacja
+sudo apt install htop btop
+
+# Uruchomienie
+top
+htop
+btop
+
+# Top - przydatne klawisze:
+# M - sortuj po pamieci
+# P - sortuj po CPU
+# k - zabij proces (zapyta o PID)
+# 1 - pokaz wszystkie rdzenie CPU
+# h - pomoc
+# q - wyjscie
+
+# Htop - F-keys:
+# F2 - setup
+# F3 - search
+# F5 - tree view
+# F6 - sortowanie
+# F9 - kill (wybor sygnalu)</code></pre>
+
+<h2>Sygnaly i kill</h2>
+<p>Sygnaly to sposob komunikacji z procesami. Kazdy sygnal ma numer i nazwe. Najczesciej uzywane to <strong>SIGTERM</strong> (zakoncz grzecznie) i <strong>SIGKILL</strong> (zabij natychmiast).</p>
+
+<table>
+<tr><th>Sygnal</th><th>Numer</th><th>Opis</th></tr>
+<tr><td>SIGHUP</td><td>1</td><td>Hangup - tradycyjnie reload konfiguracji</td></tr>
+<tr><td>SIGINT</td><td>2</td><td>Interrupt - Ctrl+C</td></tr>
+<tr><td>SIGQUIT</td><td>3</td><td>Quit z dump rdzenia</td></tr>
+<tr><td>SIGKILL</td><td>9</td><td>Natychmiastowe zabicie (nie da sie zignorowac)</td></tr>
+<tr><td>SIGTERM</td><td>15</td><td>Grzeczne zakonczenie (domyslny)</td></tr>
+<tr><td>SIGSTOP</td><td>19</td><td>Wstrzymanie procesu (jak Ctrl+Z, ale nie da sie zignorowac)</td></tr>
+<tr><td>SIGCONT</td><td>18</td><td>Wznowienie wstrzymanego</td></tr>
+</table>
+
+<pre><code># Lista wszystkich sygnalow
+kill -l
+
+# Domyslnie SIGTERM
+kill 1234
+kill -SIGTERM 1234
+kill -15 1234
+
+# Reload konfiguracji (nginx, sshd reaguja na SIGHUP)
+kill -HUP 1234
+
+# Zabij na sile (uzywaj tylko gdy SIGTERM nie pomaga)
+kill -9 1234
+kill -SIGKILL 1234
+
+# Zabij wiele procesow na raz
+kill -9 1234 5678 9012
+
+# pkill - zabij po nazwie
+pkill firefox
+pkill -9 chrome
+pkill -u jkowalski    # wszystkie procesy uzytkownika
+
+# pgrep - znajdz PID po nazwie
+pgrep nginx
+pgrep -u www-data
+
+# killall - zabij wszystkie procesy o danej nazwie
+killall firefox</code></pre>
+
+<h2>Zarzadzanie zadaniami w shellu</h2>
+<pre><code># Uruchom w tle z &amp;
+./long-task.sh &amp;
+
+# Lista zadan w tej sesji
+jobs
+
+# Przesun zadanie na pierwszy plan
+fg %1
+
+# Wyslij do tla wstrzymane zadanie
+bg %1
+
+# Wstrzymaj biezacy proces (Ctrl+Z) i nastepnie:
+bg          # uruchom w tle
+
+# nohup - proces przezyje wylogowanie
+nohup ./long-task.sh &amp;
+
+# disown - usun zadanie z listy jobs (przezyje wylogowanie)
+./script.sh &amp;
+disown</code></pre>
+
+<h2>nice i renice - priorytety</h2>
+<p>Wartosci nice okreslaja priorytet procesu w schedulerze. Zakres od <strong>-20</strong> (najwyzszy priorytet) do <strong>+19</strong> (najnizszy). Tylko root moze ustawiac wartosci ujemne. Domyslna nicea to 0.</p>
+
+<pre><code># Uruchom z nizszym priorytetem (mniej zasobow CPU)
+nice -n 19 ./compress-video.sh
+
+# Wyzszy priorytet (wymaga roota)
+sudo nice -n -10 ./important-task.sh
+
+# Zmiana priorytetu juz dzialajacego procesu
+renice -n 10 -p 1234
+
+# Wszystkie procesy uzytkownika
+sudo renice -n 5 -u jkowalski</code></pre>
+
+<h2>screen i tmux</h2>
+<p>Multipleksery terminalowe pozwalaja uruchamiac procesy w sesjach, ktore przezywaja rozlaczenie SSH. <strong>tmux</strong> to nowoczesny standard, <strong>screen</strong> jest starszy ale wciaz uzywany.</p>
+
+<pre><code># Instalacja
+sudo apt install tmux
+
+# Nowa sesja z nazwa
+tmux new -s deploy
+
+# Wewnatrz tmux uzywaj prefix Ctrl+b nastepnie:
+# c - nowe okno
+# n - nastepne okno
+# % - podzial pionowy
+# " - podzial poziomy
+# d - detach (sesja zostaje w tle)
+# x - zamknij okno
+
+# Lista aktywnych sesji
+tmux ls
+
+# Powrot do sesji
+tmux attach -t deploy
+
+# Zabij sesje
+tmux kill-session -t deploy</code></pre>
+
+<h2>systemd - menedzer uslug</h2>
+<p><strong>systemd</strong> to system init w Ubuntu (od 15.04). Zarzadza usluga (.service), timerami (.timer), socketami (.socket), targetami (runlevele). Glowne narzedzia: <strong>systemctl</strong> (zarzadzanie), <strong>journalctl</strong> (logi).</p>
+
+<pre><code># Status uslugi
+sudo systemctl status nginx
+
+# Start, stop, restart, reload
+sudo systemctl start nginx
+sudo systemctl stop nginx
+sudo systemctl restart nginx
+sudo systemctl reload nginx       # bez przestoju (jesli wspierane)
+
+# Wlaczenie autostartu przy boot
+sudo systemctl enable nginx
+sudo systemctl enable --now nginx  # enable + start
+
+# Wylaczenie autostartu
+sudo systemctl disable nginx
+
+# Lista wszystkich uslug
+systemctl list-units --type=service
+
+# Lista uslug failed
+systemctl --failed
+
+# Lista uslug ktore beda startowac
+systemctl list-unit-files --state=enabled
+
+# Cell systemu uruchamiania
+systemctl get-default       # zazwyczaj graphical.target
+sudo systemctl set-default multi-user.target   # tryb tekstowy</code></pre>
+
+<h3>Wlasna usluga systemd</h3>
+<pre><code># Plik /etc/systemd/system/myapp.service
+[Unit]
+Description=Moja aplikacja Node.js
+After=network.target
+
+[Service]
+Type=simple
+User=appuser
+Group=appuser
+WorkingDirectory=/opt/myapp
+Environment="NODE_ENV=production"
+ExecStart=/usr/bin/node /opt/myapp/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Limity zasobow
+LimitNOFILE=65535
+MemoryMax=512M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target</code></pre>
+
+<pre><code># Po utworzeniu pliku przeladuj systemd
+sudo systemctl daemon-reload
+
+# Wlacz i uruchom
+sudo systemctl enable --now myapp
+
+# Sprawdz logi
+sudo journalctl -u myapp -f</code></pre>
+
+<h2>journalctl - logi systemd</h2>
+<pre><code># Wszystkie logi systemu
+journalctl
+
+# Tylko z biezacego boot
+journalctl -b
+
+# Z poprzedniego boot (-1)
+journalctl -b -1
+
+# Logi konkretnej uslugi
+journalctl -u nginx
+journalctl -u nginx -f          # follow (jak tail -f)
+
+# Z ostatniej godziny
+journalctl --since "1 hour ago"
+
+# Konkretny zakres czasu
+journalctl --since "2026-05-01" --until "2026-05-07 12:00"
+
+# Tylko bledy
+journalctl -p err
+
+# Logi konkretnego procesu po PID
+journalctl _PID=1234
+
+# Format JSON (do parsowania)
+journalctl -u nginx -o json
+
+# Rozmiar logow
+journalctl --disk-usage
+
+# Ograniczenie rozmiaru w /etc/systemd/journald.conf:
+# SystemMaxUse=500M
+# MaxRetentionSec=1month</code></pre>
+
+<h2>cgroups v2</h2>
+<p><strong>cgroups</strong> (control groups) to mechanizm jadra Linux do ograniczania zasobow grup procesow. systemd korzysta z cgroups v2 do nakladania limitow na uslugi. Docker, Kubernetes opieraja sie na cgroups.</p>
+
+<pre><code># Sprawdzenie wersji cgroups (Ubuntu 22+ uzywa v2)
+mount | grep cgroup
+
+# Status uslugi - widac uzycie zasobow z cgroups
+systemd-cgls
+systemd-cgtop
+
+# Limity ustawiane bezposrednio w pliku .service:
+# MemoryMax=2G
+# CPUQuota=50%
+# IOWeight=100
+# TasksMax=500
+
+# Tymczasowa zmiana limitu uslugi
+sudo systemctl set-property nginx.service MemoryMax=1G</code></pre>
+
+<h2>Monitorowanie zasobow</h2>
+<pre><code># Instalacja narzedzi
+sudo apt install sysstat iotop nethogs
+
+# Aktywnosc CPU i pamieci (interwaly co 1s)
+vmstat 1
+
+# Statystyki I/O dyskow
+iostat -x 1
+iotop -o      # tylko aktywne procesy I/O
+
+# Statystyki sieci per process
+sudo nethogs
+
+# Historyczne dane (sysstat)
+sar -u 1 5    # CPU
+sar -r 1 5    # pamiec
+sar -n DEV 1  # siec
+
+# Wolne miejsce na dyskach
+df -h
+
+# Rozmiary katalogow
+du -sh /var/log/*
+
+# Otwarte pliki przez proces
+lsof -p 1234
+
+# Otwarte porty
+sudo lsof -i -P -n | grep LISTEN
+sudo ss -tulpn</code></pre>
+
+<h2>Stack monitoringu - Prometheus + Grafana</h2>
+<p>Standardem w monitoringu Linuxa jest stos <strong>Prometheus</strong> (zbieranie metryk) + <strong>Grafana</strong> (wizualizacja) + <strong>node_exporter</strong> (agent na serwerze).</p>
+
+<pre><code># Instalacja node_exporter (eksporter metryk hosta)
+wget https://github.com/prometheus/node_exporter/releases/download/v1.8.0/node_exporter-1.8.0.linux-amd64.tar.gz
+tar xvfz node_exporter-1.8.0.linux-amd64.tar.gz
+sudo cp node_exporter-1.8.0.linux-amd64/node_exporter /usr/local/bin/
+
+# Stworzenie uslugi systemd
+sudo tee /etc/systemd/system/node_exporter.service &lt;&lt;EOF
+[Unit]
+Description=Node Exporter
+After=network.target
+
+[Service]
+User=nobody
+ExecStart=/usr/local/bin/node_exporter
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl enable --now node_exporter
+
+# Metryki dostepne pod http://serwer:9100/metrics
+curl http://localhost:9100/metrics | head</code></pre>
+
+<div class="card">
+<strong>Diagnostyka problemow z wydajnoscia:</strong>
+<ol>
+<li>CPU bottleneck: <code>top</code>, <code>htop</code> - sprawdz load average</li>
+<li>Pamiec: <code>free -h</code>, <code>vmstat 1</code> - obserwuj swap</li>
+<li>I/O dyskow: <code>iotop</code>, <code>iostat -x 1</code> - patrz na %util</li>
+<li>Siec: <code>iftop</code>, <code>nethogs</code> - kto generuje ruch</li>
+<li>Konkretny proces: <code>strace -p PID</code>, <code>ltrace -p PID</code></li>
+</ol>
+</div>
+
+<div class="nav-bottom">
+<a href="03-uzytkownicy-i-uprawnienia.html">&larr; Uzytkownicy i uprawnienia</a>
+<a href="05-siec-i-firewall.html">Siec i firewall &rarr;</a>
+</div>
+</div>
+</body>
+</html>

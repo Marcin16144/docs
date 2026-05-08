@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy Blazor WebAssembly</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor WebAssembly</a><span class="sep">/</span><span class="title">Podstawy</span></div>
+<div class="container">
+<h1>Podstawy Blazor WebAssembly</h1>
+<p class="subtitle">WebAssembly basics, .NET runtime w przegladarce, hosting statyczny</p>
+
+<h2>Czym jest WebAssembly?</h2>
+<p><strong>WebAssembly</strong> (WASM) to standard przegladarkowy &mdash; binarny format kodu wykonywany w sandboxie obok JavaScript. Powstal z myslen o jezykach takich jak C, C++, Rust &mdash; ale .NET runtime tez dziala w WASM.</p>
+
+<h2>Architektura Blazor WASM</h2>
+<p>W Blazor WebAssembly:</p>
+<ol>
+<li>Przegladarka pobiera mono runtime (~2 MB skompresowane)</li>
+<li>Runtime startuje i ladowa pliki .dll z aplikacji</li>
+<li>Aplikacja wykonuje sie <strong>cala w przegladarce</strong> &mdash; brak serwera potrzebnego po starcie</li>
+<li>HTTP calls ida do dowolnego API (CORS-aware)</li>
+<li>UI updates sa lokalne &mdash; brak round-tripow</li>
+</ol>
+
+<h2>Plusy i minusy</h2>
+
+<h3>Plusy</h3>
+<ul>
+<li>Aplikacja jest <strong>statyczna</strong> &mdash; hostuj na CDN, S3, Netlify, GitHub Pages</li>
+<li>Niska latencja (UI lokalne)</li>
+<li>Dziala offline (po pobraniu)</li>
+<li>Skaluje sie do milionow uzytkownikow (brak serwera state)</li>
+<li>Brak wymagan WebSocket / sticky sessions</li>
+<li>Pelny C# w przegladarce &mdash; LINQ, Tasks, JsonSerializer</li>
+</ul>
+
+<h3>Minusy</h3>
+<ul>
+<li><strong>Duzy bundle</strong> &mdash; runtime ~2 MB + dlls (typowo 4-8 MB total skompresowane)</li>
+<li><strong>Wolniejsze pierwsze ladowanie</strong> niz Blazor Server</li>
+<li>Kod aplikacji idzie do klienta &mdash; wrazliwa logika musi byc w API</li>
+<li>Wolniejsza wykonanie niz natywne JS (~2-5x dla typowych operacji)</li>
+<li>Brak dostepu do server-only API (musisz stworzyc REST API)</li>
+</ul>
+
+<h2>Tworzenie projektu</h2>
+<pre><code># .NET 9
+dotnet new blazorwasm -o MyWasmApp
+
+# Z prerendering + hosting backend
+dotnet new blazorwasm -o MyWasmApp --hosted
+
+cd MyWasmApp
+dotnet run</code></pre>
+
+<h3>Struktura</h3>
+<pre><code>MyWasmApp/
+  Program.cs              # Entry point WASM
+  App.razor              # Root komponent
+  Components/
+    Pages/
+      Home.razor
+      Counter.razor
+  wwwroot/
+    index.html           # Static HTML loader
+    css/
+    js/
+  appsettings.json</code></pre>
+
+<h2>Program.cs (WASM)</h2>
+<pre><code>var builder = WebAssemblyHostBuilder.CreateDefault(args);
+builder.RootComponents.Add&lt;App&gt;("#app");
+builder.RootComponents.Add&lt;HeadOutlet&gt;("head::after");
+
+builder.Services.AddScoped(sp =&gt; new HttpClient
+{
+    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
+});
+
+await builder.Build().RunAsync();</code></pre>
+
+<h2>index.html &mdash; loader</h2>
+<pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="pl"&gt;
+&lt;head&gt;
+    &lt;meta charset="utf-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;My WASM App&lt;/title&gt;
+    &lt;base href="/"&gt;
+    &lt;link rel="stylesheet" href="css/site.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div id="app"&gt;
+        &lt;div class="loading"&gt;Ladowanie...&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;script src="_framework/blazor.webassembly.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h2>Hosting</h2>
+
+<h3>Statyczny hosting</h3>
+<p>Po publish dostajesz folder <code>wwwroot</code> ze wszystkim potrzebnym. Mozesz wgrac na:</p>
+<ul>
+<li>Azure Static Web Apps (free tier)</li>
+<li>Netlify (free)</li>
+<li>Vercel</li>
+<li>GitHub Pages (z workaround dla SPA)</li>
+<li>AWS S3 + CloudFront</li>
+<li>Cloudflare Pages</li>
+<li>Wlasny nginx / Apache / IIS</li>
+</ul>
+
+<pre><code>dotnet publish -c Release -o publish
+# Upload publish/wwwroot na CDN/S3/Netlify</code></pre>
+
+<h3>nginx config</h3>
+<pre><code>server {
+    listen 443 ssl;
+    server_name app.example.com;
+    root /var/www/myapp/wwwroot;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache .dll, .wasm
+    location ~* \.(dll|wasm|pdb|js|css)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        gzip_static on;
+    }
+
+    # MIME types
+    types {
+        application/wasm wasm;
+        application/octet-stream dll;
+    }
+}</code></pre>
+
+<h2>Bundle size</h2>
+<p>Typowy nowy projekt blazorwasm po publish:</p>
+<table>
+<thead><tr><th>Konfiguracja</th><th>Total size</th><th>Skompresowane (Brotli)</th></tr></thead>
+<tbody>
+<tr><td>Default debug</td><td>~30 MB</td><td>~10 MB</td></tr>
+<tr><td>Release</td><td>~10 MB</td><td>~3-4 MB</td></tr>
+<tr><td>Release + IL Linker</td><td>~5 MB</td><td>~2 MB</td></tr>
+<tr><td>Release + AOT</td><td>~25 MB (5x wiekszy!)</td><td>~8 MB (ale 2-10x szybszy)</td></tr>
+</tbody>
+</table>
+
+<h2>Pierwsze ladowanie &mdash; co sie dzieje</h2>
+<ol>
+<li>Przegladarka pobiera <code>index.html</code> (~5 KB)</li>
+<li>Pobiera <code>blazor.webassembly.js</code> (~80 KB)</li>
+<li>Pobiera <code>dotnet.wasm</code> i <code>dotnet.runtime.js</code> (~2 MB)</li>
+<li>Pobiera dlls aplikacji (~5-10 MB skompresowane)</li>
+<li>Mono runtime startuje, JIT kompiluje, aplikacja wystartowala</li>
+</ol>
+<p>Total typowo: 3-10 sekund na slabym mobile, 1-2 sekundy na desktop.</p>
+
+<h2>Lifecycle WASM</h2>
+<pre><code>// Program.cs
+var builder = WebAssemblyHostBuilder.CreateDefault(args);
+// rejestracja services...
+var app = builder.Build();
+
+// Przed pierwszym renderem
+await app.Services.GetRequiredService&lt;IConfigurationService&gt;().LoadAsync();
+
+await app.RunAsync(); // Uruchamia komponenty</code></pre>
+
+<h2>Komunikacja z API</h2>
+<pre><code>// Service
+public class ProductService
+{
+    private readonly HttpClient http;
+
+    public ProductService(HttpClient http)
+    {
+        this.http = http;
+    }
+
+    public async Task&lt;List&lt;Product&gt;&gt; GetAllAsync()
+    {
+        return await http.GetFromJsonAsync&lt;List&lt;Product&gt;&gt;("api/products") ?? new();
+    }
+
+    public async Task&lt;Product&gt; CreateAsync(Product product)
+    {
+        var res = await http.PostAsJsonAsync("api/products", product);
+        return await res.Content.ReadFromJsonAsync&lt;Product&gt;() ?? product;
+    }
+}</code></pre>
+
+<h2>Hosted vs standalone</h2>
+<table>
+<thead><tr><th>Mode</th><th>Charakterystyka</th></tr></thead>
+<tbody>
+<tr><td>Hosted</td><td>WASM client + ASP.NET Core API w jednym solution. Idealny dla full-stack .NET.</td></tr>
+<tr><td>Standalone</td><td>Sam WASM client, API jest gdzie indziej (Node.js, Python, etc).</td></tr>
+</tbody>
+</table>
+
+<h2>PWA &mdash; Progressive Web App</h2>
+<p>Blazor WASM ma wbudowany support dla PWA:</p>
+<pre><code>dotnet new blazorwasm --pwa</code></pre>
+<p>Generuje <code>service-worker.js</code>, <code>manifest.json</code> &mdash; aplikacja moze byc instalowana, dziala offline.</p>
+
+<h2>Kiedy wybrac Blazor WASM?</h2>
+<ul>
+<li>Public-facing aplikacje (mobile, masowi uzytkownicy)</li>
+<li>Aplikacje, ktore musza dzialac offline</li>
+<li>Hosting na CDN / static hosting (taniej niz server)</li>
+<li>Multi-region distribution</li>
+<li>Wysoka odpornosc na disconnects</li>
+<li>Aplikacje typu SPA z ciezka interaktywnoscia (drawing apps, editors)</li>
+</ul>
+
+<h2>Kiedy NIE wybrac WASM?</h2>
+<ul>
+<li>Pierwsze ladowanie ma byc &lt;1s &mdash; uzyj Blazor Server lub United</li>
+<li>Wymagana ochrona kodu &mdash; cala logika idzie do klienta</li>
+<li>Wymaga real-time push z servera &mdash; uzyj SignalR client</li>
+<li>Heavy compute &mdash; WASM jest 2-5x wolniejszy niz natywne</li>
+</ul>
+
+<div class="card">
+<h3>Tipy dla rozpoczecia</h3>
+<ul>
+<li>Zaczynaj od <code>--hosted</code> jesli backend tez piszesz w .NET</li>
+<li>Wlacz Brotli compression w hostingu (3x mniejsze pliki)</li>
+<li>Cache headers <code>immutable</code> dla .dll i .wasm</li>
+<li>Cache busting przez <code>?v={version}</code> dla index.html</li>
+<li>Service worker dla offline &mdash; setup PWA</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="index.html">&larr; Powrot do Blazor WASM</a>
+<a href="02-bundle-size-i-aot.html">Bundle size i AOT &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>State management</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">React.js</a><span class="sep">/</span><span class="title">State management</span></div>
+<div class="container">
+<h1>State management</h1>
+<p class="subtitle">Context, Zustand, Redux Toolkit, Jotai, Valtio i Tanstack Query</p>
+
+<h2>Client state vs Server state</h2>
+<p>Wazne rozroznienie w 2026:</p>
+<ul>
+<li><strong>Client state</strong> &mdash; UI state (modale, formy, theme, koszyk). Zustand, Jotai, Context.</li>
+<li><strong>Server state</strong> &mdash; dane z API/DB. Cache, refetch, invalidacja. <strong>Tanstack Query</strong>, SWR.</li>
+</ul>
+<p>Mieszanie tych dwoch to czesty blad &mdash; do server state nie uzywaj Reduksa, uzyj Tanstack Query.</p>
+
+<h2>Context API &mdash; ograniczenia</h2>
+<p>Context to wbudowany mechanizm, ale ma <strong>ograniczenia</strong>:</p>
+<ul>
+<li>Brak selektorow &mdash; <strong>kazda</strong> zmiana wartosci powoduje rerender wszystkich konsumentow</li>
+<li>Pisac duzo boilerplate (Provider, Context, hook)</li>
+<li>Trudne dla zlozonego state</li>
+</ul>
+<p>Dla prostych przypadkow (theme, lokalizacja, auth) Context wystarcza. Dla zlozonego state &mdash; biblioteka.</p>
+
+<h2>Zustand &mdash; #1 popularnosci 2026</h2>
+<p><strong>Zustand</strong> to minimalistyczna biblioteka. Brak Providerow, malo boilerplate, dziala bez Reacta. Zastapila Redux dla wiekszosci projektow.</p>
+
+<pre><code>// store.js
+import { create } from 'zustand';
+
+export const useStore = create((set, get) =&gt; ({
+  count: 0,
+  user: null,
+  todos: [],
+
+  increment: () =&gt; set(state =&gt; ({ count: state.count + 1 })),
+  setUser: (user) =&gt; set({ user }),
+  addTodo: (text) =&gt; set(state =&gt; ({ todos: [...state.todos, { id: Date.now(), text }] })),
+  removeTodo: (id) =&gt; set(state =&gt; ({ todos: state.todos.filter(t =&gt; t.id !== id) })),
+
+  // get() &mdash; dostep do aktualnego state poza setterem
+  doubleCount: () =&gt; get().count * 2,
+}));
+
+// Komponent
+function Counter() {
+  const count = useStore(s =&gt; s.count);          // selektor &mdash; rerender tylko przy zmianie count
+  const increment = useStore(s =&gt; s.increment);
+  return &lt;button onClick={increment}&gt;Count: {count}&lt;/button&gt;;
+}</code></pre>
+
+<div class="card">
+<h3>Zalety Zustand</h3>
+<ul>
+<li>Mala paczka (1 KB gzip)</li>
+<li>Brak Provider hell &mdash; nie trzeba opakowywac aplikacji</li>
+<li>Selektory &mdash; tylko te komponenty rerendruja, ktore widza zmiane</li>
+<li>Middleware: persist (localStorage), devtools (Redux DevTools), immer</li>
+<li>Latwe slice pattern dla duzych aplikacji</li>
+</ul>
+</div>
+
+<h2>Redux Toolkit (RTK)</h2>
+<p>Redux nadal popularny w korporacyjnych projektach. <strong>Redux Toolkit</strong> to oficjalny tooling &mdash; eliminuje stary boilerplate.</p>
+
+<pre><code>// store/cartSlice.js
+import { createSlice } from '@reduxjs/toolkit';
+
+const cartSlice = createSlice({
+  name: 'cart',
+  initialState: { items: [] },
+  reducers: {
+    addItem: (state, action) =&gt; { state.items.push(action.payload); }, // immer pod spodem
+    removeItem: (state, action) =&gt; {
+      state.items = state.items.filter(i =&gt; i.id !== action.payload);
+    },
+  },
+});
+
+export const { addItem, removeItem } = cartSlice.actions;
+export default cartSlice.reducer;
+
+// store/index.js
+import { configureStore } from '@reduxjs/toolkit';
+import cart from './cartSlice';
+
+export const store = configureStore({ reducer: { cart } });
+
+// Komponent
+import { useSelector, useDispatch } from 'react-redux';
+
+function Cart() {
+  const items = useSelector(s =&gt; s.cart.items);
+  const dispatch = useDispatch();
+  return (
+    &lt;ul&gt;
+      {items.map(i =&gt; (
+        &lt;li key={i.id}&gt;{i.name}
+          &lt;button onClick={() =&gt; dispatch(removeItem(i.id))}&gt;X&lt;/button&gt;
+        &lt;/li&gt;
+      ))}
+    &lt;/ul&gt;
+  );
+}</code></pre>
+
+<h2>Jotai &mdash; atomic state</h2>
+<p><strong>Jotai</strong> opiera sie na <strong>atomach</strong> &mdash; malych jednostkach state. Inspirowane Recoilem (od FB, ale porzucony). Idealne gdy state jest mocno granularny.</p>
+
+<pre><code>import { atom, useAtom } from 'jotai';
+
+const countAtom = atom(0);
+const doubleAtom = atom(get =&gt; get(countAtom) * 2);
+const userAtom = atom({ name: '', email: '' });
+
+function Counter() {
+  const [count, setCount] = useAtom(countAtom);
+  const [double] = useAtom(doubleAtom);
+  return (
+    &lt;&gt;
+      &lt;p&gt;Count: {count}, double: {double}&lt;/p&gt;
+      &lt;button onClick={() =&gt; setCount(c =&gt; c + 1)}&gt;+&lt;/button&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+
+<h2>Valtio &mdash; proxy-based</h2>
+<p><strong>Valtio</strong> uzywa <strong>Proxy</strong> &mdash; mutujesz obiekt jak normalny JS, a komponenty automatycznie widzia zmiany. Najprostsze API ze wszystkich.</p>
+
+<pre><code>import { proxy, useSnapshot } from 'valtio';
+
+const state = proxy({ count: 0, user: { name: 'Anna' } });
+
+// Mutacja gdziekolwiek
+state.count++;
+state.user.name = 'Jan';
+
+function Comp() {
+  const snap = useSnapshot(state); // immutable snapshot &mdash; rerender przy zmianie
+  return &lt;p&gt;{snap.count} &mdash; {snap.user.name}&lt;/p&gt;;
+}</code></pre>
+
+<h2>Tanstack Query &mdash; server state</h2>
+<p><strong>Tanstack Query</strong> (dawniej React Query) to <strong>obowiazkowa</strong> biblioteka dla server state. Cache, deduplication, background refetch, optimistic updates &mdash; wszystko na pokladzie.</p>
+
+<pre><code>// main.jsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+
+createRoot(document.getElementById('root')).render(
+  &lt;QueryClientProvider client={queryClient}&gt;
+    &lt;App /&gt;
+  &lt;/QueryClientProvider&gt;
+);
+
+// Komponent
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+function Posts() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['posts'],
+    queryFn: async () =&gt; (await fetch('/api/posts')).json(),
+    staleTime: 60_000,
+  });
+
+  if (isLoading) return &lt;p&gt;Ladowanie...&lt;/p&gt;;
+  if (error) return &lt;p&gt;Blad: {error.message}&lt;/p&gt;;
+  return &lt;ul&gt;{data.map(p =&gt; &lt;li key={p.id}&gt;{p.title}&lt;/li&gt;)}&lt;/ul&gt;;
+}
+
+function NewPost() {
+  const qc = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (post) =&gt; fetch('/api/posts', { method: 'POST', body: JSON.stringify(post) }),
+    onSuccess: () =&gt; qc.invalidateQueries({ queryKey: ['posts'] }),
+  });
+  return &lt;button onClick={() =&gt; mutation.mutate({ title: 'Nowy' })}&gt;Dodaj&lt;/button&gt;;
+}</code></pre>
+
+<h2>Porownanie</h2>
+<table>
+<thead><tr><th>Biblioteka</th><th>Rozmiar</th><th>Boilerplate</th><th>Krzywa nauki</th><th>Use case</th></tr></thead>
+<tbody>
+<tr><td>Context API</td><td>0 KB (built-in)</td><td>Sredni</td><td>Niska</td><td>Theme, auth, prosty state</td></tr>
+<tr><td>Zustand</td><td>1 KB</td><td>Minimalny</td><td>Niska</td><td>Wiekszosc projektow &mdash; uniwersalne</td></tr>
+<tr><td>Redux Toolkit</td><td>~12 KB</td><td>Sredni</td><td>Sredni</td><td>Korporacyjne, time-travel debug</td></tr>
+<tr><td>Jotai</td><td>~3 KB</td><td>Maly</td><td>Niska</td><td>Granularny state, derived values</td></tr>
+<tr><td>Valtio</td><td>~3 KB</td><td>Najmniejszy</td><td>Niska</td><td>Mutowalny styl, prototypy</td></tr>
+<tr><td>Tanstack Query</td><td>~14 KB</td><td>Maly</td><td>Sredni</td><td>Server state &mdash; ZAWSZE dla API</td></tr>
+</tbody>
+</table>
+
+<h2>Co wybrac w 2026?</h2>
+<div class="card">
+<h3>Rekomendacja</h3>
+<ul>
+<li><strong>Server state</strong> &rarr; <strong>Tanstack Query</strong> (zawsze, niezaleznie od reszty)</li>
+<li><strong>Client state &mdash; nowy projekt</strong> &rarr; <strong>Zustand</strong> (najlepsza prostota/moc)</li>
+<li><strong>Korporacyjny projekt z time-travel</strong> &rarr; Redux Toolkit</li>
+<li><strong>Mocno granularny state</strong> &rarr; Jotai</li>
+<li><strong>Tylko theme/auth</strong> &rarr; Context</li>
+<li><strong>Server Components (Next.js 15)</strong> &rarr; data na serwerze, mniej client state</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="03-react-19-features.html">&larr; React 19 features</a>
+<a href="05-routing.html">Routing &rarr;</a>
+</div>
+</div>
+</body>
+</html>

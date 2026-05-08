@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>05 — Bezpieczenstwo aplikacji Rust</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ce422b;--accent-hover:#e85d2f;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-left:4px solid var(--green)}.card.red{border-left:4px solid var(--red)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+        .yes{color:var(--green);font-weight:600}.no{color:var(--red);font-weight:600}.warn{color:var(--orange);font-weight:600}
+    </style>
+</head>
+<body>
+    <div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">Jezyki</a><span class="sep">/</span><a href="index.html">Rust</a><span class="sep">/</span><span class="title">Bezpieczenstwo aplikacji</span></div>
+    <div class="container">
+        <h1>Bezpieczenstwo aplikacji Rust</h1>
+        <p class="subtitle">Co Rust gwarantuje na poziomie kompilatora, gdzie sa pulapki i jak chronic produkcyjne aplikacje przed atakami.</p>
+
+        <h2>Memory safety guarantees</h2>
+
+        <p>Rust gwarantuje na poziomie kompilatora wiekszosc bledow, ktore stanowily 60-70% CVE w C i C++ przez ostatnie 30 lat. Microsoft Security Response Center zglosil w 2019, ze 70% bledow security w produktach MS to memory safety bugs. Google podal podobne dane dla Chrome.</p>
+
+        <table>
+            <thead><tr><th>Klasa bledu</th><th>C/C++</th><th>Rust safe code</th><th>Rust unsafe</th></tr></thead>
+            <tbody>
+                <tr><td>Use-after-free</td><td class="no">Mozliwe</td><td class="yes">Niemozliwe</td><td class="warn">Mozliwe</td></tr>
+                <tr><td>Double-free</td><td class="no">Mozliwe</td><td class="yes">Niemozliwe</td><td class="warn">Mozliwe</td></tr>
+                <tr><td>Buffer overflow (heap)</td><td class="no">Mozliwe</td><td class="yes">Niemozliwe</td><td class="warn">Mozliwe</td></tr>
+                <tr><td>Buffer overflow (stack)</td><td class="no">Mozliwe</td><td class="yes">Bounds check runtime</td><td class="warn">Mozliwe</td></tr>
+                <tr><td>Null pointer dereference</td><td class="no">Mozliwe</td><td class="yes">Brak null (Option)</td><td class="warn">Raw ptr — mozliwe</td></tr>
+                <tr><td>Data race (concurrent)</td><td class="no">Mozliwe</td><td class="yes">Niemozliwe (Send/Sync)</td><td class="warn">Mozliwe</td></tr>
+                <tr><td>Iterator invalidation</td><td class="no">Mozliwe</td><td class="yes">Niemozliwe (borrow checker)</td><td class="warn">Mozliwe</td></tr>
+                <tr><td>Uninitialized memory</td><td class="no">Mozliwe</td><td class="yes">Niemozliwe</td><td class="warn">Mozliwe (MaybeUninit)</td></tr>
+                <tr><td>Type confusion</td><td class="no">Mozliwe</td><td class="yes">Niemozliwe</td><td class="warn">Mozliwe (transmute)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>unsafe — kiedy i jak ostroznie</h2>
+
+        <p><code>unsafe</code> blok wylacza niektore checki kompilatora w celu umozliwienia operacji niskopoziomowych. To NIE oznacza "dowolny kod" — wciaz dziala typing, lifetimes i wiekszosc analiz.</p>
+
+        <h3>Kiedy unsafe jest konieczny</h3>
+
+        <ul>
+            <li><strong>FFI</strong> — wywolywanie funkcji C/C++ (np. systemowe API, OpenSSL)</li>
+            <li><strong>Raw pointers</strong> — implementacja kontenerow data structures (np. Vec, HashMap)</li>
+            <li><strong>SIMD / intrinsics</strong> — instrukcje CPU bezposrednio (AVX, NEON)</li>
+            <li><strong>Embedded</strong> — dostep do MMIO registers, peripheriow</li>
+            <li><strong>Optymalizacja</strong> — gdy compiler nie umie udowodnic, ze bezpieczne</li>
+        </ul>
+
+        <pre><code>// FFI — wywolanie C
+extern "C" {
+    fn abs(input: i32) -&gt; i32;
+}
+
+fn main() {
+    unsafe {
+        println!("|{}| = {}", -3, abs(-3));
+    }
+}
+
+// Dereferencja raw pointer
+let mut x = 10;
+let r1 = &amp;x as *const i32;       // OK, tylko tworzenie
+let r2 = &amp;mut x as *mut i32;     // OK
+unsafe {
+    println!("r1: {}", *r1);     // unsafe — dereferencja
+    *r2 = 20;
+}</code></pre>
+
+        <h3>Dyscyplina unsafe</h3>
+
+        <ol>
+            <li>Zrob blok unsafe jak najmniejszy</li>
+            <li>Zawiniaj go w bezpieczny API ("safe abstraction over unsafe")</li>
+            <li>Dokumentuj inwarianty komentarzami <code>// SAFETY: ...</code></li>
+            <li>Audit przez kogos drugiego (peer review obowiazkowy)</li>
+            <li>Uruchamiaj <strong>Miri</strong> dla wykrywania UB</li>
+            <li>Rozwaz fuzzing (cargo-fuzz) dla niskopoziomowych funkcji</li>
+        </ol>
+
+        <h2>Typowe bledy mimo Rust</h2>
+
+        <p>Rust nie chroni przed wszystkim. Logic bugs, blad w validacji wejscia, race condition na poziomie aplikacji — to wciaz problem programisty.</p>
+
+        <h3>Integer overflow</h3>
+
+        <p>W debug build Rust panicuje przy przepelnieniu. W release domysnie wraps (jak C). Trzeba byc swiadomym i uzywac dedykowanych metod:</p>
+
+        <pre><code>let a: u8 = 200;
+let b: u8 = 100;
+
+// W release: a + b = 44 (wrap), w debug: panic
+let suma = a + b;
+
+// Bezpieczne warianty:
+let suma = a.checked_add(b);              // Option (None gdy overflow)
+let suma = a.wrapping_add(b);             // explicit wrap
+let suma = a.saturating_add(b);           // 255 (clamp do max)
+let (suma, overflow) = a.overflowing_add(b); // (44, true)</code></pre>
+
+        <h3>SQL injection — uzywaj parametryzacji</h3>
+
+        <pre><code>// ZLE — vulnerable
+let q = format!("SELECT * FROM users WHERE id = {}", user_input);
+
+// DOBRZE — sqlx z compile-time check
+let user = sqlx::query_as!(
+    Uzytkownik,
+    "SELECT id, imie, email FROM users WHERE id = $1",
+    user_id
+).fetch_one(&amp;pool).await?;</code></pre>
+
+        <h3>XSS — uzywaj template engines z auto-escape</h3>
+
+        <ul>
+            <li><strong>askama</strong> — Jinja-inspired, compile-time templates, auto-escape HTML domyslnie</li>
+            <li><strong>tera</strong> — runtime templates (jak Liquid), auto-escape</li>
+            <li><strong>maud</strong> — type-safe HTML jako Rust macro</li>
+        </ul>
+
+        <pre><code>// askama — auto-escape
+use askama::Template;
+
+#[derive(Template)]
+#[template(path = "user.html")]
+struct UserTpl&lt;'a&gt; {
+    imie: &amp;'a str,
+    bio: &amp;'a str,  // automatycznie escape gdy {{ bio }}
+}</code></pre>
+
+        <h3>Deserialization attacks</h3>
+
+        <p>Serde domyslnie jest bezpieczny — nie pozwala na deserializacje arbitrarnych typow z prymitywem (jak Java/Python pickle). Ale walidacja pol pozostaje obowiazkiem.</p>
+
+        <pre><code>use serde::Deserialize;
+use validator::{Validate, ValidationError};
+
+#[derive(Deserialize, Validate)]
+struct RejestracjaForm {
+    #[validate(email)]
+    email: String,
+
+    #[validate(length(min = 8, max = 128))]
+    haslo: String,
+
+    #[validate(range(min = 18, max = 120))]
+    wiek: u8,
+}</code></pre>
+
+        <h2>Narzedzia bezpieczenstwa</h2>
+
+        <h3>cargo-audit — skanowanie CVE</h3>
+
+        <p>Sprawdza zaleznosci pod katem znanych podatnosci z bazy <strong>RustSec Advisory Database</strong> (rustsec.org).</p>
+
+        <pre><code># Instalacja
+cargo install cargo-audit
+
+# Skan projektu
+cd moj_projekt
+cargo audit
+
+# Output:
+# Crate:     openssl
+# Version:   0.10.55
+# Title:     Use-after-free in openssl
+# Date:      2026-01-15
+# ID:        RUSTSEC-2026-0001
+# Severity:  HIGH
+# Solution:  Upgrade to &gt;=0.10.62
+
+# W CI/CD:
+cargo audit --deny warnings</code></pre>
+
+        <h3>cargo-deny — polityki dla zaleznosci</h3>
+
+        <p>Pozwala na enforcing licenses, blokowanie konkretnych crates, sprawdzanie duplikatow, polityki source.</p>
+
+        <pre><code># Cargo.toml deny.toml
+[bans]
+multiple-versions = "warn"
+deny = [
+    { name = "openssl", reason = "uzywaj rustls" },
+]
+
+[licenses]
+allow = ["MIT", "Apache-2.0", "BSD-3-Clause"]
+deny = ["GPL-3.0"]
+
+[advisories]
+ignore = []
+vulnerability = "deny"</code></pre>
+
+        <h3>cargo-fuzz — fuzzing</h3>
+
+        <p>Generowanie losowych inputow do wykrywania crashes i UB. Bazuje na libFuzzer (LLVM).</p>
+
+        <pre><code>cargo install cargo-fuzz
+cargo fuzz init
+cargo fuzz add parsuj_dane
+
+# fuzz/fuzz_targets/parsuj_dane.rs
+#![no_main]
+use libfuzzer_sys::fuzz_target;
+
+fuzz_target!(|data: &amp;[u8]| {
+    if let Ok(s) = std::str::from_utf8(data) {
+        let _ = moja_lib::parsuj(s);  // szukamy crash
+    }
+});
+
+cargo fuzz run parsuj_dane</code></pre>
+
+        <h3>Miri — Undefined Behavior detection</h3>
+
+        <p>Interpreter MIR (Mid-level IR Rust). Wykrywa UB w unsafe code: out-of-bounds, uninitialized memory, alignment violations, data races.</p>
+
+        <pre><code>rustup +nightly component add miri
+cargo +nightly miri test</code></pre>
+
+        <h2>Kryptografia — RustCrypto i alternatywy</h2>
+
+        <p><strong>RustCrypto</strong> to organizacja na GitHub utrzymujaca pure-Rust implementacje algorytmow. Zaleta: brak zaleznosci od OpenSSL i C kodu.</p>
+
+        <table>
+            <thead><tr><th>Cel</th><th>Crate</th><th>Uwagi</th></tr></thead>
+            <tbody>
+                <tr><td>Hash</td><td>sha2, sha3, blake3</td><td>RustCrypto + blake3 osobno</td></tr>
+                <tr><td>HMAC / KDF</td><td>hmac, hkdf, pbkdf2</td><td>RustCrypto</td></tr>
+                <tr><td>Symmetric (AES)</td><td>aes-gcm, chacha20poly1305</td><td>RustCrypto AEAD</td></tr>
+                <tr><td>Asymmetric / signing</td><td>ed25519-dalek, rsa, k256</td><td>Curve25519 = ed25519-dalek</td></tr>
+                <tr><td>Curve25519 / X25519</td><td>x25519-dalek, curve25519-dalek</td><td>Audytowana implementacja</td></tr>
+                <tr><td>Random (CSPRNG)</td><td>rand + rand_chacha</td><td>OsRng dla cryptography</td></tr>
+                <tr><td>Password hashing</td><td>argon2, scrypt, bcrypt</td><td>argon2 = OWASP recommendation</td></tr>
+                <tr><td>TLS</td><td>rustls</td><td>Modern alternative dla OpenSSL, pure Rust</td></tr>
+                <tr><td>Lower-level crypto</td><td>ring</td><td>BoringSSL bindings, audytowane</td></tr>
+            </tbody>
+        </table>
+
+        <h3>rustls — TLS bez OpenSSL</h3>
+
+        <p><strong>rustls</strong> stanowi modern alternative dla OpenSSL. Memory-safe (Rust), audytowane, brak gigantycznej historii CVE jaka ma OpenSSL. Uzywany przez Cloudflare, AWS, NPM, hyperium.</p>
+
+        <pre><code>// Cargo.toml
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
+// Kod — TLS dziala automatycznie
+let resp = reqwest::get("https://api.example.com/data")
+    .await?
+    .json::&lt;serde_json::Value&gt;()
+    .await?;</code></pre>
+
+        <h2>Web app security — typowe wzorce</h2>
+
+        <h3>Password hashing — argon2</h3>
+
+        <pre><code>use argon2::{Argon2, password_hash::{
+    PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng
+}};
+use argon2::PasswordHash;
+
+fn hashuj_haslo(haslo: &amp;str) -&gt; Result&lt;String, argon2::password_hash::Error&gt; {
+    let salt = SaltString::generate(&amp;mut OsRng);
+    let argon2 = Argon2::default();
+    let hash = argon2.hash_password(haslo.as_bytes(), &amp;salt)?.to_string();
+    Ok(hash)
+}
+
+fn weryfikuj_haslo(haslo: &amp;str, hash: &amp;str) -&gt; bool {
+    let parsed = match PasswordHash::new(hash) {
+        Ok(h) =&gt; h,
+        Err(_) =&gt; return false,
+    };
+    Argon2::default().verify_password(haslo.as_bytes(), &amp;parsed).is_ok()
+}</code></pre>
+
+        <h3>JWT</h3>
+
+        <p>Crate <strong>jsonwebtoken</strong> — najpopularniejsza biblioteka. Wspiera HS256, RS256, ES256, EdDSA. Uwaga: nigdy nie uzywaj <code>algorithm: "none"</code>.</p>
+
+        <h3>OAuth2</h3>
+
+        <p>Crate <strong>oauth2</strong> implementuje wszystkie flow (authorization code z PKCE, client credentials, device code). Bezpieczny i type-safe.</p>
+
+        <h2>OWASP Top 10 — Rust web apps</h2>
+
+        <table>
+            <thead><tr><th>OWASP risk</th><th>Rust mitigation</th></tr></thead>
+            <tbody>
+                <tr><td>A01: Broken Access Control</td><td>Middleware authorization (axum extractors)</td></tr>
+                <tr><td>A02: Cryptographic Failures</td><td>RustCrypto, rustls, argon2, brak weak ciphers</td></tr>
+                <tr><td>A03: Injection</td><td>sqlx parametryzacja, askama auto-escape</td></tr>
+                <tr><td>A04: Insecure Design</td><td>Type system + threat modeling</td></tr>
+                <tr><td>A05: Security Misconfiguration</td><td>Dotenvy + env validation, secret management</td></tr>
+                <tr><td>A06: Vulnerable Components</td><td>cargo-audit + cargo-deny w CI</td></tr>
+                <tr><td>A07: Authentication Failures</td><td>argon2 + jsonwebtoken + rate limiting (governor)</td></tr>
+                <tr><td>A08: Data Integrity</td><td>Subresource integrity, signed releases (cosign)</td></tr>
+                <tr><td>A09: Logging Failures</td><td>tracing + structured logs + Sentry/Datadog</td></tr>
+                <tr><td>A10: SSRF</td><td>URL allowlist, validacja przed requestem</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Supply chain security</h2>
+
+        <p>Crates.io ma okolo 160 000 paczek (2026), co tworzy powaznae powierzchnie ataku. Najwazniejsze narzedzia obronne:</p>
+
+        <ul>
+            <li><strong>cargo-vet</strong> — Mozilla tool do weryfikacji audytow zaleznosci (kto sprawdzil daty?)</li>
+            <li><strong>cargo-crev</strong> — distributed code review system</li>
+            <li><strong>cargo-supply-chain</strong> — pokazuje, ktorzy autorzy stoja za zaleznosciami</li>
+            <li><strong>crates.io malicious package detection</strong> — automatyczne skanowanie nowych releaseow</li>
+            <li><strong>Cargo.lock commit do git</strong> — reproducible builds, locked versions</li>
+            <li><strong>--locked flag</strong> w CI</li>
+        </ul>
+
+        <div class="card red">
+            <h3>Praktyczna zasada</h3>
+            <p>Kazdy nowy projekt powinien miec w CI: <strong>cargo audit</strong>, <strong>cargo deny check</strong>, <strong>cargo clippy -- -D warnings</strong>, <strong>cargo test --locked</strong>. To 4 polecenia, ktore eliminuja 80% problemow.</p>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="04-frameworki-i-ekosystem.html">← Frameworki i ekosystem</a>
+            <a href="06-ochrona-kodu-przed-kradzieza.html">Ochrona kodu →</a>
+        </div>
+    </div>
+</body>
+</html>

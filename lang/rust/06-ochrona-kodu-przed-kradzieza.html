@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06 — Ochrona kodu Rust przed kradzieza</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ce422b;--accent-hover:#e85d2f;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-left:4px solid var(--green)}.card.red{border-left:4px solid var(--red)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+        .yes{color:var(--green);font-weight:600}.no{color:var(--red);font-weight:600}.warn{color:var(--orange);font-weight:600}
+    </style>
+</head>
+<body>
+    <div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">Jezyki</a><span class="sep">/</span><a href="index.html">Rust</a><span class="sep">/</span><span class="title">Ochrona kodu</span></div>
+    <div class="container">
+        <h1>Ochrona kodu Rust przed kradzieza</h1>
+        <p class="subtitle">Rust kompiluje sie do native binary. Co to oznacza w praktyce dla reverse engineering, anti-piracy i ochrony wartosci intelektualnej.</p>
+
+        <h2>Dlaczego Rust juz jest dobrze chroniony</h2>
+
+        <p>Rust kompiluje sie bezposrednio do <strong>native machine code</strong> przez LLVM, podobnie jak C i C++. To stanowi znaczna ochrone w porownaniu do platform takich jak .NET (IL bytecode) czy Java (JVM bytecode).</p>
+
+        <table>
+            <thead><tr><th>Platforma</th><th>Format binary</th><th>Trudnosc reverse engineering</th><th>Mozliwosc decompile do oryginalnego kodu</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Rust / C++</strong></td><td>Native machine code</td><td class="yes">Wysoka</td><td class="no">Niemozliwe (tylko assembly + heuristyki)</td></tr>
+                <tr><td><strong>Go</strong></td><td>Native + runtime metadata</td><td>Wysoka (ale duzo metadata)</td><td>Niemozliwe ale latwiej niz C</td></tr>
+                <tr><td><strong>C# / .NET</strong></td><td>IL bytecode (CIL)</td><td>Niska bez obfuskacji</td><td class="warn">ILSpy, dnSpy odzyskuja ~95% kodu</td></tr>
+                <tr><td><strong>Java</strong></td><td>JVM bytecode (.class)</td><td>Niska bez obfuskacji</td><td class="warn">JD-GUI, CFR odzyskuja kod</td></tr>
+                <tr><td><strong>Python</strong></td><td>Source / .pyc</td><td class="no">Trywialna</td><td class="no">Praktycznie source</td></tr>
+                <tr><td><strong>PHP</strong></td><td>Source plain text</td><td class="no">Brak ochrony</td><td class="no">Source widoczny</td></tr>
+                <tr><td><strong>JavaScript</strong></td><td>Source / minified</td><td class="no">Niska (z source maps)</td><td class="no">Source dostepny</td></tr>
+                <tr><td><strong>WebAssembly (Rust)</strong></td><td>WASM bytecode</td><td>Srednia</td><td>Trudniejsze niz JS</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Strip symbols — pierwsza linia obrony</h2>
+
+        <p>Domyslnie Rust release builds zawieraja symbole debug, ktore znaczaco ulatwiaja reverse engineering. Pierwsze co nalezy zrobic to wylaczyc je w Cargo.toml.</p>
+
+        <h3>Optymalna konfiguracja release</h3>
+
+        <pre><code># Cargo.toml
+[profile.release]
+strip = true              # usuwa symbole z binary
+lto = "fat"               # link-time optimization (cross-crate)
+codegen-units = 1         # jedna jednostka = lepsze optimization
+panic = "abort"           # brak unwinding code
+opt-level = 3             # maksymalne optymalizacje
+overflow-checks = false   # brak checks dla wydajnosci
+
+# Dla maksymalnej ochrony:
+[profile.release.package."*"]
+opt-level = 3
+strip = true</code></pre>
+
+        <h3>Manualny strip command</h3>
+
+        <pre><code># Linux / macOS
+strip -s target/release/moja_aplikacja
+
+# z dodatkowymi opcjami
+strip --strip-all --remove-section=.comment --remove-section=.note \
+    target/release/moja_aplikacja
+
+# Windows (mingw)
+strip --strip-all moja_aplikacja.exe
+
+# Sprawdz rozmiar i symbole
+ls -lh target/release/moja_aplikacja
+nm target/release/moja_aplikacja | head    # powinien byc pusty</code></pre>
+
+        <h2>Disassembly — jakie sa limity</h2>
+
+        <p>Po stripie binary wciaz mozna zdezasemblowac (IDA Pro, Ghidra, radare2, Binary Ninja). Ale dezasembler pokazuje <strong>assembly</strong>, nie oryginalny Rust. Roznica jest ogromna:</p>
+
+        <ul>
+            <li>Generic types znikaja (monomorphization rozprasza je w wielu funkcjach)</li>
+            <li>Wszystkie inline closures, iteratory, async transformations sa zdejmowane</li>
+            <li>LTO + opt-level=3 agresywnie inlinuje i usuwa "martwy" kod</li>
+            <li>Names mangling (Rust ABI v0) — funkcje nie maja czytelnych nazw</li>
+            <li>Borrow checker informacje znikaja calkowicie</li>
+        </ul>
+
+        <p>Praktycznie reverse engineering Rust binary wymaga:</p>
+
+        <ol>
+            <li>Glebokiej wiedzy assembly (x86-64 / ARM64)</li>
+            <li>Plynnosci w IDA Pro lub Ghidra</li>
+            <li>Znajomosci wzorcow Rust runtime (panic, format, drop)</li>
+            <li>Czesto setek godzin pracy dla nieoczywistych algorytmow</li>
+        </ol>
+
+        <p>To znaczy: dla typowego komercyjnego software nie jest to oplacalna inwestycja czasu — chyba ze chodzi o kradziez konkretnego algorytmu.</p>
+
+        <h2>Code signing — wymog dla dystrybucji</h2>
+
+        <h3>Windows — EV Code Signing Certificate</h3>
+
+        <p>Bez podpisu Windows SmartScreen blokuje kazdy nowy executable. Cena okolo <strong>USD 400/rok</strong> za EV cert (Sectigo, DigiCert, GlobalSign).</p>
+
+        <pre><code>signtool sign /tr http://timestamp.sectigo.com /td sha256 /fd sha256 ^
+    /a moja_aplikacja.exe</code></pre>
+
+        <h3>macOS — Apple Developer ID Application</h3>
+
+        <p>Wymagane Developer Account (<strong>USD 99/rok</strong>) + notarization process. Bez tego macOS Gatekeeper blokuje aplikacje.</p>
+
+        <pre><code># Podpisanie
+codesign --deep --force --options runtime \
+    --sign "Developer ID Application: Twoja Nazwa (TEAMID)" \
+    moja_aplikacja.app
+
+# Notarization (od macOS 10.15+)
+xcrun notarytool submit moja_aplikacja.zip \
+    --apple-id email@example.com --team-id TEAMID \
+    --password app-specific-password --wait
+
+# Stapling
+xcrun stapler staple moja_aplikacja.app</code></pre>
+
+        <h3>Linux</h3>
+
+        <p>Brak centralnego mechanizmu signing. AppImage moze byc podpisany GPG. Snap i Flatpak maja wlasne signing przez store.</p>
+
+        <h2>License management</h2>
+
+        <p>Native binary nie chroni przed kopiowaniem samego pliku — kazdy moze go uruchomic. Aplikacje komercyjne potrzebuja systemu licencjonowania.</p>
+
+        <h3>License keys</h3>
+
+        <ul>
+            <li><strong>Online activation</strong> — aplikacja loguje sie do serwera przy pierwszym uruchomieniu</li>
+            <li><strong>JWT-based offline licenses</strong> — RSA / Ed25519 signed tokeny z expiry</li>
+            <li><strong>Hardware fingerprinting</strong> — link do CPU ID, MAC address, dysku (sha256 z kombinacji)</li>
+            <li><strong>License files</strong> — RSA-signed pliki konfiguracyjne</li>
+        </ul>
+
+        <h3>JWT-based offline license — przyklad</h3>
+
+        <pre><code>use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
+struct Licencja {
+    sub: String,        // user id
+    exp: i64,           // expiry timestamp
+    features: Vec&lt;String&gt;,
+    fingerprint: String,
+}
+
+fn weryfikuj_licencje(token: &amp;str) -&gt; Result&lt;Licencja, String&gt; {
+    let public_key = include_bytes!("../keys/license_public.pem");
+    let key = DecodingKey::from_ed_pem(public_key)
+        .map_err(|e| e.to_string())?;
+    let validation = Validation::new(Algorithm::EdDSA);
+
+    let token_data = decode::&lt;Licencja&gt;(token, &amp;key, &amp;validation)
+        .map_err(|e| e.to_string())?;
+
+    let aktualny_fp = wygeneruj_fingerprint();
+    if token_data.claims.fingerprint != aktualny_fp {
+        return Err("Licencja niezgodna z urzadzeniem".to_string());
+    }
+    Ok(token_data.claims)
+}</code></pre>
+
+        <h3>Komercyjne rozwiazania</h3>
+
+        <ul>
+            <li><strong>Keygen.sh</strong> — popular API-driven licensing service</li>
+            <li><strong>Cryptolens</strong> — license management with Rust SDK</li>
+            <li><strong>LicenseSpring</strong> — enterprise focus</li>
+            <li><strong>Paddle</strong> — sklep + licensing</li>
+        </ul>
+
+        <h2>Anti-debug techniques</h2>
+
+        <p>Wykrywanie czy aplikacja jest uruchomiona pod debuggerem. To opozni atak ale nie zatrzyma zdeterminowanego reverse engineera.</p>
+
+        <h3>Linux — ptrace detection</h3>
+
+        <pre><code>// Cargo.toml: nix = "0.27"
+use nix::sys::ptrace;
+use std::process;
+
+fn jestem_pod_debug() -&gt; bool {
+    match ptrace::traceme() {
+        Ok(_) =&gt; false,
+        Err(_) =&gt; true,  // ktos juz traceuje
+    }
+}
+
+fn main() {
+    if jestem_pod_debug() {
+        eprintln!("Wykryto debugger");
+        process::exit(1);
+    }
+}</code></pre>
+
+        <h3>Windows — IsDebuggerPresent</h3>
+
+        <pre><code>use windows::Win32::System::Diagnostics::Debug::IsDebuggerPresent;
+
+fn debugger_obecny() -&gt; bool {
+    unsafe { IsDebuggerPresent().as_bool() }
+}
+
+// Bardziej zaawansowane: CheckRemoteDebuggerPresent, NtQueryInformationProcess</code></pre>
+
+        <h3>Checksum sekcji kodu</h3>
+
+        <pre><code>fn weryfikuj_integralnosc() -&gt; bool {
+    // Wczytanie wlasnej sekcji .text z obecnego procesu
+    // Hash SHA-256 i porownanie z oczekiwana wartoscia
+    // Jezeli ktos modyfikuje code (np. patch JNE -&gt; JMP), zmieni sie hash
+    let hash_obecny = oblicz_hash_sekcji_text();
+    let oczekiwany = include_bytes!("../checksums/text_section.sha256");
+    hash_obecny.as_bytes() == oczekiwany
+}</code></pre>
+
+        <h2>Hardening compiler flags</h2>
+
+        <p>Rust kompilator wspiera wiele flag wzmacniajacych bezpieczenstwo. Niektore sa domyslne, inne trzeba wlaczyc.</p>
+
+        <pre><code># Zmienna srodowiskowa
+export RUSTFLAGS="-C link-arg=-pie \
+                  -C relocation-model=pic \
+                  -C link-arg=-Wl,-z,relro,-z,now \
+                  -C link-arg=-Wl,-z,noexecstack \
+                  -C overflow-checks=on"
+
+cargo build --release</code></pre>
+
+        <table>
+            <thead><tr><th>Flag</th><th>Co robi</th></tr></thead>
+            <tbody>
+                <tr><td><code>-C link-arg=-pie</code></td><td>Position Independent Executable (ASLR)</td></tr>
+                <tr><td><code>-C relocation-model=pic</code></td><td>Position-Independent Code</td></tr>
+                <tr><td><code>-Wl,-z,relro,-z,now</code></td><td>Read-only relocations (anti GOT-overwrite)</td></tr>
+                <tr><td><code>-Wl,-z,noexecstack</code></td><td>NX stack (DEP)</td></tr>
+                <tr><td><code>-C overflow-checks=on</code></td><td>Wlaczone runtime checks dla integer overflow</td></tr>
+                <tr><td><code>-C panic=abort</code></td><td>Brak unwinding code (mniej attack surface)</td></tr>
+                <tr><td><code>-Z sanitizer=address</code></td><td>AddressSanitizer (tylko nightly)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Code virtualization — VMProtect dla Rust</h2>
+
+        <p>VMProtect, Themida i podobne narzedzia tworza wlasna mikro-VM ktora interpretuje przelozony kod. Reverse engineer musialby najpierw zrozumiec architekture VM, potem analizowac wirtualny kod.</p>
+
+        <ul>
+            <li>VMProtect dziala tak samo dobrze dla Rust jak dla C++ binary</li>
+            <li>Koszt: <strong>USD 600-3000</strong> za licencje (zaleznie od features)</li>
+            <li>Spowalnia kod chronionych funkcji 10-100x — chronisz tylko critical paths</li>
+            <li>Themida ma podobne mozliwosci, jest niemiecka</li>
+            <li>Obniza false positive ratio antywirusow tylko gdy kupisz dodatkowo "anti-AV" feature</li>
+            <li>W Rust ekosystemie rzadko spotykane (drogie, niche)</li>
+        </ul>
+
+        <h2>Porownanie ochrony — Rust vs inne</h2>
+
+        <table>
+            <thead><tr><th>Cecha</th><th>Rust</th><th>C# .NET</th><th>PHP</th><th>JavaScript</th></tr></thead>
+            <tbody>
+                <tr><td>Format dystrybucji</td><td>Native binary</td><td>IL bytecode (DLL)</td><td>Source plain text</td><td>Source / minified</td></tr>
+                <tr><td>Latwosc decompile</td><td class="yes">Bardzo trudne</td><td class="no">Trywialne (ILSpy)</td><td class="no">Brak ochrony</td><td class="no">Source maps reveal</td></tr>
+                <tr><td>Domyslna ochrona</td><td class="yes">Wysoka</td><td class="no">Bardzo niska</td><td class="no">Brak</td><td class="no">Brak</td></tr>
+                <tr><td>Potrzeba obfuskacji</td><td>Opcjonalna</td><td class="warn">Krytyczna</td><td>Minimalna pomoc (encoder)</td><td>Standard practice</td></tr>
+                <tr><td>Compile-time evaluation</td><td>Const fn, macros</td><td>Source generators</td><td>Brak</td><td>Brak</td></tr>
+                <tr><td>Wydajnosc po stripe</td><td class="yes">Bez wplywu</td><td class="warn">Spadek przy obfuskacji</td><td>n/a</td><td>n/a</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Narzedzia analityczne</h2>
+
+        <ul>
+            <li><strong>cargo-strip</strong> — wrapper na strip dla cargo</li>
+            <li><strong>cargo-bloat</strong> — pokazuje co zajmuje miejsce w binary (pomocne dla optymalizacji rozmiaru)</li>
+            <li><strong>binsec</strong> — binary security analyzer (sprawdza czy NX, ASLR, RELRO sa wlaczone)</li>
+            <li><strong>checksec</strong> — klasyk Linux do audytowania binary</li>
+            <li><strong>cargo-show-asm</strong> — pokazuje assembly generowany dla danej funkcji (dla weryfikacji co kompilator faktycznie robi)</li>
+        </ul>
+
+        <h2>Real example — Cloudflare Pingora</h2>
+
+        <p>Cloudflare Pingora to proxy server zastepujacy Nginx w infrastrukturze CDN — obsluguje ponad bilion request dziennie. Czesc kodu jest open-source (MIT/Apache 2.0), ale critical optimizations i specyficzne integracje pozostaly proprietary.</p>
+
+        <p>Strategia ochrony:</p>
+
+        <ul>
+            <li><strong>Open-source core</strong> — daje credibility i enables wsparcie spolecznosci</li>
+            <li><strong>Proprietary plugins</strong> — kompilowane jako native binary z LTO i strip</li>
+            <li><strong>Server-side execution only</strong> — kod nigdy nie opuszcza datacenter Cloudflare</li>
+            <li><strong>Hardware-bound</strong> — niektore funkcje wymagaja specyficznego hardware</li>
+        </ul>
+
+        <p>To pokazuje typowy wzorzec: open-source generic functionality, proprietary optimization layer. Native binary Rust + LTO + strip = wystarczajaca ochrona dla tego modelu.</p>
+
+        <div class="card orange">
+            <h3>Praktyczna rekomendacja</h3>
+            <p>Dla 95% komercyjnych Rust applications: <strong>strip = true + lto = "fat" + code signing</strong> wystarczy. Kombinacja jest bezplatna (poza certyfikatami signing) i podnosi koszt reverse engineering powyzej wartosci dla atakujacego.</p>
+            <p>Dodaj license server i fingerprint hardware, jezeli sprzedajesz desktop SaaS. VMProtect dopiero gdy masz konkretny algorytm warty grube tysiace dolarow ochrony.</p>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="05-bezpieczenstwo-aplikacji.html">← Bezpieczenstwo aplikacji</a>
+            <a href="07-narzedzia-i-deployment.html">Narzedzia i deployment →</a>
+        </div>
+    </div>
+</body>
+</html>

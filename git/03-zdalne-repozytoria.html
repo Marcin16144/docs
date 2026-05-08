@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git - zdalne repozytoria</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f87171;--accent-hover:#fca5a5;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Git</a><span class="sep">/</span><span class="title">Zdalne repozytoria</span></div>
+<div class="container">
+<h1>Zdalne repozytoria</h1>
+<p class="subtitle">remote, fetch/pull/push, hosting, SSH, GPG signing, gh CLI</p>
+
+<h2>Czym jest "remote"?</h2>
+<p>Remote to nazwana referencja do zdalnego repozytorium. Domyslnie po klonowaniu masz jedno remote o nazwie <strong>origin</strong>, ktore wskazuje na URL z ktorego sklonowales kod. Repozytorium moze miec wiele remote'ow - przydatne przy pracy z forkami.</p>
+
+<pre><code># Klonowanie repozytorium (tworzy origin automatycznie)
+git clone https://github.com/uzytkownik/projekt.git
+git clone git@github.com:uzytkownik/projekt.git
+
+# Lista remote'ow
+git remote
+git remote -v        # z URL'ami
+
+# Szczegoly konkretnego remote
+git remote show origin
+
+# Dodanie nowego remote
+git remote add upstream https://github.com/oryginal/projekt.git
+
+# Zmiana URL istniejacego remote
+git remote set-url origin git@github.com:nowy-user/projekt.git
+
+# Zmiana z HTTPS na SSH
+git remote set-url origin git@github.com:uzytkownik/projekt.git
+
+# Zmiana nazwy
+git remote rename origin github
+
+# Usuniecie
+git remote remove upstream</code></pre>
+
+<h2>Origin vs upstream - konwencja forkow</h2>
+<p>Przy pracy z forkami konwencja jest taka:</p>
+<ul>
+<li><strong>origin</strong> - twoj fork na GitHub</li>
+<li><strong>upstream</strong> - oryginalny projekt</li>
+</ul>
+
+<pre><code># Sklonowales swoj fork
+git clone git@github.com:moj-user/projekt.git
+cd projekt
+
+# Dodaj upstream wskazujacy na oryginal
+git remote add upstream https://github.com/oryginal-user/projekt.git
+
+# Pobierz zmiany z upstream
+git fetch upstream
+
+# Zmerguj zmiany z upstream/main do swojego main
+git switch main
+git merge upstream/main
+# Lub: git pull upstream main
+
+# Wypchnij zaktualizowany main do swojego forka
+git push origin main</code></pre>
+
+<h2>Fetch vs Pull</h2>
+<p>To jedna z najwazniejszych roznic w Gitcie:</p>
+
+<table>
+<tr><th>Aspekt</th><th>git fetch</th><th>git pull</th></tr>
+<tr><td>Co robi</td><td>Tylko pobiera zmiany ze zdalnego repo</td><td>fetch + merge (lub rebase)</td></tr>
+<tr><td>Modyfikuje pliki</td><td>NIE</td><td>TAK</td></tr>
+<tr><td>Bezpieczenstwo</td><td>Bezpieczne zawsze</td><td>Moze tworzyc konflikty</td></tr>
+<tr><td>Kiedy uzywac</td><td>Sprawdzanie zmian, audyt</td><td>Aktualizacja swojej galezi</td></tr>
+</table>
+
+<pre><code># Fetch - tylko pobranie informacji o zmianach
+git fetch                    # z origin
+git fetch upstream           # z konkretnego remote
+git fetch --all              # ze wszystkich remote'ow
+
+# Sprawdz co sie zmienilo bez aplikowania
+git log HEAD..origin/main --oneline
+git diff HEAD origin/main
+
+# Dopiero teraz mergujemy (jesli OK)
+git merge origin/main
+
+# Pull = fetch + merge
+git pull
+git pull origin main
+
+# Pull z rebase (czystsza historia)
+git pull --rebase
+git pull --rebase origin main
+
+# Skonfiguruj rebase domyslnie dla pull
+git config --global pull.rebase true
+
+# Albo "fast-forward only" - bezpieczniejsze
+git config --global pull.ff only
+# Wtedy pull failuje gdy nie ma fast-forward - musisz zdecydowac swiadomie</code></pre>
+
+<h2>Push - wypychanie zmian</h2>
+<pre><code># Pierwszy push z ustawieniem trackingu
+git push -u origin feature/login
+
+# Po -u wystarczy zwykly push
+git push
+
+# Push wszystkich galezi
+git push --all
+
+# Push wraz z tagami
+git push --tags
+git push --follow-tags    # tylko anotowane tagi
+
+# Push do innego remote
+git push upstream main
+
+# Force push - NIEBEZPIECZNE
+git push --force
+git push -f
+
+# BEZPIECZNIEJSZE - failuje jesli ktos w miedzyczasie pushnal
+git push --force-with-lease
+
+# Wypchnij galaz pod inna nazwa
+git push origin local-name:remote-name
+
+# Usun zdalna galaz
+git push origin --delete feature/old
+git push origin :feature/old    # stara skladnia</code></pre>
+
+<div class="card">
+<strong>Force push - krytyczne zasady:</strong>
+<ul>
+<li>NIGDY nie rob <code>--force</code> na shared branch (main, develop)</li>
+<li>Zamiast <code>--force</code> uzywaj <code>--force-with-lease</code></li>
+<li>Force push jest dozwolony tylko na twojej osobistej feature branch</li>
+<li>Po force push poinformuj zespol jesli ktos pracowal na tej galezi</li>
+<li>Wiele firm blokuje force push do main przez branch protection</li>
+</ul>
+</div>
+
+<h2>Tracking branches</h2>
+<p>Lokalna galaz moze "trackowac" zdalna galaz - dzieki temu git wie skad pullowac i gdzie pushowac.</p>
+
+<pre><code># Status z informacja o trackingu
+git status
+# On branch main
+# Your branch is up to date with 'origin/main'.
+
+# Sprawdz tracking
+git branch -vv
+
+# Ustaw tracking dla biezacej galezi
+git branch --set-upstream-to=origin/main
+
+# Krocej
+git branch -u origin/main
+
+# Lub przy pierwszym pushu
+git push -u origin main
+
+# Pokaz tylko nieuploadowane commity
+git log @{u}..
+
+# Pokaz commity ktore sa na remote a nie ma u nas
+git log ..@{u}</code></pre>
+
+<h2>Hosting platforms - porownanie</h2>
+
+<table>
+<tr><th>Platforma</th><th>Cechy</th><th>Idealna dla</th></tr>
+<tr><td><strong>GitHub</strong></td><td>Najwiekszy ekosystem, GitHub Actions, Copilot, najwieksza spolecznosc OSS</td><td>Open source, projekty publiczne, integracja z chmura</td></tr>
+<tr><td><strong>GitLab</strong></td><td>Pelne DevOps (CI/CD, registry, monitoring), self-hosted free</td><td>Enterprise z DevOps, wlasna infrastruktura</td></tr>
+<tr><td><strong>Bitbucket</strong></td><td>Integracja z Jira/Confluence (Atlassian), free dla 5 userow</td><td>Zespoly Atlassian, projekty komercyjne</td></tr>
+<tr><td><strong>Codeberg</strong></td><td>FOSS (Forgejo), non-profit, brak trackerow</td><td>Projekty open source, prywatnosc</td></tr>
+<tr><td><strong>SourceHut</strong></td><td>Minimalistyczny, mailing list workflow, $20/rok za platne</td><td>Hardcorowi minimalisci, OSS</td></tr>
+</table>
+
+<h2>SSH keys - bezpieczne uwierzytelnianie</h2>
+<p>SSH to standardowy sposob na uwierzytelnianie do remote bez wpisywania hasla. Klucze ed25519 sa szybsze i bezpieczniejsze niz RSA.</p>
+
+<pre><code># Sprawdz istniejace klucze
+ls -la ~/.ssh/
+
+# Wygeneruj nowy klucz ed25519
+ssh-keygen -t ed25519 -C "kontakt@i4n.pl"
+
+# Pliki domyslnie:
+# ~/.ssh/id_ed25519       (prywatny - NIGDY nie udostepniaj)
+# ~/.ssh/id_ed25519.pub   (publiczny - to wklejasz na GitHub)
+
+# Wyswietl klucz publiczny
+cat ~/.ssh/id_ed25519.pub
+
+# Dodaj klucz do agenta SSH
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+
+# Test polaczenia z GitHub
+ssh -T git@github.com
+# Hi username! You've successfully authenticated...
+
+# Test z GitLab
+ssh -T git@gitlab.com</code></pre>
+
+<h3>Konfiguracja ~/.ssh/config dla wielu kont</h3>
+<pre><code># ~/.ssh/config
+Host github-personal
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_personal
+
+Host github-work
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_work
+
+# Uzycie
+git clone git@github-personal:user/repo.git
+git clone git@github-work:company/repo.git</code></pre>
+
+<h2>GPG signing commitow</h2>
+<p>Podpisywanie GPG potwierdza, ze commit pochodzi rzeczywiscie od ciebie. GitHub/GitLab pokazuja "Verified" dla podpisanych commitow.</p>
+
+<pre><code># Sprawdz istniejace klucze GPG
+gpg --list-secret-keys --keyid-format=long
+
+# Wygeneruj nowy klucz GPG
+gpg --full-generate-key
+# Wybierz: RSA and RSA, 4096 bits, klucz nie wygasa
+# Wpisz email zgodny z git config user.email
+
+# Skopiuj klucz publiczny do GitHub
+gpg --armor --export TWOJ_KEY_ID
+
+# Skonfiguruj git
+git config --global user.signingkey TWOJ_KEY_ID
+git config --global commit.gpgsign true        # auto-sign wszystkie commity
+git config --global tag.gpgsign true           # auto-sign tagi
+
+# Recznie podpisz commit
+git commit -S -m "feat: add feature"
+
+# Podpisz tag
+git tag -s v1.0.0 -m "Release 1.0.0"
+
+# Sprawdz podpis
+git log --show-signature
+
+# DCO - Developer Certificate of Origin (alternatywa dla GPG)
+git commit --signoff -m "feat: add feature"
+# Dodaje "Signed-off-by: Name <email>" na koncu wiadomosci</code></pre>
+
+<h2>Workflow z forkami</h2>
+<p>Klasyczny workflow contribution do projektu open source:</p>
+
+<pre><code># 1. Fork na GitHub (klikniecie w UI)
+
+# 2. Sklonuj swoj fork
+git clone git@github.com:moj-user/projekt.git
+cd projekt
+
+# 3. Dodaj oryginal jako upstream
+git remote add upstream https://github.com/oryginal-user/projekt.git
+git remote -v
+# origin    git@github.com:moj-user/projekt.git (fetch)
+# origin    git@github.com:moj-user/projekt.git (push)
+# upstream  https://github.com/oryginal-user/projekt.git (fetch)
+# upstream  https://github.com/oryginal-user/projekt.git (push)
+
+# 4. Stworz feature branch
+git switch -c feature/awesome-feature
+
+# 5. Pracuj, commituj, pushuj
+git push -u origin feature/awesome-feature
+
+# 6. Stworz Pull Request na GitHub
+
+# 7. Periodycznie synchronizuj fork z upstream
+git switch main
+git fetch upstream
+git merge upstream/main
+git push origin main
+
+# 8. Po merge PR - usun lokalna i zdalna galaz
+git switch main
+git branch -d feature/awesome-feature
+git push origin --delete feature/awesome-feature</code></pre>
+
+<h2>gh CLI - GitHub z linii komend</h2>
+<p><strong>gh</strong> to oficjalne CLI od GitHub. Pozwala wykonywac wiekszosc operacji bez opuszczania terminala.</p>
+
+<pre><code># Instalacja na Ubuntu
+sudo apt install gh
+
+# Instalacja na macOS
+brew install gh
+
+# Logowanie (otworzy przegladarke z OAuth)
+gh auth login
+
+# Sprawdz status
+gh auth status
+
+# Klonuj repo (skrocone uzycie)
+gh repo clone owner/repo
+
+# Stworz nowe repo
+gh repo create projekt --public --source=. --push
+
+# Forkuj
+gh repo fork owner/repo --clone
+
+# Lista PR-ow
+gh pr list
+gh pr list --state closed
+gh pr list --author @me
+
+# Stworz PR (bazujac na biezacej galezi)
+gh pr create --title "feat: nowa funkcja" --body "Opis zmian"
+
+# PR template z editora
+gh pr create --web
+
+# Status PR
+gh pr status
+
+# Checkout PR (np. do code review)
+gh pr checkout 123
+
+# Komentarz pod PR
+gh pr comment 123 --body "LGTM!"
+
+# Merge PR
+gh pr merge 123 --squash --delete-branch
+
+# Issues
+gh issue list
+gh issue create --title "Bug" --body "Opis"
+gh issue close 42
+
+# Workflows / Actions
+gh workflow list
+gh workflow run deploy.yml
+gh run list
+
+# Releases
+gh release create v1.0.0 --title "Version 1.0.0" --notes "Release notes"
+gh release upload v1.0.0 ./binary.tar.gz</code></pre>
+
+<h2>Conflict resolution dla zdalnych zmian</h2>
+<pre><code># Twoj push zostal odrzucony bo ktos pushnal w miedzyczasie
+git push
+# rejected - non-fast-forward
+
+# Opcja 1: Pull z rebase (czystsza historia)
+git pull --rebase
+# Rozwiaz konflikty jesli sa
+git add .
+git rebase --continue
+git push
+
+# Opcja 2: Pull z merge
+git pull
+# Rozwiaz konflikty
+git add .
+git commit
+git push
+
+# Opcja 3: Force push (TYLKO osobiste branche!)
+git push --force-with-lease</code></pre>
+
+<div class="card">
+<strong>Najlepsze praktyki:</strong>
+<ul>
+<li>Zawsze uzywaj SSH (lub GitHub CLI) zamiast HTTPS z haslem</li>
+<li>Wlacz GPG signing dla wszystkich commitow</li>
+<li>Konfiguruj <code>pull.rebase</code> i <code>pull.ff = only</code></li>
+<li>Nigdy nie rob <code>git push --force</code> - tylko <code>--force-with-lease</code></li>
+<li>Branch protection dla main: require PR review, no direct push</li>
+<li>2FA na koncie GitHub/GitLab</li>
+<li>Personal Access Token z minimalnymi scope'ami zamiast hasla</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="02-branching-i-merging.html">&larr; Branching i merging</a>
+<a href="04-workflow-strategies.html">Strategie pracy &rarr;</a>
+</div>
+</div>
+</body>
+</html>

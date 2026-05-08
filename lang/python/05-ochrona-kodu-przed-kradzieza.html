@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ochrona kodu Python przed kradzieza</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#facc15;--accent-hover:#fde047;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-color:var(--green)}
+.card.orange{border-color:var(--orange)}
+.card.red{border-color:var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">Python</a>
+    <span class="sep">/</span>
+    <span class="title">Ochrona kodu przed kradzieza</span>
+</div>
+
+<div class="container">
+<h1>Ochrona kodu Python przed kradzieza</h1>
+<p class="subtitle">Strategia, narzedzia i praktyki ochrony komercyjnego kodu Python &mdash; PyArmor, Nuitka, Cython, license management.</p>
+
+<h2>Problem: Python jest najmniej chroniony z popularnych jezykow</h2>
+
+<p>Hierarchia natural protection:</p>
+<pre><code>C++ (native binary)        &#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608; najtrudniej (wymaga IDA/Ghidra)
+Rust (native binary)       &#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;
+Go (native binary)         &#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;
+C# .NET (IL bytecode)      &#9608;&#9608;&#9608;&#9608; (decompiler dnSpy = latwo)
+Java (JVM bytecode)        &#9608;&#9608;&#9608;&#9608; (jadx, JD-GUI)
+PHP (interpreted source)   &#9608;&#9608; (plain text, czytasz)
+Python (interpreted)       &#9608;&#9608; (plain text, czytasz)
+JavaScript (interpreted)   &#9608; (browser source)</code></pre>
+
+<p>Python rozwiazanie:</p>
+<ul>
+<li><code>.py</code> files = plain text source</li>
+<li><code>.pyc</code> files = bytecode cache (uncompile-able z <code>uncompyle6</code>, <code>decompyle3</code>)</li>
+<li>Wszystko czytelne dla kazdego z dostepem do plikow</li>
+</ul>
+
+<p><strong>Konsekwencja:</strong> Python jest <strong>swietny dla SaaS</strong> (server-side, klient nie ma kodu) i <strong>trudny dla self-hosted commercial software</strong>.</p>
+
+<h2>Strategie ochrony</h2>
+
+<h3>Strategia 1: SaaS (najlepsza)</h3>
+<p><strong>Klient nie dostaje kodu.</strong> Tylko API, web UI, thin client. Server jest Twoj.</p>
+
+<pre><code>&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;         &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474; Client (web/UI) &#9474; ------&gt; &#9474; Twoj Python API &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;         &#9474; (kod tutaj)     &#9474;
+                            &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</code></pre>
+
+<p><strong>Plusy:</strong> kod nigdy nie opuszcza Twojej infrastruktury, latwa monetyzacja (subscription)<br>
+<strong>Minusy:</strong> koszty serwerow, wymaga internetu</p>
+
+<h3>Strategia 2: Native compilation (Nuitka, Cython)</h3>
+<p>Kompiluje Python do <strong>C</strong> lub <strong>natywnego binary</strong>. Source code znika.</p>
+
+<h3>Strategia 3: Bytecode obfuscation (PyArmor)</h3>
+<p>Komercyjne narzedzie szyfrujace Python bytecode.</p>
+
+<h3>Strategia 4: Hybrid (cloud + local)</h3>
+<p>Krytyczna logika w cloud, klient ma thin Python wrapper.</p>
+
+<h2>Komercyjne narzedzia</h2>
+
+<h3>PyArmor &mdash; najpopularniejszy</h3>
+
+<p><strong>PyArmor</strong> (Dashingsoft) &mdash; leader rynku obfuskacji Python.</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>Bardzo silne (zaszyfrowane bytecode + runtime decryption)</li>
+<li>Wsparcie Python 3.7-3.13</li>
+<li>License management built-in (expiry, hardware lock, online activation)</li>
+<li>Cross-platform (Linux, macOS, Windows, Android, iOS via embedded)</li>
+<li>Aktywny rozwoj (PyArmor 9 w 2026)</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Komercyjny ($69/year Personal, $599 Enterprise)</li>
+<li>Niektore techniki crackowane (z wysilkiem)</li>
+<li>AOT mode wymaga PyArmor runtime na docelowej maszynie</li>
+</ul>
+</div>
+
+<p><strong>Workflow:</strong></p>
+<pre><code>pip install pyarmor
+
+# Basic obfuscation
+pyarmor gen myapp.py
+# Output: dist/myapp.py + pyarmor_runtime/
+
+# Whole project
+pyarmor gen --recursive my_project/
+
+# Z license:
+pyarmor gen --enable-bcc \
+            --license-key "expires=2027-01-01,bind-mac=ON" \
+            myapp.py
+
+# RFT (Runtime Function Transformation) &mdash; zaawansowane
+pyarmor gen --enable-rft myapp.py
+
+# Wymuszanie hardware binding
+pyarmor gen --bind-mac AA:BB:CC:DD:EE:FF \
+            --bind-cpu "$(wmic cpu get processorid)" \
+            myapp.py</code></pre>
+
+<p><strong>Tryby (modes):</strong></p>
+<ul>
+<li><strong>Basic</strong> &mdash; XOR encryption, fastest</li>
+<li><strong>BCC (Bytecode Compression Cipher)</strong> &mdash; silniejsze</li>
+<li><strong>RFT (Runtime Function Transformation)</strong> &mdash; najsilniejsze, transforms function calls</li>
+</ul>
+
+<p><strong>Performance overhead:</strong> 10-30% w zaleznosci od trybu.</p>
+
+<h3>Pyobfuscate / pyminifier (legacy)</h3>
+
+<p>Stare obfuskatory. <strong>Trywialne do unobfuscate.</strong> Nie uzywaj w produkcji 2026.</p>
+
+<h3>Sourcedefender</h3>
+
+<p>Komercyjny, mniej popularny niz PyArmor. AES-256 encryption, license features.</p>
+
+<h3>Itsdangerous + custom encryption (DIY)</h3>
+
+<p>Niektorzy probuja rolowac wlasne. <strong>Nie warto</strong> &mdash; PyArmor zrobi to lepiej i taniej niz Twoj czas.</p>
+
+<h2>Kompilacja: Cython, Nuitka, mypyc</h2>
+
+<h3>Cython &mdash; Python &rarr; C extension</h3>
+
+<p><strong>Cython</strong> kompiluje <code>.py</code> lub <code>.pyx</code> (Cython superset) do <strong>C</strong> &rarr; binary <code>.so</code> / <code>.pyd</code>.</p>
+
+<pre><code>pip install cython
+
+# Plain Python &rarr; C &rarr; compiled
+echo 'def hello(): return "world"' &gt; hello.py
+cython --3str hello.py  # generuje hello.c
+cc -shared -fPIC -I$(python -c "import sysconfig; print(sysconfig.get_path('include'))") hello.c -o hello.so</code></pre>
+
+<p>Lub setup.py:</p>
+<pre><code>from setuptools import setup
+from Cython.Build import cythonize
+
+setup(ext_modules=cythonize("myapp.py"))</code></pre>
+
+<pre><code>python setup.py build_ext --inplace</code></pre>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li><strong>Source code znika</strong> (tylko binary)</li>
+<li>2-100&times; speedup czesto (zwlaszcza petle)</li>
+<li>Free, open source</li>
+<li>Mature (od 2007)</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Niektore dynamic features Pythona nie dzialaja (eval, exec, monkeypatching)</li>
+<li>Build per platform (Windows .pyd, Linux .so, macOS .dylib)</li>
+<li>Dluzszy build time</li>
+</ul>
+</div>
+
+<p><strong>W 2026:</strong> popular dla performance + ochrona w jednym.</p>
+
+<h3>Nuitka &mdash; Python &rarr; standalone binary</h3>
+
+<p><strong>Nuitka</strong> kompiluje caly Python program do single executable.</p>
+
+<pre><code>pip install nuitka
+
+# Basic
+nuitka --standalone myapp.py
+# Wynik: myapp.dist/ folder z myapp.exe + dependencies
+
+# One-file (bardziej user-friendly)
+nuitka --standalone --onefile myapp.py
+# Wynik: myapp.exe (single file, self-extracting)
+
+# Z dodatkowymi opcjami
+nuitka --standalone --onefile \
+       --windows-icon-from-ico=icon.ico \
+       --windows-disable-console \
+       --enable-plugin=pyqt6 \
+       --include-data-dir=resources=resources \
+       --output-dir=dist \
+       myapp.py</code></pre>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li><strong>Compile do native binary</strong> (bez source w resulcie!)</li>
+<li>Dziala nawet bez Python na docelowej maszynie</li>
+<li>Lepsze wsparcie dla pelnego Pythona niz Cython</li>
+<li>Open source</li>
+<li>Cross-platform (Linux, macOS, Windows)</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Build slow (10-60 minut dla duzych projektow)</li>
+<li>Output size duze (50-200 MB single-file)</li>
+<li>Niektore packages problematyczne (numpy, torch &mdash; wymaga <code>--include-package</code>)</li>
+<li>Dynamic imports wymagaja explicit declaration</li>
+</ul>
+</div>
+
+<p><strong>Nuitka Commercial</strong> ($250+/yr) dodaje:</p>
+<ul>
+<li>Anti-bloat (mniejsze binaries)</li>
+<li>Anti-debugging</li>
+<li>Code obfuscation passes</li>
+<li>Priority support</li>
+</ul>
+
+<p><strong>W 2026:</strong> <strong>Nuitka to obecnie najlepsza opcja</strong> dla full app distribution z ochrona.</p>
+
+<h3>mypyc</h3>
+
+<p><strong>mypyc</strong> (od mypy team) &mdash; kompiluje annotated Python do C extension.</p>
+
+<pre><code>pip install mypy
+mypyc myapp.py</code></pre>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>Wymaga type annotations (clean code bonus)</li>
+<li>2-5&times; speedup</li>
+<li>Clean integration</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Mniej popularne niz Cython</li>
+<li>Wymaga full type coverage</li>
+<li>Tylko subset Pythona supported</li>
+</ul>
+</div>
+
+<h3>PyInstaller (NIE jest ochrona!)</h3>
+
+<p><strong>PyInstaller</strong> pakuje Python + scripts w single .exe. <strong>Ale NIE szyfruje source!</strong></p>
+
+<p>Kazdy moze rozpakowac PyInstaller bundle:</p>
+<pre><code>pip install pyinstxtractor
+python pyinstxtractor.py myapp.exe
+# Output: folder z .pyc files &rarr; uncompyle6 &rarr; source</code></pre>
+
+<p><strong>Wniosek:</strong> PyInstaller bez PyArmor/Nuitka = brak ochrony, tylko convenience packaging.</p>
+
+<h2>.pyc files &mdash; czy sa ochrone?</h2>
+
+<p><strong>.pyc</strong> to skompilowany Python bytecode. <strong>NIE</strong> to ochrona.</p>
+
+<pre><code># Python compiles .py to __pycache__/.pyc automatically
+# Mozesz dystrybuowac tylko .pyc bez .py
+
+# Ale: dekompilacja jest TRYWIALNA
+pip install uncompyle6  # Python 2.x, 3.0-3.8
+pip install decompyle3   # Python 3.7-3.8
+# Dla 3.9+: niektore tools work, niektore breakdown</code></pre>
+
+<p><strong>Tylko .pyc bez .py:</strong></p>
+<pre><code>python -O -m compileall myapp.py
+# Output: __pycache__/myapp.cpython-313.opt-1.pyc
+
+# Distribute tylko .pyc
+# Klient moze uruchamiac:
+python myapp.cpython-313.pyc
+
+# Ale uncompyle6 &rarr; source recovered (90%+ accuracy)</code></pre>
+
+<p><strong>Wniosek:</strong> .pyc daje <strong>iluzje</strong> ochrony. Reverse engineer ma source w 30 sekund.</p>
+
+<h2>Strategia: hybrid Cython + PyArmor</h2>
+
+<p>Najsilniejsza ochrona Python:</p>
+
+<pre><code># 1. Cython compile critical modules
+cython --3str license_manager.py
+cc -shared license_manager.c -o license_manager.so
+
+# 2. PyArmor pozostale
+pyarmor gen --recursive --enable-bcc rest_of_app/
+
+# 3. Bundle z Nuitka jako standalone
+nuitka --standalone --onefile main.py</code></pre>
+
+<p>Kazda warstwa wymaga innego ataku &rarr; drastycznie zwieksza koszt crackowania.</p>
+
+<h2>License management dla Python</h2>
+
+<h3>Online validation</h3>
+
+<pre><code>import requests
+import hashlib
+import platform
+import uuid
+
+class LicenseManager:
+    API_URL = "https://api.mycompany.com/license/verify"
+
+    def get_hardware_id(self) -&gt; str:
+        """Stable per-machine fingerprint."""
+        node = uuid.getnode()  # MAC address
+        machine = platform.node()
+        cpu = platform.processor()
+        combined = f"{node}-{machine}-{cpu}"
+        return hashlib.sha256(combined.encode()).hexdigest()
+
+    def verify(self, license_key: str) -&gt; bool:
+        try:
+            response = requests.post(self.API_URL, json={
+                "key": license_key,
+                "hardware_id": self.get_hardware_id(),
+                "version": "2.4.1"
+            }, timeout=10)
+            data = response.json()
+            return data.get("valid") and data.get("expires_at", 0) &gt; time.time()
+        except requests.RequestException:
+            # Graceful degradation &mdash; cache last known status
+            return self.check_cached_validity()</code></pre>
+
+<h3>Offline JWT validation</h3>
+
+<pre><code>import jwt
+
+PUBLIC_KEY = """-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAA...
+-----END PUBLIC KEY-----"""
+
+def validate_offline_license(token: str) -&gt; dict | None:
+    try:
+        payload = jwt.decode(
+            token,
+            PUBLIC_KEY,
+            algorithms=["RS256"],
+            issuer="mycompany.com"
+        )
+        return payload
+    except jwt.InvalidTokenError:
+        return None</code></pre>
+
+<h3>Komercyjne biblioteki:</h3>
+<ul>
+<li><strong>Cryptolens Python</strong> &mdash; popular, free tier</li>
+<li><strong>LicenseSpring</strong></li>
+<li><strong>Keygen.sh</strong> &mdash; open source server, paid SaaS</li>
+<li><strong>Sentinel HASP / CodeMeter</strong> &mdash; premium hardware-based</li>
+</ul>
+
+<h2>Anti-debugging w Python</h2>
+
+<pre><code>import sys
+import gc
+
+def detect_debugger():
+    # 1. Check sys.gettrace
+    if sys.gettrace() is not None:
+        return True
+
+    # 2. Check for pdb / debugpy in modules
+    suspicious = ['pdb', 'debugpy', 'ipdb', 'pudb']
+    for mod in suspicious:
+        if mod in sys.modules:
+            return True
+
+    # 3. Check parent process (if Python launched via debugger)
+    import psutil
+    parent = psutil.Process().parent()
+    if parent and parent.name() in ['code.exe', 'pycharm64.exe', 'gdb', 'lldb']:
+        return True
+
+    # 4. Timing check
+    import time
+    t1 = time.time()
+    sum(range(1000))  # quick op
+    t2 = time.time()
+    if (t2 - t1) &gt; 0.01:  # debugger slows down significantly
+        return True
+
+    return False
+
+if detect_debugger():
+    sys.exit(1)</code></pre>
+
+<p><strong>Uwaga:</strong> atakujacy zmodyfikuje to po obfuskacji. Multi-layer.</p>
+
+<h2>Watermarking per customer</h2>
+
+<pre><code># build_for_customer.py &mdash; w CI/CD per-customer build
+CUSTOMER_ID = os.environ['CUSTOMER_ID']  # np. "CUST_8a4f2c"
+
+# Patch source przed obfuskacja
+with open('app/_build_info.py', 'w') as f:
+    f.write(f'CUSTOMER_ID = "{CUSTOMER_ID}"\n')
+    f.write(f'BUILD_HASH = "{generate_unique_hash()}"\n')
+
+# Nastepnie PyArmor / Nuitka build</code></pre>
+
+<p>W aplikacji:</p>
+<pre><code>from app._build_info import CUSTOMER_ID
+
+# Subtle &mdash; wystarczy ze jest w binary
+def _check():
+    if not CUSTOMER_ID.startswith('CUST_'):
+        raise RuntimeError("Build corrupted")
+_check()</code></pre>
+
+<p>Jesli leak &rarr; znajdziesz po watermarku.</p>
+
+<h2>Strategie per use case</h2>
+
+<h3>"Sprzedaje desktop tool ($50-300)"</h3>
+<pre><code>1. Nuitka --onefile (binary, no source)
+2. Optional: PyArmor dla extra layer
+3. License key + online check (Cryptolens free tier)
+4. Code signing certificate ($300/yr)</code></pre>
+
+<h3>"Sprzedaje enterprise app ($1000+)"</h3>
+<pre><code>1. Cython compile critical modules
+2. PyArmor Pro dla rest
+3. Nuitka Commercial dla bundling
+4. License server z hardware fingerprinting
+5. Krytyczna logika w cloud (SaaS hybrid)
+6. Watermarking per customer</code></pre>
+
+<h3>"Wynajmuje ML model"</h3>
+<pre><code>- TylkoSaaS (klient nie dostaje wag/kodu)
+- API wzorzec
+- Rate limiting + usage analytics
+- Mozesz Cython compile inference jesli klient on-prem</code></pre>
+
+<h3>"Open source z paid plugins"</h3>
+<pre><code>- Free core: GitHub source
+- Paid plugins: PyArmor obfuscated
+- License key system w paid plugins</code></pre>
+
+<h3>"Skrypt automation za $20"</h3>
+<pre><code>- Po prostu PyArmor Basic (free tier do small projects)
+- Lub Nuitka --onefile
+- EULA + copyright</code></pre>
+
+<h2>Wydajnosc</h2>
+
+<table>
+<thead>
+<tr><th>Technique</th><th>Overhead</th><th>Ochrona</th></tr>
+</thead>
+<tbody>
+<tr><td><code>.pyc</code> only</td><td>0%</td><td>None (uncompyle6 trywialne)</td></tr>
+<tr><td>pyminifier</td><td>0%</td><td>Minimal</td></tr>
+<tr><td>PyArmor Basic</td><td>5-15%</td><td>Decent</td></tr>
+<tr><td>PyArmor BCC</td><td>10-25%</td><td>Strong</td></tr>
+<tr><td>PyArmor RFT</td><td>20-40%</td><td>Very strong</td></tr>
+<tr><td>Cython compile</td><td>-50 do +500% (zwykle szybciej!)</td><td>Strong</td></tr>
+<tr><td>Nuitka standalone</td><td>0-30%</td><td>Strong</td></tr>
+<tr><td>Nuitka + PyArmor</td><td>30-50%</td><td>Very strong</td></tr>
+</tbody>
+</table>
+
+<p><strong>Najlepszy ROI 2026:</strong> Nuitka --onefile (free) + license key check.</p>
+
+<h2>Co NIE dziala</h2>
+
+<div class="card red">
+<h3>Tylko <code>.pyc</code> files</h3>
+<p>Trywialne do dekompilacji.</p>
+
+<h3>Custom XOR / encryption</h3>
+<pre><code>encrypted_code = "..."
+exec(decrypt(encrypted_code, KEY))</code></pre>
+<p>Klucz jest w kodzie &rarr; atakujacy odpala debugger przed <code>exec</code> &rarr; ma plain code.</p>
+
+<h3>PyInstaller alone</h3>
+<p>Bundle &ne; ochrona. Zawsze kombinuj z PyArmor lub Nuitka.</p>
+
+<h3>Polegac na obfuskacji nazw</h3>
+<p>Renaming variables nie chroni &mdash; logika wciaz czytelna.</p>
+
+<h3>Nadmierna dynamic Pythona</h3>
+<p>Jesli uzywasz <code>eval</code>, <code>exec</code>, monkeypatching &mdash; Cython i Nuitka moga nie dzialac.</p>
+</div>
+
+<h2>Tools quick reference</h2>
+
+<pre><code>Komercyjne:
+- PyArmor (Dashingsoft) &mdash; ~$69-599/yr, najpopularniejszy
+- Nuitka Commercial &mdash; ~$250/yr, native compilation
+- Sourcedefender &mdash; alternatywa PyArmor
+
+Open source:
+- Cython &mdash; Python &rarr; C &rarr; binary
+- Nuitka &mdash; Python &rarr; standalone binary (free version)
+- mypyc &mdash; typed Python &rarr; C extension
+- pyminifier &mdash; minimal obfuscation (legacy)
+
+License management:
+- Cryptolens &mdash; free tier, popular
+- LicenseSpring &mdash; managed
+- Keygen.sh &mdash; OSS server
+
+Decompilers (do testow):
+- uncompyle6 &mdash; Python 2-3.8
+- decompyle3 &mdash; Python 3.7-3.8
+- pycdc &mdash; newer (3.9+)
+- pyinstxtractor &mdash; PyInstaller bundles</code></pre>
+
+<h2>Code signing dla Python apps</h2>
+
+<p>Po Nuitka build:</p>
+
+<p><strong>Windows:</strong></p>
+<pre><code>signtool sign /f cert.pfx /p password \
+    /tr http://timestamp.digicert.com /td sha256 /fd sha256 \
+    myapp.exe</code></pre>
+
+<p><strong>macOS:</strong></p>
+<pre><code>codesign --deep --force --verify --verbose \
+    --sign "Developer ID Application: Your Name" \
+    --options runtime \
+    myapp.app
+
+# Notarization (required dla apps poza App Store)
+xcrun notarytool submit myapp.zip \
+    --apple-id you@example.com \
+    --team-id ABC123XYZ \
+    --password app-specific-password \
+    --wait</code></pre>
+
+<p><strong>Linux:</strong> brak natywnego signing, ale mozesz GPG sign installer.</p>
+
+<h2>Aspekty prawne</h2>
+
+<p>Identycznie jak w innych jezykach:</p>
+<ul>
+<li>Copyright automatycznie od creation</li>
+<li>EULA z zakazem reverse engineering</li>
+<li>DMCA / European equivalents jesli leak</li>
+<li>Trade secret protection dla algorytmow</li>
+</ul>
+
+<h2>Linki</h2>
+
+<ul>
+<li><strong>PyArmor</strong>: pyarmor.dashingsoft.com</li>
+<li><strong>Nuitka</strong>: nuitka.net</li>
+<li><strong>Cython</strong>: cython.org</li>
+<li><strong>mypyc</strong>: mypyc.readthedocs.io</li>
+<li><strong>Cryptolens Python</strong>: cryptolens.io</li>
+<li><strong>Sourcedefender</strong>: sourcedefender.co.uk</li>
+</ul>
+
+<h2>Nastepne kroki</h2>
+
+<ul>
+<li><strong>Rozdzial 04</strong> &mdash; bezpieczenstwo aplikacji (OWASP, supply chain)</li>
+<li><strong>Rozdzial 06</strong> &mdash; Python dla AI/ML</li>
+<li>W folderze <strong>architektura/08-bezpieczenstwo</strong> &mdash; fundamenty</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="index.html">&larr; Indeks Python</a>
+    <a href="index.html">Indeks Python &rarr;</a>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bezpieczenstwo Windows Server - fundamenty</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-color:var(--green)}
+.card.orange{border-color:var(--orange)}
+.card.red{border-color:var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">Bezpieczenstwo fundamenty</span>
+</div>
+
+<div class="container">
+<h1>Bezpieczenstwo Windows Server - fundamenty</h1>
+<p class="subtitle">Defense in Depth, hardening, AD security, Sysmon, Microsoft Defender, vulnerability management i incident response.</p>
+
+<h2>Filozofia: Defense in Depth</h2>
+
+<p>Bezpieczenstwo serwera to <strong>wiele warstw</strong>, nie jeden firewall.</p>
+
+<pre><code>&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;  WARSTWA 1: Fizyczna                         &#9474;  data center, lock, BIOS
+&#9500;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9508;
+&#9474;  WARSTWA 2: Siec                              &#9474;  firewall, IDS, segmentacja
+&#9500;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9508;
+&#9474;  WARSTWA 3: Host                              &#9474;  hardening OS, AV, patches
+&#9500;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9508;
+&#9474;  WARSTWA 4: Aplikacja                         &#9474;  WAF, IIS hardening, code
+&#9500;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9508;
+&#9474;  WARSTWA 5: Tozsamosc                         &#9474;  MFA, RBAC, JEA, PAM
+&#9500;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9508;
+&#9474;  WARSTWA 6: Dane                              &#9474;  szyfrowanie, DLP, backup
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</code></pre>
+
+<p>Kazdy atak musi przebic <strong>wszystkie</strong> warstwy. Jedna warstwa skompromitowana &ne; system padl.</p>
+
+<h2>Zasada najmniejszych uprawnien (PoLP)</h2>
+
+<p><strong>Kazde konto/usluga dostaje minimum uprawnien potrzebnych do dzialania.</strong></p>
+
+<h3>Praktyka:</h3>
+<ul>
+<li>Service accounts &ne; user accounts</li>
+<li>Service nie ma <code>Logon Locally</code> (chyba ze potrzebne)</li>
+<li>Admin accounts uzywaj <strong>tylko</strong> do admin tasks (osobne konto)</li>
+<li>Domain Admin <strong>nigdy</strong> nie loguje sie na workstation</li>
+<li>Web app pool <strong>nie</strong> uruchamiaj jako LocalSystem</li>
+</ul>
+
+<h3>Tier model (Microsoft Privileged Access)</h3>
+
+<pre><code>Tier 0 (Forest Admins, Domain Controllers)
+   &uarr; Nie loguje sie na Tier 1 lub Tier 2
+   &#9474;
+Tier 1 (Server Admins)
+   &uarr; Nie loguje sie na Tier 2
+   &#9474;
+Tier 2 (Workstation Admins, Help Desk)
+   &uarr; Nie loguje sie na Tier 0 lub 1</code></pre>
+
+<p><strong>Zlamanie tego = lateral movement.</strong> Pojedyncze compromise &rarr; cala domena.</p>
+
+<h2>Built-in Security Features (2026)</h2>
+
+<h3>1. Defender for Identity (formerly ATA)</h3>
+<p>Wykrywa anomalie w AD (lateral movement, golden ticket attacks).</p>
+
+<h3>2. Microsoft Defender for Endpoint</h3>
+<p>Antivirus + EDR, integracja z Microsoft Sentinel.</p>
+<pre><code># Status Defender
+Get-MpComputerStatus
+
+# Update definitions
+Update-MpSignature
+
+# Scan
+Start-MpScan -ScanType FullScan</code></pre>
+
+<h3>3. Credential Guard</h3>
+<p>Izoluje LSA secrets w VBS (Virtualization-Based Security). Chroni przed Mimikatz/Pass-the-Hash.</p>
+
+<pre><code># Status
+DG_Readiness.ps1 -Capable
+# lub
+Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard</code></pre>
+
+<p>W Server 2025: <strong>domyslnie ON</strong>.</p>
+
+<h3>4. LSA Protection (RunAsPPL)</h3>
+<p>LSASS jako Protected Process Light &mdash; niemozliwe debugowanie (Mimikatz nie wyciaga creds).</p>
+
+<pre><code># Wlacz
+$path = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
+New-ItemProperty -Path $path -Name "RunAsPPL" -Value 1 -PropertyType DWORD -Force
+
+# Restart
+Restart-Computer</code></pre>
+
+<p>W Server 2025: <strong>domyslnie ON</strong>.</p>
+
+<h3>5. Hypervisor-Protected Code Integrity (HVCI)</h3>
+<p>Kernel mode code integrity protected by Hyper-V. Blokuje malicious drivers.</p>
+
+<p>W Server 2025: <strong>domyslnie ON</strong>.</p>
+
+<h3>6. Windows Defender Application Control (WDAC)</h3>
+<p>Nastepca AppLocker. Whitelist aplikacji.</p>
+
+<pre><code># Stworz policy
+New-CIPolicy -FilePath "C:\WDAC\policy.xml" -Level Publisher -Fallback Hash
+
+# Convert do binary
+ConvertFrom-CIPolicy "C:\WDAC\policy.xml" "C:\WDAC\policy.bin"
+
+# Deploy via GPO lub Registry</code></pre>
+
+<h3>7. AppLocker (legacy, ale wciaz uzywane)</h3>
+<p>Whitelist/blacklist aplikacji per user/group.</p>
+
+<h3>8. Just Enough Administration (JEA)</h3>
+<p>Restricted PowerShell endpoints. Admin moze <code>Restart-Service IIS</code> ale nie <code>Get-ChildItem C:\</code>.</p>
+
+<pre><code># Capability file
+New-PSRoleCapabilityFile -Path .\IISAdmin.psrc
+
+# W pliku:
+@{
+    VisibleCmdlets = @(
+        @{ Name = 'Restart-Service'; Parameters = @{ Name = 'Name'; ValidateSet = 'W3SVC' } }
+        'Get-Website'
+    )
+    VisibleFunctions = 'Get-WebSiteStatus'
+}
+
+# Session config
+New-PSSessionConfigurationFile -Path .\IISAdmin.pssc -RunAsVirtualAccount -RoleDefinitions @{ 'CONTOSO\IISAdmins' = @{ RoleCapabilities = 'IISAdmin' } }
+
+# Register endpoint
+Register-PSSessionConfiguration -Name "IISAdmin" -Path .\IISAdmin.pssc</code></pre>
+
+<p>User <code>IISAdmins</code> moze:</p>
+<pre><code>Enter-PSSession -ComputerName SERVER -ConfigurationName IISAdmin
+# Tylko Get-Website, Restart-Service W3SVC</code></pre>
+
+<h2>Hardening - kluczowe kroki</h2>
+
+<h3>1. Wylacz niepotrzebne uslugi</h3>
+
+<pre><code># Lista uruchomionych
+Get-Service | Where-Object {$_.Status -eq "Running"}
+
+# Wylacz print spooler jesli serwer nie drukuje (PrintNightmare!)
+Stop-Service -Name Spooler
+Set-Service -Name Spooler -StartupType Disabled
+
+# Wylacz Xbox services, Windows Search jesli nie uzywasz</code></pre>
+
+<h3>2. Wylacz LM/NTLMv1</h3>
+<p>LM hash i NTLMv1 sa crackowane w sekundach.</p>
+
+<pre><code># Force NTLMv2
+$path = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
+Set-ItemProperty -Path $path -Name "LmCompatibilityLevel" -Value 5
+# 5 = Send NTLMv2 only, refuse LM and NTLM</code></pre>
+
+<h3>3. SMB hardening</h3>
+<pre><code># Disable SMBv1 (KRYTYCZNE &mdash; uzywane w WannaCry!)
+Disable-WindowsOptionalFeature -Online -FeatureName "SMB1Protocol"
+
+# Wymuszanie SMB signing
+Set-SmbServerConfiguration -RequireSecuritySignature $true -EnableSecuritySignature $true
+
+# SMB encryption (od SMB 3.0)
+Set-SmbServerConfiguration -EncryptData $true
+
+# SMB over QUIC (Server 2022+) &mdash; dla publicznych uslug SMB!</code></pre>
+
+<h3>4. Windows Update - automatyczne</h3>
+<pre><code># Wlacz automatic updates
+sconfig
+# Opcja 5 &rarr; A (automatic)
+
+# Lub via GPO:
+# Computer Configuration &rarr; Administrative Templates &rarr;
+# Windows Components &rarr; Windows Update &rarr; Configure Automatic Updates</code></pre>
+
+<h3>5. Audit Policy</h3>
+
+<pre><code># Wlacz comprehensive audit
+auditpol /set /category:* /success:enable /failure:enable
+
+# Konkretne wazne:
+auditpol /set /subcategory:"Logon" /success:enable /failure:enable
+auditpol /set /subcategory:"Account Lockout" /success:enable /failure:enable
+auditpol /set /subcategory:"Special Logon" /success:enable /failure:enable
+auditpol /set /subcategory:"Process Creation" /success:enable /failure:enable
+auditpol /set /subcategory:"Sensitive Privilege Use" /success:enable /failure:enable
+auditpol /set /subcategory:"Authentication Policy Change" /success:enable /failure:enable</code></pre>
+
+<p>Logi w Event Viewer &rarr; Security log. Forward do SIEM (Sentinel, Splunk, Wazuh).</p>
+
+<h3>6. PowerShell Hardening</h3>
+
+<pre><code># Logging modulow
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" -Name "EnableModuleLogging" -Value 1
+
+# Script Block Logging (LOGUJE WSZYSTKO)
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name "EnableScriptBlockLogging" -Value 1
+
+# Constrained Language Mode (jesli nie potrzebujesz full language)
+$ExecutionContext.SessionState.LanguageMode = "ConstrainedLanguage"
+
+# Execution Policy
+Set-ExecutionPolicy AllSigned -Scope LocalMachine -Force</code></pre>
+
+<h3>7. Disable Guest, Rename Administrator</h3>
+
+<pre><code># Disable Guest
+Disable-LocalUser -Name Guest
+
+# Rename Administrator (security through obscurity, ale dodaje wartosc)
+Rename-LocalUser -Name Administrator -NewName "AdmDaJaSekretne"
+
+# Stworz fake "Administrator" trap account (limited rights, audit logon attempts)</code></pre>
+
+<h3>8. Password Policy</h3>
+
+<pre><code># Via secedit (lub GPO)
+net accounts /minpwlen:14 /maxpwage:90 /minpwage:1 /uniquepw:24
+
+# Account lockout
+net accounts /lockoutthreshold:5 /lockoutduration:30 /lockoutwindow:30</code></pre>
+
+<p><strong>Zalecenia 2026 (NIST SP 800-63B):</strong></p>
+<ul>
+<li>Min. 14 znakow (lepiej 16+)</li>
+<li>Brak wymuszania complexity (cyfra/symbol nie pomaga jesli passphrase dlugi)</li>
+<li><strong>Sprawdzaj przeciw breach passwords</strong> (Have I Been Pwned API)</li>
+<li><strong>MFA</strong> zawsze gdy mozliwe</li>
+</ul>
+
+<h3>9. BitLocker (szyfrowanie dyskow)</h3>
+
+<pre><code># Wlacz BitLocker dla C:
+Enable-BitLocker -MountPoint "C:" -EncryptionMethod XtsAes256 -UsedSpaceOnly -TpmProtector
+
+# Backup recovery key do AD (jesli domain joined)
+$rec = Get-BitLockerVolume -MountPoint "C:" | Select -ExpandProperty KeyProtector | Where {$_.KeyProtectorType -eq "RecoveryPassword"}
+Backup-BitLockerKeyProtector -MountPoint "C:" -KeyProtectorId $rec.KeyProtectorId</code></pre>
+
+<h3>10. Network Security</h3>
+
+<pre><code># Wylacz NetBIOS over TCP/IP (legacy)
+$adapters = Get-WmiObject -Class Win32_NetworkAdapterConfiguration -Filter "TcpipNetbiosOptions IS NOT NULL"
+foreach ($adapter in $adapters) {
+    $adapter.SetTcpipNetbios(2)  # 2 = Disable NetBIOS
+}
+
+# Wylacz LLMNR (Link-Local Multicast Name Resolution) &mdash; atak Responder
+$path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient"
+New-Item -Path $path -Force
+New-ItemProperty -Path $path -Name "EnableMulticast" -Value 0 -PropertyType DWORD -Force
+
+# Wylacz mDNS
+sc.exe config "Dnscache" start= disabled  # tylko jesli na pewno</code></pre>
+
+<h2>Microsoft Security Compliance Toolkit</h2>
+
+<p>Microsoft publikuje <strong>security baselines</strong> &mdash; gotowe konfiguracje GPO dla roznych rol.</p>
+
+<pre><code>Pobierz z: microsoft.com/en-us/download/details.aspx?id=55319
+
+Zawiera:
+- Windows Server 2025 baseline (gpo)
+- Windows 11 baseline
+- Office baselines
+- Microsoft Edge baseline</code></pre>
+
+<h3>LGPO.exe</h3>
+<p>Apply baseline na lokalnej maszynie:</p>
+<pre><code>LGPO.exe /g "C:\Baselines\Server2025\GPOs\Member Server Baseline"</code></pre>
+
+<h3>CIS Benchmarks</h3>
+<p><strong>Center for Internet Security</strong> &mdash; alternatywa, bardzo szczegolowe (700+ checks).</p>
+
+<ul>
+<li><strong>CIS Microsoft Windows Server 2025 Benchmark v1.0</strong></li>
+<li>Free for personal, $$$ for enterprise</li>
+<li>Tools: CIS-CAT (assessment tool)</li>
+</ul>
+
+<h3>DISA STIGs</h3>
+<p>Department of Defense compliance. Najsurowsze. Dla federal/military.</p>
+
+<h2>Antivirus / EDR</h2>
+
+<h3>Microsoft Defender for Endpoint (preferowany 2026)</h3>
+<ul>
+<li>Built-in (premium dla Windows Server: Server Standard/Datacenter daje basic, Defender for Endpoint = subscription)</li>
+<li>EDR (Endpoint Detection &amp; Response)</li>
+<li>Integracja z Sentinel SIEM</li>
+<li>Threat intelligence z Microsoft</li>
+</ul>
+
+<h3>Alternatywy:</h3>
+<ul>
+<li><strong>CrowdStrike Falcon</strong> &mdash; premium EDR, bardzo dobry (drogi)</li>
+<li><strong>SentinelOne</strong> &mdash; autonomous EDR</li>
+<li><strong>Sophos Intercept X</strong> &mdash; solid mid-range</li>
+<li><strong>ESET Endpoint Security</strong> &mdash; lekki, popular w EU</li>
+</ul>
+
+<h3>Co konfigurowac:</h3>
+<pre><code># Wlacz wszystkie funkcje Defender
+Set-MpPreference -DisableRealtimeMonitoring $false
+Set-MpPreference -DisableBehaviorMonitoring $false
+Set-MpPreference -DisableBlockAtFirstSeen $false
+Set-MpPreference -DisableScriptScanning $false
+Set-MpPreference -EnableNetworkProtection Enabled
+Set-MpPreference -EnableControlledFolderAccess Enabled
+
+# Cloud protection
+Set-MpPreference -MAPSReporting Advanced
+Set-MpPreference -SubmitSamplesConsent SendAllSamples
+
+# Attack Surface Reduction (ASR) rules
+Add-MpPreference -AttackSurfaceReductionRules_Ids "BE9BA2D9-53EA-4CDC-84E5-9B1EEEE46550" -AttackSurfaceReductionRules_Actions Enabled
+# (block executable content from email)</code></pre>
+
+<h2>Active Directory Hardening</h2>
+
+<h3>Critical:</h3>
+<ol>
+<li><strong>Disable LM/NTLMv1</strong></li>
+<li><strong>Disable RC4 in Kerberos</strong> (use AES only)</li>
+<li><strong>LAPS (Local Administrator Password Solution)</strong> &mdash; unique passwords for local admin per machine</li>
+<li><strong>Tier model</strong> &mdash; Tier 0/1/2 separation</li>
+<li><strong>Privileged Access Workstations (PAW)</strong> &mdash; separate workstations dla admin tasks</li>
+<li><strong>Password length</strong> dla service accounts: 25+ znakow (bo nie wpisujesz recznie)</li>
+<li><strong>kerbtgt password reset</strong> co rok (defensa przeciw Golden Ticket)</li>
+<li><strong>DSRM password</strong> &mdash; secure, regularly rotated</li>
+<li><strong>Group Policy Object (GPO) audit</strong> &mdash; kto modyfikowal co</li>
+<li><strong>Privileged Identity Management (PIM)</strong> &mdash; JIT access do AD groups</li>
+</ol>
+
+<pre><code># Reset kerbtgt password (NORMAL, raz w roku)
+# Najpierw 1x:
+Reset-ADServiceAccountPassword -Identity krbtgt
+# Czekaj 24h (replikacja, ticket lifetimes)
+Reset-ADServiceAccountPassword -Identity krbtgt
+# 2x zmiana eliminuje wszystkie istniejace tickety</code></pre>
+
+<h2>Sysmon - must-have dla logging</h2>
+
+<p><strong>Sysmon</strong> (Sysinternals) loguje szczegolowe events:</p>
+<ul>
+<li>Process creation (z full command line)</li>
+<li>Network connections</li>
+<li>File creation</li>
+<li>Registry modifications</li>
+<li>DNS queries</li>
+</ul>
+
+<h3>Instalacja:</h3>
+<pre><code># Pobierz Sysmon
+Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Sysmon.zip" -OutFile "Sysmon.zip"
+Expand-Archive Sysmon.zip
+
+# Pobierz config (SwiftOnSecurity to standardowy excellent config)
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml" -OutFile "sysmonconfig.xml"
+
+# Install
+.\Sysmon64.exe -accepteula -i sysmonconfig.xml</code></pre>
+
+<p>Logi w Event Viewer: <code>Applications and Services Logs &rarr; Microsoft &rarr; Windows &rarr; Sysmon &rarr; Operational</code></p>
+
+<p>Forward do SIEM przez Windows Event Forwarding (WEF) lub agent (Splunk UF, Microsoft Sentinel agent).</p>
+
+<h2>Certyfikaty i kerberos</h2>
+
+<p>Patrz rozdzial 06 (SSL/TLS) i 03 (AD).</p>
+
+<h3>Quick wins:</h3>
+<ul>
+<li>Wylacz <strong>NTLM</strong> gdzie tylko mozliwe (audit najpierw aby wiedziec czy uzywane)</li>
+<li><strong>Smart card authentication</strong> dla privileged users</li>
+<li><strong>Windows Hello for Business</strong> &mdash; passwordless dla regular users</li>
+<li><strong>FIDO2</strong> keys dla sensitive operations</li>
+</ul>
+
+<h2>Backup z perspektywy bezpieczenstwa</h2>
+
+<h3>Ransomware-proof backup</h3>
+<ul>
+<li><strong>3-2-1 rule:</strong> 3 kopie, 2 rozne nosniki, 1 off-site</li>
+<li><strong>Immutable backups</strong> &mdash; nie mozna usunac przez X dni (nawet admin!)</li>
+<li><strong>Air-gapped</strong> &mdash; fizycznie odlaczone od sieci</li>
+<li><strong>Tested restore</strong> &mdash; backup ktory nigdy nie byl testowany <strong>nie dziala</strong></li>
+</ul>
+
+<h3>Tools:</h3>
+<ul>
+<li><strong>Veeam</strong> &mdash; leader, swietne ransomware protection</li>
+<li><strong>Azure Backup</strong> &mdash; managed, integracja z Azure</li>
+<li><strong>Windows Server Backup</strong> &mdash; basic, free</li>
+<li><strong>Commvault, Rubrik, Cohesity</strong> &mdash; enterprise</li>
+</ul>
+
+<h2>Vulnerability Management</h2>
+
+<h3>Patch management:</h3>
+<ul>
+<li><strong>Windows Update for Business</strong> &mdash; modern</li>
+<li><strong>WSUS</strong> &mdash; traditional</li>
+<li><strong>MECM (Configuration Manager)</strong> &mdash; enterprise</li>
+<li><strong>Microsoft Intune</strong> &mdash; cloud-based</li>
+</ul>
+
+<h3>Vulnerability scanners:</h3>
+<ul>
+<li><strong>Nessus</strong> (Tenable) &mdash; industry standard</li>
+<li><strong>Qualys</strong> &mdash; cloud-based</li>
+<li><strong>OpenVAS</strong> &mdash; open source</li>
+<li><strong>Microsoft Defender Vulnerability Management</strong> &mdash; built-in for Defender for Endpoint</li>
+</ul>
+
+<h3>Cadence:</h3>
+<ul>
+<li><strong>Patch Tuesday</strong> (drugi wtorek miesiaca) &mdash; Microsoft updates</li>
+<li><strong>Critical patches</strong> &mdash; w ciagu 7 dni</li>
+<li><strong>High</strong> &mdash; 30 dni</li>
+<li><strong>Medium</strong> &mdash; 90 dni</li>
+<li><strong>Test</strong> w lab przed prod (zwlaszcza driver updates)</li>
+</ul>
+
+<h2>Compliance</h2>
+
+<p>W zaleznosci od branzy:</p>
+<ul>
+<li><strong>PCI DSS</strong> &mdash; payment cards</li>
+<li><strong>HIPAA</strong> &mdash; healthcare (US)</li>
+<li><strong>GDPR</strong> &mdash; privacy (EU)</li>
+<li><strong>SOX</strong> &mdash; financial (US)</li>
+<li><strong>ISO 27001</strong> &mdash; info security mgmt</li>
+<li><strong>NIST CSF</strong> &mdash; cybersecurity framework</li>
+<li><strong>CIS Controls</strong> &mdash; practical controls</li>
+</ul>
+
+<p><strong>Compliance &ne; security</strong> &mdash; minimum, nie maksimum.</p>
+
+<h2>Incident Response</h2>
+
+<h3>Plan:</h3>
+<ol>
+<li><strong>Preparation</strong> &mdash; playbook, contacts, tools ready</li>
+<li><strong>Detection</strong> &mdash; SIEM, alerts, user reports</li>
+<li><strong>Containment</strong> &mdash; izolacja maszyn (network disconnect, NOT shutdown &mdash; tracimy memory!)</li>
+<li><strong>Eradication</strong> &mdash; usuniecie threat</li>
+<li><strong>Recovery</strong> &mdash; restore z backup (verified clean)</li>
+<li><strong>Lessons learned</strong> &mdash; post-mortem, update plan</li>
+</ol>
+
+<h3>Quick actions przy podejrzeniu kompromitacji:</h3>
+<pre><code># 1. Snapshot stan systemu
+Get-Process | Export-Csv processes.csv
+Get-Service | Export-Csv services.csv
+netstat -anob &gt; netstat.txt
+schtasks /query /v /fo csv &gt; tasks.csv
+
+# 2. Capture network traffic (jesli Wireshark zainstalowany)
+
+# 3. Capture memory (Belkasoft RAM Capturer, Magnet RAM Capture)
+
+# 4. Disconnect network (NIE shutdown!)
+Get-NetAdapter | Disable-NetAdapter -Confirm:$false
+
+# 5. Wezwij security team / SOC</code></pre>
+
+<h2>Zero Trust</h2>
+
+<p><strong>Klasyczny model:</strong> "Wszystko za firewall = trusted"<br>
+<strong>Zero Trust:</strong> "Nigdy nie ufaj, zawsze weryfikuj"</p>
+
+<h3>Zasady:</h3>
+<ol>
+<li><strong>Verify explicitly</strong> &mdash; kazdy request authenticated + authorized</li>
+<li><strong>Least privilege</strong> &mdash; minimum potrzebne</li>
+<li><strong>Assume breach</strong> &mdash; projektuj jakby ktos juz byl wewnatrz</li>
+</ol>
+
+<h3>Implementacja w Windows env:</h3>
+<ul>
+<li>Microsoft Entra ID (formerly Azure AD) Conditional Access</li>
+<li>Microsoft Defender for Identity</li>
+<li>Microsoft Defender for Cloud Apps (CASB)</li>
+<li>Application Proxy zamiast VPN</li>
+<li>Privileged Access Management (PAM)</li>
+</ul>
+
+<p>Patrz: rozdzial o Zero Trust w architektura/08-01.</p>
+
+<h2>Tools - quick reference</h2>
+
+<pre><code>PowerShell modules:
+  Microsoft.PowerShell.Security
+  ActiveDirectory
+  GroupPolicy
+  CertificateProvider
+  WindowsUpdate
+
+Sysinternals (must-have):
+  Sysmon, Process Explorer, Process Monitor, Autoruns,
+  PsExec (use carefully!), TCPView, Procdump
+
+Microsoft tools:
+  LAPS, BitLocker Manager, MBSA (deprecated, use Defender VM),
+  Security Compliance Toolkit, LGPO
+
+Open source:
+  PowerView (red team), BloodHound (AD attack paths),
+  Sysinternals Suite, Wazuh (SIEM)
+
+Commercial:
+  CrowdStrike, SentinelOne, Sophos, ESET (EDR)
+  Tenable Nessus (vuln scan)
+  Splunk, Sentinel (SIEM)
+  Veeam, Rubrik (backup)</code></pre>
+
+<h2>Hardening checklist (skrot)</h2>
+
+<div class="card green">
+<pre><code>Server Core (zamiast Desktop) gdzie mozliwe
+Tylko niezbedne role/features
+Windows Update for Business / WSUS
+Defender + ASR rules + Network Protection
+Credential Guard + LSA Protection ON
+Disable SMBv1, NTLMv1, LM hash
+Force NTLMv2 (LmCompatibilityLevel = 5)
+Disable LLMNR, NetBIOS over TCP/IP
+BitLocker dla wszystkich dyskow
+Audit Policy comprehensive
+PowerShell Logging (module + script block)
+Sysmon installed + monitoring
+Account lockout policy
+Strong password policy + MFA
+Tier model dla admin accounts
+LAPS dla local admin passwords
+JEA dla delegated admin
+Disable Guest, rename Administrator
+Disable Print Spooler (jesli nie drukuje)
+Application baseline (WDAC/AppLocker)
+Network Segmentation (VLAN, firewall rules)
+Backup tested + immutable + off-site
+Vulnerability scanning regularnie
+Penetration test przynajmniej raz w roku
+Documented incident response plan
+User training (phishing awareness)</code></pre>
+</div>
+
+<h2>Najczestsze ataki i obrona</h2>
+
+<table>
+<thead>
+<tr><th>Atak</th><th>Co robi</th><th>Obrona</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Phishing</strong></td><td>Email z malware/credentials harvest</td><td>User training, email filtering, MFA</td></tr>
+<tr><td><strong>Brute force</strong></td><td>Proba hasel</td><td>Account lockout, MFA, monitoring</td></tr>
+<tr><td><strong>Pass-the-Hash</strong></td><td>Kradziez NTLM hash</td><td>Credential Guard, LSA Protection, Restricted Admin</td></tr>
+<tr><td><strong>Pass-the-Ticket</strong></td><td>Kradziez Kerberos ticket</td><td>Credential Guard, kerbtgt rotation</td></tr>
+<tr><td><strong>Golden Ticket</strong></td><td>Forge Kerberos ticket via krbtgt</td><td>krbtgt 2x reset, monitoring AD</td></tr>
+<tr><td><strong>Silver Ticket</strong></td><td>Forged service ticket</td><td>Service account password rotation</td></tr>
+<tr><td><strong>DCSync</strong></td><td>Symulacja DC, dump password DB</td><td>Restrict replication permissions, monitor</td></tr>
+<tr><td><strong>Kerberoasting</strong></td><td>Crack offline service account hash</td><td>Long passwords (25+) for service accounts</td></tr>
+<tr><td><strong>DCShadow</strong></td><td>Push fake DC changes</td><td>Monitor schema changes, restrict permissions</td></tr>
+<tr><td><strong>Lateral movement</strong></td><td>Move between machines</td><td>Tier model, segmentation, EDR</td></tr>
+<tr><td><strong>Privilege escalation</strong></td><td>Local user &rarr; SYSTEM</td><td>Patches, AppLocker, EDR</td></tr>
+<tr><td><strong>Ransomware</strong></td><td>Encrypt files, demand ransom</td><td>Backups (immutable!), Defender, ASR rules</td></tr>
+<tr><td><strong>Supply chain</strong></td><td>Compromised software/updates</td><td>Verified sources, EDR behavioral detection</td></tr>
+</tbody>
+</table>
+
+<h2>Podsumowanie - top 10 priorytetow</h2>
+
+<ol>
+<li><strong>Aktualizuj</strong> &mdash; patches w 7-30 dni</li>
+<li><strong>MFA wszedzie</strong> &mdash; admin accounts especially</li>
+<li><strong>Backup + test</strong> &mdash; 3-2-1 rule, immutable</li>
+<li><strong>Defender + EDR</strong> &mdash; full functionality</li>
+<li><strong>Network segmentation</strong> &mdash; flat networks = easy lateral movement</li>
+<li><strong>Audit + SIEM</strong> &mdash; bez logs nie wiesz ze cos sie dzieje</li>
+<li><strong>Tier model</strong> &mdash; separacja Tier 0/1/2</li>
+<li><strong>Hardening baselines</strong> &mdash; Microsoft Security Compliance Toolkit lub CIS</li>
+<li><strong>Password manager + LAPS</strong> &mdash; eliminate password reuse</li>
+<li><strong>Trening uzytkownikow</strong> &mdash; najslabsze ogniwo zazwyczaj</li>
+</ol>
+
+<h2>Linki</h2>
+
+<ul>
+<li><strong>Microsoft Security Compliance Toolkit</strong>: aka.ms/SCT</li>
+<li><strong>CIS Benchmarks</strong>: cisecurity.org/cis-benchmarks</li>
+<li><strong>NIST SP 800-53</strong>: csrc.nist.gov</li>
+<li><strong>Microsoft Defender docs</strong>: learn.microsoft.com/defender</li>
+<li><strong>MITRE ATT&amp;CK</strong>: attack.mitre.org (TTPs catalog)</li>
+<li><strong>Sysinternals</strong>: learn.microsoft.com/sysinternals</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="06-certyfikaty-ssl-tls.html">&larr; Certyfikaty SSL/TLS</a>
+    <a href="08-firewall-i-siec.html">Firewall i siec &rarr;</a>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Konfiguracja TLS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="06-certyfikaty-ssl-tls.html">Certyfikaty SSL/TLS</a>
+    <span class="sep">/</span>
+    <span class="title">Konfiguracja TLS</span>
+</div>
+
+<div class="container">
+<h1>Konfiguracja TLS - hardening</h1>
+<p class="subtitle">Wybor protokolow, cipher suites, HSTS i Mozilla SSL Config Generator - od A+ na ssllabs.</p>
+
+<h2>Wersje protokolu - co wlaczyc, co wylaczyc</h2>
+<table>
+<tr><th>Wersja</th><th>Status</th><th>Akcja</th></tr>
+<tr><td>SSLv2</td><td>Zlamany 1995</td><td>Wylaczyc - krytyczne</td></tr>
+<tr><td>SSLv3</td><td>POODLE 2014</td><td>Wylaczyc - krytyczne</td></tr>
+<tr><td>TLS 1.0</td><td>Deprecated, PCI DSS zabronione</td><td>Wylaczyc</td></tr>
+<tr><td>TLS 1.1</td><td>Deprecated 2020</td><td>Wylaczyc</td></tr>
+<tr><td>TLS 1.2</td><td>Aktualnie najpopularniejszy</td><td>Wlaczyc - obowiazkowo</td></tr>
+<tr><td>TLS 1.3</td><td>Najnowszy, RFC 8446 (2018)</td><td>Wlaczyc - Server 2022+ natywnie</td></tr>
+</table>
+
+<h2>Schannel - rejestrowa konfiguracja</h2>
+<p>Windows uzywa <strong>Schannel</strong> jako natywna implementacja TLS. Konfiguracja przez rejestr w <code>HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols</code>. Wymaga restartu po zmianach.</p>
+<pre><code># Skrypt PowerShell wylaczajacy stare protokoly
+$base = "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols"
+
+$disable = @("SSL 2.0","SSL 3.0","TLS 1.0","TLS 1.1")
+foreach ($p in $disable) {
+    foreach ($side in "Client","Server") {
+        $path = "$base\$p\$side"
+        if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+        Set-ItemProperty -Path $path -Name "Enabled" `
+                          -Value 0 -Type DWord -Force
+        Set-ItemProperty -Path $path -Name "DisabledByDefault" `
+                          -Value 1 -Type DWord -Force
+    }
+}
+
+$enable = @("TLS 1.2","TLS 1.3")
+foreach ($p in $enable) {
+    foreach ($side in "Client","Server") {
+        $path = "$base\$p\$side"
+        if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+        Set-ItemProperty -Path $path -Name "Enabled" `
+                          -Value 0xFFFFFFFF -Type DWord -Force
+        Set-ItemProperty -Path $path -Name "DisabledByDefault" `
+                          -Value 0 -Type DWord -Force
+    }
+}
+
+# RESTART SERWERA - zmiany Schannel wymagaja reboot
+Write-Warning "Restart serwera wymagany - Restart-Computer"</code></pre>
+
+<h2>Cipher Suites</h2>
+<p>Cipher suite definiuje kombinacje algorytmow uzywanych w sesji TLS - key exchange + authentication + encryption + MAC. <strong>Mozilla SSL Configuration Generator</strong> (ssl-config.mozilla.org) jest standardem branzowym.</p>
+
+<h3>Trzy poziomy Mozilla</h3>
+<table>
+<tr><th>Profil</th><th>Wsparcie klientow</th><th>Cipher suites</th></tr>
+<tr><td>Modern</td><td>Firefox 63+, Chrome 70+, iOS 12.1+</td><td>Tylko TLS 1.3, ECDHE z AEAD</td></tr>
+<tr><td>Intermediate (zalecany)</td><td>Firefox 27+, Chrome 31+, IE 11+, Android 4.4+</td><td>TLS 1.2 + 1.3, ECDHE-RSA/ECDHE-ECDSA z AES-GCM, ChaCha20</td></tr>
+<tr><td>Old</td><td>IE 6+, WinXP+, Java 6+</td><td>Pelne wsparcie legacy - NIE dla nowych systemow</td></tr>
+</table>
+
+<h3>Lista cipher suites - profil Intermediate</h3>
+<pre><code># Zalecane cipher suites (kolejnosc ma znaczenie - klient wybiera ze wskazanej listy)
+$ciphers = @(
+    "TLS_AES_128_GCM_SHA256",                       # TLS 1.3
+    "TLS_AES_256_GCM_SHA384",                       # TLS 1.3
+    "TLS_CHACHA20_POLY1305_SHA256",                 # TLS 1.3
+    "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",      # TLS 1.2 ECDSA
+    "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+    "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+    "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",        # TLS 1.2 RSA
+    "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+    "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+    "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
+    "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384"
+)
+
+# Ustawienie listy w Group Policy / rejestrze
+$key = "HKLM:\SOFTWARE\Policies\Microsoft\Cryptography\Configuration\SSL\00010002"
+if (-not (Test-Path $key)) { New-Item -Path $key -Force | Out-Null }
+Set-ItemProperty -Path $key -Name "Functions" -Value ($ciphers -join ",") -Type String</code></pre>
+
+<h2>IIS Crypto (Nartac Software)</h2>
+<p>IIS Crypto to darmowe narzedzie GUI zarzadzajace ustawieniami TLS na Windows. Bardzo wygodne dla adminow nieczujacych sie pewnie z rejestrem.</p>
+<ul>
+<li>Tabel ze wszystkimi protokolami i cipherami - zaznaczanie checkboxami</li>
+<li>Predefiniowane szablony: <strong>Best Practices</strong>, <strong>PCI 3.2.1</strong>, <strong>FIPS 140-2</strong></li>
+<li>CLI do skryptow: <code>IISCryptoCli.exe</code></li>
+<li>Backup obecnej konfiguracji przed zmiana</li>
+<li>Pobranie z nartac.com/Products/IISCrypto</li>
+</ul>
+<pre><code># IISCryptoCli (skrypt template)
+.\IISCryptoCli.exe /template best /reboot
+
+# Templates:
+#   default     - Windows defaults
+#   best        - Best Practices (rekomendowane)
+#   pci40       - PCI DSS 4.0
+#   fips140     - FIPS 140-3 compliant
+#   strict      - Strict
+#   strict-tls13 - Tylko TLS 1.3</code></pre>
+
+<h2>HTTP Security Headers</h2>
+
+<h3>HSTS (HTTP Strict Transport Security)</h3>
+<p>Header instruujacy przegladarke aby przez okreslony czas <strong>nigdy</strong> nie laczyla sie po HTTP. Eliminuje atak SSL stripping (downgrade do HTTP).</p>
+<pre><code>&lt;system.webServer&gt;
+  &lt;httpProtocol&gt;
+    &lt;customHeaders&gt;
+      &lt;add name="Strict-Transport-Security"
+           value="max-age=63072000; includeSubDomains; preload" /&gt;
+
+      &lt;!-- Inne security headers --&gt;
+      &lt;add name="X-Content-Type-Options" value="nosniff" /&gt;
+      &lt;add name="X-Frame-Options" value="SAMEORIGIN" /&gt;
+      &lt;add name="Referrer-Policy" value="strict-origin-when-cross-origin" /&gt;
+      &lt;add name="Permissions-Policy"
+           value="geolocation=(), microphone=(), camera=()" /&gt;
+      &lt;add name="X-XSS-Protection" value="0" /&gt;  &lt;!-- deprecated, ale niektore tools wymagaja --&gt;
+
+      &lt;!-- Usuniecie naglowkow ujawniajacych technology --&gt;
+      &lt;remove name="X-Powered-By" /&gt;
+      &lt;remove name="X-AspNet-Version" /&gt;
+      &lt;remove name="Server" /&gt;
+    &lt;/customHeaders&gt;
+  &lt;/httpProtocol&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h3>HSTS preload</h3>
+<p>Dodanie domeny do listy Chrome HSTS Preload List (preloaded w przegladarkach) - przegladarka <strong>nigdy</strong> nie probuje HTTP. Wymaga: max-age >= 31536000, includeSubDomains, preload directive. Submit: hstspreload.org.</p>
+
+<div class="card">
+<p><strong>Uwaga:</strong> HSTS preload jest <strong>quasi-trwala decyzja</strong> - usuniecie z listy zajmuje wiele miesiecy. Stosowac dopiero po dokladnym testowaniu. Wszystkie subdomeny musza obslugiwac HTTPS poprawnie.</p>
+</div>
+
+<h2>Content Security Policy (CSP)</h2>
+<p>CSP definiuje skad przegladarka moze ladowac zasoby (scripts, styles, images). Obrona przed XSS, clickjacking, mixed content.</p>
+<pre><code>&lt;add name="Content-Security-Policy"
+     value="default-src 'self';
+            script-src 'self' https://www.googletagmanager.com;
+            style-src 'self' 'unsafe-inline';
+            img-src 'self' data: https:;
+            font-src 'self';
+            connect-src 'self' https://api.example.com;
+            frame-ancestors 'self';
+            base-uri 'self';
+            form-action 'self';
+            upgrade-insecure-requests;" /&gt;
+
+&lt;!-- Tryb report-only do testowania nowej polityki --&gt;
+&lt;add name="Content-Security-Policy-Report-Only"
+     value="default-src 'self'; report-uri /csp-report" /&gt;</code></pre>
+
+<h2>OCSP Stapling</h2>
+<p>Bez stapling: klient sam pyta CA o status certyfikatu (OCSP query) - dodatkowy hop, prywatnosc. Z stapling: serwer dolacza podpisany OCSP response do certyfikatu - klient nie potrzebuje pytac CA.</p>
+<pre><code># Sprawdzenie czy IIS uzywa OCSP stapling (default w nowych wersjach)
+$cert = Get-ChildItem Cert:\LocalMachine\WebHosting | Select -First 1
+$cert.Extensions | Where-Object { $_.Oid.FriendlyName -eq "Authority Information Access" }
+
+# Test ze strony klienta
+openssl s_client -connect example.com:443 -status &lt; nul</code></pre>
+
+<h2>Test - SSL Labs</h2>
+<p>Najpopularniejszy test publiczny - <strong>ssllabs.com/ssltest</strong>. Skanuje konfiguracje TLS i wystawia ocene A+ do F.</p>
+<table>
+<tr><th>Ocena</th><th>Wymagania</th></tr>
+<tr><td>A+</td><td>HSTS z preload, brak weak ciphers, perfect forward secrecy</td></tr>
+<tr><td>A</td><td>TLS 1.2/1.3, modern ciphers, brak weak protocols</td></tr>
+<tr><td>B</td><td>OK, ale niektore problemy (slabe ciphers, brak HSTS)</td></tr>
+<tr><td>C/D/E</td><td>Powazne problemy - SSLv3, weak DH, etc.</td></tr>
+<tr><td>F</td><td>Krytyczne luki (SSLv2, FREAK, BEAST, POODLE)</td></tr>
+</table>
+
+<h3>Inne narzedzia</h3>
+<ul>
+<li><strong>testssl.sh</strong> - skrypt bash, lokalne testy</li>
+<li><strong>SSLyze</strong> - Python, programowe testy do CI/CD</li>
+<li><strong>cipherscan</strong> - Mozilla, szybki audit cipher suites</li>
+<li><strong>Nmap ssl-enum-ciphers</strong> - <code>nmap --script ssl-enum-ciphers -p 443 example.com</code></li>
+<li><strong>securityheaders.com</strong> - test HTTP security headers</li>
+</ul>
+
+<h2>Diagnostyka po stronie serwera</h2>
+<pre><code># Wersje protokolu wlaczone na serwerze (przez registr)
+$base = "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols"
+Get-ChildItem $base | ForEach-Object {
+    $proto = $_.PSChildName
+    foreach ($side in "Client","Server") {
+        $val = Get-ItemProperty "$($_.PSPath)\$side" -ErrorAction SilentlyContinue
+        if ($val) {
+            "{0,-15} {1,-8} Enabled={2}  DisabledByDefault={3}" -f $proto, $side, $val.Enabled, $val.DisabledByDefault
+        }
+    }
+}
+
+# Sprawdzenie aktywnych cipher suites
+Get-TlsCipherSuite | Select Name, CipherSuite, Hash, KeyExchange | Format-Table
+
+# Wylaczenie konkretnego ciphera
+Disable-TlsCipherSuite -Name "TLS_RSA_WITH_3DES_EDE_CBC_SHA"
+
+# Test polaczenia z konkretnym cipherem (PowerShell 7)
+$Ssl = [System.Net.Security.SslStream]::new(
+    [System.Net.Sockets.TcpClient]::new("example.com", 443).GetStream(), $false)
+$Ssl.AuthenticateAsClient("example.com")
+"Cipher: $($Ssl.NegotiatedCipherSuite)"
+"Protocol: $($Ssl.SslProtocol)"</code></pre>
+
+<h2>Best practices checklist</h2>
+<ul>
+<li>Wylaczyc SSLv2, SSLv3, TLS 1.0, TLS 1.1</li>
+<li>Wlaczyc TLS 1.2 i TLS 1.3 (Server 2022+)</li>
+<li>Cipher suites Mozilla Intermediate (lub Modern jezeli klienci na to pozwalaja)</li>
+<li>Klucze RSA min. 2048 bit, ECDSA P-256/P-384</li>
+<li>HSTS z max-age >= 1 rok, preload na produkcji</li>
+<li>Security headers: X-Content-Type-Options, X-Frame-Options, Referrer-Policy</li>
+<li>CSP - od report-only do enforce</li>
+<li>OCSP stapling wlaczone</li>
+<li>Server header / X-Powered-By usuniete</li>
+<li>Test ssllabs.com/ssltest - cel A+</li>
+<li>Regularne re-testy (raz na kwartal) - standardy ewoluuja</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="06-01-lets-encrypt-windows.html">&larr; Let's Encrypt</a>
+    <a href="06-03-wlasne-ca-adcs.html">Wlasne CA (ADCS) &rarr;</a>
+</div>
+</div>
+</body>
+</html>

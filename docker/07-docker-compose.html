@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker Compose</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Docker</a><span class="sep">/</span><span class="title">Docker Compose</span></div>
+<div class="container">
+<h1>Docker Compose</h1>
+<p class="subtitle">Multi-container apps z compose.yaml &mdash; dev i prod</p>
+
+<h2>Co to jest Compose?</h2>
+<p><strong>Docker Compose</strong> to tool do <strong>orkiestracji wielu kontenerow</strong>. Definiujesz aplikacje (services, networks, volumes) w jednym pliku YAML, uruchamiasz jednym poleceniem.</p>
+
+<p>W 2026 roku <strong>Compose v2</strong> (jako plugin <code>docker compose</code>, nie standalone <code>docker-compose</code>) jest standardem. Plik nazywa sie <strong>compose.yaml</strong> (bez prefiksu "docker-").</p>
+
+<h2>Pierwszy compose.yaml</h2>
+<pre><code># compose.yaml
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./html:/usr/share/nginx/html:ro
+
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: postgres://user:pass@db:5432/myapp
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: myapp
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  db-data:</code></pre>
+
+<pre><code># Uruchomienie
+docker compose up -d           # detached
+docker compose logs -f         # follow logi
+docker compose ps              # status
+docker compose down            # stop + rm
+docker compose down -v         # rowniez wolumeny
+docker compose restart api</code></pre>
+
+<h2>Anatomia compose.yaml</h2>
+
+<h3>services &mdash; kontenery</h3>
+<pre><code>services:
+  myservice:
+    image: nginx:1.27-alpine          # gotowy obraz
+    # LUB
+    build:
+      context: ./api
+      dockerfile: Dockerfile.prod
+      args:
+        VERSION: 1.0
+      target: runtime                  # multi-stage target
+
+    container_name: api-server         # opcjonalnie
+    hostname: api
+
+    ports:
+      - "3000:3000"                    # host:container
+      - "127.0.0.1:5432:5432"          # bind localhost
+      - "8080-8090:80"                 # zakres
+
+    volumes:
+      - ./src:/app/src                 # bind mount
+      - mydata:/var/data               # named volume
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    environment:
+      NODE_ENV: production
+      DB_HOST: db
+    env_file:
+      - .env
+      - .env.${ENV:-development}
+
+    networks:
+      - backend
+      - frontend
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+    restart: unless-stopped
+    # no | always | on-failure | unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 512M
+        reservations:
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"</code></pre>
+
+<h3>networks</h3>
+<pre><code>networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true                 # brak dostepu do internetu
+  external-net:
+    external: true
+    name: shared-network</code></pre>
+
+<h3>volumes</h3>
+<pre><code>volumes:
+  db-data:                         # named volume
+  cache:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  shared:
+    external: true
+    name: my-shared-volume         # juz istnieje</code></pre>
+
+<h2>depends_on &mdash; z healthcheck</h2>
+<p><strong>depends_on</strong> bez warunku tylko ustala kolejnosc startu, nie czeka az service jest gotowy. Z <code>condition</code> czeka az healthcheck przejdzie.</p>
+
+<pre><code>services:
+  api:
+    depends_on:
+      db:
+        condition: service_healthy        # czeka na zdrowie
+      migrations:
+        condition: service_completed_successfully  # czeka az skonczy sie
+
+  db:
+    image: postgres:16
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+
+  migrations:
+    build: ./api
+    command: npm run migrate
+    depends_on:
+      db:
+        condition: service_healthy</code></pre>
+
+<h2>Watch mode (Compose 2.22+)</h2>
+<p>Hot reload na poziomie compose &mdash; kopiuje pliki do kontenera lub rebuildujje przy zmianach. Zastapuje czesto rezczne bind mounts.</p>
+
+<pre><code>services:
+  api:
+    build: ./api
+    develop:
+      watch:
+        - action: sync                  # kopiuj pliki do kontenera
+          path: ./api/src
+          target: /app/src
+          ignore:
+            - "**/*.test.ts"
+        - action: rebuild               # rebuild gdy package.json sie zmieni
+          path: ./api/package.json
+
+# Uruchomienie
+docker compose up --watch</code></pre>
+
+<h2>Profiles &mdash; rozne srodowiska</h2>
+<pre><code>services:
+  api:
+    image: api:latest
+    # zawsze startuje
+
+  db:
+    image: postgres:16
+    profiles: ["dev", "test"]
+
+  pgadmin:
+    image: dpage/pgadmin4
+    profiles: ["dev"]                   # tylko dla dev
+
+  loadtest:
+    image: grafana/k6
+    profiles: ["test"]                   # tylko dla testow
+
+# Uruchom konkretne profile
+docker compose --profile dev up
+docker compose --profile test up
+docker compose up                        # tylko bez profilu (api)</code></pre>
+
+<h2>Override files</h2>
+<p>Compose automatycznie laduje <code>compose.override.yaml</code> (jesli istnieje) na <code>compose.yaml</code>. Pozwala mieci osobny dev/prod.</p>
+
+<pre><code># compose.yaml &mdash; baza
+services:
+  api:
+    image: ghcr.io/user/api:1.0
+    restart: unless-stopped
+
+# compose.override.yaml &mdash; dev (auto-merge)
+services:
+  api:
+    build: ./api                        # build zamiast image w dev
+    volumes:
+      - ./api/src:/app/src
+    environment:
+      NODE_ENV: development
+      DEBUG: "*"
+
+# compose.prod.yaml &mdash; prod (manualny)
+services:
+  api:
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          memory: 1G
+
+# Uruchomienia:
+docker compose up                                    # baza + override (dev)
+docker compose -f compose.yaml -f compose.prod.yaml up    # baza + prod</code></pre>
+
+<h2>Secrets</h2>
+<pre><code>services:
+  api:
+    image: api:latest
+    secrets:
+      - db_password
+      - jwt_secret
+    environment:
+      DB_PASSWORD_FILE: /run/secrets/db_password
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  jwt_secret:
+    environment: JWT_SECRET           # z env hostowego</code></pre>
+
+<h2>env_file &mdash; zmienne</h2>
+<pre><code># .env (auto-loaded przez compose)
+ENV=production
+DB_HOST=db
+DB_PORT=5432
+
+# compose.yaml
+services:
+  api:
+    image: api:${TAG:-latest}             # ${TAG} z .env, default latest
+    environment:
+      NODE_ENV: ${ENV}
+      DB_HOST: ${DB_HOST}
+    env_file:
+      - .env.${ENV}                       # np. .env.production
+      - path: ./secrets.env
+        required: false                   # nie blad gdy brak (Compose 2.24+)</code></pre>
+
+<h2>Pelny przyklad &mdash; full stack</h2>
+<pre><code># compose.yaml
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+      - api
+
+  frontend:
+    build: ./frontend
+    expose: ["3000"]
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.example.com
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    expose: ["3000"]
+    environment:
+      DATABASE_URL: postgres://user:pass@db:5432/app
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: app
+    secrets: [db_password]
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 5s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  redis-data:
+  caddy-data:
+  caddy-config:
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt</code></pre>
+
+<h2>Compose komendy &mdash; cheat sheet</h2>
+<table>
+<thead><tr><th>Komenda</th><th>Cel</th></tr></thead>
+<tbody>
+<tr><td><code>docker compose up -d</code></td><td>Build + start detached</td></tr>
+<tr><td><code>docker compose up --build</code></td><td>Wymusza rebuild</td></tr>
+<tr><td><code>docker compose up --watch</code></td><td>Watch mode (hot reload)</td></tr>
+<tr><td><code>docker compose down</code></td><td>Stop + rm</td></tr>
+<tr><td><code>docker compose down -v --rmi all</code></td><td>Pelny cleanup (z wolumenami i obrazami)</td></tr>
+<tr><td><code>docker compose ps</code></td><td>Status services</td></tr>
+<tr><td><code>docker compose logs -f api</code></td><td>Logi konkretnej service</td></tr>
+<tr><td><code>docker compose exec api bash</code></td><td>Shell w running service</td></tr>
+<tr><td><code>docker compose run --rm api npm test</code></td><td>Jednorazowe (np. test, migracje)</td></tr>
+<tr><td><code>docker compose pull</code></td><td>Pull najnowszych obrazow</td></tr>
+<tr><td><code>docker compose config</code></td><td>Wyswietl polaczony config (po merge)</td></tr>
+<tr><td><code>docker compose top</code></td><td>Procesy w services</td></tr>
+</tbody>
+</table>
+
+<h2>Legacy docker-compose vs nowoczesny docker compose</h2>
+<table>
+<thead><tr><th></th><th>docker-compose (v1)</th><th>docker compose (v2)</th></tr></thead>
+<tbody>
+<tr><td>Implementacja</td><td>Python, standalone</td><td>Go plugin</td></tr>
+<tr><td>Polecenie</td><td><code>docker-compose</code></td><td><code>docker compose</code></td></tr>
+<tr><td>Plik domyslny</td><td>docker-compose.yml</td><td>compose.yaml</td></tr>
+<tr><td>Wersja</td><td>version: "3.x"</td><td>(brak version - Compose Spec)</td></tr>
+<tr><td>Status</td><td>EOL czerwiec 2023</td><td>Standard 2026</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Zlote zasady</h3>
+<ul>
+<li>Uzywaj <strong>compose.yaml</strong> (nie docker-compose.yml)</li>
+<li>Pomijaj <code>version:</code> (Compose Spec, nieprzestarzaly)</li>
+<li>Uzywaj <strong>healthcheck + depends_on condition</strong></li>
+<li>Sekrety przez <strong>secrets:</strong> nie environment</li>
+<li>Override files dla dev vs prod</li>
+<li><strong>Watch mode</strong> zamiast bind mount + nodemon dla nowoczesnego DX</li>
+<li>Profiles dla optionalnych services</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="06-dockerfile-best-practices.html">&larr; Dockerfile best practices</a>
+<a href="08-siec-docker.html">Siec Docker &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Narzedzia i deployment PHP</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#8b5cf6;--accent-hover:#a78bfa;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">PHP</a>
+    <span class="sep">/</span>
+    <span class="title">Narzedzia i deployment</span>
+</div>
+
+<div class="container">
+<h1>Narzedzia i deployment PHP</h1>
+<p class="subtitle">Composer best practices, Deployer, FrankenPHP, Docker, OPcache, FPM tuning, GitHub Actions CI.</p>
+
+<h2>Composer - best practices</h2>
+
+<h3>composer.lock - zawsze w repo</h3>
+<p><code>composer.lock</code> jest <strong>obowiazkowy w repozytorium</strong> aplikacji (nie bibliotek). Dzieki niemu wszyscy developerzy i CI/CD instaluja te same wersje.</p>
+
+<pre><code># Production install - tylko na podstawie lock file
+composer install --no-dev --optimize-autoloader --classmap-authoritative
+
+# Dev environment
+composer install
+
+# Aktualizacja - z rozwaga
+composer update                     # wszystko (rzadko!)
+composer update vendor/package      # konkretna paczka
+composer update --prefer-stable     # tylko stable wersje</code></pre>
+
+<h3>Semver constraints</h3>
+<table>
+<thead><tr><th>Constraint</th><th>Znaczenie</th><th>Kiedy uzyc</th></tr></thead>
+<tbody>
+<tr><td><code>^7.0</code></td><td>&gt;=7.0.0 &lt;8.0.0 (caret)</td><td>Najczesciej - aktualizacje minor/patch</td></tr>
+<tr><td><code>~7.2.5</code></td><td>&gt;=7.2.5 &lt;7.3.0 (tilde)</td><td>Tylko patch updates</td></tr>
+<tr><td><code>7.2.*</code></td><td>&gt;=7.2.0 &lt;7.3.0 (wildcard)</td><td>Equiv to ~7.2.0</td></tr>
+<tr><td><code>7.2.5</code></td><td>Dokladnie 7.2.5</td><td>Pin do bardzo konkretnej wersji</td></tr>
+</tbody></table>
+
+<h2>Deployer - zero-downtime deployment</h2>
+<p>Deployer to PHP-native deployment tool inspirowany Capistrano (Ruby). Wykonuje deploy via SSH, robi atomic switch.</p>
+
+<pre><code># Instalacja
+composer require --dev deployer/deployer
+vendor/bin/dep init
+
+# deploy.php - przyklad
+namespace Deployer;
+
+require 'recipe/symfony.php';
+
+set('repository', 'git@github.com:user/app.git');
+set('keep_releases', 5);
+
+host('production')
+    -&gt;set('hostname', 'app.example.com')
+    -&gt;set('remote_user', 'deploy')
+    -&gt;set('deploy_path', '/var/www/app');
+
+// Uruchomienie
+// vendor/bin/dep deploy production</code></pre>
+
+<h3>Atomic deploy - jak dziala</h3>
+<pre><code>/var/www/app/
+  current -&gt; releases/20260507120000/   # symlink
+  releases/
+    20260506100000/
+    20260507120000/                     # nowy release
+  shared/
+    .env
+    storage/
+    var/log/
+  .dep/</code></pre>
+
+<h2>FrankenPHP - nowoczesna alternatywa dla PHP-FPM</h2>
+<p>FrankenPHP (Caddy + PHP) oferuje znaczne zalety dla nowoczesnych deployments:</p>
+
+<ul>
+<li><strong>Single binary</strong> &mdash; PHP wbudowany w serwer</li>
+<li><strong>HTTP/2, HTTP/3 (QUIC)</strong> &mdash; out of the box</li>
+<li><strong>Automatic HTTPS</strong> &mdash; Let's Encrypt zintegrowany</li>
+<li><strong>Worker mode</strong> &mdash; aplikacja w pamieci miedzy requestami</li>
+<li><strong>Early Hints (103)</strong> &mdash; preload zasobow</li>
+<li><strong>Mercure</strong> &mdash; real-time updates wbudowane</li>
+</ul>
+
+<pre><code># Docker - najprostsza droga
+FROM dunglas/frankenphp:latest
+
+COPY . /app/public
+RUN install-php-extensions \
+    pdo_mysql \
+    redis \
+    opcache
+
+# Worker mode w Caddyfile
+{
+    frankenphp {
+        worker /app/public/index.php 4
+    }
+}
+
+example.com {
+    root * /app/public
+    php_server
+}</code></pre>
+
+<h2>OPcache - obowiazkowy w produkcji</h2>
+<p>OPcache cachuje skompilowany bytecode w pamieci - bez tego PHP parsuje pliki przy kazdym request.</p>
+
+<pre><code>; php.ini - production settings
+opcache.enable=1
+opcache.enable_cli=0
+opcache.memory_consumption=256          ; MB
+opcache.interned_strings_buffer=16
+opcache.max_accelerated_files=20000
+opcache.validate_timestamps=0           ; PROD: nie sprawdzaj zmian
+opcache.preload=/app/preload.php        ; PHP 7.4+
+opcache.preload_user=www-data
+
+; JIT (PHP 8+)
+opcache.jit_buffer_size=128M
+opcache.jit=tracing</code></pre>
+
+<h3>opcache_compile_file - preload</h3>
+<pre><code>// preload.php
+$files = glob(__DIR__ . '/src/**/*.php');
+foreach ($files as $file) {
+    opcache_compile_file($file);
+}</code></pre>
+
+<h2>PHP-FPM tuning</h2>
+<p>Dobor parametrow zalezy od pamieci RAM i obciazenia.</p>
+
+<pre><code>; /etc/php/8.4/fpm/pool.d/www.conf
+
+pm = dynamic                    ; albo 'static' dla stalego obciazenia
+pm.max_children = 50            ; Max liczba procesow
+pm.start_servers = 10           ; Startowa liczba
+pm.min_spare_servers = 5
+pm.max_spare_servers = 15
+pm.max_requests = 500           ; Restart workera po N requestach (memory leaks)
+
+; Slow log - logowanie wolnych requestow
+slowlog = /var/log/php-fpm-slow.log
+request_slowlog_timeout = 5s
+
+; Status page
+pm.status_path = /fpm-status
+ping.path = /fpm-ping</code></pre>
+
+<h3>Wzor: pm.max_children</h3>
+<pre><code>pm.max_children = (Total RAM - System RAM - Database RAM) / Process RAM
+
+Przyklad: 4 GB RAM, system 500 MB, MySQL 1 GB, jeden proces PHP ~80 MB
+pm.max_children = (4096 - 500 - 1024) / 80 = ~32</code></pre>
+
+<h2>Docker dla PHP - multi-stage Alpine</h2>
+<pre><code># syntax=docker/dockerfile:1.7
+FROM composer:2 AS deps
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist
+
+# Stage 2: aplikacja
+FROM dunglas/frankenphp:php8.4-alpine
+WORKDIR /app
+
+# Rozszerzenia produkcyjne
+RUN install-php-extensions \
+    pdo_mysql \
+    opcache \
+    redis \
+    intl
+
+COPY --from=deps /app/vendor ./vendor
+COPY . .
+RUN composer dump-autoload --optimize --classmap-authoritative
+
+# OPcache config
+COPY docker/php/opcache.ini $PHP_INI_DIR/conf.d/
+
+ENV SERVER_NAME=:80
+EXPOSE 80 443
+
+USER www-data</code></pre>
+
+<h2>GitHub Actions - CI dla PHP</h2>
+<pre><code>name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.3', '8.4']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, pdo, intl
+          coverage: pcov
+          tools: composer:v2
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - name: Install
+        run: composer install --no-progress --prefer-dist
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress
+
+      - name: Code style
+        run: vendor/bin/pint --test
+
+      - name: Tests
+        run: vendor/bin/pest --coverage --min=80</code></pre>
+
+<div class="card">
+<h3>Production checklist</h3>
+<ul>
+<li><code>display_errors=Off</code>, <code>log_errors=On</code></li>
+<li>OPcache enabled, validate_timestamps=0</li>
+<li>composer install --no-dev --optimize-autoloader</li>
+<li>Secrets w env vars / vault, nie w repo</li>
+<li>HTTPS only + HSTS</li>
+<li>Atomic deploy (Deployer / symlinks)</li>
+<li>Monitoring (Sentry, Datadog, NewRelic)</li>
+<li>Backup automatyczny + recovery test</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="05-ochrona-kodu-przed-kradzieza.html">&larr; Ochrona kodu</a>
+<a href="index.html">Wroc do PHP &rarr;</a>
+</div>
+</div>
+</body>
+</html>

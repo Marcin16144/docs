@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>State management Blazor</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">WWW</a><span class="sep">/</span><a href="index.html">Blazor</a><span class="sep">/</span><span class="title">State management</span></div>
+<div class="container">
+<h1>State management Blazor</h1>
+<p class="subtitle">Cascading parameters, DI, scoped services, Fluxor, persistent state</p>
+
+<h2>Poziomy zarzadzania stanem</h2>
+<ol>
+<li><strong>Component state</strong> &mdash; lokalne pola w <code>@code</code></li>
+<li><strong>Parameter passing</strong> &mdash; props przez <code>[Parameter]</code></li>
+<li><strong>Cascading parameters</strong> &mdash; przekazywanie w dol drzewa bez recznego prop drilling</li>
+<li><strong>Service injection</strong> &mdash; DI scoped/singleton service jako "store"</li>
+<li><strong>State container</strong> &mdash; Fluxor, ReactiveUI, custom Redux-like</li>
+<li><strong>Persistent state</strong> &mdash; localStorage, sessionStorage, IndexedDB</li>
+</ol>
+
+<h2>Cascading parameters</h2>
+<p>Pozwalaja przekazywac dane od rodzica w dol drzewa bez explicite prop dla kazdego pomidnego komponentu.</p>
+
+<pre><code>&lt;!-- ThemeProvider.razor --&gt;
+&lt;CascadingValue Value="@theme"&gt;
+    @ChildContent
+&lt;/CascadingValue&gt;
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private Theme theme = new("dark", "#a855f7");
+
+    public void ChangeTheme(Theme newTheme)
+    {
+        theme = newTheme;
+        StateHasChanged();
+    }
+}</code></pre>
+
+<pre><code>&lt;!-- DeepNestedComponent.razor --&gt;
+&lt;p style="color: @Theme.PrimaryColor"&gt;Stylowany przez cascading param&lt;/p&gt;
+
+@code {
+    [CascadingParameter] public Theme Theme { get; set; } = default!;
+}</code></pre>
+
+<h3>Nazwane cascading parameters</h3>
+<pre><code>&lt;CascadingValue Value="@user" Name="CurrentUser"&gt;
+    &lt;CascadingValue Value="@settings" Name="Settings"&gt;
+        @ChildContent
+    &lt;/CascadingValue&gt;
+&lt;/CascadingValue&gt;
+
+@code {
+    [CascadingParameter(Name = "CurrentUser")]
+    public User? User { get; set; }
+}</code></pre>
+
+<h2>Dependency Injection</h2>
+<p>Najczestszy wzorzec dla zarzadzania stanem &mdash; <strong>scoped service</strong> jako "store".</p>
+
+<pre><code>// CartService.cs
+public class CartService
+{
+    private readonly List&lt;CartItem&gt; items = new();
+
+    public IReadOnlyList&lt;CartItem&gt; Items =&gt; items;
+    public decimal Total =&gt; items.Sum(i =&gt; i.Price * i.Quantity);
+
+    public event Action? OnChange;
+
+    public void Add(Product product)
+    {
+        var existing = items.FirstOrDefault(i =&gt; i.ProductId == product.Id);
+        if (existing != null)
+            existing.Quantity++;
+        else
+            items.Add(new CartItem(product.Id, product.Name, product.Price, 1));
+
+        OnChange?.Invoke();
+    }
+
+    public void Remove(int productId)
+    {
+        items.RemoveAll(i =&gt; i.ProductId == productId);
+        OnChange?.Invoke();
+    }
+}</code></pre>
+
+<pre><code>// Program.cs
+builder.Services.AddScoped&lt;CartService&gt;();</code></pre>
+
+<pre><code>&lt;!-- CartWidget.razor --&gt;
+@inject CartService Cart
+@implements IDisposable
+
+&lt;div&gt;
+    Koszyk: @Cart.Items.Count produktow
+    Total: @Cart.Total.ToString("C")
+&lt;/div&gt;
+
+@code {
+    protected override void OnInitialized()
+    {
+        Cart.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Cart.OnChange -= StateHasChanged;
+    }
+}</code></pre>
+
+<h2>Service lifetimes</h2>
+<table>
+<thead><tr><th>Lifetime</th><th>Blazor Server</th><th>Blazor WASM</th></tr></thead>
+<tbody>
+<tr><td>Singleton</td><td>Jeden dla calej aplikacji (wszystkie SignalR circuits)</td><td>Jeden per uzytkownik (per WASM session)</td></tr>
+<tr><td>Scoped</td><td>Jeden per circuit (per uzytkownik)</td><td>Jak singleton (jeden per session)</td></tr>
+<tr><td>Transient</td><td>Nowa instancja przy kazdej iniekcji</td><td>Nowa instancja przy kazdej iniekcji</td></tr>
+</tbody>
+</table>
+<p>W Blazor Server <strong>nie uzywaj Singleton dla danych specyficznych uzytkownika</strong> &mdash; wszyscy zaloguja sie do tej samej instancji.</p>
+
+<h2>Fluxor &mdash; Redux-like</h2>
+<p>Fluxor to popularny library dla Blazor implementujacy wzorzec Redux/Flux. Daje predictable state, time-travel debugging, immutable state.</p>
+
+<pre><code>// State
+public record CounterState(int Count);
+
+// Feature
+public class CounterFeature : Feature&lt;CounterState&gt;
+{
+    public override string GetName() =&gt; "Counter";
+    protected override CounterState GetInitialState() =&gt; new(0);
+}
+
+// Action
+public record IncrementAction;
+
+// Reducer
+public static class CounterReducers
+{
+    [ReducerMethod]
+    public static CounterState OnIncrement(CounterState state, IncrementAction _) =&gt;
+        state with { Count = state.Count + 1 };
+}
+
+// Effect (np. async API)
+public class CounterEffects
+{
+    [EffectMethod]
+    public async Task HandleSaveAction(SaveAction action, IDispatcher dispatcher)
+    {
+        await api.SaveAsync(action.Data);
+        dispatcher.Dispatch(new SaveSuccessAction());
+    }
+}</code></pre>
+
+<pre><code>// Komponent
+@inherits FluxorComponent
+@inject IState&lt;CounterState&gt; State
+@inject IDispatcher Dispatcher
+
+&lt;p&gt;Count: @State.Value.Count&lt;/p&gt;
+&lt;button @onclick='() =&gt; Dispatcher.Dispatch(new IncrementAction())'&gt;+&lt;/button&gt;</code></pre>
+
+<h2>Persistent state &mdash; localStorage</h2>
+<p>Najpopularniejsza biblioteka: <code>Blazored.LocalStorage</code>.</p>
+<pre><code>builder.Services.AddBlazoredLocalStorage();</code></pre>
+<pre><code>@inject ILocalStorageService LocalStorage
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var saved = await LocalStorage.GetItemAsync&lt;CartState&gt;("cart");
+        if (saved != null) cart = saved;
+    }
+
+    private async Task Save()
+    {
+        await LocalStorage.SetItemAsync("cart", cart);
+    }
+}</code></pre>
+
+<h2>PersistentState (Blazor United)</h2>
+<p>W Blazor United (.NET 8/9) mozna persistowac stan z prerendering do interaktywnego trybu &mdash; eliminuje "double fetch".</p>
+<pre><code>@inject PersistentComponentState ApplicationState
+
+@code {
+    private List&lt;Product&gt;? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!ApplicationState.TryTakeFromJson&lt;List&lt;Product&gt;&gt;("products", out products))
+        {
+            products = await Api.GetProductsAsync();
+        }
+
+        ApplicationState.RegisterOnPersisting(() =&gt;
+        {
+            ApplicationState.PersistAsJson("products", products);
+            return Task.CompletedTask;
+        });
+    }
+}</code></pre>
+
+<h2>Wybor strategii</h2>
+<table>
+<thead><tr><th>Sytuacja</th><th>Rekomendacja</th></tr></thead>
+<tbody>
+<tr><td>Stan tylko w jednym komponencie</td><td>Pole w @code</td></tr>
+<tr><td>Stan przekazywany do dziecka</td><td>Parameter</td></tr>
+<tr><td>Stan dostepny w calym drzewie</td><td>CascadingValue</td></tr>
+<tr><td>Stan wspoldzielony przez aplikacje</td><td>Scoped service + event</td></tr>
+<tr><td>Skomplikowany flow akcji</td><td>Fluxor</td></tr>
+<tr><td>Stan po przeladowaniu strony</td><td>localStorage / sessionStorage</td></tr>
+<tr><td>Wieksze dane (offline)</td><td>IndexedDB (np. Blazor.IndexedDB)</td></tr>
+<tr><td>Server-side ze stanem per uzytkownik</td><td>Scoped service + IDistributedCache</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Wskazowka &mdash; antypattern</h3>
+<p>Nie uzywaj <strong>static fields</strong> jako "store" &mdash; w Blazor Server beda wspoldzielone miedzy uzytkownikami, w WASM dziala "ok" ale to nieczyste rozwiazanie. Uzywaj DI scoped service dla stanu specyficznego dla uzytkownika.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="02-routing-i-nawigacja.html">&larr; Routing i nawigacja</a>
+<a href="04-formy-i-walidacja.html">Formy i walidacja &rarr;</a>
+</div>
+</div>
+</body>
+</html>

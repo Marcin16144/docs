@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testowanie</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">React.js</a><span class="sep">/</span><span class="title">Testowanie</span></div>
+<div class="container">
+<h1>Testowanie</h1>
+<p class="subtitle">Vitest, Testing Library, Playwright, Storybook, MSW</p>
+
+<h2>Piramida testow</h2>
+<pre><code>     /\
+    /E2E\        &lt;- Playwright (kilka, wolne, koncowe scenariusze)
+   /------\
+  /Integr. \    &lt;- Testing Library (wiekszosc, srednie tempo)
+ /----------\
+/   Unit     \  &lt;- Vitest (najwiecej, bardzo szybkie)
+/--------------\</code></pre>
+
+<h2>Vitest &mdash; #1 unit test runner</h2>
+<p><strong>Vitest</strong> zastapil Jest jako standard w 2024+. Powody: 10x szybszy (Vite + esbuild), natywne ESM, TS bez konfiguracji, kompatybilny z Jest API.</p>
+
+<pre><code>npm i -D vitest @vitest/ui jsdom
+
+// vite.config.ts
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.ts',
+  },
+});
+
+// src/test/setup.ts
+import '@testing-library/jest-dom/vitest';
+
+// package.json
+"scripts": {
+  "test": "vitest",
+  "test:ui": "vitest --ui",
+  "coverage": "vitest run --coverage"
+}</code></pre>
+
+<h3>Pierwszy test</h3>
+<pre><code>// src/utils/sum.ts
+export const sum = (a: number, b: number) =&gt; a + b;
+
+// src/utils/sum.test.ts
+import { describe, it, expect } from 'vitest';
+import { sum } from './sum';
+
+describe('sum', () =&gt; {
+  it('dodaje dwie liczby', () =&gt; {
+    expect(sum(2, 3)).toBe(5);
+  });
+
+  it('obsluguje liczby ujemne', () =&gt; {
+    expect(sum(-1, -2)).toBe(-3);
+  });
+});</code></pre>
+
+<h2>React Testing Library</h2>
+<p><strong>Testing Library</strong> testuje komponenty <strong>z perspektywy uzytkownika</strong> &mdash; nie wewnetrzne implementacji. Glowna zasada: testuj zachowanie, nie kod.</p>
+
+<pre><code>npm i -D @testing-library/react @testing-library/jest-dom @testing-library/user-event
+
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, it, expect } from 'vitest';
+import Counter from './Counter';
+
+describe('Counter', () =&gt; {
+  it('zaczyna od 0 i inkrementuje po kliknieciu', async () =&gt; {
+    const user = userEvent.setup();
+    render(&lt;Counter /&gt;);
+
+    expect(screen.getByText(/Count: 0/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /\+/ }));
+    expect(screen.getByText(/Count: 1/)).toBeInTheDocument();
+  });
+
+  it('pokazuje komunikat dla wartosci ujemnej', async () =&gt; {
+    const user = userEvent.setup();
+    render(&lt;Counter initial={1} /&gt;);
+
+    await user.click(screen.getByRole('button', { name: /-/ }));
+    await user.click(screen.getByRole('button', { name: /-/ }));
+
+    expect(screen.getByText('Wartosc ujemna!')).toBeInTheDocument();
+  });
+});</code></pre>
+
+<h3>Zapytania &mdash; priorytet</h3>
+<table>
+<thead><tr><th>Priorytet</th><th>Query</th><th>Cel</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>getByRole</td><td>Najlepszy &mdash; tak widzi screen reader</td></tr>
+<tr><td>2</td><td>getByLabelText</td><td>Inputy z &lt;label&gt;</td></tr>
+<tr><td>3</td><td>getByPlaceholderText</td><td>Inputy bez label</td></tr>
+<tr><td>4</td><td>getByText</td><td>Tekst widoczny</td></tr>
+<tr><td>5</td><td>getByTestId</td><td>Last resort &mdash; data-testid</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Pulapki Testing Library</h3>
+<ul>
+<li><strong>NIE testuj implementacji</strong> &mdash; nie sprawdzaj nazw funkcji wewnetrznych, state etc.</li>
+<li>Uzywaj <code>userEvent</code> zamiast <code>fireEvent</code> &mdash; dokladniej symuluje uzytkownika</li>
+<li><code>findBy*</code> dla async (czeka), <code>queryBy*</code> dla "nie istnieje"</li>
+<li>Nie testuj samego Reacta (props passes, state changes) &mdash; testuj UI</li>
+</ul>
+</div>
+
+<h2>Playwright &mdash; E2E #1</h2>
+<p><strong>Playwright</strong> (od Microsoftu) wyparl Cypressa od 2024. Powody: szybszy (paralelnie), wieloprzegladarkowy (Chrome, Firefox, Safari), lepszy debugger, native TypeScript, API bardziej intuicyjne.</p>
+
+<pre><code>npm init playwright@latest
+
+// tests/login.spec.ts
+import { test, expect } from '@playwright/test';
+
+test('uzytkownik moze sie zalogowac', async ({ page }) =&gt; {
+  await page.goto('/login');
+
+  await page.getByLabel('Email').fill('test@example.com');
+  await page.getByLabel('Haslo').fill('haslo123');
+  await page.getByRole('button', { name: 'Zaloguj' }).click();
+
+  await expect(page).toHaveURL('/dashboard');
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+});
+
+test('blad przy zlym hasle', async ({ page }) =&gt; {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('test@example.com');
+  await page.getByLabel('Haslo').fill('zle');
+  await page.getByRole('button', { name: 'Zaloguj' }).click();
+
+  await expect(page.getByText('Bledne dane')).toBeVisible();
+});</code></pre>
+
+<h3>Playwright features</h3>
+<ul>
+<li><strong>Codegen</strong> &mdash; <code>npx playwright codegen</code> generuje testy klikajac w UI</li>
+<li><strong>Trace viewer</strong> &mdash; nagrywa cala sesje dla debugu</li>
+<li><strong>Auto-wait</strong> &mdash; nie trzeba pisac sleepow</li>
+<li><strong>Web-first assertions</strong> &mdash; expect powtarza dopoki sie nie spelni</li>
+<li><strong>Component testing</strong> (eksperymentalne) &mdash; React/Vue komponenty</li>
+</ul>
+
+<h2>Storybook 8</h2>
+<p><strong>Storybook</strong> &mdash; izolowane srodowisko dla komponentow. Dokumentacja, wizualne testy, design system. Wersja 8 (2024) &mdash; Vite-powered, szybsza, wsparcie RSC.</p>
+
+<pre><code>npx storybook@latest init
+
+// src/components/Button.stories.tsx
+import type { Meta, StoryObj } from '@storybook/react';
+import { Button } from './Button';
+
+const meta: Meta&lt;typeof Button&gt; = {
+  title: 'UI/Button',
+  component: Button,
+  argTypes: {
+    variant: { control: 'select', options: ['primary', 'secondary'] },
+    size: { control: 'radio', options: ['sm', 'md', 'lg'] },
+  },
+};
+export default meta;
+
+type Story = StoryObj&lt;typeof Button&gt;;
+
+export const Primary: Story = {
+  args: { variant: 'primary', children: 'Klik' },
+};
+
+export const Disabled: Story = {
+  args: { variant: 'primary', disabled: true, children: 'Nieaktywny' },
+};
+
+// Z play function &mdash; interakcja
+export const Click: Story = {
+  args: { variant: 'primary', children: 'Klik' },
+  play: async ({ canvasElement }) =&gt; {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button'));
+  },
+};</code></pre>
+
+<h2>MSW &mdash; Mock Service Worker</h2>
+<p><strong>MSW</strong> mockuje requesty HTTP <strong>na poziomie sieci</strong>. Idealne dla testow i development &mdash; jeden zestaw mockow dla unit, integration, browser dev.</p>
+
+<pre><code>npm i -D msw
+
+// src/mocks/handlers.ts
+import { http, HttpResponse } from 'msw';
+
+export const handlers = [
+  http.get('/api/posts', () =&gt; {
+    return HttpResponse.json([
+      { id: 1, title: 'Pierwszy post' },
+      { id: 2, title: 'Drugi post' },
+    ]);
+  }),
+  http.post('/api/posts', async ({ request }) =&gt; {
+    const body = await request.json();
+    return HttpResponse.json({ id: 3, ...body }, { status: 201 });
+  }),
+];
+
+// src/mocks/server.ts (Node)
+import { setupServer } from 'msw/node';
+import { handlers } from './handlers';
+export const server = setupServer(...handlers);
+
+// src/test/setup.ts
+import { server } from '../mocks/server';
+import { beforeAll, afterEach, afterAll } from 'vitest';
+
+beforeAll(() =&gt; server.listen());
+afterEach(() =&gt; server.resetHandlers());
+afterAll(() =&gt; server.close());</code></pre>
+
+<h2>Porownanie narzedzi</h2>
+<table>
+<thead><tr><th>Narzedzie</th><th>Typ</th><th>Status 2026</th><th>Kluczowa cecha</th></tr></thead>
+<tbody>
+<tr><td>Vitest</td><td>Test runner</td><td>#1, zastapil Jest</td><td>10x szybszy, ESM, TS</td></tr>
+<tr><td>Jest</td><td>Test runner</td><td>Legacy</td><td>Jeszcze popularny w starych projektach</td></tr>
+<tr><td>Testing Library</td><td>UI testing</td><td>Standard</td><td>Test behavior, not implementation</td></tr>
+<tr><td>Playwright</td><td>E2E</td><td>#1, zastapil Cypress</td><td>Multi-browser, paralelnie, codegen</td></tr>
+<tr><td>Cypress</td><td>E2E</td><td>Legacy</td><td>Nadal uzywany ale spada</td></tr>
+<tr><td>Storybook 8</td><td>Component dev</td><td>Standard</td><td>Izolowane stories, design system</td></tr>
+<tr><td>MSW</td><td>API mocking</td><td>Standard</td><td>Mock na warstwie sieci, jeden zestaw</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Stack rekomendowany 2026</h3>
+<ul>
+<li><strong>Unit/integration:</strong> Vitest + Testing Library + MSW</li>
+<li><strong>E2E:</strong> Playwright</li>
+<li><strong>Component dev/docs:</strong> Storybook 8</li>
+<li><strong>Coverage:</strong> Vitest --coverage (V8 lub istanbul)</li>
+<li><strong>CI:</strong> GitHub Actions z paralelnymi shardami Playwright</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="09-frameworki-meta.html">&larr; Meta-frameworki</a>
+<a href="11-wydajnosc.html">Wydajnosc &rarr;</a>
+</div>
+</div>
+</body>
+</html>

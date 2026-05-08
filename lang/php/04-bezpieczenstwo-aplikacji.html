@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bezpieczenstwo aplikacji PHP</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#8b5cf6;--accent-hover:#a78bfa;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">PHP</a>
+    <span class="sep">/</span>
+    <span class="title">Bezpieczenstwo aplikacji</span>
+</div>
+
+<div class="container">
+<h1>Bezpieczenstwo aplikacji PHP</h1>
+<p class="subtitle">OWASP Top 10 dla PHP, prepared statements, walidacja, CSRF/XSS, file upload, password hashing.</p>
+
+<h2>OWASP Top 10 (2021/2025) w kontekscie PHP</h2>
+<table>
+<thead><tr><th>#</th><th>Kategoria</th><th>PHP-specyficzny aspekt</th></tr></thead>
+<tbody>
+<tr><td>A01</td><td>Broken Access Control</td><td>Brak weryfikacji autoryzacji w controllerach</td></tr>
+<tr><td>A02</td><td>Cryptographic Failures</td><td>md5/sha1 dla hasel, brak HTTPS</td></tr>
+<tr><td>A03</td><td>Injection</td><td>SQL Injection, Command Injection, LDAP Injection</td></tr>
+<tr><td>A04</td><td>Insecure Design</td><td>Brak threat modeling</td></tr>
+<tr><td>A05</td><td>Security Misconfiguration</td><td>display_errors=On w produkcji, expose_php=On</td></tr>
+<tr><td>A06</td><td>Vulnerable Components</td><td>Stare wersje paczek z composer</td></tr>
+<tr><td>A07</td><td>Identification &amp; Auth</td><td>Slabe sesje, brak rate limiting</td></tr>
+<tr><td>A08</td><td>Software/Data Integrity</td><td>unserialize() na user input</td></tr>
+<tr><td>A09</td><td>Logging Failures</td><td>Brak monitorowania, logowanie hasel</td></tr>
+<tr><td>A10</td><td>SSRF</td><td>file_get_contents() z user URL</td></tr>
+</tbody></table>
+
+<h2>SQL Injection - prepared statements</h2>
+<p>Najczestszy blad: konkatenacja stringow w SQL.</p>
+
+<pre><code>// ZLE - SQL Injection
+$id = $_GET['id'];
+$result = $pdo-&gt;query("SELECT * FROM users WHERE id = $id");
+
+// DOBRZE - prepared statement (PDO)
+$stmt = $pdo-&gt;prepare("SELECT * FROM users WHERE id = :id");
+$stmt-&gt;execute(['id' =&gt; $_GET['id']]);
+$user = $stmt-&gt;fetch();
+
+// DOBRZE - mysqli prepared
+$stmt = $mysqli-&gt;prepare("SELECT * FROM users WHERE id = ?");
+$stmt-&gt;bind_param('i', $_GET['id']);
+$stmt-&gt;execute();</code></pre>
+
+<h3>Doctrine ORM - automatyczne escapowanie</h3>
+<pre><code>// DQL - bezpieczne
+$users = $em-&gt;createQuery(
+    'SELECT u FROM App\Entity\User u WHERE u.id = :id'
+)-&gt;setParameter('id', $id)-&gt;getResult();
+
+// QueryBuilder
+$qb = $em-&gt;createQueryBuilder()
+    -&gt;select('u')
+    -&gt;from(User::class, 'u')
+    -&gt;where('u.email = :email')
+    -&gt;setParameter('email', $email);</code></pre>
+
+<h2>XSS prevention</h2>
+<p>Wyswietlanie user input bez escapowania - klasyk.</p>
+
+<pre><code>// ZLE
+echo "&lt;h1&gt;Witaj, $name&lt;/h1&gt;";  // jesli $name = '&lt;script&gt;alert(1)&lt;/script&gt;'
+
+// DOBRZE
+echo "&lt;h1&gt;Witaj, " . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . "&lt;/h1&gt;";
+
+// Twig - auto-escape (Symfony)
+{{ name }}              {# automatycznie escaped #}
+{{ trustedHtml|raw }}   {# bez escape - tylko gdy pewny #}
+
+// Blade - auto-escape (Laravel)
+{{ $name }}             {# escape #}
+{!! $trustedHtml !!}    {# bez escape #}</code></pre>
+
+<h3>Content Security Policy (CSP)</h3>
+<pre><code>// Dodanie naglowka CSP
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-$nonce'");
+header("X-Content-Type-Options: nosniff");
+header("X-Frame-Options: DENY");
+header("Strict-Transport-Security: max-age=31536000; includeSubDomains");</code></pre>
+
+<h2>CSRF tokens</h2>
+<p>Cross-Site Request Forgery - atakujacy zmusza zalogowanego uzytkownika do wykonania akcji.</p>
+
+<pre><code>// Generowanie tokenu (PHP 8.2+ ma Random\Randomizer)
+$token = bin2hex(random_bytes(32));
+$_SESSION['csrf_token'] = $token;
+
+// W formularzu
+&lt;input type="hidden" name="_token" value="&lt;?= htmlspecialchars($token) ?&gt;"&gt;
+
+// Weryfikacja
+if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['_token'] ?? '')) {
+    http_response_code(419);
+    exit('CSRF token mismatch');
+}
+
+// Symfony - automatyczne CSRF dla formularzy</code></pre>
+
+<h2>Walidacja - Symfony Validator</h2>
+<pre><code>use Symfony\Component\Validator\Constraints as Assert;
+
+class UserRegistrationDTO {
+    #[Assert\NotBlank]
+    #[Assert\Length(min: 2, max: 50)]
+    public string $name;
+
+    #[Assert\NotBlank]
+    #[Assert\Email]
+    public string $email;
+
+    #[Assert\NotBlank]
+    #[Assert\Length(min: 12)]
+    #[Assert\PasswordStrength(minScore: 3)]
+    public string $password;
+
+    #[Assert\Range(min: 18, max: 120)]
+    public int $age;
+}
+
+// Uzycie
+$violations = $validator-&gt;validate($dto);
+if (count($violations) &gt; 0) {
+    foreach ($violations as $v) {
+        echo $v-&gt;getPropertyPath() . ': ' . $v-&gt;getMessage();
+    }
+}</code></pre>
+
+<h2>Password hashing - Argon2id</h2>
+<pre><code>// Hashowanie - PASSWORD_DEFAULT to argon2id w PHP 8.4+
+$hash = password_hash($password, PASSWORD_ARGON2ID, [
+    'memory_cost' =&gt; 65536,  // 64 MB
+    'time_cost' =&gt; 4,
+    'threads' =&gt; 1,
+]);
+
+// Weryfikacja
+if (password_verify($password, $hash)) {
+    // Sprawdz czy potrzebne re-hash (nowsze parametry)
+    if (password_needs_rehash($hash, PASSWORD_ARGON2ID)) {
+        $newHash = password_hash($password, PASSWORD_ARGON2ID);
+        // Zapisz $newHash w bazie
+    }
+}</code></pre>
+
+<div class="card">
+<h3>NIGDY nie uzywaj do hasel:</h3>
+<ul>
+<li><code>md5()</code> &mdash; zlamane od 2004</li>
+<li><code>sha1()</code> &mdash; zlamane od 2017</li>
+<li><code>crypt()</code> bez salt &mdash; tylko z PASSWORD_BCRYPT</li>
+<li>Plain text &mdash; nigdy</li>
+</ul>
+</div>
+
+<h2>File upload - bezpieczenstwo</h2>
+<pre><code>function safeUpload(array $file, string $dest): string {
+    // 1. Sprawdz blad
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('Upload error');
+    }
+
+    // 2. Limit rozmiaru
+    if ($file['size'] &gt; 5 * 1024 * 1024) {
+        throw new RuntimeException('File too large');
+    }
+
+    // 3. Wykryj prawdziwy MIME (nie ufaj $file['type'])
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo-&gt;file($file['tmp_name']);
+
+    $allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!in_array($mime, $allowed, true)) {
+        throw new RuntimeException('Invalid file type');
+    }
+
+    // 4. Wygeneruj unikalna nazwe (nie uzywaj user filename)
+    $ext = match($mime) {
+        'image/jpeg' =&gt; '.jpg',
+        'image/png' =&gt; '.png',
+        'image/webp' =&gt; '.webp',
+    };
+    $name = bin2hex(random_bytes(16)) . $ext;
+
+    // 5. Przenies poza document root!
+    $path = $dest . '/' . $name;
+    if (!move_uploaded_file($file['tmp_name'], $path)) {
+        throw new RuntimeException('Cannot move file');
+    }
+
+    return $name;
+}</code></pre>
+
+<h2>SSRF prevention</h2>
+<pre><code>// ZLE - SSRF: atakujacy moze wymusic request do internal services
+$content = file_get_contents($_GET['url']);
+
+// DOBRZE - allowlist
+$parsed = parse_url($_GET['url']);
+$allowedHosts = ['api.example.com', 'cdn.example.com'];
+if (!in_array($parsed['host'] ?? '', $allowedHosts, true)) {
+    throw new InvalidArgumentException('Host not allowed');
+}
+
+// + sprawdzenie czy IP nie jest internal
+$ip = gethostbyname($parsed['host']);
+if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+    throw new InvalidArgumentException('Internal IP blocked');
+}</code></pre>
+
+<h2>Secrets management</h2>
+<pre><code># .env - NIGDY w repo
+DB_PASSWORD=secret123
+API_KEY=sk_live_xxx
+
+# Symfony - Secrets vault (encrypted)
+php bin/console secrets:set DATABASE_PASSWORD
+php bin/console secrets:list
+
+# .gitignore
+.env
+.env.local
+.env.*.local</code></pre>
+
+<div class="nav-bottom">
+<a href="03-frameworki-i-ekosystem.html">&larr; Frameworki</a>
+<a href="05-ochrona-kodu-przed-kradzieza.html">Ochrona kodu &rarr;</a>
+</div>
+</div>
+</body>
+</html>

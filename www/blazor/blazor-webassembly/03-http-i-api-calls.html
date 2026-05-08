@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTTP i API calls Blazor WASM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor WebAssembly</a><span class="sep">/</span><span class="title">HTTP i API calls</span></div>
+<div class="container">
+<h1>HTTP i API calls Blazor WASM</h1>
+<p class="subtitle">HttpClient, named clients, Polly resilience, JWT, CORS</p>
+
+<h2>HttpClient w WASM</h2>
+<p>W Blazor WASM <code>HttpClient</code> jest wbudowanym serwisem &mdash; pod spodem uzywa <strong>Fetch API</strong> przegladarki. Wszystkie ograniczenia browsera obowiazuja: same-origin policy, CORS, brak dostepu do ciastek other origin (chyba ze withCredentials).</p>
+
+<pre><code>// Program.cs
+builder.Services.AddScoped(sp =&gt; new HttpClient
+{
+    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
+});</code></pre>
+
+<h2>Najczestsze operacje</h2>
+<pre><code>@inject HttpClient Http
+
+@code {
+    private List&lt;Product&gt;? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // GET z deserializacja JSON
+        products = await Http.GetFromJsonAsync&lt;List&lt;Product&gt;&gt;("api/products");
+    }
+
+    private async Task CreateProduct(Product product)
+    {
+        // POST z serializacja JSON
+        var response = await Http.PostAsJsonAsync("api/products", product);
+        response.EnsureSuccessStatusCode();
+        var created = await response.Content.ReadFromJsonAsync&lt;Product&gt;();
+    }
+
+    private async Task UpdateProduct(int id, Product product)
+    {
+        await Http.PutAsJsonAsync($"api/products/{id}", product);
+    }
+
+    private async Task DeleteProduct(int id)
+    {
+        await Http.DeleteAsync($"api/products/{id}");
+    }
+}</code></pre>
+
+<h2>Named HttpClients</h2>
+<p>Dla aplikacji wywolujacej kilka roznych API uzywaj IHttpClientFactory:</p>
+<pre><code>// Program.cs
+builder.Services.AddHttpClient("PublicApi", client =&gt;
+{
+    client.BaseAddress = new Uri("https://api.public.com/");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+});
+
+builder.Services.AddHttpClient("PrivateApi", client =&gt;
+{
+    client.BaseAddress = new Uri("https://api.private.com/");
+})
+.AddHttpMessageHandler&lt;AuthHandler&gt;();</code></pre>
+
+<pre><code>@inject IHttpClientFactory ClientFactory
+
+@code {
+    private async Task LoadData()
+    {
+        var publicClient = ClientFactory.CreateClient("PublicApi");
+        var data = await publicClient.GetFromJsonAsync&lt;List&lt;Item&gt;&gt;("items");
+    }
+}</code></pre>
+
+<h2>Typed clients</h2>
+<p>Najczystsza opcja &mdash; klasa serwisu przyjmujaca HttpClient w konstruktorze.</p>
+<pre><code>public class ProductApi
+{
+    private readonly HttpClient http;
+
+    public ProductApi(HttpClient http)
+    {
+        this.http = http;
+    }
+
+    public async Task&lt;List&lt;Product&gt;&gt; GetAllAsync()
+        =&gt; await http.GetFromJsonAsync&lt;List&lt;Product&gt;&gt;("api/products") ?? new();
+
+    public async Task&lt;Product&gt; CreateAsync(Product product)
+    {
+        var res = await http.PostAsJsonAsync("api/products", product);
+        return await res.Content.ReadFromJsonAsync&lt;Product&gt;() ?? product;
+    }
+}
+
+// Program.cs
+builder.Services.AddHttpClient&lt;ProductApi&gt;(client =&gt;
+{
+    client.BaseAddress = new Uri("https://api.example.com/");
+});</code></pre>
+
+<h2>JWT token handling</h2>
+<p>Dla zabezpieczonych API Blazor WASM moze uzywac DelegatingHandler do dodawania bearer tokena.</p>
+
+<pre><code>public class AuthHandler : DelegatingHandler
+{
+    private readonly ILocalStorageService localStorage;
+
+    public AuthHandler(ILocalStorageService localStorage)
+    {
+        this.localStorage = localStorage;
+    }
+
+    protected override async Task&lt;HttpResponseMessage&gt; SendAsync(
+        HttpRequestMessage request, CancellationToken ct)
+    {
+        var token = await localStorage.GetItemAsync&lt;string&gt;("authToken");
+        if (!string.IsNullOrEmpty(token))
+            request.Headers.Authorization = new("Bearer", token);
+
+        return await base.SendAsync(request, ct);
+    }
+}
+
+// Program.cs
+builder.Services.AddTransient&lt;AuthHandler&gt;();
+builder.Services.AddHttpClient("Api", c =&gt; c.BaseAddress = new Uri(...))
+    .AddHttpMessageHandler&lt;AuthHandler&gt;();</code></pre>
+
+<h2>BFF pattern (preferowany 2026)</h2>
+<p>Backend-For-Frontend &mdash; Blazor WASM rozmawia <strong>tylko z wlasnym backend</strong>, ktory autentykuje przez httpOnly cookie. Backend dalej rozmawia z innymi serwisami uzywajac dlugotrwalych tokenow.</p>
+<pre><code>Klient (Blazor WASM)
+     |
+     |  cookie: SessionId (httpOnly)
+     v
+BFF (ASP.NET Core API)
+     |
+     |  bearer token (server-side)
+     v
+Identity Server / external API</code></pre>
+<p>Korzysci: token nie jest dostepny dla XSS (httpOnly), refresh logic na serwerze, zaden JWT w przegladarce.</p>
+
+<h2>CORS configuration</h2>
+<p>Jesli WASM hostowany jest na innej domenie niz API, musisz wlaczyc CORS na serwerze API:</p>
+<pre><code>// API Program.cs
+builder.Services.AddCors(options =&gt;
+{
+    options.AddDefaultPolicy(policy =&gt;
+    {
+        policy.WithOrigins("https://app.example.com")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+app.UseCors();</code></pre>
+
+<h2>Polly &mdash; resilience patterns</h2>
+<p>Aby aplikacja byla odporna na chwilowe bledy sieci, retry, circuit breaker.</p>
+<pre><code>// Polly v8
+builder.Services.AddHttpClient("Api")
+    .AddResilienceHandler("api-pipeline", builder =&gt;
+    {
+        builder.AddRetry(new HttpRetryStrategyOptions
+        {
+            MaxRetryAttempts = 3,
+            BackoffType = DelayBackoffType.Exponential,
+            UseJitter = true
+        });
+
+        builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+        {
+            FailureRatio = 0.5,
+            SamplingDuration = TimeSpan.FromSeconds(10),
+            MinimumThroughput = 10,
+            BreakDuration = TimeSpan.FromSeconds(30)
+        });
+
+        builder.AddTimeout(TimeSpan.FromSeconds(10));
+    });</code></pre>
+
+<h2>Refit &mdash; deklaratywne API clients</h2>
+<p>Zamiast pisac HTTP calls recznie, Refit generuje implementacje z interface.</p>
+<pre><code>public interface IProductApi
+{
+    [Get("/api/products")]
+    Task&lt;List&lt;Product&gt;&gt; GetAllAsync();
+
+    [Get("/api/products/{id}")]
+    Task&lt;Product&gt; GetByIdAsync(int id);
+
+    [Post("/api/products")]
+    Task&lt;Product&gt; CreateAsync([Body] Product product);
+
+    [Delete("/api/products/{id}")]
+    Task DeleteAsync(int id);
+}
+
+// Program.cs
+builder.Services.AddRefitClient&lt;IProductApi&gt;()
+    .ConfigureHttpClient(c =&gt; c.BaseAddress = new Uri("https://api.example.com/"));</code></pre>
+
+<h2>Cancellation tokens</h2>
+<p>Dla wolnych zapytan z mozliwoscia anulowania (np. uzytkownik zmienil filtr w trakcie ladowania):</p>
+<pre><code>private CancellationTokenSource? cts;
+
+private async Task Search(string query)
+{
+    cts?.Cancel();
+    cts = new CancellationTokenSource();
+
+    try
+    {
+        results = await api.SearchAsync(query, cts.Token);
+    }
+    catch (OperationCanceledException)
+    {
+        // ignore
+    }
+}</code></pre>
+
+<h2>File downloads</h2>
+<p>Browser limity: nie mozna otworzyc duzego pliku w pamieci tylko aby go zapisac. Idealnie streamuj do nazwanego pliku.</p>
+<pre><code>// Najprosciej: link bezposredni
+&lt;a href="api/files/123/download"&gt;Pobierz&lt;/a&gt;
+
+// Lub via JS interop
+private async Task DownloadFile()
+{
+    var bytes = await Http.GetByteArrayAsync("api/files/123");
+    await JS.InvokeVoidAsync("downloadFile", "raport.pdf", Convert.ToBase64String(bytes));
+}</code></pre>
+
+<h2>SignalR z WASM</h2>
+<p>WASM moze byc klientem SignalR &mdash; np. dla notyfikacji push z servera.</p>
+<pre><code>using Microsoft.AspNetCore.SignalR.Client;
+
+private HubConnection? hubConnection;
+
+protected override async Task OnInitializedAsync()
+{
+    hubConnection = new HubConnectionBuilder()
+        .WithUrl("https://api.example.com/notifications")
+        .WithAutomaticReconnect()
+        .Build();
+
+    hubConnection.On&lt;Notification&gt;("OnNotification", n =&gt;
+    {
+        notifications.Add(n);
+        InvokeAsync(StateHasChanged);
+    });
+
+    await hubConnection.StartAsync();
+}</code></pre>
+
+<h2>Common gotchas</h2>
+<ul>
+<li><strong>CORS errors</strong> &mdash; Najczesciej sprawcza brakujacy AllowOrigins</li>
+<li><strong>Cookies nie sa wysylane</strong> &mdash; Brakujaca <code>SetBrowserRequestCredentials</code></li>
+<li><strong>Slow response</strong> &mdash; Brak gzip/brotli na API response</li>
+<li><strong>JSON serialization</strong> &mdash; Roznice w camelCase vs PascalCase</li>
+<li><strong>HttpClient not disposed</strong> &mdash; OK w WASM, ale w .NET native mozna miec problem</li>
+</ul>
+
+<h2>Cookies w fetch</h2>
+<pre><code>// Aby cookies byly wysylane:
+request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
+
+// Lub globalnie dla HttpClient:
+client.DefaultRequestHeaders.Add("Cookie", "..."); // niezalecane
+// Lepiej: handler ustawiajacy credentials
+</code></pre>
+
+<div class="card">
+<h3>Recommended pattern 2026</h3>
+<ol>
+<li>BFF pattern &mdash; httpOnly cookie auth na backend</li>
+<li>Refit interface dla API operations</li>
+<li>Polly v8 resilience pipeline</li>
+<li>Strongly-typed DTO z System.Text.Json</li>
+<li>CancellationToken dla wszystkich operacji search/list</li>
+<li>SignalR dla real-time push</li>
+</ol>
+</div>
+
+<div class="nav-bottom">
+<a href="02-bundle-size-i-aot.html">&larr; Bundle size i AOT</a>
+<a href="04-pwa.html">PWA &rarr;</a>
+</div>
+</div>
+</body>
+</html>

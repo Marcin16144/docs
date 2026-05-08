@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frameworki i ekosystem Python</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#facc15;--accent-hover:#fde047;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">Python</a>
+    <span class="sep">/</span>
+    <span class="title">Frameworki i ekosystem</span>
+</div>
+
+<div class="container">
+<h1>Frameworki i ekosystem Python</h1>
+<p class="subtitle">FastAPI, Django 5, Flask, Litestar, Pydantic v2, SQLAlchemy 2, uv, ruff, mypy, pytest, hypothesis.</p>
+
+<h2>Web frameworks - przeglad</h2>
+<table>
+<thead><tr><th>Framework</th><th>Stil</th><th>Najlepszy do</th></tr></thead>
+<tbody>
+<tr><td>FastAPI</td><td>Modern async, type-driven</td><td>Modern API, microservices, ML/AI backends</td></tr>
+<tr><td>Django 5</td><td>Batteries included, ORM</td><td>Full-stack web apps, CMS, e-commerce</td></tr>
+<tr><td>Flask</td><td>Microframework, klasyk</td><td>Male serwery, prototypy, edukacja</td></tr>
+<tr><td>Litestar</td><td>Modern, perf-focused, async</td><td>FastAPI alternatywa, lepsza wydajnosc</td></tr>
+<tr><td>Pyramid</td><td>Skalowalny, modulowy</td><td>Korporacyjne, niestandardowe needs</td></tr>
+<tr><td>Sanic</td><td>Async, prosty</td><td>High-perf API</td></tr>
+</tbody></table>
+
+<h2>FastAPI - nowoczesny standard 2026</h2>
+<p>FastAPI laczy: szybkosc Starlette (ASGI), walidacja przez Pydantic v2, automatyczna dokumentacja OpenAPI/Swagger, wsparcie dla async/await.</p>
+
+<pre><code># Instalacja
+uv add 'fastapi[standard]'
+
+# main.py
+from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel, Field
+from datetime import datetime
+
+app = FastAPI(title="My API", version="1.0")
+
+class UserCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=50)
+    email: str
+    age: int = Field(ge=0, le=150)
+
+class User(UserCreate):
+    id: int
+    created_at: datetime
+
+# In-memory store dla przykladu
+users: dict[int, User] = {}
+
+@app.get("/users/{user_id}")
+async def get_user(user_id: int) -&gt; User:
+    if user_id not in users:
+        raise HTTPException(404, "User not found")
+    return users[user_id]
+
+@app.post("/users", status_code=201)
+async def create_user(data: UserCreate) -&gt; User:
+    user_id = len(users) + 1
+    user = User(
+        id=user_id,
+        created_at=datetime.utcnow(),
+        **data.model_dump()
+    )
+    users[user_id] = user
+    return user
+
+# Uruchomienie
+# fastapi dev main.py
+# fastapi run main.py</code></pre>
+
+<h2>Django 5</h2>
+<p>Django to "batteries included" framework - ORM, admin, auth, templates, sesje, forms - wszystko w jednym. Idealne dla pelnych aplikacji webowych.</p>
+
+<pre><code># Instalacja i nowy projekt
+uv add django
+uv run django-admin startproject mysite
+cd mysite
+uv run python manage.py startapp blog
+
+# models.py
+from django.db import models
+
+class Post(models.Model):
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    author = models.ForeignKey('auth.User', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.title
+
+# views.py - class-based
+from django.views.generic import ListView, DetailView
+
+class PostList(ListView):
+    model = Post
+    template_name = 'blog/list.html'
+    paginate_by = 10
+
+class PostDetail(DetailView):
+    model = Post
+
+# Migracje
+# python manage.py makemigrations
+# python manage.py migrate
+# python manage.py runserver</code></pre>
+
+<h2>Flask - klasyk</h2>
+<pre><code>from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+@app.route("/users/&lt;int:user_id&gt;")
+def get_user(user_id):
+    user = User.query.get_or_404(user_id)
+    return jsonify(user.to_dict())
+
+@app.route("/users", methods=["POST"])
+def create_user():
+    data = request.get_json()
+    user = User(**data)
+    db.session.add(user)
+    db.session.commit()
+    return jsonify(user.to_dict()), 201
+
+if __name__ == "__main__":
+    app.run(debug=True)</code></pre>
+
+<h2>Litestar - FastAPI's konkurent</h2>
+<p>Litestar jest bardzo podobny do FastAPI, ale szybszy (~30%), z lepsza struktura controllerow.</p>
+
+<pre><code>from litestar import Litestar, get, post
+from msgspec import Struct
+
+class User(Struct):
+    id: int
+    name: str
+
+@get("/users/{user_id:int}")
+async def get_user(user_id: int) -&gt; User:
+    return User(id=user_id, name="Anna")
+
+@post("/users")
+async def create_user(data: User) -&gt; User:
+    return data
+
+app = Litestar([get_user, create_user])</code></pre>
+
+<h2>Pydantic v2 - walidacja danych</h2>
+<p>Pydantic v2 jest <strong>~10x szybszy</strong> niz v1 (rdzen napisany w Rust). Bazowy budulec FastAPI, ale tez uzywany standalone.</p>
+
+<pre><code>from pydantic import BaseModel, Field, EmailStr, field_validator
+from datetime import datetime
+
+class User(BaseModel):
+    id: int
+    email: EmailStr
+    name: str = Field(min_length=2, max_length=100)
+    tags: list[str] = []
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @field_validator('name')
+    @classmethod
+    def name_no_digits(cls, v: str) -&gt; str:
+        if any(c.isdigit() for c in v):
+            raise ValueError("Imie nie moze zawierac cyfr")
+        return v.title()
+
+    model_config = {
+        "str_strip_whitespace": True,
+        "validate_assignment": True,
+    }
+
+# Uzycie
+u = User(id=1, email="anna@example.com", name="anna kowalska")
+print(u.name)             # 'Anna Kowalska'
+print(u.model_dump())     # dict
+print(u.model_dump_json()) # json string
+
+# Walidacja w runtime
+try:
+    User(id="bad", email="invalid", name="Anna 123")
+except ValidationError as e:
+    print(e.errors())</code></pre>
+
+<h2>SQLAlchemy 2 - typed ORM</h2>
+<pre><code>from sqlalchemy import create_engine, ForeignKey, select
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session
+
+class Base(DeclarativeBase):
+    pass
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(unique=True, index=True)
+    name: Mapped[str]
+    posts: Mapped[list["Post"]] = relationship(back_populates="author")
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str]
+    content: Mapped[str | None]
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    author: Mapped["User"] = relationship(back_populates="posts")
+
+# Engine + Session
+engine = create_engine("postgresql://user:pass@localhost/mydb")
+Base.metadata.create_all(engine)
+
+with Session(engine) as session:
+    user = User(email="a@b.pl", name="Anna")
+    session.add(user)
+    session.commit()
+
+    # Typed query (2.0 style)
+    stmt = select(User).where(User.email == "a@b.pl")
+    user = session.scalars(stmt).one()
+    print(user.name)</code></pre>
+
+<h2>uv - package/project manager</h2>
+<p><strong>uv</strong> to nowoczesny zamiennik dla pip + virtualenv + pyenv + pip-tools. Napisany w Rust przez Astral (autorzy ruff). 10-100x szybszy niz pip.</p>
+
+<pre><code># Inicjalizacja projektu
+uv init my-project
+cd my-project
+
+# Instalacja paczek
+uv add fastapi pydantic httpx
+uv add --dev pytest mypy ruff
+
+# Sync z lock file
+uv sync
+
+# Uruchomienie skryptu
+uv run python script.py
+uv run pytest
+
+# pyproject.toml
+[project]
+name = "myapp"
+version = "0.1.0"
+requires-python = "&gt;=3.13"
+dependencies = [
+    "fastapi&gt;=0.110",
+    "pydantic&gt;=2.5",
+]
+
+[dependency-groups]
+dev = [
+    "pytest&gt;=8.0",
+    "mypy&gt;=1.10",
+    "ruff&gt;=0.5",
+]</code></pre>
+
+<h2>ruff - linter + formatter (zamiast flake8 + black + isort)</h2>
+<pre><code># Instalacja
+uv add --dev ruff
+
+# Uruchomienie
+ruff check .                # linting
+ruff format .               # formatting
+ruff check --fix .          # auto-fix
+
+# pyproject.toml
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "S",      # bandit (security)
+    "RUF",    # ruff-specific
+]
+ignore = ["E501"]   # line too long
+
+[tool.ruff.format]
+quote-style = "double"</code></pre>
+
+<h2>mypy / pyright - static type checking</h2>
+<pre><code># mypy
+uv add --dev mypy
+uv run mypy src/
+
+# pyproject.toml
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+
+# pyright (Microsoft, szybszy)
+uv add --dev pyright
+uv run pyright</code></pre>
+
+<h2>pytest - testowanie</h2>
+<pre><code># Instalacja
+uv add --dev pytest pytest-cov pytest-asyncio
+
+# test_user.py
+import pytest
+
+def test_dodawanie():
+    assert 2 + 2 == 4
+
+@pytest.mark.parametrize("a,b,expected", [
+    (1, 2, 3),
+    (5, 5, 10),
+    (-1, 1, 0),
+])
+def test_param(a, b, expected):
+    assert a + b == expected
+
+@pytest.fixture
+def db_session():
+    session = create_session()
+    yield session
+    session.close()
+
+def test_z_fixture(db_session):
+    user = User(name="Anna")
+    db_session.add(user)
+    assert user.id is not None
+
+# Async test
+@pytest.mark.asyncio
+async def test_async():
+    result = await fetch_data()
+    assert result is not None
+
+# Uruchomienie
+# pytest
+# pytest -v --cov=src --cov-report=html
+# pytest -k "test_dodaw" -x   # tylko pasujace, fail-fast</code></pre>
+
+<h2>hypothesis - property-based testing</h2>
+<pre><code>from hypothesis import given, strategies as st
+
+@given(st.integers(), st.integers())
+def test_dodawanie_przemiennne(a: int, b: int):
+    assert a + b == b + a
+
+@given(st.lists(st.integers()))
+def test_sortowanie(lst):
+    assert sorted(sorted(lst)) == sorted(lst)
+
+@given(st.text())
+def test_round_trip(s: str):
+    assert decode(encode(s)) == s
+
+# Hypothesis automatycznie generuje setki random inputs
+# i znajduje minimalne contrprzyklady gdy testy faliuja</code></pre>
+
+<div class="card">
+<h3>Rekomendowany Python stack 2026</h3>
+<ul>
+<li><strong>Package manager:</strong> uv</li>
+<li><strong>Web:</strong> FastAPI / Django 5 / Litestar</li>
+<li><strong>ORM:</strong> SQLAlchemy 2 (z typed mapped_column)</li>
+<li><strong>Validation:</strong> Pydantic v2</li>
+<li><strong>Linter+formatter:</strong> ruff</li>
+<li><strong>Type checker:</strong> mypy / pyright</li>
+<li><strong>Tests:</strong> pytest + hypothesis</li>
+<li><strong>Async HTTP:</strong> httpx</li>
+<li><strong>CLI:</strong> typer (na bazie click)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="02-nowoczesny-python.html">&larr; Nowoczesny Python</a>
+<a href="04-bezpieczenstwo-aplikacji.html">Bezpieczenstwo &rarr;</a>
+</div>
+</div>
+</body>
+</html>

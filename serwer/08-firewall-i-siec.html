@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firewall i siec</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">Firewall i siec</span>
+</div>
+
+<div class="container">
+<h1>Firewall i bezpieczenstwo sieci</h1>
+<p class="subtitle">Windows Defender Firewall, IPSec, NPS, segmentacja i ochrona przed atakami DDoS.</p>
+
+<h2>Windows Defender Firewall with Advanced Security</h2>
+<p>Wbudowany firewall Windows obsluguje stateful packet inspection na warstwie Layer 3-4, profilowanie polaczen oraz integracje z IPSec. Konsola: <code>wf.msc</code>.</p>
+
+<h3>Profile sieci</h3>
+<table>
+<tr><th>Profil</th><th>Kontekst</th><th>Domyslne reguly</th></tr>
+<tr><td>Domain</td><td>PC dolaczony do domeny AD</td><td>Bardziej liberalny - GPO push regul, sharing dozwolony</td></tr>
+<tr><td>Private</td><td>Sieci zaufane (dom, biuro)</td><td>Network discovery i sharing dozwolone</td></tr>
+<tr><td>Public</td><td>Hotspoty, kawiarnie</td><td>Restrykcyjny - blokowanie discovery</td></tr>
+</table>
+
+<h3>Reguly inbound i outbound</h3>
+<p>Firewall analizuje ruch w obu kierunkach. Domyslnie inbound jest blokowany (allowlist), outbound dozwolony (denylist). Reguly oceniane sa wedlug priorytetu: Block > Allow > Default.</p>
+<pre><code># Tworzenie reguly inbound przez PowerShell
+New-NetFirewallRule -DisplayName "HTTPS-Public" `
+                    -Direction Inbound `
+                    -Protocol TCP `
+                    -LocalPort 443 `
+                    -Action Allow `
+                    -Profile Public,Private,Domain
+
+# Reguly z ograniczeniem do konkretnego IP
+New-NetFirewallRule -DisplayName "Mgmt-Allow-RDP" `
+                    -Direction Inbound `
+                    -Protocol TCP `
+                    -LocalPort 3389 `
+                    -RemoteAddress 10.0.0.0/8 `
+                    -Action Allow
+
+# Listing i wylaczanie regul
+Get-NetFirewallRule -DisplayName "HTTPS-Public" |
+    Get-NetFirewallPortFilter
+
+Disable-NetFirewallRule -DisplayName "File and Printer Sharing*"
+
+# Eksport / import zestawu regul (backup)
+netsh advfirewall export "C:\backup\firewall.wfw"
+netsh advfirewall import "C:\backup\firewall.wfw"</code></pre>
+
+<div class="card">
+<p><strong>Best practice:</strong> Wszystkie zmiany regul firewall produkcyjnego nalezy robic przez <strong>GPO</strong> (Computer Configuration -&gt; Windows Settings -&gt; Security Settings -&gt; Windows Defender Firewall with Advanced Security), nie lokalnie. Daje to wersjonowanie, audytowalnosc i jednolitosc.</p>
+</div>
+
+<h2>IPSec - polityki uwierzytelniania i szyfrowania</h2>
+<p>IPSec dziala na warstwie Layer 3 i pozwala wymusic uwierzytelnianie/szyfrowanie ruchu IP miedzy komputerami niezaleznie od aplikacji. W Windows IPSec definiuje sie przez Connection Security Rules w wf.msc.</p>
+<table>
+<tr><th>Typ reguly</th><th>Zastosowanie</th></tr>
+<tr><td>Isolation</td><td>Kompletna izolacja - tylko zaufane komputery komunikuja sie ze soba</td></tr>
+<tr><td>Authentication Exemption</td><td>Wyjatki dla okreslonych adresow (DC, urzadzenia bez IPSec)</td></tr>
+<tr><td>Server-to-Server</td><td>Tylko miedzy konkretnymi serwerami (np. SQL &lt;-&gt; App)</td></tr>
+<tr><td>Tunnel</td><td>Site-to-site VPN miedzy gateway-ami</td></tr>
+</table>
+<pre><code># Tworzenie reguly bezpieczenstwa polaczen IPSec
+New-NetIPsecRule -DisplayName "Require-AuthN-Internal" `
+                 -InboundSecurity Require `
+                 -OutboundSecurity Request `
+                 -Profile Domain `
+                 -KeyModule IKEv2 `
+                 -Phase1AuthSet (Get-NetIPsecPhase1AuthSet -DisplayName "Default")
+
+# Sprawdzenie aktywnych SA
+Get-NetIPsecMainModeSA
+Get-NetIPsecQuickModeSA</code></pre>
+
+<h2>Network Policy Server (NPS)</h2>
+<p>NPS to implementacja serwera RADIUS/Diameter w Windows Server. Pozwala scentralizowac uwierzytelnianie urzadzen sieciowych - WiFi z 802.1x, VPN, switche z port-based access control.</p>
+<pre><code># Instalacja roli NPS
+Install-WindowsFeature -Name NPAS -IncludeManagementTools
+
+# Rejestracja NPS w AD (autoryzacja)
+netsh nps export filename="C:\nps-backup.xml" exportPSK=yes
+
+# Konfiguracja klienta RADIUS (np. WiFi controller)
+# Przez konsole nps.msc -> RADIUS Clients
+# Wymaga shared secret (silny, losowy, min. 32 znaki)</code></pre>
+
+<h3>Typowe scenariusze NPS</h3>
+<ul>
+<li><strong>WiFi 802.1x z EAP-TLS</strong> - logowanie do WiFi za pomoca certyfikatow uzytkownika/maszyny</li>
+<li><strong>WiFi 802.1x z PEAP-MSCHAPv2</strong> - logowanie haslem AD (mniej bezpieczne, latwiejsze wdrozenie)</li>
+<li><strong>VPN RADIUS</strong> - centralne uwierzytelnianie dla VPN/SSL VPN</li>
+<li><strong>Switche dostepowe (NAC)</strong> - dynamiczny VLAN, MAB (MAC Authentication Bypass)</li>
+</ul>
+
+<h2>Segmentacja sieci</h2>
+<p>Dobre architektury sieciowe rozdzielaja warstwy zaufania na osobne segmenty (VLAN, subnet, VPC). Limituje to wplyw kompromitacji - atakujacy w jednym segmencie nie ma swobodnego dostepu do innych.</p>
+<table>
+<tr><th>Strefa</th><th>Cel</th><th>Filtrowanie</th></tr>
+<tr><td>Public / DMZ</td><td>Serwery widoczne z Internetu (web, mail, DNS)</td><td>Tylko porty uslugi (80,443,25,53)</td></tr>
+<tr><td>Application Tier</td><td>Logika biznesowa, API</td><td>Tylko z DMZ na port aplikacji</td></tr>
+<tr><td>Database Tier</td><td>SQL, NoSQL, redis</td><td>Tylko z App Tier na port DB</td></tr>
+<tr><td>Management</td><td>RDP, SSH, monitoring</td><td>Whitelist IP adminow, MFA</td></tr>
+<tr><td>Active Directory / Tier 0</td><td>DC, ADCS</td><td>Najsilniejsze restrykcje, brak dostepu Internetu</td></tr>
+</table>
+
+<h2>Microsegmentacja - Zero Trust</h2>
+<p>Klasyczny perimeter (jeden firewall na brzegu) nie wystarcza w zlozonych srodowiskach. Zero Trust zaklada brak ufnosci wewnetrznej - kazdy ruch (tez wewnatrz LAN) wymaga autoryzacji.</p>
+<ul>
+<li>Firewall Windows na kazdej maszynie (host-based) - wymuszony przez GPO</li>
+<li>IPSec dla wymuszenia AuthN miedzy hostami</li>
+<li>Azure Network Security Groups (NSG) na kazdej karcie VM w chmurze</li>
+<li>Virtual Network Service Endpoints / Private Endpoints zamiast publicznych IP</li>
+<li>Identity-based segmentation - dostep wg konta, nie tylko IP</li>
+</ul>
+
+<h2>Ochrona przed DDoS</h2>
+<p>Ataki DDoS przekraczaja mozliwosci pojedynczego serwera - rozwiazaniem jest filtrowanie ruchu jeszcze przed dotarciem do infrastruktury. Glowne kategorie:</p>
+<table>
+<tr><th>Warstwa</th><th>Atak</th><th>Mitygacja</th></tr>
+<tr><td>L3/L4 (volumetric)</td><td>UDP flood, SYN flood, NTP/DNS amplification</td><td>Cloudflare, Azure DDoS Protection, AWS Shield, scrubbing centers</td></tr>
+<tr><td>L7 (application)</td><td>HTTP flood, slowloris, low &amp; slow</td><td>WAF (rate limiting, captcha, fingerprinting)</td></tr>
+<tr><td>Reflection</td><td>Amplifikowane odpowiedzi przez UDP</td><td>Filtrowanie odpowiedzi z amplifierow, ingress filtering BCP38</td></tr>
+</table>
+
+<h3>Azure DDoS Protection</h3>
+<ul>
+<li><strong>Basic</strong> - automatyczne, darmowe, chroni infrastrukture Azure (jest zawsze aktywne)</li>
+<li><strong>Standard / IP Protection</strong> - dedykowana ochrona zasobow, ML-based detection, telemetria, raporty post-attack</li>
+</ul>
+
+<h3>Cloudflare</h3>
+<ul>
+<li>Anycast network - 300+ POP rozproszonych globalnie</li>
+<li>Free tier oferuje juz solidna ochrone L7</li>
+<li>WAF z OWASP CRS, bot management, rate limiting</li>
+<li>"I am Under Attack" mode - JavaScript challenge dla wszystkich requestow</li>
+</ul>
+
+<h2>Dynamic IP Restrictions w IIS</h2>
+<p>Wbudowany w IIS modul ograniczajacy liczbe requestow z IP - prosta ochrona aplikacyjna.</p>
+<pre><code>&lt;system.webServer&gt;
+  &lt;security&gt;
+    &lt;dynamicIpSecurity&gt;
+      &lt;denyByConcurrentRequests
+        enabled="true" maxConcurrentRequests="20" /&gt;
+      &lt;denyByRequestRate
+        enabled="true"
+        maxRequests="50"
+        requestIntervalInMilliseconds="1000" /&gt;
+    &lt;/dynamicIpSecurity&gt;
+  &lt;/security&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h2>Best practices</h2>
+<ul>
+<li>Default deny inbound - reguly tylko dla potrzebnych portow</li>
+<li>Outbound rowniez restrykcyjny (egress filtering) na serwerach krytycznych</li>
+<li>Logging firewalla wlaczony - log do %SystemRoot%\System32\LogFiles\Firewall</li>
+<li>Audit firewallowy w Event Viewer 5152, 5157 (drop), 5156 (allow)</li>
+<li>Dla aplikacji wystawionych do Internetu zawsze WAF + DDoS protection przed IIS</li>
+<li>Regularne testy penetracyjne i sprawdzanie poprawnosci regul</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="07-bezpieczenstwo-fundamenty.html">&larr; Bezpieczenstwo - fundamenty</a>
+    <a href="09-publikowanie-uslug.html">Publikowanie uslug &rarr;</a>
+</div>
+</div>
+</body>
+</html>

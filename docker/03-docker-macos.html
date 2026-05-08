@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker na macOS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Docker</a><span class="sep">/</span><span class="title">Docker na macOS</span></div>
+<div class="container">
+<h1>Docker na macOS</h1>
+<p class="subtitle">Docker Desktop, Colima, OrbStack &mdash; co wybrac w 2026</p>
+
+<h2>Architektura Dockera na macOS</h2>
+<p>macOS nie ma natywnego kernela Linux, a kontenery Linuxowe wymagaja kernela Linux. Dlatego kazde rozwiazanie uruchamia <strong>lekka VM Linux</strong> w tle. To w niej dzialaja kontenery, a CLI <code>docker</code> komunikuje sie z daemonem przez socket.</p>
+
+<pre><code>+------------------------+        +----------------------+
+|     macOS host         |        |   Linux VM           |
+|                        |        |                      |
+|  docker CLI    --------|--&gt;|----| dockerd (daemon)     |
+|  &amp; Docker Desktop UI   | sock   | + containerd         |
+|                        |        | + Twoje kontenery    |
++------------------------+        +----------------------+</code></pre>
+
+<h2>Docker Desktop dla Mac</h2>
+<p><strong>Docker Desktop</strong> &mdash; oficjalna aplikacja Docker Inc. Dla M1/M2/M3/M4 (Apple Silicon) jest <strong>natywna ARM</strong> &mdash; brak emulacji.</p>
+
+<h3>Glowne funkcje</h3>
+<ul>
+<li><strong>VirtioFS</strong> &mdash; szybki file sharing host &lt;-&gt; VM (zastapil osxfs)</li>
+<li><strong>Rosetta x86 emulation</strong> &mdash; uruchamiaj obrazy x86_64 na Apple Silicon (od macOS 13+)</li>
+<li>Docker Compose, Kubernetes (single-node), Extensions</li>
+<li>Docker Scout (skanowanie obrazow)</li>
+<li>Resource Saver (zmniejsza RAM/CPU gdy idle)</li>
+</ul>
+
+<h3>Wymagania</h3>
+<table>
+<thead><tr><th>Wymaganie</th><th>Wartosc</th></tr></thead>
+<tbody>
+<tr><td>macOS</td><td>13.5+ (Ventura+)</td></tr>
+<tr><td>Apple Silicon</td><td>natywne wsparcie ARM64</td></tr>
+<tr><td>Intel Mac</td><td>x86_64, 4 GB RAM minimum</td></tr>
+<tr><td>Licencja</td><td>Bezplatne dla maly biznes (&lt; 250 pracownikow, &lt; 10M USD przychodu); platne 5 USD/uzytkownik/miesiac dla wiekszych</td></tr>
+</tbody>
+</table>
+
+<h3>Instalacja Docker Desktop</h3>
+<pre><code># Pobierz z docker.com (DMG)
+# https://www.docker.com/products/docker-desktop/
+
+# Lub przez Homebrew
+brew install --cask docker
+
+# Po instalacji uruchom Docker Desktop z Applications
+open /Applications/Docker.app
+
+# Pierwsze uruchomienie zaakceptuje warunki, skonfiguruje VM (~2 min)
+# Sprawdz
+docker --version
+docker info
+docker run hello-world</code></pre>
+
+<h3>Wlaczenie Rosetta dla x86</h3>
+<p>Apple Silicon natywnie ARM64. Niektore obrazy sa tylko x86_64 &mdash; potrzebna emulacja.</p>
+<pre><code># Pre-req: Rosetta 2
+softwareupdate --install-rosetta --agree-to-license
+
+# Docker Desktop &gt; Settings &gt; General &gt; Use Rosetta for x86_64/amd64 emulation on Apple Silicon
+# (zaznacz)
+
+# Test
+docker run --platform linux/amd64 alpine uname -m
+# x86_64</code></pre>
+
+<h2>Colima (free, OSS)</h2>
+<p><strong>Colima</strong> (CONtainers in LIma MAchine) &mdash; bezplatna alternatywa OSS. Lima pod spodem (lekkie VM Linux na macOS). Idealna gdy nie chcesz/nie mozesz uzywac Docker Desktop.</p>
+
+<pre><code># Instalacja
+brew install colima docker docker-compose
+
+# Start (default config)
+colima start
+
+# Z konfiguracja
+colima start --cpu 4 --memory 8 --disk 60 --vm-type vz --mount-type virtiofs
+
+# Sprawdz
+docker info
+docker run hello-world
+
+# Stop / restart / delete
+colima stop
+colima restart
+colima delete</code></pre>
+
+<h3>Wieloma profilami Colima</h3>
+<pre><code># Profil "work" z duzymi zasobami
+colima start --profile work --cpu 6 --memory 12
+
+# Profil "test" maly
+colima start --profile test --cpu 2 --memory 2
+
+# Switch
+colima list
+colima start --profile work
+docker context use colima-work</code></pre>
+
+<h2>OrbStack (premium, najszybszy)</h2>
+<p><strong>OrbStack</strong> &mdash; najszybsza opcja Docker dla Mac w 2026. Komercyjna, ale ma generous free tier dla osobistego uzycia. Buduja od podstaw, brak Docker Desktop / Lima &mdash; wlasna implementacja w Swift + Rust.</p>
+
+<h3>Cechy OrbStack</h3>
+<ul>
+<li>Najszybszy start &mdash; 2 sekundy do pelnej gotowosci</li>
+<li>Najmniejszy zuzycie RAM (idle ~150 MB vs Docker Desktop ~2 GB)</li>
+<li>Native Mac UI (SwiftUI), zero VM &mdash; uzywa Apple Virtualization framework</li>
+<li>Kubernetes single-node (k3s)</li>
+<li>Linux machines &mdash; oddzielne VM Linux z gotowymi distrami (Ubuntu, Fedora, Arch)</li>
+<li>Rosetta x86 emulation</li>
+<li>Sieci: SSH/HTTP do kontenerow przez .orb.local</li>
+</ul>
+
+<pre><code># Instalacja
+brew install --cask orbstack
+
+# Po instalacji wszystko dziala &mdash; CLI Dockera podpiete automatycznie
+docker run hello-world
+
+# Linux machine (pelna VM)
+orb create ubuntu my-ubuntu
+orb -m my-ubuntu
+# (jestes w VM Ubuntu)</code></pre>
+
+<h3>Cennik OrbStack</h3>
+<ul>
+<li><strong>Personal &mdash; FREE</strong> dla osobistego, edukacyjnego, open source</li>
+<li><strong>Pro</strong> &mdash; ~8 USD/miesiac dla komercyjnego (per uzytkownik)</li>
+</ul>
+
+<h2>Lima (Colima underneath)</h2>
+<p><strong>Lima</strong> &mdash; "Linux Machines" &mdash; baza pod Colima. Mozesz uzywac bezposrednio dla pelnej kontroli (yaml config), ale Colima daje lepszy DX out-of-the-box.</p>
+
+<pre><code>brew install lima
+limactl start template://docker
+docker context use lima-docker
+docker run hello-world</code></pre>
+
+<h2>Porownanie</h2>
+<table>
+<thead><tr><th>Cecha</th><th>Docker Desktop</th><th>Colima</th><th>OrbStack</th></tr></thead>
+<tbody>
+<tr><td>Cena</td><td>Free dla maly biznes / 5 USD/m</td><td>Free OSS</td><td>Free personal / 8 USD/m</td></tr>
+<tr><td>Start time</td><td>~30s</td><td>~15s</td><td>~2s</td></tr>
+<tr><td>Idle RAM</td><td>~2 GB</td><td>~500 MB</td><td>~150 MB</td></tr>
+<tr><td>VirtioFS</td><td>Tak</td><td>Tak (vz)</td><td>Tak</td></tr>
+<tr><td>Rosetta x86</td><td>Tak</td><td>Tak (vz + rosetta)</td><td>Tak</td></tr>
+<tr><td>K8s</td><td>Tak</td><td>Tak (--kubernetes)</td><td>Tak (k3s)</td></tr>
+<tr><td>UI</td><td>Tak (Electron)</td><td>Brak (CLI)</td><td>Tak (native Swift)</td></tr>
+<tr><td>Extensions</td><td>Tak</td><td>Brak</td><td>Brak</td></tr>
+<tr><td>Najlepsze do</td><td>Standardowe, korporacyjne</td><td>Free OSS, server, headless</td><td>Performance, daily dev</td></tr>
+</tbody>
+</table>
+
+<h2>Apple Silicon vs Intel</h2>
+<div class="card">
+<h3>Apple Silicon (M1/M2/M3/M4)</h3>
+<ul>
+<li>Architektura ARM64 / aarch64 &mdash; obrazy <strong>linux/arm64</strong> dzialaja natywnie</li>
+<li>x86_64 &mdash; przez Rosetta 2 (10-30% wolniej, dla wiekszosci OK)</li>
+<li>Wiele oficjalnych obrazow ma multi-arch (manifest list) &mdash; auto wybor</li>
+<li>Niektore stare obrazy tylko x86_64 &mdash; oznaczaj <code>--platform linux/amd64</code></li>
+</ul>
+<h3>Intel Mac</h3>
+<ul>
+<li>x86_64 natywnie</li>
+<li>ARM64 przez QEMU (znaczne spowolnienie &mdash; do 90% wolniej)</li>
+<li>Apple konczy wsparcie Intel Mac w MacOS &mdash; powoli legacy</li>
+</ul>
+</div>
+
+<h2>Praktyczne tipy</h2>
+<pre><code># Sprawdz architekture obrazu
+docker inspect node:20 --format '{{.Architecture}}'
+
+# Wymus konkretna platforme w build
+docker build --platform linux/amd64 -t myimg .
+
+# Multi-arch build (potrzebuje buildx + emulacji)
+docker buildx create --use
+docker buildx build --platform linux/amd64,linux/arm64 -t user/img:latest --push .
+
+# Performance: bind mounts SA WOLNE na macOS (przez VM)
+# Dla node_modules itp uzywaj NAMED VOLUMES zamiast bind
+volumes:
+  - .:/app
+  - /app/node_modules    # named volume &mdash; szybkie</code></pre>
+
+<div class="card">
+<h3>Rekomendacja 2026</h3>
+<ul>
+<li><strong>Daily dev na M-series Mac</strong> &rarr; <strong>OrbStack</strong> (najszybszy, ladny UI)</li>
+<li><strong>Free / OSS / korporacja unika commercial</strong> &rarr; <strong>Colima</strong></li>
+<li><strong>Standard z extensions, K8s</strong> &rarr; Docker Desktop</li>
+<li><strong>Server / CI / automation</strong> &rarr; Colima w trybie headless</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="02-docker-windows.html">&larr; Docker na Windows</a>
+<a href="04-docker-linux.html">Docker na Linux &rarr;</a>
+</div>
+</div>
+</body>
+</html>

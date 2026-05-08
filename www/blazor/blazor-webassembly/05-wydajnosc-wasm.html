@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wydajnosc Blazor WASM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor WebAssembly</a><span class="sep">/</span><span class="title">Wydajnosc</span></div>
+<div class="container">
+<h1>Wydajnosc Blazor WASM</h1>
+<p class="subtitle">SIMD, multi-threading, AOT vs interpreted, virtualization</p>
+
+<h2>Performance characteristics</h2>
+<p>Blazor WASM ma rozne profile wydajnosci:</p>
+<table>
+<thead><tr><th>Operacja</th><th>WASM</th><th>JS native</th><th>C# .NET (server)</th></tr></thead>
+<tbody>
+<tr><td>UI updates (DOM)</td><td>OK (przez JS interop)</td><td>Najszybciej</td><td>n/a</td></tr>
+<tr><td>JSON parsing</td><td>OK</td><td>Szybciej</td><td>Szybko</td></tr>
+<tr><td>Heavy compute (loops)</td><td>2-5x wolniej niz JS</td><td>Bazowa</td><td>Najszybciej (~5x szybciej niz WASM)</td></tr>
+<tr><td>Heavy compute (AOT)</td><td>2x szybciej niz interpreted, ~jak JS</td><td>Bazowa</td><td>Najszybciej</td></tr>
+<tr><td>Memory allocation</td><td>Wolniej</td><td>Bazowa</td><td>Szybko</td></tr>
+</tbody>
+</table>
+
+<h2>SIMD &mdash; Single Instruction Multiple Data</h2>
+<p>WASM od 2021 wspiera SIMD &mdash; rownolegle operacje wektorowe na 128-bit lanes. Idealne dla matematyki wektorowej, image processing, kryptografii.</p>
+<pre><code>&lt;PropertyGroup&gt;
+  &lt;WasmEnableSIMD&gt;true&lt;/WasmEnableSIMD&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+<pre><code>using System.Numerics;
+
+public static Vector&lt;float&gt; FastSum(float[] a, float[] b)
+{
+    var va = new Vector&lt;float&gt;(a);
+    var vb = new Vector&lt;float&gt;(b);
+    return va + vb; // SIMD pod spodem
+}</code></pre>
+
+<p>Daje 2-4x speedup dla mathematic-heavy kodu. Wymaga przegladarki z SIMD support (Chrome 91+, Firefox 89+, Safari 16+).</p>
+
+<h2>Multi-threading (Web Workers)</h2>
+<p>WASM od Webo Workers moze uzywac wielu watkow. Standardowe Tasks oraz <code>System.Threading.Thread</code> beda dzialac w workerach.</p>
+<pre><code>&lt;PropertyGroup&gt;
+  &lt;WasmEnableThreads&gt;true&lt;/WasmEnableThreads&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+<p>Wymagania (z powodu Spectre/Meltdown mitigations):</p>
+<ul>
+<li>Strona musi byc cross-origin isolated</li>
+<li>Headery: <code>Cross-Origin-Embedder-Policy: require-corp</code>, <code>Cross-Origin-Opener-Policy: same-origin</code></li>
+<li>Wymaga HTTPS</li>
+</ul>
+
+<pre><code>// nginx
+add_header Cross-Origin-Embedder-Policy require-corp;
+add_header Cross-Origin-Opener-Policy same-origin;</code></pre>
+
+<pre><code>// Uzycie watkow w C#
+var task = Task.Run(() =&gt;
+{
+    return ComputeHeavyJob(data);
+});
+
+await task; // wykonane na osobnym watku/workerze</code></pre>
+
+<h2>AOT vs interpreted &mdash; rzeczywiste pomiary</h2>
+<p>Benchmark dla typowej operacji "filter + map + reduce" na 100000 obiektow:</p>
+<table>
+<thead><tr><th>Tryb</th><th>Czas</th><th>Bundle wzrost</th></tr></thead>
+<tbody>
+<tr><td>Interpreted (default)</td><td>2500 ms</td><td>1x</td></tr>
+<tr><td>AOT</td><td>800 ms</td><td>5x</td></tr>
+<tr><td>JS native dla porownania</td><td>400 ms</td><td>n/a</td></tr>
+</tbody>
+</table>
+<p>AOT ~3x szybsze niz interpreted, ale pierwszy load 5x dluzszy. Tylko gdy heavy compute jest blocker.</p>
+
+<h2>Memory management</h2>
+
+<h3>GC pressure</h3>
+<p>WASM ma swojego GC (mono GC), ktory pauzuje aplikacje. Aby unikac:</p>
+<ul>
+<li>Reuse buforow zamiast tworzyc nowe (np. <code>ArrayPool&lt;T&gt;</code>)</li>
+<li>Uzywaj <code>Span&lt;T&gt;</code> dla rozkroju tablic bez alokacji</li>
+<li>Streamuj duze pliki zamiast trzymac w pamieci</li>
+<li>Dispose IDisposable w odpowiednim czasie</li>
+</ul>
+
+<pre><code>// Zle: alokuje na kazdym wywolaniu
+public string Format(int[] numbers)
+{
+    var sb = new StringBuilder();
+    foreach (var n in numbers) sb.AppendLine(n.ToString());
+    return sb.ToString();
+}
+
+// Lepiej: uzyj zerowej alokacji
+public void FormatToWriter(int[] numbers, TextWriter writer)
+{
+    Span&lt;char&gt; buffer = stackalloc char[16];
+    foreach (var n in numbers)
+    {
+        n.TryFormat(buffer, out var written);
+        writer.Write(buffer.Slice(0, written));
+        writer.WriteLine();
+    }
+}</code></pre>
+
+<h3>Memory limits</h3>
+<p>Mono runtime w przegladarce ma limit ~2 GB heap. Dla wiekszosci aplikacji to duzo, ale operuj na duzych datasets z streamingiem.</p>
+
+<h2>Virtualization dla list</h2>
+<pre><code>&lt;Virtualize Items="@products" Context="product" ItemSize="50"&gt;
+    &lt;ProductRow Product="@product" /&gt;
+&lt;/Virtualize&gt;</code></pre>
+
+<p>Renderuje tylko widoczne wiersze. Dla 10000 wierszy <strong>10x szybsze</strong> niz pelny render.</p>
+
+<h2>Reduce render frequency</h2>
+<pre><code>// W rapidnym Timer pobieraniu danych:
+private System.Timers.Timer? timer;
+private DateTime lastRender = DateTime.MinValue;
+
+protected override void OnInitialized()
+{
+    timer = new System.Timers.Timer(50); // co 50 ms
+    timer.Elapsed += async (s, e) =&gt;
+    {
+        UpdateData();
+
+        // Limit do max 10 fps
+        if (DateTime.UtcNow - lastRender &gt; TimeSpan.FromMilliseconds(100))
+        {
+            lastRender = DateTime.UtcNow;
+            await InvokeAsync(StateHasChanged);
+        }
+    };
+    timer.Start();
+}</code></pre>
+
+<h2>HttpClient pooling</h2>
+<p>Reuse HttpClient instances &mdash; nie twórz nowego HttpClient na kazda operacje.</p>
+<pre><code>// Zle
+var client = new HttpClient(); // alokuje, slow
+var data = await client.GetStringAsync("api/...");
+
+// Dobrze
+@inject HttpClient Http
+var data = await Http.GetStringAsync("api/...");</code></pre>
+
+<h2>Optymalizacja JSON</h2>
+<p>System.Text.Json jest szybki, ale mozesz go jeszcze poprawic:</p>
+<pre><code>// 1. Source-generated serializers (no reflection, AOT-friendly)
+[JsonSerializable(typeof(Product))]
+[JsonSerializable(typeof(List&lt;Product&gt;))]
+internal partial class AppJsonContext : JsonSerializerContext { }
+
+// 2. Uzycie
+var products = JsonSerializer.Deserialize(json, AppJsonContext.Default.ListProduct);</code></pre>
+
+<h2>Lazy loading komponentow</h2>
+<p>Komponenty <em>i</em> assemblies dla nich pobierane na zadanie:</p>
+<pre><code>&lt;ItemGroup&gt;
+  &lt;BlazorWebAssemblyLazyLoad Include="Charts.dll" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+
+<pre><code>// Routes.razor
+&lt;Router AppAssembly="@typeof(App).Assembly"
+        OnNavigateAsync="OnNavigateAsync"
+        AdditionalAssemblies="@lazyLoadedAssemblies"&gt;
+&lt;/Router&gt;
+
+@code {
+    private List&lt;Assembly&gt; lazyLoadedAssemblies = new();
+
+    private async Task OnNavigateAsync(NavigationContext args)
+    {
+        if (args.Path.StartsWith("charts"))
+        {
+            var assemblies = await Loader.LoadAssembliesAsync(new[] { "Charts.dll" });
+            lazyLoadedAssemblies.AddRange(assemblies);
+        }
+    }
+}</code></pre>
+
+<h2>Profilowanie</h2>
+
+<h3>Browser DevTools Performance</h3>
+<p>W Performance tab nagrac sesje, znajdziesz hot paths. Funkcje WASM sa widoczne (z mangled names).</p>
+
+<h3>BenchmarkDotNet w przegladarce</h3>
+<p>Mozesz uzywac BenchmarkDotNet do porownania algorytmow w WASM, ale z pewnymi limitami (Timer accuracy w przegladarce).</p>
+
+<h3>App Performance Insights</h3>
+<p>W Application Insights / OpenTelemetry mozesz mierzyc czas operacji client-side:</p>
+<pre><code>using var activity = ActivitySource.StartActivity("LoadProducts");
+var products = await api.GetAllAsync();
+activity?.SetTag("count", products.Count);</code></pre>
+
+<h2>Common bottlenecks</h2>
+<table>
+<thead><tr><th>Problem</th><th>Diagnoza</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td>Slow first render</td><td>Heavy OnInitializedAsync</td><td>Streaming, lazy load</td></tr>
+<tr><td>Slow scroll</td><td>Brak Virtualize</td><td>&lt;Virtualize&gt;</td></tr>
+<tr><td>UI freezes</td><td>Synchroniczna petla</td><td>Task.Run lub WebWorker</td></tr>
+<tr><td>High memory</td><td>Cache, leaki, duze tablice</td><td>Profile, Span, ArrayPool</td></tr>
+<tr><td>Slow mobile</td><td>Bundle za duzy</td><td>Trimming, brotli, lazy load</td></tr>
+<tr><td>JSON slow</td><td>Reflection-based serialization</td><td>Source-generated context</td></tr>
+</tbody>
+</table>
+
+<h2>Best practices summary</h2>
+<ul>
+<li>Wlaczone PublishTrimmed</li>
+<li>Brotli compression</li>
+<li>Cache headers immutable</li>
+<li>Virtualize dla list 100+</li>
+<li>HttpClient z DI (nie new)</li>
+<li>Source-generated JSON serializers</li>
+<li>SIMD dla matematyki</li>
+<li>Threading dla heavy compute (jesli serwujesz cross-origin isolated)</li>
+<li>Lazy loading dla rzadko uzywanych feature</li>
+<li>Profile w DevTools przed optymalizacja (premature opt = zlo)</li>
+</ul>
+
+<div class="card">
+<h3>Realne cele 2026</h3>
+<ul>
+<li>First load (4G mobile): &lt;5 sek</li>
+<li>First load (desktop): &lt;1.5 sek</li>
+<li>Bundle skompresowany: &lt;3 MB</li>
+<li>UI interaction: &lt;50 ms (lokalny WASM)</li>
+<li>List scroll: 60 fps z Virtualize</li>
+<li>Memory after load: &lt;100 MB</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="04-pwa.html">&larr; PWA</a>
+<a href="06-uwierzytelnianie-wasm.html">Uwierzytelnianie WASM &rarr;</a>
+</div>
+</div>
+</body>
+</html>

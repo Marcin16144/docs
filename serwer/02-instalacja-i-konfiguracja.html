@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instalacja i konfiguracja Windows Server</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">Instalacja i konfiguracja</span>
+</div>
+
+<div class="container">
+<h1>Instalacja i konfiguracja Windows Server 2025</h1>
+<p class="subtitle">Kompletny przewodnik instalacji od pobrania ISO po wstepna konfiguracje serwera produkcyjnego.</p>
+
+<h2>Wymagania sprzetowe Windows Server 2025</h2>
+<p>Microsoft definiuje minimalne i zalecane wymagania sprzetowe. W srodowiskach produkcyjnych nalezy projektowac z wieksza rezerwa.</p>
+<table>
+<tr><th>Komponent</th><th>Minimum</th><th>Zalecane (produkcja)</th></tr>
+<tr><td>CPU</td><td>1.4 GHz, 64-bit, x64, NX, DEP, SLAT, CMPXCHG16b</td><td>2+ rdzeni 2.5 GHz, instrukcje SSE4.2 i POPCNT (wymagane w 2025)</td></tr>
+<tr><td>RAM</td><td>512 MB (2 GB dla Desktop Experience)</td><td>16 GB+ (32-64 GB dla rol typu Hyper-V/AD/Exchange)</td></tr>
+<tr><td>Dysk systemowy</td><td>32 GB</td><td>120 GB SSD/NVMe (system + log + crash dump)</td></tr>
+<tr><td>Sieciowka</td><td>Gigabit Ethernet, PXE</td><td>2x 10 GbE, NIC teaming dla redundancji</td></tr>
+<tr><td>UEFI / TPM</td><td>UEFI 2.3.1c</td><td>UEFI Secure Boot + TPM 2.0 dla BitLocker i Credential Guard</td></tr>
+</table>
+
+<div class="card">
+<p><strong>Uwaga:</strong> Windows Server 2025 wymaga procesora z instrukcjami POPCNT i SSE4.2. Starsze CPU (sprzed 2009 roku, np. niektore Xeony 5500) nie sa wspierane.</p>
+</div>
+
+<h2>Pobieranie ISO i przygotowanie nosnika</h2>
+<h3>Pobranie pliku ISO</h3>
+<p>Oficjalne zrodlo pobrania ISO Windows Server 2025:</p>
+<ul>
+<li><strong>Evaluation Center</strong> - 180-dniowa wersja testowa: <code>microsoft.com/evalcenter</code></li>
+<li><strong>Volume Licensing Service Center (VLSC)</strong> - klienci z licencja Volume</li>
+<li><strong>Visual Studio / MSDN Subscriptions</strong> - dla deweloperow i partnerow</li>
+<li><strong>Azure Marketplace</strong> - obrazy gotowe do uruchomienia w chmurze</li>
+</ul>
+
+<h3>Tworzenie bootowalnego USB (Rufus)</h3>
+<p>Rufus to najpopularniejsze narzedzie do nagrywania ISO na USB. Nalezy uzyc nosnika minimum 8 GB.</p>
+<pre><code># Etapy konfiguracji w Rufus:
+# 1. Device:        Wybor nosnika USB
+# 2. Boot selection: Plik ISO Windows Server 2025
+# 3. Image option:   Standard Windows installation
+# 4. Partition:      GPT (UEFI) lub MBR (legacy BIOS)
+# 5. File system:    NTFS (lub FAT32 dla UEFI)
+# 6. Cluster size:   Default
+# 7. Start          Potwierdzenie nadpisania danych USB</code></pre>
+
+<h3>Instalacja w maszynie wirtualnej</h3>
+<p>Hyper-V (rola Windows), VMware Workstation/ESXi oraz VirtualBox sa najpopularniejszymi hyperwizorami dla labow i produkcji.</p>
+<pre><code># Tworzenie VM Hyper-V przez PowerShell
+New-VM -Name "WS2025-LAB" -MemoryStartupBytes 4GB -Generation 2 `
+       -NewVHDPath "D:\VMs\WS2025.vhdx" -NewVHDSizeBytes 80GB `
+       -SwitchName "External"
+
+# Wlaczenie Secure Boot i TPM (Generation 2)
+Set-VMFirmware -VMName "WS2025-LAB" -EnableSecureBoot On
+Set-VMSecurity -VMName "WS2025-LAB" -EncryptStateAndVmMigrationTraffic $true
+Add-VMTPM -VMName "WS2025-LAB"
+
+# Podlaczenie ISO i start
+Set-VMDvdDrive -VMName "WS2025-LAB" -Path "D:\ISO\WS2025.iso"
+Start-VM -Name "WS2025-LAB"</code></pre>
+
+<h2>Edycje i licencjonowanie</h2>
+<table>
+<tr><th>Edycja</th><th>Cechy</th><th>Licencjonowanie</th><th>Typowe zastosowanie</th></tr>
+<tr><td>Standard</td><td>2 wirtualne maszyny w cenie hosta, wszystkie role</td><td>Per-core (min. 16 rdzeni)</td><td>Maly/sredni serwer, fizyczna instalacja</td></tr>
+<tr><td>Datacenter</td><td>Nielimitowana liczba VM, Storage Spaces Direct, Software Defined Networking</td><td>Per-core (min. 16 rdzeni)</td><td>Hosty wirtualizacji, klastry, hiperkonwergencja</td></tr>
+<tr><td>Datacenter: Azure Edition</td><td>Hot-patching, SMB over QUIC, Azure Arc native</td><td>Per-core, tylko w Azure / Azure Stack HCI</td><td>Workloads w Azure z funkcjami premium</td></tr>
+<tr><td>Essentials</td><td>Limit 25 uzytkownikow / 50 urzadzen</td><td>Per-server, do 10 rdzeni</td><td>Male firmy, pojedynczy serwer plikow</td></tr>
+</table>
+
+<h2>Server Core vs Desktop Experience</h2>
+<p>Wybor wariantu instalacji dokonywany jest na poczatku setupu i nie da sie go pozniej zmienic bez reinstalacji.</p>
+<table>
+<tr><th>Cecha</th><th>Server Core</th><th>Desktop Experience (GUI)</th></tr>
+<tr><td>Powierzchnia ataku</td><td>Mniejsza (brak Explorer, IE, MMC)</td><td>Wieksza</td></tr>
+<tr><td>Aktualizacje (reboot)</td><td>Mniej, mniej zaleznosci</td><td>Wiecej</td></tr>
+<tr><td>Wymagana pamiec</td><td>~512 MB</td><td>~2 GB+</td></tr>
+<tr><td>Zarzadzanie</td><td>sconfig, PowerShell, WAC</td><td>Server Manager, GUI</td></tr>
+<tr><td>Idealne dla</td><td>DC, IIS, Hyper-V, kontenery</td><td>Lab, RDS, aplikacje wymagajace GUI</td></tr>
+</table>
+
+<h2>Wstepna konfiguracja po instalacji</h2>
+<h3>Hostname, strefa czasowa, IP</h3>
+<pre><code># Zmiana nazwy serwera
+Rename-Computer -NewName "SRV-AD01" -Restart
+
+# Strefa czasowa (Polska)
+Set-TimeZone -Id "Central European Standard Time"
+
+# Statyczny adres IP
+$idx = (Get-NetAdapter -Name "Ethernet").ifIndex
+New-NetIPAddress -InterfaceIndex $idx -IPAddress 192.168.10.10 `
+                 -PrefixLength 24 -DefaultGateway 192.168.10.1
+Set-DnsClientServerAddress -InterfaceIndex $idx `
+                           -ServerAddresses 192.168.10.5,8.8.8.8
+
+# Wlaczenie zdalnego pulpitu
+Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
+                 -Name "fDenyTSConnections" -Value 0
+Enable-NetFirewallRule -DisplayGroup "Remote Desktop"</code></pre>
+
+<h3>sconfig (Server Core menu)</h3>
+<p>W Server Core narzedzie <code>sconfig</code> uruchamiane z PowerShell daje menu tekstowe do podstawowych zadan. Opcje obejmuja: Domain/Workgroup, Computer Name, Remote management, Update settings, Network, Date/Time, Telemetry, Logoff, Restart, Shutdown.</p>
+
+<h3>Server Manager (GUI)</h3>
+<p>Centralny dashboard do zarzadzania lokalnym i zdalnymi serwerami w Desktop Experience. Pozwala dodawac role, instalowac funkcje, monitorowac zdarzenia, uruchamiac konsole MMC. Server Manager pozostaje, ale Microsoft rekomenduje migracje do Windows Admin Center.</p>
+
+<h3>Windows Admin Center (WAC)</h3>
+<p>Nowoczesne GUI w przegladarce zastepujace Server Manager i wiele konsol MMC. Dziala jako lokalny serwer HTTPS na porcie 6516 lub 443. WAC zarzadza serwerami fizycznymi, klastrami, Azure VM, kontenerami i Azure Stack HCI z jednego miejsca.</p>
+<pre><code># Pobranie i instalacja WAC
+$url = "https://aka.ms/WACDownload"
+Invoke-WebRequest $url -OutFile "$env:TEMP\WAC.msi"
+msiexec /i "$env:TEMP\WAC.msi" /qn /L*v wac-install.log `
+        SME_PORT=443 SSL_CERTIFICATE_OPTION=generate
+
+# Otwarcie w przegladarce
+Start-Process "https://localhost:443"</code></pre>
+
+<h2>PowerShell DSC - wprowadzenie</h2>
+<p>Desired State Configuration (DSC) to mechanizm konfiguracji infrastruktury jako kodu (IaC) wbudowany w PowerShell. Definiujemy stan docelowy w pliku .ps1, kompilujemy do .mof, a Local Configuration Manager (LCM) utrzymuje wezel w tym stanie.</p>
+<pre><code># Prosta konfiguracja DSC instalujaca IIS
+Configuration WebServerConfig {
+    Import-DscResource -ModuleName PSDesiredStateConfiguration
+
+    Node "localhost" {
+        WindowsFeature IIS {
+            Ensure = "Present"
+            Name   = "Web-Server"
+        }
+        WindowsFeature ASP {
+            Ensure    = "Present"
+            Name      = "Web-Asp-Net45"
+            DependsOn = "[WindowsFeature]IIS"
+        }
+        File DefaultPage {
+            Ensure          = "Present"
+            DestinationPath = "C:\inetpub\wwwroot\index.html"
+            Contents        = "&lt;h1&gt;Hello DSC&lt;/h1&gt;"
+        }
+    }
+}
+
+WebServerConfig -OutputPath "C:\DSC"
+Start-DscConfiguration -Path "C:\DSC" -Wait -Verbose</code></pre>
+
+<div class="card">
+<p><strong>Wskazowka:</strong> W nowych projektach Microsoft zaleca <strong>Azure Automanage Machine Configuration</strong> (nastepca Azure Policy Guest Configuration), ktory zastepuje klasyczne DSC w hybrydowych srodowiskach Azure Arc.</p>
+</div>
+
+<h2>Pierwsze kroki bezpieczenstwa</h2>
+<ul>
+<li>Zaktualizowac system: <code>Install-Module PSWindowsUpdate; Get-WindowsUpdate -Install -AcceptAll -AutoReboot</code></li>
+<li>Wlaczyc BitLocker na dysku systemowym</li>
+<li>Zalozyc konto admin (nie korzystac z wbudowanego Administrator)</li>
+<li>Skonfigurowac firewall (zablokowac niepotrzebne porty)</li>
+<li>Wlaczyc audit logging (auditpol)</li>
+<li>Dolaczyc do domeny lub ustawic silne haslo lokalne</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="01-podstawy-windows-server.html">&larr; Podstawy Windows Server</a>
+    <a href="03-active-directory.html">Active Directory &rarr;</a>
+</div>
+</div>
+</body>
+</html>

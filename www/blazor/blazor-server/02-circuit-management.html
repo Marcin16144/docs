@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circuit management</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Server</a><span class="sep">/</span><span class="title">Circuit management</span></div>
+<div class="container">
+<h1>Circuit management</h1>
+<p class="subtitle">Czym jest circuit, lifecycle, disconnection, reconnection UI, max circuits, memory</p>
+
+<h2>Czym jest circuit?</h2>
+<p><strong>Circuit</strong> to logiczne polaczenie miedzy uzytkownikiem a serwerem w Blazor Server. Reprezentuje "zywe" sesje:</p>
+<ul>
+<li>Stan wszystkich komponentow uzytkownika</li>
+<li>Render tree (struktura UI)</li>
+<li>Scoped services przypiete do tego uzytkownika</li>
+<li>SignalR hub connection</li>
+</ul>
+<p>Kazdy uzytkownik = jeden circuit. Nawet jesli ten sam czlowiek ma 2 zakladki, dostaje 2 osobne circuits.</p>
+
+<h2>Lifecycle circuita</h2>
+<table>
+<thead><tr><th>Faza</th><th>Co sie dzieje</th></tr></thead>
+<tbody>
+<tr><td>1. Connection</td><td>Klient laczy WebSocket, hub tworzy circuit</td></tr>
+<tr><td>2. Active</td><td>Komponenty zyja, eventy sa obslugiwane</td></tr>
+<tr><td>3. Disconnect</td><td>WebSocket zerwany (network drop, tab closed)</td></tr>
+<tr><td>4. Hold (3 minuty default)</td><td>Circuit czeka na reconnection, stan zachowany w pamieci</td></tr>
+<tr><td>5. Reconnect (jesli udane)</td><td>Klient wraca, stan przywracany</td></tr>
+<tr><td>6. Cleanup</td><td>Po timeoucie circuit jest usuwany, GC zbiera obiekty</td></tr>
+</tbody>
+</table>
+
+<h2>CircuitHandler &mdash; reagowanie na zdarzenia</h2>
+<p>Mozesz pisac handler reagujacy na lifecycle:</p>
+<pre><code>public class TrackingCircuitHandler : CircuitHandler
+{
+    private readonly ILogger&lt;TrackingCircuitHandler&gt; logger;
+
+    public TrackingCircuitHandler(ILogger&lt;TrackingCircuitHandler&gt; logger)
+    {
+        this.logger = logger;
+    }
+
+    public override Task OnCircuitOpenedAsync(Circuit circuit, CancellationToken ct)
+    {
+        logger.LogInformation("Circuit opened: {Id}", circuit.Id);
+        return Task.CompletedTask;
+    }
+
+    public override Task OnConnectionUpAsync(Circuit circuit, CancellationToken ct)
+    {
+        logger.LogInformation("Connection up: {Id}", circuit.Id);
+        return Task.CompletedTask;
+    }
+
+    public override Task OnConnectionDownAsync(Circuit circuit, CancellationToken ct)
+    {
+        logger.LogInformation("Connection down: {Id}", circuit.Id);
+        return Task.CompletedTask;
+    }
+
+    public override Task OnCircuitClosedAsync(Circuit circuit, CancellationToken ct)
+    {
+        logger.LogInformation("Circuit closed: {Id}", circuit.Id);
+        return Task.CompletedTask;
+    }
+}
+
+// Program.cs
+builder.Services.AddScoped&lt;CircuitHandler, TrackingCircuitHandler&gt;();</code></pre>
+
+<h2>Reconnection UI</h2>
+<p>Default UI dla disconnection w Blazor Server pokazuje overlay "Trying to reconnect...". Mozesz go customowac w <code>App.razor</code> lub <code>_Host.cshtml</code>.</p>
+
+<pre><code>&lt;div id="components-reconnect-modal"&gt;
+    &lt;div class="reconnect-content"&gt;
+        &lt;p data-show="reconnecting"&gt;Probuje sie polaczyc z serwerem...&lt;/p&gt;
+        &lt;p data-show="failed"&gt;
+            Polaczenie utracone.
+            &lt;a href="" onclick="window.location.reload()"&gt;Odswiez strone&lt;/a&gt;
+        &lt;/p&gt;
+        &lt;p data-show="rejected"&gt;
+            Sesja wygasla. &lt;a href=""&gt;Zaloguj sie ponownie&lt;/a&gt;
+        &lt;/p&gt;
+    &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;style&gt;
+#components-reconnect-modal { display: none; }
+#components-reconnect-modal.components-reconnect-show {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+&lt;/style&gt;</code></pre>
+
+<h2>Max circuits limit</h2>
+<p>Domyslnie kazdy serwer trzyma max 100 disconnected circuits. Po przekroczeniu najstarsze sa usuwane.</p>
+<pre><code>builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents()
+    .AddCircuitOptions(options =&gt;
+    {
+        options.DisconnectedCircuitMaxRetained = 100;
+        options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(3);
+        options.JSInteropDefaultCallTimeout = TimeSpan.FromMinutes(1);
+        options.MaxBufferedUnacknowledgedRenderBatches = 10;
+        options.DetailedErrors = false; // false in production!
+    });</code></pre>
+
+<h2>Memory per user</h2>
+<p>Typowa aplikacja Blazor Server uzywa:</p>
+<table>
+<thead><tr><th>Component</th><th>Memory</th></tr></thead>
+<tbody>
+<tr><td>SignalR connection</td><td>~50 KB</td></tr>
+<tr><td>Render tree</td><td>~200 KB - 1 MB</td></tr>
+<tr><td>Component state</td><td>Zalezne od appki, ~100 KB - 5 MB</td></tr>
+<tr><td>Scoped services (DbContext, etc)</td><td>~100 KB - 1 MB</td></tr>
+<tr><td>Cascading values</td><td>~tens of KB</td></tr>
+</tbody>
+</table>
+<p>Lacznie: 1-5 MB per uzytkownik. Serwer z 4 GB RAM utrzyma ~1000-2000 aktywnych circuits.</p>
+
+<h3>Tipy zmniejszania memory footprint</h3>
+<ul>
+<li>Nie trzymaj duzych kolekcji w stanie komponentu &mdash; uzywaj paginacji</li>
+<li>Dispose IDisposable services / subscriptions</li>
+<li>Uzywaj <code>OwningComponentBase</code> dla DbContext (oddzielny scope)</li>
+<li>Nie trzymaj surowych obrazow / plikow w stanie</li>
+</ul>
+
+<h2>Detekcja disconnected circuits</h2>
+<pre><code>public class CircuitTracker : CircuitHandler
+{
+    private static readonly Dictionary&lt;string, CircuitInfo&gt; circuits = new();
+
+    public override Task OnCircuitOpenedAsync(Circuit circuit, CancellationToken ct)
+    {
+        circuits[circuit.Id] = new CircuitInfo {
+            Id = circuit.Id,
+            OpenedAt = DateTime.UtcNow,
+            IsConnected = true
+        };
+        return Task.CompletedTask;
+    }
+
+    public override Task OnConnectionDownAsync(Circuit circuit, CancellationToken ct)
+    {
+        if (circuits.TryGetValue(circuit.Id, out var info))
+            info.IsConnected = false;
+        return Task.CompletedTask;
+    }
+
+    public static int ActiveCount =&gt; circuits.Count(c =&gt; c.Value.IsConnected);
+    public static int TotalCount =&gt; circuits.Count;
+}</code></pre>
+
+<h2>Authentication revalidation</h2>
+<p>Czesta potrzeba: re-walidacja tokenu/uprawnien co kilka minut na zywym circuicie.</p>
+<pre><code>public class IdentityRevalidatingAuthStateProvider
+    : RevalidatingServerAuthenticationStateProvider
+{
+    public IdentityRevalidatingAuthStateProvider(...) : base(...) { }
+
+    protected override TimeSpan RevalidationInterval =&gt; TimeSpan.FromMinutes(30);
+
+    protected override async Task&lt;bool&gt; ValidateAuthenticationStateAsync(
+        AuthenticationState authState, CancellationToken ct)
+    {
+        // sprawdz czy uzytkownik wciaz aktywny w bazie
+        var user = await userManager.FindByNameAsync(authState.User.Identity!.Name!);
+        return user != null &amp;&amp; !user.IsLockedOut;
+    }
+}</code></pre>
+
+<h2>Przykladowe metryki produkcyjne</h2>
+<table>
+<thead><tr><th>Metryka</th><th>Typowo</th></tr></thead>
+<tbody>
+<tr><td>Cold start (pierwszy render)</td><td>200-500 ms</td></tr>
+<tr><td>Warm start (otwarcie nowej zakladki)</td><td>50-150 ms</td></tr>
+<tr><td>Click latency (Europa, server EU)</td><td>20-80 ms</td></tr>
+<tr><td>Click latency (Europa, server US)</td><td>120-200 ms</td></tr>
+<tr><td>Reconnect window</td><td>3 minuty default</td></tr>
+<tr><td>Memory per user</td><td>1-5 MB</td></tr>
+<tr><td>CPU per user (idle)</td><td>~minimal</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Wskazowka &mdash; client logging</h3>
+<p>Domyslnie szczegolowe bledy nie sa pokazywane uzytkownikowi (security). W development wlacz <code>DetailedErrors = true</code>, ale NIGDY w produkcji &mdash; pokaze stack trace z mozliwymi sekretami.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="01-podstawy-blazor-server.html">&larr; Podstawy Blazor Server</a>
+<a href="03-state-i-skala.html">State i skala &rarr;</a>
+</div>
+</div>
+</body>
+</html>

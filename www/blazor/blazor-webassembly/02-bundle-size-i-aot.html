@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bundle size i AOT</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor WebAssembly</a><span class="sep">/</span><span class="title">Bundle size i AOT</span></div>
+<div class="container">
+<h1>Bundle size i AOT</h1>
+<p class="subtitle">Trimming, lazy loading, AOT vs IL Linker, brotli compression</p>
+
+<h2>Z czego sklada sie bundle?</h2>
+<table>
+<thead><tr><th>Czesc</th><th>Rozmiar</th></tr></thead>
+<tbody>
+<tr><td>dotnet.wasm (mono runtime)</td><td>~2 MB skompresowany</td></tr>
+<tr><td>dotnet.runtime.js</td><td>~50 KB</td></tr>
+<tr><td>blazor.webassembly.js</td><td>~80 KB</td></tr>
+<tr><td>System.dll, mscorlib.dll, etc</td><td>~2-3 MB</td></tr>
+<tr><td>Aplikacja .dll</td><td>0.5-2 MB (zalezne od wielkosci)</td></tr>
+<tr><td>Biblioteki (NuGet)</td><td>~kazda 100 KB - 1 MB</td></tr>
+</tbody>
+</table>
+
+<h2>Trimming &mdash; usuwanie nieuzywanego kodu</h2>
+<p>IL Trimmer (znany jako IL Linker) analizuje kod i usuwa niedostepne metody, klasy, assemblies. Wlaczone domyslnie w Release.</p>
+<pre><code>&lt;PropertyGroup&gt;
+  &lt;PublishTrimmed&gt;true&lt;/PublishTrimmed&gt;
+  &lt;TrimMode&gt;link&lt;/TrimMode&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+<p>Typowo redukuje 3-5x. Uwaga: niektore biblioteki uzywaja reflection &mdash; trzeba dodac TrimmerRoot:</p>
+<pre><code>&lt;ItemGroup&gt;
+  &lt;TrimmerRootAssembly Include="MyLibrary" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+
+<h2>Brotli compression</h2>
+<p>Brotli daje 20-30% lepsza kompresje niz Gzip dla tekstowych zasobow. Blazor publish generuje pliki <code>.br</code> obok .dll i .wasm:</p>
+<pre><code>publish/wwwroot/_framework/
+  System.Text.Json.dll       (1.2 MB)
+  System.Text.Json.dll.gz    (400 KB)
+  System.Text.Json.dll.br    (320 KB)</code></pre>
+
+<h3>Nginx</h3>
+<pre><code>brotli on;
+brotli_static on;
+brotli_types application/wasm application/dll text/css application/javascript;
+brotli_comp_level 11;</code></pre>
+
+<h2>Lazy loading assemblies</h2>
+<p>Mozesz oznaczyc niektore assemblies jako lazy &mdash; pobiora sie dopiero przy navigacji do strony, ktora ich uzywa.</p>
+
+<pre><code>&lt;ItemGroup&gt;
+  &lt;BlazorWebAssemblyLazyLoad Include="HeavyFeature.Charts.dll" /&gt;
+  &lt;BlazorWebAssemblyLazyLoad Include="HeavyFeature.PdfGenerator.dll" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+
+<pre><code>// W komponencie
+@inject LazyAssemblyLoader Loader
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var assemblies = await Loader.LoadAssembliesAsync(new[]
+        {
+            "HeavyFeature.Charts.dll",
+            "HeavyFeature.PdfGenerator.dll"
+        });
+    }
+}</code></pre>
+
+<p>Idealne dla feature-rich admin paneli, gdzie wiekszosc uzytkownikow nie odwiedza wszystkich sekcji.</p>
+
+<h2>AOT vs IL Linker (interpreted)</h2>
+
+<h3>IL Linker (default)</h3>
+<ul>
+<li>Mono runtime interpretuje IL bytecode</li>
+<li>Rozmiar: ~5-10 MB skompresowane</li>
+<li>Szybkosc: bazowa &mdash; "OK" dla typowych aplikacji UI</li>
+</ul>
+
+<h3>AOT (Ahead-Of-Time)</h3>
+<ul>
+<li>Kompilacja IL do natywnego WASM przed uruchomieniem</li>
+<li>Rozmiar: <strong>5x wiekszy</strong> niz IL Linker (typowo 25 MB skompresowane)</li>
+<li>Szybkosc: <strong>2-10x szybsza</strong> dla CPU-bound zadan</li>
+<li>Idealne dla heavy compute (gry, obliczenia, algorytmy)</li>
+<li>Niewydajne dla typowych UI &mdash; tradeoff size/speed nie warto</li>
+</ul>
+
+<pre><code>&lt;PropertyGroup&gt;
+  &lt;RunAOTCompilation&gt;true&lt;/RunAOTCompilation&gt;
+  &lt;PublishTrimmed&gt;true&lt;/PublishTrimmed&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+<h3>Kiedy AOT?</h3>
+<ul>
+<li>Gry w przegladarce (engine, fizyka)</li>
+<li>Obrobka grafiki / wideo</li>
+<li>Algorytmy szyfrowania, kompresji</li>
+<li>Heavy linear algebra</li>
+<li>Symulacje, ML inference</li>
+</ul>
+<p>Dla typowej aplikacji biznesowej (CRUD, dashboard) <strong>NIE wlaczaj AOT</strong> &mdash; user czeka 5x dluzej na pierwsze ladowanie dla minimalnego ulepszenia UI.</p>
+
+<h2>Bundle analyzer</h2>
+<p>Wbudowane narzedzie pozwala zobaczyc, co zajmuje miejsce:</p>
+<pre><code>dotnet publish -c Release /p:BlazorEnableCompression=true
+# Sprawdz publish/wwwroot/_framework/blazor.boot.json</code></pre>
+<p>Plik <code>blazor.boot.json</code> zawiera spis wszystkich pobieranych zasobow z rozmiarami.</p>
+
+<h3>Wizualizator</h3>
+<pre><code>dotnet tool install -g BlazorBundleAnalyzer
+blazor-analyzer publish/wwwroot/_framework</code></pre>
+
+<h2>.NET 8/9 size improvements</h2>
+<p>Microsoft optymalizuje rozmiar Blazor WASM z kazda wersja:</p>
+<table>
+<thead><tr><th>Wersja</th><th>Default project bundle (skompresowany)</th></tr></thead>
+<tbody>
+<tr><td>.NET 6</td><td>~5-6 MB</td></tr>
+<tr><td>.NET 7</td><td>~4 MB</td></tr>
+<tr><td>.NET 8</td><td>~2.5 MB</td></tr>
+<tr><td>.NET 9</td><td>~2 MB</td></tr>
+<tr><td>.NET 10 (preview)</td><td>~1.5 MB</td></tr>
+</tbody>
+</table>
+
+<h2>Cache strategies</h2>
+
+<h3>Cache busting</h3>
+<p>Pliki aplikacji maja immutable cache z hashed name. Tylko <code>index.html</code> i <code>service-worker.js</code> wymagaja krotkich cache.</p>
+<pre><code># nginx
+location = /index.html {
+    add_header Cache-Control "no-cache, no-store, must-revalidate";
+}
+location ~* \.(dll|wasm|pdb)$ {
+    add_header Cache-Control "public, max-age=31536000, immutable";
+}</code></pre>
+
+<h3>Service worker dla offline</h3>
+<pre><code>// service-worker.published.js
+self.addEventListener('install', e =&gt;
+{
+    e.waitUntil(caches.open('blazor-cache').then(cache =&gt;
+        cache.addAll([
+            '/',
+            '/_framework/blazor.webassembly.js',
+            // ... auto-generated lista
+        ])
+    ));
+});
+
+self.addEventListener('fetch', e =&gt;
+{
+    e.respondWith(caches.match(e.request).then(r =&gt; r || fetch(e.request)));
+});</code></pre>
+
+<h2>Pre-rendering</h2>
+<p>W trybie hosted mozesz prerenderowac WASM aplikacje &mdash; serwer wysyla statyczny HTML, potem WASM "ozywia". Ulatwia LCP i SEO.</p>
+<pre><code>// Hosted Server Program.cs
+app.MapFallbackToFile("index.html"); // standalone
+// vs
+app.MapRazorComponents&lt;App&gt;()
+    .AddInteractiveWebAssemblyRenderMode(); // prerender</code></pre>
+
+<h2>Practical optimization checklist</h2>
+<ul>
+<li>Wlaczone <code>PublishTrimmed</code> (default w Release)</li>
+<li>Brotli compression na serwerze</li>
+<li>Cache-Control immutable dla _framework</li>
+<li>Lazy load duzych feature dlls (charts, PDF, etc.)</li>
+<li>NIE wlaczaj AOT bez powodu</li>
+<li>Usun nieuzywane NuGet packages</li>
+<li>Bundle analyzer aby zidentyfikowac heavy deps</li>
+<li>HTTP/2 lub HTTP/3 dla parallelnego pobierania plikow</li>
+<li>CDN przed serwerem (CloudFlare, CloudFront)</li>
+</ul>
+
+<h2>Realne benchmarki (.NET 9)</h2>
+<table>
+<thead><tr><th>Scenariusz</th><th>Bundle</th><th>First load (3G)</th></tr></thead>
+<tbody>
+<tr><td>Default minimal</td><td>~2 MB</td><td>~6 sek</td></tr>
+<tr><td>Default + MudBlazor</td><td>~3.5 MB</td><td>~10 sek</td></tr>
+<tr><td>Full app + biblioteki</td><td>~6 MB</td><td>~18 sek</td></tr>
+<tr><td>Full app + AOT</td><td>~25 MB</td><td>~75 sek</td></tr>
+<tr><td>Full app + lazy load</td><td>~3 MB initial</td><td>~9 sek</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Wskazowka 2026</h3>
+<p>Dla typowej aplikacji biznesowej w Blazor WASM celuj w <strong>2-3 MB skompresowanego bundle</strong>. Powyzej 5 MB uzytkownicy mobilnych przegladarek beda rezygnowac. Rozwaz Blazor United (auto mode) &mdash; pierwsze ladowanie z Server, potem WASM po pobraniu.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="01-podstawy-blazor-wasm.html">&larr; Podstawy Blazor WASM</a>
+<a href="03-http-i-api-calls.html">HTTP i API calls &rarr;</a>
+</div>
+</div>
+</body>
+</html>

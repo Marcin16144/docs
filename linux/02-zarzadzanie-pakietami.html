@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linux - zarzadzanie pakietami</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fb923c;--accent-hover:#fdba74;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Linux</a><span class="sep">/</span><span class="title">Zarzadzanie pakietami</span></div>
+<div class="container">
+<h1>Zarzadzanie pakietami w Ubuntu</h1>
+<p class="subtitle">apt, dpkg, snap, flatpak, AppImage - kompletny przewodnik</p>
+
+<h2>Wprowadzenie</h2>
+<p>Ubuntu, jako dystrybucja oparta na Debianie, korzysta z systemu pakietow <strong>.deb</strong> oraz menedzera <strong>APT</strong> (Advanced Package Tool). Oprocz tradycyjnego apt, wspolczesne Ubuntu integruje rowniez nowsze formaty: <strong>snap</strong> (rozwijany przez Canonical), <strong>flatpak</strong> (uniwersalny standard) oraz <strong>AppImage</strong> (przenosny format). Kazde z nich ma swoje zalety i przypadki uzycia.</p>
+
+<div class="card">
+<strong>Zlote zasady:</strong>
+<ul>
+<li>Aktualizuj indeks pakietow przed instalacja: <code>apt update</code></li>
+<li>Nigdy nie uruchamiaj <code>apt</code> z dwoch sesji jednoczesnie - blokuje baze dpkg</li>
+<li>Po dodaniu PPA zawsze sprawdzaj klucz GPG przed zaufaniem repozytorium</li>
+</ul>
+</div>
+
+<h2>APT - podstawowe operacje</h2>
+<p>Polecenie <code>apt</code> to wysoko-poziomowy interfejs uzytkownika do APT, zaprojektowany dla terminalu. Jest nastepca <code>apt-get</code> oraz <code>apt-cache</code>, lacz ich funkcje w jednym narzedziu z czytelniejszym wyjsciem.</p>
+
+<h3>Aktualizacja systemu</h3>
+<pre><code># Pobranie aktualnej listy pakietow z repozytoriow
+sudo apt update
+
+# Aktualizacja zainstalowanych pakietow
+sudo apt upgrade
+
+# Pelna aktualizacja (moze usunac pakiety dla rozwiazania zaleznosci)
+sudo apt full-upgrade
+
+# Aktualizacja dystrybucji do nowszej wersji
+sudo do-release-upgrade
+
+# Wszystko w jednej komendzie (z zalozenia "tak" na pytania)
+sudo apt update && sudo apt upgrade -y</code></pre>
+
+<h3>Instalacja i usuwanie</h3>
+<pre><code># Instalacja pakietu
+sudo apt install nginx
+
+# Instalacja wielu pakietow naraz
+sudo apt install git curl wget htop
+
+# Instalacja konkretnej wersji
+sudo apt install nginx=1.24.0-2ubuntu7
+
+# Usuniecie pakietu (zachowuje pliki konfiguracyjne)
+sudo apt remove nginx
+
+# Usuniecie pakietu wraz z konfiguracja
+sudo apt purge nginx
+
+# Usuniecie nieuzywanych zaleznosci
+sudo apt autoremove
+
+# Usuniecie cache pobranych .deb (oszczedza miejsce w /var/cache/apt/archives)
+sudo apt clean</code></pre>
+
+<h3>Wyszukiwanie i informacje o pakietach</h3>
+<pre><code># Wyszukanie pakietu po nazwie/opisie
+apt search docker
+
+# Szczegoly o pakiecie (wersja, zaleznosci, opis)
+apt show nginx
+
+# Lista zainstalowanych pakietow
+apt list --installed
+
+# Lista pakietow do aktualizacji
+apt list --upgradable
+
+# Sprawdzenie czy pakiet jest zainstalowany
+dpkg -l | grep nginx</code></pre>
+
+<h2>dpkg - operacje niskopoziomowe</h2>
+<p><strong>dpkg</strong> to narzedzie niskopoziomowe pracujace bezposrednio z plikami .deb. APT korzysta z dpkg pod spodem, ale dpkg sam nie obsluguje zaleznosci - musisz je rozwiazac recznie.</p>
+
+<table>
+<tr><th>Komenda</th><th>Opis</th></tr>
+<tr><td><code>dpkg -l</code></td><td>Lista wszystkich zainstalowanych pakietow</td></tr>
+<tr><td><code>dpkg -l nginx</code></td><td>Status konkretnego pakietu</td></tr>
+<tr><td><code>dpkg -L nginx</code></td><td>Pliki nalezace do pakietu</td></tr>
+<tr><td><code>dpkg -S /etc/nginx/nginx.conf</code></td><td>Do jakiego pakietu nalezy plik</td></tr>
+<tr><td><code>dpkg -i package.deb</code></td><td>Instalacja lokalnego pliku .deb</td></tr>
+<tr><td><code>dpkg -r nginx</code></td><td>Usuniecie pakietu</td></tr>
+<tr><td><code>dpkg --configure -a</code></td><td>Konfiguracja niedokonczonych pakietow</td></tr>
+</table>
+
+<h3>Instalacja pliku .deb z naprawa zaleznosci</h3>
+<pre><code># Instalacja pliku .deb
+sudo dpkg -i ./google-chrome-stable.deb
+
+# Jesli brakuje zaleznosci - apt zalatwi sprawe
+sudo apt install -f
+
+# Alternatywnie - apt sam pobierze zaleznosci dla lokalnego deb
+sudo apt install ./google-chrome-stable.deb</code></pre>
+
+<h2>Repozytoria PPA</h2>
+<p><strong>PPA</strong> (Personal Package Archive) to repozytoria spolecznosciowe hostowane na Launchpad. Pozwalaja instalowac oprogramowanie nieobecne w oficjalnych repozytoriach Ubuntu lub jego nowsze wersje.</p>
+
+<pre><code># Dodanie PPA (przyklad - Mozilla Firefox z PPA Mozilla Team)
+sudo add-apt-repository ppa:mozillateam/ppa
+
+# Aktualizacja indeksu po dodaniu repozytorium
+sudo apt update
+
+# Instalacja pakietu z PPA
+sudo apt install firefox-esr
+
+# Usuniecie PPA
+sudo add-apt-repository --remove ppa:mozillateam/ppa
+
+# Lista skonfigurowanych zrodel
+ls /etc/apt/sources.list.d/</code></pre>
+
+<h2>Klucze GPG i nowoczesne podejscie</h2>
+<p>Od Ubuntu 22.04 zalecanym sposobem dodawania repozytoriow jest umieszczanie kluczy GPG w <code>/usr/share/keyrings/</code> i odwolywanie sie do nich przez parametr <code>signed-by</code>. Stara metoda <code>apt-key add</code> jest <strong>deprecated</strong>.</p>
+
+<pre><code># Pobranie i zapisanie klucza GPG (przyklad Docker)
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+  sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Dodanie repozytorium z odwolaniem do klucza
+echo "deb [arch=$(dpkg --print-architecture) \
+  signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+  https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Aktualizacja i instalacja
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io</code></pre>
+
+<h2>Snap</h2>
+<p><strong>Snap</strong> to format paczek od Canonical. Pakiety snap sa izolowane (sandbox) i zawieraja wszystkie zaleznosci. Aktualizuja sie automatycznie. W Ubuntu 22+ wiele aplikacji jak Firefox czy Chromium dystrybuowanych jest tylko jako snap.</p>
+
+<pre><code># Lista zainstalowanych snapow
+snap list
+
+# Wyszukanie pakietu
+snap find code
+
+# Instalacja
+sudo snap install code --classic
+
+# Aktualizacja konkretnego snapa
+sudo snap refresh code
+
+# Aktualizacja wszystkich
+sudo snap refresh
+
+# Usuniecie
+sudo snap remove code
+
+# Sprawdzenie kanalow (stable, candidate, beta, edge)
+snap info code
+
+# Instalacja z konkretnego kanalu
+sudo snap install nodejs --channel=20/stable</code></pre>
+
+<h2>Flatpak</h2>
+<p><strong>Flatpak</strong> to uniwersalny format dzialajacy na wszystkich dystrybucjach. Glowne repozytorium to <strong>Flathub</strong>. W przeciwienstwie do snap, flatpak nie ma centralnego procesu autoryzacji - kazdy moze publikowac.</p>
+
+<pre><code># Instalacja flatpak na Ubuntu (nie jest preinstalowany)
+sudo apt install flatpak
+
+# Dodanie repozytorium Flathub
+flatpak remote-add --if-not-exists flathub \
+  https://flathub.org/repo/flathub.flatpakrepo
+
+# Po dodaniu warto zrestartowac sesje
+
+# Wyszukanie aplikacji
+flatpak search blender
+
+# Instalacja (z Flathub)
+flatpak install flathub org.blender.Blender
+
+# Uruchomienie
+flatpak run org.blender.Blender
+
+# Lista zainstalowanych
+flatpak list
+
+# Aktualizacja wszystkich
+flatpak update
+
+# Usuniecie
+flatpak uninstall org.blender.Blender
+
+# Czyszczenie nieuzywanych runtime
+flatpak uninstall --unused</code></pre>
+
+<h2>AppImage</h2>
+<p><strong>AppImage</strong> to przenosny format - jeden plik wykonywalny zawierajacy aplikacje wraz ze wszystkimi zaleznosciami. Nie wymaga instalacji, nie potrzebuje uprawnien roota. Idealny do testowania aplikacji bez ingerencji w system.</p>
+
+<pre><code># Pobranie AppImage (przyklad)
+wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage
+
+# Nadanie uprawnien wykonywalnosci
+chmod +x appimagetool-x86_64.AppImage
+
+# Uruchomienie
+./appimagetool-x86_64.AppImage
+
+# Integracja z menu (opcjonalna - przez narzedzie AppImageLauncher)
+sudo apt install appimagelauncher</code></pre>
+
+<h2>Porownanie systemow pakietow</h2>
+<table>
+<tr><th>Cecha</th><th>APT/.deb</th><th>Snap</th><th>Flatpak</th><th>AppImage</th></tr>
+<tr><td>Rozmiar</td><td>Maly</td><td>Sredni-duzy</td><td>Duzy</td><td>Duzy</td></tr>
+<tr><td>Izolacja</td><td>Brak</td><td>AppArmor sandbox</td><td>Bubblewrap sandbox</td><td>Brak</td></tr>
+<tr><td>Auto-update</td><td>Manualne</td><td>Automatyczne</td><td>Manualne</td><td>Brak</td></tr>
+<tr><td>Wymaga roota</td><td>Tak</td><td>Tak (instalacja)</td><td>Nie (per-user)</td><td>Nie</td></tr>
+<tr><td>Wieloplatformowy</td><td>Tylko Debian/Ubuntu</td><td>Wszystkie dystro</td><td>Wszystkie dystro</td><td>Wszystkie dystro</td></tr>
+<tr><td>Centralny katalog</td><td>Repozytoria Ubuntu</td><td>Snap Store</td><td>Flathub i inne</td><td>AppImageHub</td></tr>
+<tr><td>Open Source</td><td>Tak</td><td>Klient tak, serwer nie</td><td>Tak</td><td>Tak</td></tr>
+</table>
+
+<h2>Najlepsze praktyki</h2>
+<ul>
+<li>Dla aplikacji systemowych i narzedzi developerskich - preferuj APT</li>
+<li>Dla aplikacji desktop, ktore chcesz miec zawsze aktualne - flatpak</li>
+<li>Dla aplikacji firmowych z gwarancja od Canonical - snap</li>
+<li>Dla testowania aplikacji bez instalacji - AppImage</li>
+<li>Po dodaniu PPA zawsze przejrzyj <code>/etc/apt/sources.list.d/</code> i klucze GPG</li>
+<li>Regularnie wykonuj <code>sudo apt autoremove</code> i <code>flatpak uninstall --unused</code></li>
+<li>Konfiguruj automatyczne aktualizacje bezpieczenstwa: <code>sudo apt install unattended-upgrades</code></li>
+</ul>
+
+<div class="nav-bottom">
+<a href="01-podstawy-i-komendy.html">&larr; Podstawy i komendy</a>
+<a href="03-uzytkownicy-i-uprawnienia.html">Uzytkownicy i uprawnienia &rarr;</a>
+</div>
+</div>
+</body>
+</html>

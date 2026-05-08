@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JS Interop Blazor</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">WWW</a><span class="sep">/</span><a href="index.html">Blazor</a><span class="sep">/</span><span class="title">JS Interop</span></div>
+<div class="container">
+<h1>JS Interop Blazor</h1>
+<p class="subtitle">IJSRuntime, wywolywanie JS z C#, C# z JS, JS modules, integracja Chart.js</p>
+
+<h2>Po co JS Interop?</h2>
+<p>Blazor pozwala robic 95% rzeczy w C#, ale czasem musisz <strong>wykorzystac istniejaca biblioteke JS</strong> (Chart.js, Leaflet, mapy, edytory tekstu) lub wywolac niskopoziomowe API przegladarki (clipboard, geolocation, notifications). Wtedy uzywasz JS Interop.</p>
+
+<h2>IJSRuntime &mdash; podstawowy serwis</h2>
+<pre><code>@inject IJSRuntime JS
+
+&lt;button @onclick="ShowAlert"&gt;Pokaz alert&lt;/button&gt;
+
+@code {
+    private async Task ShowAlert()
+    {
+        await JS.InvokeVoidAsync("alert", "Hello z C#!");
+    }
+}</code></pre>
+
+<h2>Wywolywanie JS z C#</h2>
+
+<h3>InvokeVoidAsync &mdash; bez wartosci zwracanej</h3>
+<pre><code>await JS.InvokeVoidAsync("console.log", "Wiadomosc");
+await JS.InvokeVoidAsync("localStorage.setItem", "key", "value");
+await JS.InvokeVoidAsync("scrollTo", 0, 0);</code></pre>
+
+<h3>InvokeAsync &mdash; z wartoscia zwracana</h3>
+<pre><code>var width = await JS.InvokeAsync&lt;int&gt;("eval", "window.innerWidth");
+var savedValue = await JS.InvokeAsync&lt;string&gt;("localStorage.getItem", "key");
+var data = await JS.InvokeAsync&lt;MyData&gt;("loadData", id);</code></pre>
+
+<h3>Wlasna funkcja JS</h3>
+<pre><code>// wwwroot/js/site.js
+window.myApp = {
+    showToast: (message, duration) =&gt; {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.className = 'toast';
+        document.body.appendChild(toast);
+        setTimeout(() =&gt; toast.remove(), duration);
+    },
+    getCanvasWidth: () =&gt; {
+        return document.getElementById('myCanvas').width;
+    }
+};</code></pre>
+
+<pre><code>&lt;!-- index.html / _Host.cshtml --&gt;
+&lt;script src="js/site.js"&gt;&lt;/script&gt;</code></pre>
+
+<pre><code>// C#
+await JS.InvokeVoidAsync("myApp.showToast", "Zapisano!", 3000);
+var width = await JS.InvokeAsync&lt;int&gt;("myApp.getCanvasWidth");</code></pre>
+
+<h2>Wywolywanie C# z JS</h2>
+
+<h3>Static method [JSInvokable]</h3>
+<pre><code>public static class CSharpHelpers
+{
+    [JSInvokable]
+    public static Task&lt;string&gt; FormatNumber(decimal num)
+    {
+        return Task.FromResult(num.ToString("C"));
+    }
+}</code></pre>
+
+<pre><code>// JS
+const result = await DotNet.invokeMethodAsync(
+    'YourAssemblyName',
+    'FormatNumber',
+    1234.56
+);
+console.log(result); // "$1,234.56" lub "1234,56 zl"</code></pre>
+
+<h3>Instance method z DotNetObjectReference</h3>
+<p>Najczesciej chcesz wywolac metode <strong>instancyjna</strong> komponentu. Wtedy musisz przekazac referencje do JS.</p>
+<pre><code>@inject IJSRuntime JS
+@implements IDisposable
+
+&lt;div id="resizable"&gt;Treść&lt;/div&gt;
+
+@code {
+    private DotNetObjectReference&lt;ResizableComponent&gt;? selfRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("setupResizeObserver", "resizable", selfRef);
+        }
+    }
+
+    [JSInvokable]
+    public void OnResize(int width, int height)
+    {
+        Console.WriteLine($"Resize: {width}x{height}");
+        StateHasChanged();
+    }
+
+    public void Dispose() =&gt; selfRef?.Dispose();
+}</code></pre>
+
+<pre><code>// JS
+window.setupResizeObserver = (id, dotNetRef) =&gt; {
+    const el = document.getElementById(id);
+    new ResizeObserver(entries =&gt; {
+        const r = entries[0].contentRect;
+        dotNetRef.invokeMethodAsync('OnResize', r.width | 0, r.height | 0);
+    }).observe(el);
+};</code></pre>
+
+<h2>JS isolation &mdash; modules (zalecane)</h2>
+<p>Zamiast globalnego namespace mozna ladowac JS jako moduly per komponent.</p>
+
+<pre><code>// wwwroot/js/myComponent.js
+export function init(canvas, data) {
+    // ... rysowanie
+}
+
+export function update(newData) {
+    // ...
+}
+
+export function dispose() {
+    // ...
+}</code></pre>
+
+<pre><code>@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+&lt;canvas @ref="canvasRef"&gt;&lt;/canvas&gt;
+
+@code {
+    private ElementReference canvasRef;
+    private IJSObjectReference? module;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            module = await JS.InvokeAsync&lt;IJSObjectReference&gt;(
+                "import", "./js/myComponent.js");
+            await module.InvokeVoidAsync("init", canvasRef, data);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module != null)
+        {
+            await module.InvokeVoidAsync("dispose");
+            await module.DisposeAsync();
+        }
+    }
+}</code></pre>
+
+<h2>ElementReference</h2>
+<p>Czasem chcesz wskazac konkretny element DOM aby JS mogl na nim operowac.</p>
+<pre><code>&lt;input @ref="inputRef" /&gt;
+&lt;button @onclick="Focus"&gt;Focus&lt;/button&gt;
+
+@code {
+    private ElementReference inputRef;
+
+    private async Task Focus()
+    {
+        await inputRef.FocusAsync();
+        // lub: await JS.InvokeVoidAsync("doSomething", inputRef);
+    }
+}</code></pre>
+
+<h2>Integracja Chart.js</h2>
+<pre><code>// wwwroot/js/chart-helper.js
+export function createChart(canvas, config) {
+    return new Chart(canvas, config);
+}
+
+export function updateChart(chart, newData) {
+    chart.data.datasets[0].data = newData;
+    chart.update();
+}
+
+export function destroyChart(chart) {
+    chart.destroy();
+}</code></pre>
+
+<pre><code>@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+&lt;canvas @ref="canvasRef"&gt;&lt;/canvas&gt;
+
+@code {
+    [Parameter] public List&lt;double&gt; Data { get; set; } = new();
+
+    private ElementReference canvasRef;
+    private IJSObjectReference? module;
+    private IJSObjectReference? chart;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            module = await JS.InvokeAsync&lt;IJSObjectReference&gt;(
+                "import", "./js/chart-helper.js");
+
+            chart = await module.InvokeAsync&lt;IJSObjectReference&gt;(
+                "createChart", canvasRef, new {
+                    type = "bar",
+                    data = new {
+                        labels = new[] { "A", "B", "C" },
+                        datasets = new[] { new { data = Data } }
+                    }
+                });
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (chart != null) await module!.InvokeVoidAsync("destroyChart", chart);
+        if (module != null) await module.DisposeAsync();
+    }
+}</code></pre>
+
+<h2>Integracja Leaflet (mapy)</h2>
+<pre><code>// js/leaflet-helper.js
+export function createMap(elementId, lat, lng, zoom) {
+    const map = L.map(elementId).setView([lat, lng], zoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    return map;
+}
+
+export function addMarker(map, lat, lng, popup) {
+    L.marker([lat, lng]).addTo(map).bindPopup(popup);
+}</code></pre>
+
+<h2>Performance considerations</h2>
+<ul>
+<li>JS Interop ma overhead &mdash; nie wywoluj w petli "1000 razy"</li>
+<li>Batch wywolania: jeden call z tablica zamiast wielu pojedynczych</li>
+<li>W Blazor Server kazdy interop = round trip przez SignalR (latency)</li>
+<li>W Blazor WASM call jest synchroniczny (lokalny), wiec szybszy</li>
+<li>Dispose <code>IJSObjectReference</code> i <code>DotNetObjectReference</code> &mdash; memory leak inaczej</li>
+</ul>
+
+<h2>Common patterns</h2>
+
+<h3>Clipboard API</h3>
+<pre><code>await JS.InvokeVoidAsync("navigator.clipboard.writeText", "skopiowane");
+var text = await JS.InvokeAsync&lt;string&gt;("navigator.clipboard.readText");</code></pre>
+
+<h3>Geolocation</h3>
+<pre><code>// js
+window.getLocation = () =&gt; new Promise((resolve, reject) =&gt;
+    navigator.geolocation.getCurrentPosition(
+        pos =&gt; resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        err =&gt; reject(err.message)
+    ));
+
+// C#
+var loc = await JS.InvokeAsync&lt;LocationDto&gt;("getLocation");</code></pre>
+
+<h3>Pobranie pliku</h3>
+<pre><code>// js
+window.downloadFile = (filename, base64) =&gt; {
+    const link = document.createElement('a');
+    link.href = "data:application/octet-stream;base64," + base64;
+    link.download = filename;
+    link.click();
+};
+
+// C#
+var bytes = File.ReadAllBytes(path);
+await JS.InvokeVoidAsync("downloadFile", "raport.pdf", Convert.ToBase64String(bytes));</code></pre>
+
+<div class="nav-bottom">
+<a href="05-uwierzytelnianie.html">&larr; Uwierzytelnianie</a>
+<a href="07-komponenty-biblioteki.html">Biblioteki komponentow &rarr;</a>
+</div>
+</div>
+</body>
+</html>

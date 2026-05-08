@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>State i skala Blazor Server</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Server</a><span class="sep">/</span><span class="title">State i skala</span></div>
+<div class="container">
+<h1>State i skala Blazor Server</h1>
+<p class="subtitle">Sticky sessions, Azure SignalR Service, Redis backplane, scaling out</p>
+
+<h2>Problem skalowania</h2>
+<p>Blazor Server jest stateful &mdash; circuit z wszystkimi danymi uzytkownika zyje na <strong>jednym konkretnym serwerze</strong>. To stwarza wyzwania dla skali:</p>
+<ul>
+<li>Nie mozesz po prostu rownowazyc uzytkownikow round-robin (ten sam user musi wracac na ten sam serwer)</li>
+<li>Pamiec rosnie liniowo z liczba uzytkownikow</li>
+<li>Restart serwera = utrata stanu wszystkich aktywnych circuits</li>
+<li>Disconnect = bledne UX dla wszystkich uzytkownikow tej maszyny</li>
+</ul>
+
+<h2>Sticky sessions</h2>
+<p><strong>Sticky session</strong> (session affinity) &mdash; load balancer kieruje requesty od tego samego klienta zawsze na ten sam backend. To jest <strong>obowiazkowe</strong> dla Blazor Server scaled out.</p>
+
+<h3>Nginx</h3>
+<pre><code>upstream blazor_app {
+    ip_hash;  # sticky based on IP
+    server backend1.example.com;
+    server backend2.example.com;
+    server backend3.example.com;
+}
+
+server {
+    listen 443 ssl;
+    server_name app.example.com;
+
+    location / {
+        proxy_pass http://blazor_app;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}</code></pre>
+
+<h3>Azure App Service</h3>
+<p>Domyslnie Azure App Service uzywa <code>ARRAffinity</code> cookie dla session affinity. Wlaczone domyslnie, ale mozesz zweryfikowac:</p>
+<pre><code>az webapp update --client-affinity-enabled true --name myapp</code></pre>
+
+<h3>Kubernetes</h3>
+<pre><code>apiVersion: v1
+kind: Service
+spec:
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800</code></pre>
+
+<h2>Azure SignalR Service</h2>
+<p>Managed SignalR od Microsoftu. Odciaza serwer aplikacji od trzymania WebSocket connections &mdash; backbone do hostowania, ale sam circuit i state nadal zyja na app server.</p>
+
+<pre><code>// Program.cs
+builder.Services.AddSignalR()
+    .AddAzureSignalR(builder.Configuration["Azure:SignalR:ConnectionString"]);
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();</code></pre>
+
+<h3>Korzysci</h3>
+<ul>
+<li>Auto-scaling do milionow polaczen</li>
+<li>Globalne polaczenie (CDN-like dla SignalR)</li>
+<li>App server moze sie restartowac &mdash; SignalR Service trzyma queue</li>
+<li>Rozliczanie per "unit" (~1000 polaczen / unit)</li>
+</ul>
+
+<h3>Cennik</h3>
+<table>
+<thead><tr><th>Tier</th><th>Cena</th><th>Polaczenia</th></tr></thead>
+<tbody>
+<tr><td>Free</td><td>0 USD</td><td>20 polaczen</td></tr>
+<tr><td>Standard (S1)</td><td>~50 USD/mies</td><td>1000 / unit</td></tr>
+<tr><td>Premium (P1)</td><td>~500 USD/mies</td><td>1000 / unit + zaawansowane funkcje</td></tr>
+</tbody>
+</table>
+
+<h2>Redis backplane</h2>
+<p>Alternatywa dla Azure SignalR &mdash; uzywanie Redis do publish/subscribe miedzy serwerami SignalR. Wymaga sticky sessions (Redis NIE rozwiazuje problemu state per circuit).</p>
+<pre><code>builder.Services.AddSignalR()
+    .AddStackExchangeRedis(builder.Configuration["Redis:ConnectionString"]);</code></pre>
+<p>Uzytek: gdy masz wlasna Redis na infra i nie chcesz placic za Azure SignalR.</p>
+
+<h2>Sesja per uzytkownik</h2>
+<p>Trzy poziomy persistencji:</p>
+<table>
+<thead><tr><th>Poziom</th><th>Czas zycia</th><th>Wzorzec</th></tr></thead>
+<tbody>
+<tr><td>In-memory circuit state</td><td>do disconnect + 3 min</td><td>Scoped services, component fields</td></tr>
+<tr><td>Server-side session</td><td>do session timeout</td><td>ASP.NET Core Session, distributed cache</td></tr>
+<tr><td>Persistent (DB)</td><td>nielimitowany</td><td>EF Core, file system</td></tr>
+</tbody>
+</table>
+
+<h3>ASP.NET Core Session</h3>
+<pre><code>builder.Services.AddDistributedMemoryCache(); // dla dev
+// builder.Services.AddStackExchangeRedisCache(...); // dla prod
+
+builder.Services.AddSession(options =&gt;
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+app.UseSession();</code></pre>
+
+<h2>Scaling out scenarios</h2>
+
+<h3>Scenario 1: Mala aplikacja (do 1000 users)</h3>
+<ul>
+<li>Pojedynczy serwer (np. Azure App Service S1)</li>
+<li>Brak scaling out potrzebny</li>
+<li>~4 GB RAM wystarczy</li>
+</ul>
+
+<h3>Scenario 2: Srednia (1000-10000 users)</h3>
+<ul>
+<li>2-4 instancje aplikacji</li>
+<li>Sticky sessions wymagane</li>
+<li>Azure SignalR Service zalecane (lub Redis backplane)</li>
+<li>Database za connection pool</li>
+</ul>
+
+<h3>Scenario 3: Duza (10000+ users)</h3>
+<ul>
+<li>Premium SignalR Service</li>
+<li>Wieloregionalne deployment z geo-routing</li>
+<li>Specjalna optymalizacja memory per circuit</li>
+<li>Pre-warming, blue-green deployment</li>
+<li>Rozwazenie migracji wybranych komponentow do WASM (mniej obciazenia serwera)</li>
+</ul>
+
+<h2>Optymalizacja memory</h2>
+
+<h3>OwningComponentBase dla DbContext</h3>
+<pre><code>@inherits OwningComponentBase&lt;AppDbContext&gt;
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Service rozpoczyna scope dedykowany dla tego komponentu
+        var data = await Service.Products.ToListAsync();
+    }
+}</code></pre>
+<p>Komponent ma <strong>wlasny scope DI</strong>, dispose przy unmount &mdash; eliminuje long-lived DbContext per circuit (memory leak risk).</p>
+
+<h3>Virtualization dla list</h3>
+<pre><code>&lt;Virtualize Items="@products" Context="product" ItemSize="50"&gt;
+    &lt;ProductRow Product="@product" /&gt;
+&lt;/Virtualize&gt;</code></pre>
+<p>Renderuje tylko widoczne wiersze &mdash; oszczedza pamiec na duzych listach (10000+ items).</p>
+
+<h3>Lazy loading komponentow</h3>
+<pre><code>@if (showAdvanced)
+{
+    &lt;AdvancedSettings /&gt;
+}</code></pre>
+<p>Nie tworz drzewa zanim go uzytkownik nie zazada.</p>
+
+<h2>Monitoring skali</h2>
+<table>
+<thead><tr><th>Metryka</th><th>Co monitorowac</th></tr></thead>
+<tbody>
+<tr><td>Active circuits</td><td>Custom counter z CircuitHandler</td></tr>
+<tr><td>Memory pressure</td><td>GC heap size, dotnet-counters</td></tr>
+<tr><td>SignalR connections</td><td>Application Insights / SignalR Service metrics</td></tr>
+<tr><td>Latency (p50, p95, p99)</td><td>App Insights / Honeycomb</td></tr>
+<tr><td>Disconnect rate</td><td>OnConnectionDownAsync events</td></tr>
+<tr><td>Reconnect rate</td><td>Czy uzytkownicy wracaja</td></tr>
+</tbody>
+</table>
+
+<h2>Hostowanie wieloregionalne</h2>
+<p>Dla globalnej publicznosci najlepiej miec serwery w wielu regionach. Klient laczy z najblizszym &mdash; Traffic Manager / Front Door routuje na podstawie geo lub latency.</p>
+<pre><code>app.example.com (Front Door / Traffic Manager)
+  +-- eu.app.example.com -&gt; serwer w Amsterdam
+  +-- us.app.example.com -&gt; serwer w Virginia
+  +-- asia.app.example.com -&gt; serwer w Singapore</code></pre>
+<p>Wada: kazdy region ma wlasna baze (replication delay) lub jedna globalna baza (cross-region latency).</p>
+
+<div class="card">
+<h3>Werdykt</h3>
+<p>Blazor Server skaluje sie ladnie do <strong>kilku tysiecy uzytkownikow</strong> z Azure SignalR Service. Powyzej 10000 musisz powaznie zastanowic sie, czy nie lepiej Blazor WASM (autonomiczny klient) lub Blazor United (mix per komponent). Public-facing duza aplikacja czesto lepiej dziala w WASM.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="02-circuit-management.html">&larr; Circuit management</a>
+<a href="04-bezpieczenstwo.html">Bezpieczenstwo &rarr;</a>
+</div>
+</div>
+</body>
+</html>

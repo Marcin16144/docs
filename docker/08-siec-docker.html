@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Siec Docker</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Docker</a><span class="sep">/</span><span class="title">Siec Docker</span></div>
+<div class="container">
+<h1>Siec Docker</h1>
+<p class="subtitle">Network drivers, custom bridges, port publishing, DNS</p>
+
+<h2>Sterowniki sieci</h2>
+<table>
+<thead><tr><th>Driver</th><th>Cel</th></tr></thead>
+<tbody>
+<tr><td>bridge</td><td>Domyslny &mdash; izolowana siec na hoscie z NAT</td></tr>
+<tr><td>host</td><td>Brak izolacji &mdash; kontener uzywa stosu sieciowego hosta</td></tr>
+<tr><td>overlay</td><td>Multi-host &mdash; sieci rozproszone (Docker Swarm, K8s)</td></tr>
+<tr><td>macvlan</td><td>Kontener z wlasnym MAC, widoczny w sieci LAN jak fizyczny host</td></tr>
+<tr><td>ipvlan</td><td>Jak macvlan, ale wspoldzieli MAC hosta (tylko L3)</td></tr>
+<tr><td>none</td><td>Brak sieci &mdash; tylko loopback</td></tr>
+</tbody>
+</table>
+
+<h2>Bridge (default)</h2>
+<p>Po instalacji Docker tworzy <code>bridge0</code> (zwykle 172.17.0.0/16). Kazdy kontener bez explicit network ma interfejs na tym moscie.</p>
+
+<pre><code>docker network ls
+# NETWORK ID     NAME      DRIVER    SCOPE
+# 7d2f3a1b...    bridge    bridge    local
+# 8e3a2c1d...    host      host      local
+# 9f4b3d2e...    none      null      local
+
+docker network inspect bridge
+# pokazuje IPAM, kontenery, opcje
+
+# Default bridge wada:
+# - DNS NIE dziala miedzy kontenerami (tylko po IP, --link to deprecated)
+# - Wszystkie kontenery widzia sie nawzajem &mdash; brak izolacji</code></pre>
+
+<h2>Custom bridge networks &mdash; rekomendowane</h2>
+<p>Twoja wlasna siec uzytkownika ma <strong>automatyczny DNS</strong> &mdash; kontenery widza sie po nazwie. To powinien byc default.</p>
+
+<pre><code># Stworz
+docker network create mynet
+docker network create --driver bridge --subnet 172.30.0.0/16 mynet
+
+# Uzyj
+docker run -d --name db --network mynet postgres:16
+docker run -it --name app --network mynet alpine sh
+
+# Wewnatrz "app"
+ping db                    # dziala! DNS rozwiazuje na IP db
+nslookup db
+# Server:    127.0.0.11
+# Address:   127.0.0.11:53
+# Name:      db
+# Address:   172.30.0.2
+
+# W Compose &mdash; auto network ze service names jako DNS
+services:
+  app:
+    # connect to db:5432, redis:6379 &mdash; DNS dziala</code></pre>
+
+<div class="card">
+<h3>Default bridge vs custom bridge</h3>
+<ul>
+<li><strong>Default bridge</strong> &mdash; brak DNS miedzy kontenerami, wszyscy widzia siebie, brak izolacji</li>
+<li><strong>Custom bridge</strong> &mdash; auto DNS po nazwie, izolacja per siec, mozna wiele sieci</li>
+<li><strong>Zawsze uzywaj custom bridge</strong> dla aplikacji wielokontainerowych</li>
+<li>Compose automatycznie tworzy custom bridge per projekt</li>
+</ul>
+</div>
+
+<h2>Host network</h2>
+<p>Kontener <strong>nie ma wlasnego stosu sieciowego</strong> &mdash; uzywa hosta. Brak NAT, brak port mapping. Najszybszy ale najmniej izolowany.</p>
+
+<pre><code>docker run --network host nginx
+# Nginx slucha na port 80 hosta &mdash; bez -p</code></pre>
+
+<p>Use cases: networking-heavy apps (load balancery, monitoring), gdzie performance jest krytyczne. Uwaga: konflikt portow z hostem!</p>
+
+<h2>Overlay (multi-host)</h2>
+<p>Polaczenie kontenerow miedzy <strong>roznymi hostami</strong>. Wymaga Docker Swarm lub K8s.</p>
+
+<pre><code># Init swarm na pierwszym hoscie
+docker swarm init --advertise-addr 10.0.0.1
+
+# Dolacz kolejne hosty (token z initu)
+docker swarm join --token SWMTKN-1-... 10.0.0.1:2377
+
+# Tworz overlay network
+docker network create --driver overlay --attachable mynet
+
+# Kontener moze byc na hoscie A, drugi na B &mdash; widza sie po DNS</code></pre>
+
+<h2>Macvlan</h2>
+<p>Kontener dostaje wlasny MAC i jest widoczny <strong>bezposrednio w LAN</strong> &mdash; jak osobny komputer. Uzyteczne dla legacy app oczekujacych zycie w "prawdziwej sieci".</p>
+
+<pre><code>docker network create -d macvlan \
+  --subnet=192.168.1.0/24 \
+  --gateway=192.168.1.1 \
+  -o parent=eth0 \
+  iot-net
+
+docker run --network iot-net --ip 192.168.1.50 -d nginx
+# Nginx ma wlasny IP 192.168.1.50 w LAN</code></pre>
+
+<p>Limitacje: domyslnie host nie moze sie polaczyc z kontenerem na macvlan (kernel separation).</p>
+
+<h2>None</h2>
+<pre><code>docker run --network none alpine
+# Tylko loopback &mdash; zero zewnetrznej sieci</code></pre>
+
+<p>Use case: ekstremalna izolacja, batch processing, security-sensitive workloads.</p>
+
+<h2>Port publishing (-p)</h2>
+<pre><code># host:container
+docker run -p 8080:80 nginx                       # 0.0.0.0:8080 -&gt; 80
+
+# Tylko localhost
+docker run -p 127.0.0.1:8080:80 nginx             # tylko z hosta
+
+# Konkretny IP hosta (przy multiple NIC)
+docker run -p 10.0.0.5:8080:80 nginx
+
+# UDP
+docker run -p 53:53/udp dns-server
+
+# Range
+docker run -p 9000-9010:9000-9010 myapp
+
+# Random port (publishall)
+docker run -P nginx
+docker port nginx                                  # zobacz mapping
+# 80/tcp -&gt; 0.0.0.0:32768</code></pre>
+
+<h2>DNS rozwiazywanie</h2>
+<p>Wewnatrz custom bridge, Docker uruchamia <strong>embedded DNS</strong> na 127.0.0.11.</p>
+
+<pre><code># Test DNS w kontenerze
+docker network create test
+docker run -d --network test --name a alpine sleep 1000
+docker run -d --network test --name b alpine sleep 1000
+
+docker exec a nslookup b
+# Address: 172.30.0.3 (IP kontenera b)
+
+docker exec a ping b              # dziala
+docker exec a getent hosts b      # 172.30.0.3 b</code></pre>
+
+<h3>Niestandardowe DNS</h3>
+<pre><code>docker run --dns 1.1.1.1 --dns 8.8.8.8 alpine
+docker run --dns-search example.com alpine
+
+# Globalnie w /etc/docker/daemon.json
+{
+  "dns": ["1.1.1.1", "8.8.8.8"],
+  "dns-search": ["example.com"]
+}</code></pre>
+
+<h2>Wiele sieci na jednym kontenerze</h2>
+<pre><code>docker network create frontend
+docker network create --internal backend       # bez wyjscia na internet
+
+docker run -d --name api --network backend api:latest
+docker network connect frontend api            # api ma teraz dwa interfejsy
+
+# Caddy moze byc tylko na frontend, db tylko na backend, api jest pomostem
+docker run -d --name caddy --network frontend -p 443:443 caddy
+docker run -d --name db --network backend postgres
+# api widzi i caddy, i db
+# caddy nie widzi db &mdash; bezpieczne</code></pre>
+
+<h2>Compose &mdash; sieci</h2>
+<pre><code>services:
+  caddy:
+    image: caddy
+    networks: [frontend]
+    ports: ["443:443"]
+
+  api:
+    build: ./api
+    networks: [frontend, backend]
+
+  db:
+    image: postgres
+    networks: [backend]
+
+networks:
+  frontend:
+  backend:
+    internal: true              # brak NAT do internetu</code></pre>
+
+<h2>Inspection i debugging</h2>
+<pre><code># Sprawdz IP kontenera
+docker inspect web --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+
+# Wszystkie kontenery w sieci
+docker network inspect mynet
+
+# Z poziomu kontenera (zainstaluj net-tools)
+docker exec -it web sh
+ip addr
+ip route
+ss -tulpn          # otwarte porty
+nc -zv db 5432     # test connectivity</code></pre>
+
+<h2>Multi-host networking w 2026</h2>
+<table>
+<thead><tr><th>Rozwiazanie</th><th>Cel</th></tr></thead>
+<tbody>
+<tr><td>Docker Swarm overlay</td><td>Prosty cluster, ale Swarm staje sie legacy</td></tr>
+<tr><td>Kubernetes (Cilium, Calico)</td><td>Standard 2026 dla wiekszych klastrow</td></tr>
+<tr><td>Service mesh (Istio, Linkerd)</td><td>Zaawansowane &mdash; mTLS, observability, traffic split</td></tr>
+<tr><td>Tailscale / Wireguard</td><td>Lekkie peer-to-peer VPN dla rozproszonych hostow</td></tr>
+</tbody>
+</table>
+
+<h2>iptables i firewall</h2>
+<div class="card">
+<h3>UWAGA &mdash; Docker omija UFW</h3>
+<p>Docker domyslnie modyfikuje iptables i moze <strong>obchodzic</strong> regulki UFW na Ubuntu. Kontener z <code>-p 80:80</code> bedzie publicznie dostepny nawet jesli UFW blokuje port 80.</p>
+<p><strong>Rozwiazania:</strong></p>
+<ul>
+<li>Bind tylko localhost: <code>-p 127.0.0.1:80:80</code> (gdy reverse proxy)</li>
+<li>Wylacz iptables w Docker: <code>"iptables": false</code> w daemon.json (i recznie zarzadzaj)</li>
+<li>Uzywaj <code>ufw-docker</code> tool</li>
+</ul>
+</div>
+
+<pre><code># Zablokuj wszystko, wybiorczo otworz
+docker run -d -p 127.0.0.1:8080:80 nginx
+# Reverse proxy (Caddy/Nginx) na hoscie sluga jako frontend
+# UFW ma kontrole tylko nad portami hosta
+sudo ufw allow 443/tcp</code></pre>
+
+<h2>Praktyki</h2>
+<div class="card">
+<h3>Zalecenia 2026</h3>
+<ul>
+<li><strong>Custom bridge zawsze</strong> &mdash; auto DNS, izolacja</li>
+<li><strong>Nie uzywaj default bridge</strong> w produkcji</li>
+<li><strong>Internal networks</strong> dla DB / cache &mdash; brak NAT do swiata</li>
+<li><strong>Port binding na 127.0.0.1</strong> + reverse proxy (Caddy, Traefik) na publicznym</li>
+<li>Jeden kontener &mdash; wiele sieci dla segregacji (frontend / backend)</li>
+<li>Nie uzywaj <code>--link</code> &mdash; deprecated</li>
+<li>K8s zamiast Swarm dla powaznych klastrow</li>
+<li>Service mesh dla wiekszych mikroserwisowych aplikacji</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="07-docker-compose.html">&larr; Docker Compose</a>
+<a href="09-wolumeny-i-storage.html">Wolumeny i storage &rarr;</a>
+</div>
+</div>
+</body>
+</html>

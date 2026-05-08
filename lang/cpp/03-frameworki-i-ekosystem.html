@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frameworki i ekosystem C++</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">C++</a>
+    <span class="sep">/</span>
+    <span class="title">Frameworki i ekosystem</span>
+</div>
+
+<div class="container">
+<h1>Frameworki i ekosystem C++</h1>
+<p class="subtitle">Qt, Boost, Abseil, fmt, spdlog, gRPC, testowanie, build systems (CMake, vcpkg, Conan), sanitizers.</p>
+
+<h2>Qt 6 - GUI framework</h2>
+<p>Qt to najpopularniejszy cross-platform GUI framework. Qt 6 wprowadza nowoczesny C++17, lepszy QML, modulowa architektura.</p>
+
+<pre><code>// main.cpp - prosty Qt 6
+#include &lt;QApplication&gt;
+#include &lt;QPushButton&gt;
+#include &lt;QVBoxLayout&gt;
+#include &lt;QWidget&gt;
+
+int main(int argc, char* argv[]) {
+    QApplication app(argc, argv);
+
+    QWidget window;
+    window.setWindowTitle("Hello Qt 6");
+
+    auto* layout = new QVBoxLayout(&amp;window);
+    auto* button = new QPushButton("Kliknij mnie");
+    layout-&gt;addWidget(button);
+
+    QObject::connect(button, &amp;QPushButton::clicked, [] {
+        qDebug() &lt;&lt; "Button kliknij!";
+    });
+
+    window.show();
+    return app.exec();
+}</code></pre>
+
+<pre><code># CMakeLists.txt dla Qt 6
+cmake_minimum_required(VERSION 3.20)
+project(MyQtApp)
+
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_CXX_STANDARD 23)
+
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+
+add_executable(myapp main.cpp)
+target_link_libraries(myapp PRIVATE Qt6::Core Qt6::Widgets)</code></pre>
+
+<h2>Boost - "drugi standard library"</h2>
+<p>Boost to ogromna kolekcja bibliotek &mdash; wiele z nich trafilo do C++ Standard. Najwazniejsze w 2026:</p>
+
+<table>
+<thead><tr><th>Biblioteka</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td>Boost.Asio</td><td>Async I/O, networking (poprzednik C++26 networking TS)</td></tr>
+<tr><td>Boost.Beast</td><td>HTTP/WebSocket na bazie Asio</td></tr>
+<tr><td>Boost.Filesystem</td><td>Manipulacja plikami (juz w std::filesystem)</td></tr>
+<tr><td>Boost.Multiprecision</td><td>Big integer, big decimal</td></tr>
+<tr><td>Boost.Graph</td><td>Algorytmy grafowe</td></tr>
+<tr><td>Boost.Spirit</td><td>Parser combinator (DSL)</td></tr>
+</tbody></table>
+
+<h2>Abseil (Google)</h2>
+<p>Abseil to kolekcja bibliotek wykorzystywanych w Google &mdash; dropping-in alternatywy dla niektorych std typu, lepsze zachowanie w niektorych przypadkach.</p>
+
+<pre><code>// absl::flat_hash_map - duzo szybsze niz std::unordered_map
+#include &lt;absl/container/flat_hash_map.h&gt;
+
+absl::flat_hash_map&lt;std::string, int&gt; m;
+m["a"] = 1;
+m["b"] = 2;
+
+// absl::Status - wynik operacji (jak std::expected)
+absl::StatusOr&lt;int&gt; readNumber(const std::string&amp; s);
+
+// absl::Mutex z guard
+absl::Mutex mu;
+{
+    absl::MutexLock lock(&amp;mu);
+    // critical section
+}</code></pre>
+
+<h2>fmt (i std::format)</h2>
+<p>Biblioteka fmt to "ojciec" std::format. Nadal popularna, bo dziala w starszych standardach.</p>
+
+<pre><code>#include &lt;fmt/core.h&gt;
+#include &lt;fmt/color.h&gt;
+
+fmt::print("{} ma {} lat\n", "Anna", 30);
+
+// Kolory w terminalu
+fmt::print(fg(fmt::color::red), "Blad!\n");
+fmt::print(fg(fmt::color::green) | fmt::emphasis::bold, "OK\n");
+
+// Specifiers
+fmt::print("{:.2f}\n", 3.14159);    // 3.14
+fmt::print("{:&gt;10}\n", "abc");      // "       abc"</code></pre>
+
+<h2>spdlog - logging</h2>
+<p>Bardzo szybki structured logger.</p>
+
+<pre><code>#include &lt;spdlog/spdlog.h&gt;
+#include &lt;spdlog/sinks/rotating_file_sink.h&gt;
+
+int main() {
+    auto file_logger = spdlog::rotating_logger_mt(
+        "file_logger",
+        "logs/log.txt",
+        1024 * 1024 * 5,    // 5 MB
+        3                    // 3 pliki rotacja
+    );
+    spdlog::set_default_logger(file_logger);
+    spdlog::set_level(spdlog::level::debug);
+    spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
+
+    spdlog::info("Aplikacja startuje");
+    spdlog::warn("Wartosc {} przekracza limit", 100);
+    spdlog::error("Blad: {}", "connection failed");
+    spdlog::critical("Krytyczny blad!");
+}</code></pre>
+
+<h2>gRPC C++</h2>
+<pre><code>// helloworld.proto
+syntax = "proto3";
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloReply);
+}
+message HelloRequest { string name = 1; }
+message HelloReply { string message = 1; }</code></pre>
+
+<pre><code>// Server
+class GreeterServiceImpl final : public Greeter::Service {
+    Status SayHello(ServerContext* context,
+                    const HelloRequest* request,
+                    HelloReply* reply) override {
+        reply-&gt;set_message("Hello " + request-&gt;name());
+        return Status::OK;
+    }
+};
+
+// Client
+auto channel = grpc::CreateChannel("localhost:50051",
+    grpc::InsecureChannelCredentials());
+auto stub = Greeter::NewStub(channel);
+HelloRequest req;
+req.set_name("Anna");
+HelloReply reply;
+ClientContext ctx;
+auto status = stub-&gt;SayHello(&amp;ctx, req, &amp;reply);</code></pre>
+
+<h2>Testowanie - Catch2 i Google Test</h2>
+
+<h3>Catch2 (header-only, BDD-style)</h3>
+<pre><code>#include &lt;catch2/catch_test_macros.hpp&gt;
+
+TEST_CASE("Dodawanie", "[matematyka]") {
+    REQUIRE(2 + 2 == 4);
+
+    SECTION("ujemne") {
+        REQUIRE(-1 + -1 == -2);
+    }
+}
+
+SCENARIO("Vector resize", "[vector]") {
+    GIVEN("Pusty wektor") {
+        std::vector&lt;int&gt; v;
+
+        WHEN("dodajemy element") {
+            v.push_back(1);
+
+            THEN("rozmiar jest 1") {
+                REQUIRE(v.size() == 1);
+            }
+        }
+    }
+}</code></pre>
+
+<h3>Google Test</h3>
+<pre><code>#include &lt;gtest/gtest.h&gt;
+
+TEST(MathTest, Addition) {
+    EXPECT_EQ(2 + 2, 4);
+    EXPECT_NE(1, 2);
+    ASSERT_GT(5, 3);
+}
+
+// Test fixture
+class DatabaseTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        db.connect();
+    }
+    void TearDown() override {
+        db.disconnect();
+    }
+    Database db;
+};
+
+TEST_F(DatabaseTest, CanInsert) {
+    EXPECT_TRUE(db.insert("data"));
+}</code></pre>
+
+<h2>CMake (modern, target-based)</h2>
+<pre><code># CMakeLists.txt
+cmake_minimum_required(VERSION 3.25)
+project(MyApp VERSION 1.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Find dependencies
+find_package(fmt CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+
+# Library
+add_library(mylib
+    src/foo.cpp
+    src/bar.cpp
+)
+target_include_directories(mylib PUBLIC include)
+target_link_libraries(mylib PUBLIC fmt::fmt spdlog::spdlog)
+target_compile_features(mylib PUBLIC cxx_std_23)
+
+# Executable
+add_executable(myapp src/main.cpp)
+target_link_libraries(myapp PRIVATE mylib)
+
+# Tests
+enable_testing()
+find_package(Catch2 3 CONFIG REQUIRED)
+add_executable(tests tests/test_foo.cpp)
+target_link_libraries(tests PRIVATE mylib Catch2::Catch2WithMain)
+add_test(NAME tests COMMAND tests)</code></pre>
+
+<h2>Package managers - vcpkg vs Conan</h2>
+
+<h3>vcpkg (Microsoft)</h3>
+<pre><code># Instalacja
+git clone https://github.com/microsoft/vcpkg
+./vcpkg/bootstrap-vcpkg.sh
+
+# Manifest mode - vcpkg.json
+{
+  "name": "myapp",
+  "version": "1.0.0",
+  "dependencies": [
+    "fmt",
+    "spdlog",
+    {
+      "name": "boost",
+      "features": ["asio", "beast"]
+    }
+  ]
+}
+
+# CMake integration
+cmake -B build \
+  -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake</code></pre>
+
+<h3>Conan 2</h3>
+<pre><code># conanfile.py
+from conan import ConanFile
+from conan.tools.cmake import CMake
+
+class MyAppRecipe(ConanFile):
+    settings = "os", "compiler", "build_type", "arch"
+    generators = "CMakeDeps", "CMakeToolchain"
+
+    def requirements(self):
+        self.requires("fmt/10.2.1")
+        self.requires("spdlog/1.13.0")
+        self.requires("boost/1.84.0")
+
+# Instalacja
+conan install . --output-folder=build --build=missing
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake</code></pre>
+
+<h2>Sanitizers - znajdz bugi runtime</h2>
+<table>
+<thead><tr><th>Sanitizer</th><th>Wykrywa</th></tr></thead>
+<tbody>
+<tr><td>AddressSanitizer (ASan)</td><td>Use-after-free, buffer overflow, double-free</td></tr>
+<tr><td>UndefinedBehaviorSanitizer (UBSan)</td><td>Signed overflow, null deref, alignment</td></tr>
+<tr><td>ThreadSanitizer (TSan)</td><td>Data races, locks order</td></tr>
+<tr><td>MemorySanitizer (MSan)</td><td>Niezainicjalizowana pamiec (Clang only)</td></tr>
+</tbody></table>
+
+<pre><code># Wlaczenie w GCC/Clang
+g++ -fsanitize=address,undefined -g -O1 main.cpp
+clang++ -fsanitize=thread -g main.cpp
+
+# CMake
+target_compile_options(myapp PRIVATE
+    $&lt;$&lt;CONFIG:Debug&gt;:-fsanitize=address,undefined&gt;)
+target_link_options(myapp PRIVATE
+    $&lt;$&lt;CONFIG:Debug&gt;:-fsanitize=address,undefined&gt;)</code></pre>
+
+<h2>Valgrind (Linux)</h2>
+<pre><code># Memcheck - memory errors
+valgrind --leak-check=full --show-leak-kinds=all ./myapp
+
+# Callgrind - profiling
+valgrind --tool=callgrind ./myapp
+kcachegrind callgrind.out.&lt;pid&gt;
+
+# Helgrind - thread races
+valgrind --tool=helgrind ./myapp</code></pre>
+
+<div class="card">
+<h3>Rekomendowany stack 2026</h3>
+<ul>
+<li><strong>Build:</strong> CMake (3.25+) target-based</li>
+<li><strong>Packages:</strong> vcpkg manifest / Conan 2</li>
+<li><strong>Tests:</strong> Catch2 v3 / GoogleTest</li>
+<li><strong>Format:</strong> std::format / fmt</li>
+<li><strong>Logger:</strong> spdlog</li>
+<li><strong>HTTP:</strong> Boost.Beast / cpp-httplib</li>
+<li><strong>JSON:</strong> nlohmann/json / simdjson</li>
+<li><strong>CI:</strong> ASan + UBSan + Tsan w pipeline</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="02-nowoczesny-cpp.html">&larr; Nowoczesny C++</a>
+<a href="04-bezpieczenstwo-aplikacji.html">Bezpieczenstwo &rarr;</a>
+</div>
+</div>
+</body>
+</html>

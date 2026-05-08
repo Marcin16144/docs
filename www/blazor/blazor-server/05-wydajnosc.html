@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wydajnosc Blazor Server</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Server</a><span class="sep">/</span><span class="title">Wydajnosc</span></div>
+<div class="container">
+<h1>Wydajnosc Blazor Server</h1>
+<p class="subtitle">Latency budget, render batching, JS interop minimalization, prerendering</p>
+
+<h2>Gdzie tracimy czas?</h2>
+<p>W Blazor Server kazda interakcja UI jest round-tripem przez SignalR. Czas na klik to:</p>
+<table>
+<thead><tr><th>Faza</th><th>Czas (typowy)</th></tr></thead>
+<tbody>
+<tr><td>Klik &mdash; klient wysyla event</td><td>0 ms</td></tr>
+<tr><td>Network up</td><td>20-100 ms (zalezne od lokalizacji)</td></tr>
+<tr><td>Server processing (event handler)</td><td>1-10 ms</td></tr>
+<tr><td>Render diff calculation</td><td>1-5 ms</td></tr>
+<tr><td>Network down (diff)</td><td>20-100 ms</td></tr>
+<tr><td>Client DOM patch</td><td>1-5 ms</td></tr>
+<tr><td>Total</td><td>~50-220 ms</td></tr>
+</tbody>
+</table>
+
+<h2>Latency budget</h2>
+<p>Dla "feel of native", interakcja powinna konczyc sie w <strong>100 ms</strong>. To znaczy:</p>
+<ul>
+<li>Server EU + klient EU: 50-80 ms (dobra)</li>
+<li>Server US + klient EU: 150-200 ms (granica)</li>
+<li>Server US + klient Asia: 300+ ms (zla)</li>
+</ul>
+<p>Stad rekomendacja: <strong>serwer w tym samym regionie co uzytkownicy</strong>. Geo-routing dla globalnej publicznosci.</p>
+
+<h2>Render batching</h2>
+<p>Blazor inteligentnie laczy multiple StateHasChanged w jeden render. Mozesz to wymusic:</p>
+<pre><code>private async Task LoadAndUpdate()
+{
+    isLoading = true;
+    StateHasChanged(); // pokaz spinner
+
+    var data = await api.LoadAsync();
+
+    isLoading = false;
+    items = data;
+    // automatyczny re-render po await
+}</code></pre>
+
+<h3>Manualne kontrolowanie ShouldRender</h3>
+<pre><code>private string oldValue = "";
+
+protected override bool ShouldRender()
+{
+    if (currentValue == oldValue) return false; // skip render
+    oldValue = currentValue;
+    return true;
+}</code></pre>
+
+<h2>Virtualization &mdash; duze listy</h2>
+<p>Dla list 100+ items uzywaj <code>&lt;Virtualize&gt;</code>:</p>
+<pre><code>&lt;Virtualize Items="@products" Context="product" ItemSize="50" OverscanCount="3"&gt;
+    &lt;ProductRow Product="@product" /&gt;
+&lt;/Virtualize&gt;</code></pre>
+<p>Renderuje tylko widoczne wiersze. 10000 wierszy &mdash; renderuje ~20.</p>
+
+<h3>Z server-side data</h3>
+<pre><code>&lt;Virtualize ItemsProvider="LoadItems" Context="item"&gt;
+    &lt;ItemTemplate&gt;
+        &lt;ProductRow Product="@item" /&gt;
+    &lt;/ItemTemplate&gt;
+    &lt;Placeholder&gt;
+        &lt;p&gt;Ladowanie...&lt;/p&gt;
+    &lt;/Placeholder&gt;
+&lt;/Virtualize&gt;
+
+@code {
+    private async ValueTask&lt;ItemsProviderResult&lt;Product&gt;&gt; LoadItems(ItemsProviderRequest req)
+    {
+        var items = await api.GetPagedAsync(req.StartIndex, req.Count);
+        var total = await api.GetTotalCountAsync();
+        return new ItemsProviderResult&lt;Product&gt;(items, total);
+    }
+}</code></pre>
+
+<h2>Minimalizacja JS interop</h2>
+<p>Kazdy <code>JS.InvokeAsync</code> w Blazor Server to <strong>oddzielny round trip</strong> przez SignalR. Drogie dla loop:</p>
+<pre><code>// ZLE: 100 round-tripow
+foreach (var item in items)
+{
+    await JS.InvokeVoidAsync("doSomething", item);
+}
+
+// DOBRZE: jeden batch
+await JS.InvokeVoidAsync("doManyThings", items.ToArray());</code></pre>
+
+<h2>Prerendering &mdash; szybsze pierwsze ladowanie</h2>
+<p>W Blazor United (.NET 8/9) komponenty mozna prerenderowac &mdash; serwer wysyla kompletny HTML, dopiero potem hydratuje. To poprawia LCP i SEO.</p>
+<pre><code>&lt;Counter @rendermode="@(new InteractiveServerRenderMode(prerender: true))" /&gt;</code></pre>
+
+<h3>Persistent state</h3>
+<p>Aby uniknac double-fetch po prerender:</p>
+<pre><code>@inject PersistentComponentState State
+
+@code {
+    private List&lt;Product&gt;? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!State.TryTakeFromJson&lt;List&lt;Product&gt;&gt;("products", out products))
+            products = await api.GetAllAsync();
+
+        State.RegisterOnPersisting(() =&gt;
+        {
+            State.PersistAsJson("products", products);
+            return Task.CompletedTask;
+        });
+    }
+}</code></pre>
+
+<h2>Database &mdash; oszczedzaj zapytania</h2>
+<p>Po renderze komponentu, kazdy refresh wywoluje OnInitialized... Jesli dolaczasz EF Core, mozesz zalac DB.</p>
+
+<h3>Wzor &mdash; cache w-pamieci dla wybranych zapytan</h3>
+<pre><code>builder.Services.AddMemoryCache();
+
+// Service
+public async Task&lt;List&lt;Category&gt;&gt; GetCategoriesAsync()
+{
+    return await cache.GetOrCreateAsync("categories", async entry =&gt;
+    {
+        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
+        return await db.Categories.ToListAsync();
+    }) ?? new();
+}</code></pre>
+
+<h2>Connection: WebSocket vs Long Polling</h2>
+<p>WebSocket jest 5-10x szybszy niz long polling. Upewnij sie ze:</p>
+<ul>
+<li>HTTPS dziala (WebSocket nad ssl =wss)</li>
+<li>Reverse proxy nie psuje upgrade headers</li>
+<li>Firewall nie blokuje WebSocket (port 443 OK na ogol)</li>
+</ul>
+
+<h2>Profilowanie</h2>
+
+<h3>dotnet-counters</h3>
+<pre><code>dotnet tool install --global dotnet-counters
+dotnet-counters monitor -p &lt;PID&gt; Microsoft.AspNetCore.SignalR Microsoft.AspNetCore.Components.Server</code></pre>
+
+<h3>Application Insights</h3>
+<pre><code>builder.Services.AddApplicationInsightsTelemetry();</code></pre>
+<p>Sledz: server response time, dependency duration, exception rate, requests per second.</p>
+
+<h3>Browser DevTools</h3>
+<p>W zakladce Network sledz <code>blazor.server.js</code> wymiany. W Performance tab nagrasz reakcje na klik.</p>
+
+<h2>Common bottlenecks</h2>
+<table>
+<thead><tr><th>Problem</th><th>Diagnoza</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td>Slow first render</td><td>OnInitializedAsync robi cieyzkie zapytanie</td><td>Cache lub move to OnAfterRender</td></tr>
+<tr><td>UI freezes po klikku</td><td>Dlugie operacje synchroniczne</td><td>async/await, Task.Run</td></tr>
+<tr><td>Memory leak</td><td>Subscriptions, timers nie disposed</td><td>IDisposable, IAsyncDisposable</td></tr>
+<tr><td>High latency</td><td>Server daleko od uzytkownika</td><td>Multi-region deployment</td></tr>
+<tr><td>Slow list scroll</td><td>Brak Virtualize</td><td>&lt;Virtualize&gt;</td></tr>
+<tr><td>JS interop tides</td><td>Loop z await JS</td><td>Batching, jeden call</td></tr>
+</tbody>
+</table>
+
+<h2>Best practices summary</h2>
+<ul>
+<li>Server jak najblizej uzytkownikow</li>
+<li>WebSocket aktywny (sprawdz w prod)</li>
+<li>Virtualize dla list 100+</li>
+<li>Cache zapytan, ktore sie nie zmieniaja czesto</li>
+<li>Batchuj JS interop calls</li>
+<li>Profile w devtools / Application Insights</li>
+<li>Limity circuit memory</li>
+<li>HTTP/2 (lub HTTP/3) dla statycznych zasobow</li>
+<li>Brotli/Gzip compression dla CSS/JS</li>
+</ul>
+
+<div class="card">
+<h3>Cel performansowy</h3>
+<p>Aplikacja Blazor Server z lokalnym serwerem powinna miec:</p>
+<ul>
+<li>First render: &lt;500 ms</li>
+<li>Klik latency p50: &lt;80 ms</li>
+<li>Klik latency p95: &lt;200 ms</li>
+<li>Memory per circuit: &lt;5 MB</li>
+<li>0 JS errors w devtools</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="04-bezpieczenstwo.html">&larr; Bezpieczenstwo</a>
+<a href="06-deployment.html">Deployment &rarr;</a>
+</div>
+</div>
+</body>
+</html>

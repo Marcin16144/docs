@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wydajnosc</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">React.js</a><span class="sep">/</span><span class="title">Wydajnosc</span></div>
+<div class="container">
+<h1>Wydajnosc</h1>
+<p class="subtitle">React Compiler, Suspense, code splitting, virtualization, Web Vitals</p>
+
+<h2>Web Vitals &mdash; metryki ktore liczy Google</h2>
+<table>
+<thead><tr><th>Metryka</th><th>Co mierzy</th><th>Dobry wynik</th></tr></thead>
+<tbody>
+<tr><td>LCP</td><td>Largest Contentful Paint &mdash; czas ladowania</td><td>&lt; 2.5s</td></tr>
+<tr><td>INP</td><td>Interaction to Next Paint &mdash; reaktywnosc</td><td>&lt; 200ms</td></tr>
+<tr><td>CLS</td><td>Cumulative Layout Shift &mdash; stabilnosc</td><td>&lt; 0.1</td></tr>
+<tr><td>FCP</td><td>First Contentful Paint</td><td>&lt; 1.8s</td></tr>
+<tr><td>TTFB</td><td>Time to First Byte</td><td>&lt; 0.8s</td></tr>
+</tbody>
+</table>
+
+<p>Pomiar w aplikacji:</p>
+<pre><code>npm i web-vitals
+
+import { onCLS, onINP, onLCP, onFCP, onTTFB } from 'web-vitals';
+
+const send = (metric) =&gt; {
+  navigator.sendBeacon('/api/vitals', JSON.stringify(metric));
+};
+
+onCLS(send);
+onINP(send);
+onLCP(send);
+onFCP(send);
+onTTFB(send);</code></pre>
+
+<h2>React Compiler &mdash; auto memoization</h2>
+<p>Najwiekszy game-changer 2026. <strong>React Compiler</strong> automatycznie memoizuje &mdash; usuwa potrzebe recznych <code>useMemo</code>, <code>useCallback</code>, <code>React.memo</code>.</p>
+
+<pre><code># Instalacja w Next.js
+npm i -D babel-plugin-react-compiler
+
+// next.config.js
+module.exports = {
+  experimental: { reactCompiler: true },
+};
+
+// I to wszystko &mdash; usuwasz uzycia useMemo/useCallback
+// Kompilator zrobi to za ciebie automatycznie</code></pre>
+
+<h2>Code splitting &mdash; React.lazy</h2>
+<p>Dzielisz bundle na mniejsze chunki ladowane na zadanie.</p>
+
+<pre><code>import { lazy, Suspense } from 'react';
+import { Routes, Route } from 'react-router';
+
+// Zamiast import na gorze
+const Dashboard = lazy(() =&gt; import('./pages/Dashboard'));
+const Settings = lazy(() =&gt; import('./pages/Settings'));
+const AdminPanel = lazy(() =&gt; import('./pages/AdminPanel'));
+
+export default function App() {
+  return (
+    &lt;Suspense fallback={&lt;Spinner /&gt;}&gt;
+      &lt;Routes&gt;
+        &lt;Route path="/dashboard" element={&lt;Dashboard /&gt;} /&gt;
+        &lt;Route path="/settings" element={&lt;Settings /&gt;} /&gt;
+        &lt;Route path="/admin" element={&lt;AdminPanel /&gt;} /&gt;
+      &lt;/Routes&gt;
+    &lt;/Suspense&gt;
+  );
+}</code></pre>
+
+<p>Lazy ladowanie ciezkich komponentow (np. edytor, wykresy):</p>
+<pre><code>const Chart = lazy(() =&gt; import('./Chart'));
+
+function Page() {
+  const [showChart, setShowChart] = useState(false);
+  return (
+    &lt;&gt;
+      &lt;button onClick={() =&gt; setShowChart(true)}&gt;Pokaz wykres&lt;/button&gt;
+      {showChart &amp;&amp; (
+        &lt;Suspense fallback={&lt;p&gt;Ladowanie wykresu...&lt;/p&gt;}&gt;
+          &lt;Chart /&gt;
+        &lt;/Suspense&gt;
+      )}
+    &lt;/&gt;
+  );
+}</code></pre>
+
+<h2>Suspense streaming</h2>
+<p>W React 18+ Suspense streamuje HTML z serwera. Klient widzi skeleton, dane wpadaja gdy gotowe. Dziala automatycznie z RSC.</p>
+
+<pre><code>// app/dashboard/page.tsx (Next.js Server Component)
+import { Suspense } from 'react';
+
+export default function Dashboard() {
+  return (
+    &lt;&gt;
+      &lt;Header /&gt; {/* renderuje sie od razu */}
+
+      &lt;Suspense fallback={&lt;StatsSkeleton /&gt;}&gt;
+        &lt;UserStats /&gt; {/* czeka na dane, klient dostaje placeholder */}
+      &lt;/Suspense&gt;
+
+      &lt;Suspense fallback={&lt;ChartSkeleton /&gt;}&gt;
+        &lt;Charts /&gt; {/* niezaleznie od UserStats */}
+      &lt;/Suspense&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+
+<h2>Virtualizacja &mdash; dlugie listy</h2>
+<p>Renderuj tylko widoczne wiersze. Lista 10 000 elementow &mdash; widzisz 30, render 30. Tanstack Virtual to standard.</p>
+
+<pre><code>npm i @tanstack/react-virtual
+
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useRef } from 'react';
+
+function VirtualList({ items }) {
+  const parentRef = useRef(null);
+
+  const v = useVirtualizer({
+    count: items.length,
+    getScrollElement: () =&gt; parentRef.current,
+    estimateSize: () =&gt; 48,
+    overscan: 5,
+  });
+
+  return (
+    &lt;div ref={parentRef} style={{ height: 600, overflow: 'auto' }}&gt;
+      &lt;div style={{ height: v.getTotalSize(), position: 'relative' }}&gt;
+        {v.getVirtualItems().map(row =&gt; (
+          &lt;div
+            key={row.key}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: row.size,
+              transform: `translateY(${row.start}px)`,
+            }}
+          &gt;
+            {items[row.index].name}
+          &lt;/div&gt;
+        ))}
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+
+<h2>Bundle analysis</h2>
+<p>Sprawdz co jest w bundlu &mdash; czesto okazuje sie ze zaimportowales pol biblioteki przez przypadek.</p>
+
+<pre><code># Vite + rollup-plugin-visualizer
+npm i -D rollup-plugin-visualizer
+
+// vite.config.ts
+import { visualizer } from 'rollup-plugin-visualizer';
+export default defineConfig({
+  plugins: [react(), visualizer({ open: true, gzipSize: true })],
+});
+
+# Po npm run build, otworzy sie HTML z rozkladem bundle
+
+# Next.js
+npm i -D @next/bundle-analyzer
+
+// next.config.js
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+module.exports = withBundleAnalyzer({});
+
+ANALYZE=true npm run build</code></pre>
+
+<h2>Optymalizacja obrazow &mdash; next/image</h2>
+<p>Obrazy to ~50% rozmiaru typowej strony. Next/Image: lazy loading, modern formats (AVIF/WebP), responsive srcset, blur placeholder.</p>
+
+<pre><code>import Image from 'next/image';
+
+&lt;Image
+  src="/hero.jpg"
+  alt="Hero"
+  width={1200}
+  height={600}
+  priority         // dla LCP image &mdash; preload
+  placeholder="blur"
+  blurDataURL="data:image/jpeg;base64,..."
+/&gt;
+
+// Z external URL (skonfiguruj w next.config.js images.remotePatterns)
+&lt;Image src="https://cdn.example.com/foo.jpg" alt="" width={400} height={300} /&gt;</code></pre>
+
+<h2>Prefetching</h2>
+<p>Pobieraj dane/kod ZANIM uzytkownik kliknie.</p>
+
+<pre><code>// Next.js Link &mdash; auto prefetch w viewport
+&lt;Link href="/dashboard" prefetch&gt;Dashboard&lt;/Link&gt;
+
+// React Router 7 &mdash; prefetch na hover/intent
+&lt;Link to="/dashboard" prefetch="intent"&gt;Dashboard&lt;/Link&gt;
+
+// Tanstack Query &mdash; prefetch dane przed nawigacja
+const qc = useQueryClient();
+const prefetchPost = (id) =&gt; qc.prefetchQuery({
+  queryKey: ['post', id],
+  queryFn: () =&gt; fetchPost(id),
+});
+
+&lt;Link onMouseEnter={() =&gt; prefetchPost(123)} to="/posts/123"&gt;Czytaj&lt;/Link&gt;</code></pre>
+
+<h2>Profilowanie &mdash; React DevTools</h2>
+<p>Zakladka <strong>Profiler</strong> w React DevTools nagrywa renders i pokazuje:</p>
+<ul>
+<li>Ktore komponenty sie renderuja i ile razy</li>
+<li>Czas renderu kazdego</li>
+<li>Dlaczego sie renderowal (props, state, parent)</li>
+<li>Flame chart komponentow</li>
+</ul>
+
+<h2>Kontrolowanie rerenderow</h2>
+<pre><code>// React.memo &mdash; nie rerenduj jesli props identyczne (shallow)
+// W React 19 z Compilerem &mdash; AUTOMATYCZNE
+const Heavy = React.memo(function Heavy({ data }) {
+  // expensive render...
+  return &lt;div&gt;{data.title}&lt;/div&gt;;
+});
+
+// Custom comparator
+const Heavy = React.memo(
+  function Heavy(props) { ... },
+  (prev, next) =&gt; prev.id === next.id // tylko id liczy sie
+);
+
+// Hooks &mdash; useMemo/useCallback (znow, Compiler robi automat)
+const filtered = useMemo(
+  () =&gt; items.filter(i =&gt; i.active),
+  [items]
+);</code></pre>
+
+<div class="card">
+<h3>Checklist wydajnosci</h3>
+<ul>
+<li>Wlacz <strong>React Compiler</strong> &mdash; eliminuje reczne memoization</li>
+<li>Code splitting per route przez React.lazy lub Next App Router automatycznie</li>
+<li>next/image / responsive images dla mediow</li>
+<li>Suspense + streaming dla wolnych dancyh</li>
+<li>Tanstack Virtual dla list &gt; 100 elementow</li>
+<li>Prefetch hover/intent na linkach</li>
+<li>Bundle analyzer &mdash; usun nieuzywane importy</li>
+<li>Mierz Web Vitals w produkcji (CrUX, RUM)</li>
+<li>Audytuj Lighthouse / PageSpeed Insights regularnie</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="10-testowanie.html">&larr; Testowanie</a>
+<a href="12-bezpieczenstwo.html">Bezpieczenstwo &rarr;</a>
+</div>
+</div>
+</body>
+</html>

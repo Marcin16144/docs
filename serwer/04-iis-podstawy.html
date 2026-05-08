@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IIS - podstawy</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-color:var(--green)}
+.card.orange{border-color:var(--orange)}
+.card.red{border-color:var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">IIS - podstawy</span>
+</div>
+
+<div class="container">
+<h1>IIS - podstawy</h1>
+<p class="subtitle">Wprowadzenie do Internet Information Services: architektura, application pools, websites, hosting ASP.NET / PHP.</p>
+
+<h2>Czym jest IIS?</h2>
+
+<p><strong>Internet Information Services (IIS)</strong> to serwer webowy Microsoftu, zintegrowany z Windows Server. Aktualne wersje (2026):</p>
+<ul>
+<li><strong>IIS 10.0</strong> w Windows Server 2016/2019/2022</li>
+<li><strong>IIS 11.0</strong> w Windows Server 2025</li>
+</ul>
+
+<p>IIS hostuje:</p>
+<ul>
+<li>Strony statyczne (HTML/CSS/JS)</li>
+<li>Aplikacje ASP.NET / ASP.NET Core</li>
+<li>WCF / Web API services</li>
+<li>PHP (przez FastCGI)</li>
+<li>Node.js (przez iisnode lub jako reverse proxy)</li>
+<li>Reverse proxy do innych backendow (Java/Tomcat, Python, etc.)</li>
+</ul>
+
+<h2>IIS vs Nginx vs Apache</h2>
+
+<table>
+<thead>
+<tr><th>Cecha</th><th>IIS</th><th>Nginx</th><th>Apache</th></tr>
+</thead>
+<tbody>
+<tr><td>Platform</td><td>Windows</td><td>Linux/Win/Mac</td><td>Linux/Win/Mac</td></tr>
+<tr><td>Performance (static)</td><td>Bardzo dobra</td><td>Najlepsza</td><td>Dobra</td></tr>
+<tr><td>Performance (dynamic)</td><td>ASP.NET native</td><td>Reverse proxy do FPM/Node</td><td>mod_php, mod_wsgi</td></tr>
+<tr><td>Konfiguracja</td><td>GUI + XML/applicationHost.config</td><td>Plain text (nginx.conf)</td><td>Plain text (httpd.conf)</td></tr>
+<tr><td>Reverse proxy</td><td>URL Rewrite + ARR</td><td>Native</td><td>mod_proxy</td></tr>
+<tr><td>ASP.NET</td><td>Native, idealne</td><td>Mozliwe via reverse proxy</td><td>Mozliwe via reverse proxy</td></tr>
+<tr><td>Modules</td><td>C++ ISAPI / managed</td><td>C modules</td><td>C modules</td></tr>
+<tr><td>Cena</td><td>Z Windows Server</td><td>Free / Plus paid</td><td>Free</td></tr>
+<tr><td>W produkcji</td><td>Enterprise Microsoft stack</td><td>Web/cloud-scale</td><td>Tradycyjne hosting</td></tr>
+</tbody>
+</table>
+
+<div class="card green">
+<h4>Kiedy IIS:</h4>
+<ul>
+<li>Aplikacje ASP.NET / .NET Framework (legacy)</li>
+<li>Integracja z Active Directory (Windows Authentication)</li>
+<li>Microsoft stack (SharePoint, Exchange OWA, RDWeb)</li>
+<li>Klient wymaga Windows Server</li>
+</ul>
+</div>
+
+<div class="card red">
+<h4>Kiedy NIE IIS:</h4>
+<ul>
+<li>Web-scale / mass hosting (Nginx tanszy, szybszy)</li>
+<li>Modern .NET (.NET 8/9 cross-platform &mdash; lepiej Linux + Kestrel za Nginx)</li>
+<li>Stack PHP-only (LAMP/LEMP lepiej)</li>
+</ul>
+</div>
+
+<h2>Instalacja IIS</h2>
+
+<h3>Via Server Manager (GUI)</h3>
+<pre><code>Server Manager &rarr; Manage &rarr; Add Roles and Features &rarr;
+Server Roles &rarr; Web Server (IIS) &rarr; Add Features &rarr; Next &rarr;
+Wybierz wymagane Role Services &rarr; Install</code></pre>
+
+<h3>Via PowerShell (preferowane)</h3>
+
+<pre><code># Lista feature
+Get-WindowsFeature *Web*
+
+# Podstawowa instalacja (web server + management)
+Install-WindowsFeature -Name Web-Server -IncludeManagementTools
+
+# Pelna instalacja z popularnymi features
+Install-WindowsFeature -Name `
+    Web-Server, `
+    Web-Common-Http, `
+    Web-Default-Doc, `
+    Web-Dir-Browsing, `
+    Web-Http-Errors, `
+    Web-Static-Content, `
+    Web-Http-Redirect, `
+    Web-Health, `
+    Web-Http-Logging, `
+    Web-Custom-Logging, `
+    Web-Log-Libraries, `
+    Web-Request-Monitor, `
+    Web-Http-Tracing, `
+    Web-Performance, `
+    Web-Stat-Compression, `
+    Web-Dyn-Compression, `
+    Web-Security, `
+    Web-Filtering, `
+    Web-Basic-Auth, `
+    Web-CertProvider, `
+    Web-Client-Auth, `
+    Web-Digest-Auth, `
+    Web-Cert-Auth, `
+    Web-IP-Security, `
+    Web-Url-Auth, `
+    Web-Windows-Auth, `
+    Web-App-Dev, `
+    Web-Net-Ext45, `
+    Web-AppInit, `
+    Web-Asp-Net45, `
+    Web-ISAPI-Ext, `
+    Web-ISAPI-Filter, `
+    Web-Mgmt-Tools, `
+    Web-Mgmt-Console, `
+    Web-Scripting-Tools, `
+    Web-Mgmt-Service `
+    -IncludeManagementTools</code></pre>
+
+<h3>Sprawdzenie instalacji</h3>
+<pre><code># Czy IIS dziala?
+Get-Service W3SVC
+
+# Otworz w przegladarce
+http://localhost  # powinien pokazac welcome page
+
+# Wersja IIS
+Get-ItemProperty HKLM:\SOFTWARE\Microsoft\InetStp | Select VersionString</code></pre>
+
+<h2>Architektura IIS</h2>
+
+<pre><code>&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;              W3SVC (Windows Service)                 &#9474;
+&#9474;              Worldwide Web Publishing Service        &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+                       &#9474; manages
+                       &#9660;
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;              WAS (Windows Process Activation)        &#9474;
+&#9474;              Activates worker processes              &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+                       &#9474; creates
+       &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9532;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+       &#9660;               &#9660;                &#9660;
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488; &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;  Application &#9474; &#9474;  Application &#9474; &#9474;  Application &#9474;
+&#9474;  Pool 1      &#9474; &#9474;  Pool 2      &#9474; &#9474;  Pool 3      &#9474;
+&#9474;  (w3wp.exe)  &#9474; &#9474;  (w3wp.exe)  &#9474; &#9474;  (w3wp.exe)  &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496; &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+       &#9474;                &#9474;                &#9474;
+       &#9474; hosts          &#9474;                &#9474;
+       &#9660;                &#9660;                &#9660;
+   &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;       &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;         &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+   &#9474; Site A&#9474;       &#9474; Site B&#9474;         &#9474; Site C&#9474;
+   &#9474; + Apps&#9474;       &#9474;       &#9474;         &#9474;       &#9474;
+   &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;       &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;         &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</code></pre>
+
+<h3>Komponenty:</h3>
+
+<ol>
+<li><strong>HTTP.SYS</strong> &mdash; kernel-mode driver, slucha na portach (80/443), buduje request queue</li>
+<li><strong>W3SVC</strong> &mdash; windows service, zarzadza konfiguracja i routing requestow</li>
+<li><strong>WAS</strong> &mdash; aktywuje worker processes (w3wp.exe) jako application pools</li>
+<li><strong>Application Pool</strong> &mdash; izolowany proces w3wp.exe (1 pool = 1 process)</li>
+<li><strong>Site (Website)</strong> &mdash; kontenery dla aplikacji, przypisane do app pool</li>
+<li><strong>Application</strong> &mdash; aplikacja webowa (ASP.NET, PHP, etc.)</li>
+<li><strong>Virtual Directory</strong> &mdash; wskaznik na fizyczny katalog</li>
+</ol>
+
+<h2>Application Pools</h2>
+
+<h3>Co to?</h3>
+<p><strong>Application Pool</strong> = izolowany worker process (w3wp.exe) hostujacy jedna lub wiecej aplikacji.</p>
+
+<p><strong>Kluczowe zasady:</strong></p>
+<ul>
+<li>Kazdy app pool = osobny proces (crash jednej aplikacji nie wplywa na inne)</li>
+<li>Kazdy app pool moze miec inna tozsamosc (security)</li>
+<li>Kazdy app pool ma swoj CLR version (.NET 4.8 vs .NET Core w3wp rozni sie &mdash; w nowszych IIS Hostable Web Core)</li>
+</ul>
+
+<h3>Typy app pools:</h3>
+
+<table>
+<thead>
+<tr><th>Mode</th><th>Use case</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Integrated</strong></td><td>Standard ASP.NET (preferred)</td></tr>
+<tr><td><strong>Classic</strong></td><td>Legacy ASP.NET pre-2.0</td></tr>
+<tr><td><strong>No Managed Code</strong></td><td>PHP, static, ASP.NET Core (bo .NET Core hostowany OutOfProcess)</td></tr>
+</tbody>
+</table>
+
+<h3>Application Pool Identity (security!)</h3>
+
+<table>
+<thead>
+<tr><th>Identity</th><th>Bezpieczenstwo</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>ApplicationPoolIdentity</strong></td><td>Best &mdash; virtual identity per app pool, unikalne SID</td></tr>
+<tr><td><strong>NetworkService</strong></td><td>OK ale wspoldzielona dla wielu serwisow</td></tr>
+<tr><td><strong>LocalService</strong></td><td>Mniej privileges niz NetworkService</td></tr>
+<tr><td><strong>LocalSystem</strong></td><td>NIE &mdash; pelne privileges, security risk</td></tr>
+<tr><td><strong>Custom domain account</strong></td><td>Dla AD integration, services accounts</td></tr>
+</tbody>
+</table>
+
+<p><strong>Best practice 2026:</strong> Kazdy app pool z <strong>ApplicationPoolIdentity</strong> (unique virtual SID <code>IIS APPPOOL\YourPoolName</code>).</p>
+
+<h3>PowerShell management</h3>
+
+<pre><code># Import modulu (jesli nie zaimportowany)
+Import-Module WebAdministration
+
+# Lista app pools
+Get-IISAppPool
+# lub: Get-ChildItem IIS:\AppPools
+
+# Stworz nowy app pool
+New-WebAppPool -Name "MyAppPool"
+
+# Konfiguracja: integrated mode, no managed code
+Set-ItemProperty -Path "IIS:\AppPools\MyAppPool" -Name "managedRuntimeVersion" -Value ""
+Set-ItemProperty -Path "IIS:\AppPools\MyAppPool" -Name "managedPipelineMode" -Value "Integrated"
+
+# Zmiana identity na custom user
+Set-ItemProperty -Path "IIS:\AppPools\MyAppPool" -Name processModel -Value @{
+    identityType = "SpecificUser"
+    userName = "DOMAIN\ServiceAccount"
+    password = "..."
+}
+
+# Recycling co 4 hours (w nocy zeby nie crashowalo uzytkownikom)
+Set-ItemProperty -Path "IIS:\AppPools\MyAppPool" -Name "recycling.periodicRestart.time" -Value "04:00:00"
+
+# Restart app pool
+Restart-WebAppPool -Name "MyAppPool"</code></pre>
+
+<h2>Websites</h2>
+
+<h3>Tworzenie site'u</h3>
+
+<pre><code># Nowy site
+New-Website -Name "MyApp" `
+    -PhysicalPath "C:\inetpub\wwwroot\myapp" `
+    -ApplicationPool "MyAppPool" `
+    -Port 80 `
+    -HostHeader "myapp.example.com"
+
+# Z HTTPS bindingiem
+New-WebBinding -Name "MyApp" `
+    -Protocol https `
+    -Port 443 `
+    -HostHeader "myapp.example.com" `
+    -SslFlags 1  # SNI</code></pre>
+
+<h3>Bindings</h3>
+
+<p><strong>Binding</strong> = kombinacja IP + Port + Host Header ktora kieruje request do site.</p>
+
+<pre><code>Examples:
+*:80:                       &mdash; wszystkie HTTP requesty na port 80
+*:443:myapp.example.com     &mdash; HTTPS, tylko myapp.example.com
+192.168.1.100:80:           &mdash; tylko z konkretnego IP</code></pre>
+
+<p><strong>SNI (Server Name Indication):</strong><br>
+Pozwala miec <strong>wiele HTTPS sites na tym samym IP</strong>. Kazdy z osobnym certyfikatem.</p>
+<pre><code>New-WebBinding -Name "Site1" -Protocol https -Port 443 -HostHeader "site1.com" -SslFlags 1
+New-WebBinding -Name "Site2" -Protocol https -Port 443 -HostHeader "site2.com" -SslFlags 1</code></pre>
+
+<h2>Konfiguracja - applicationHost.config</h2>
+
+<p>Centralna konfiguracja IIS znajduje sie w:</p>
+<pre><code>C:\Windows\System32\inetsrv\config\applicationHost.config</code></pre>
+
+<p>To <strong>XML</strong> i mozna edytowac recznie (z backupem!) lub via:</p>
+<ul>
+<li>IIS Manager (GUI)</li>
+<li><code>appcmd.exe</code> (CLI)</li>
+<li>PowerShell <code>WebAdministration</code> module</li>
+</ul>
+
+<h3>Hierarchia configow:</h3>
+<pre><code>1. applicationHost.config (server-wide)
+2. web.config w site root
+3. web.config w sub-folder (override)
+4. web.config w aplikacji</code></pre>
+
+<p>Nizsze poziomy nadpisuja wyzsze (jesli <code>&lt;location&gt;</code> z <code>overrideMode="Allow"</code>).</p>
+
+<h3>Web.config przyklad</h3>
+
+<pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;configuration&gt;
+  &lt;system.webServer&gt;
+    &lt;!-- Default document --&gt;
+    &lt;defaultDocument&gt;
+      &lt;files&gt;
+        &lt;clear /&gt;
+        &lt;add value="index.html" /&gt;
+        &lt;add value="default.aspx" /&gt;
+      &lt;/files&gt;
+    &lt;/defaultDocument&gt;
+
+    &lt;!-- Static content --&gt;
+    &lt;staticContent&gt;
+      &lt;mimeMap fileExtension=".webmanifest" mimeType="application/manifest+json" /&gt;
+    &lt;/staticContent&gt;
+
+    &lt;!-- HTTP Errors --&gt;
+    &lt;httpErrors errorMode="Custom" defaultResponseMode="Redirect"&gt;
+      &lt;remove statusCode="404" /&gt;
+      &lt;error statusCode="404" path="/404.html" /&gt;
+    &lt;/httpErrors&gt;
+
+    &lt;!-- HTTPS only --&gt;
+    &lt;rewrite&gt;
+      &lt;rules&gt;
+        &lt;rule name="HTTPS Redirect" stopProcessing="true"&gt;
+          &lt;match url="(.*)" /&gt;
+          &lt;conditions&gt;
+            &lt;add input="{HTTPS}" pattern="off" /&gt;
+          &lt;/conditions&gt;
+          &lt;action type="Redirect" url="https://{HTTP_HOST}/{R:1}" redirectType="Permanent" /&gt;
+        &lt;/rule&gt;
+      &lt;/rules&gt;
+    &lt;/rewrite&gt;
+
+    &lt;!-- Security headers --&gt;
+    &lt;httpProtocol&gt;
+      &lt;customHeaders&gt;
+        &lt;add name="Strict-Transport-Security" value="max-age=31536000; includeSubDomains" /&gt;
+        &lt;add name="X-Content-Type-Options" value="nosniff" /&gt;
+        &lt;add name="X-Frame-Options" value="SAMEORIGIN" /&gt;
+        &lt;add name="Referrer-Policy" value="strict-origin-when-cross-origin" /&gt;
+      &lt;/customHeaders&gt;
+    &lt;/httpProtocol&gt;
+
+    &lt;!-- Hide IIS info --&gt;
+    &lt;security&gt;
+      &lt;requestFiltering removeServerHeader="true" /&gt;
+    &lt;/security&gt;
+  &lt;/system.webServer&gt;
+&lt;/configuration&gt;</code></pre>
+
+<h2>Modules (handlery)</h2>
+
+<p>IIS jest <strong>modular</strong>. Kazda funkcjonalnosc (auth, logging, compression) to module.</p>
+
+<h3>Native vs Managed:</h3>
+<ul>
+<li><strong>Native modules</strong> (C++ ISAPI) &mdash; szybkie, system-level</li>
+<li><strong>Managed modules</strong> (.NET) &mdash; pisane w C#, latwiejsze</li>
+</ul>
+
+<h3>Kluczowe modules:</h3>
+<ul>
+<li><strong>HttpLogging</strong> &mdash; request logs</li>
+<li><strong>StaticCompressionModule</strong> / <strong>DynamicCompressionModule</strong> &mdash; gzip</li>
+<li><strong>WindowsAuthenticationModule</strong> &mdash; Negotiate/NTLM/Kerberos</li>
+<li><strong>BasicAuthenticationModule</strong> &mdash; Basic auth</li>
+<li><strong>AnonymousAuthenticationModule</strong> &mdash; anon access</li>
+<li><strong>RequestFilteringModule</strong> &mdash; security filter (URL length, etc.)</li>
+<li><strong>UrlMappingModule</strong> &mdash; URL rewriting</li>
+<li><strong>DefaultDocumentModule</strong> &mdash; index.html resolution</li>
+</ul>
+
+<pre><code># Lista modules
+Get-WebGlobalModule
+
+# Disable module dla site
+Remove-WebConfigurationProperty -PSPath "IIS:\Sites\MyApp" -Filter "system.webServer/modules" -Name "." -AtElement @{name='WindowsAuthenticationModule'}</code></pre>
+
+<h2>Application Initialization</h2>
+
+<p><strong>Problem:</strong> Pierwszy request po deployment lub recycling jest wolny (cold start).</p>
+
+<p><strong>Rozwiazanie:</strong> Application Initialization wstepnie "rozgrzewa" aplikacje.</p>
+
+<pre><code>&lt;applicationPools&gt;
+  &lt;add name="MyAppPool" autoStart="true" startMode="AlwaysRunning" /&gt;
+&lt;/applicationPools&gt;
+
+&lt;sites&gt;
+  &lt;site name="MyApp"&gt;
+    &lt;application path="/" applicationPool="MyAppPool" preloadEnabled="true"&gt;
+      &lt;virtualDirectory path="/" physicalPath="C:\wwwroot" /&gt;
+    &lt;/application&gt;
+  &lt;/site&gt;
+&lt;/sites&gt;
+
+&lt;system.webServer&gt;
+  &lt;applicationInitialization doAppInitAfterRestart="true"&gt;
+    &lt;add initializationPage="/warmup" hostName="myapp.example.com" /&gt;
+  &lt;/applicationInitialization&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h2>Logowanie</h2>
+
+<h3>Domyslne logi IIS</h3>
+<pre><code>C:\inetpub\logs\LogFiles\W3SVC{N}\u_exYYMMDD.log</code></pre>
+
+<p>Format: <strong>W3C Extended</strong> (kolumny konfiguralne).</p>
+
+<h3>Wlacz przydatne pola:</h3>
+<ul>
+<li><code>cs-host</code> &mdash; host header</li>
+<li><code>cs-User-Agent</code></li>
+<li><code>cs-Referer</code></li>
+<li><code>sc-substatus</code> &mdash; szczegolowy kod (404.7 = file extension blocked)</li>
+<li><code>sc-win32-status</code> &mdash; Windows error code</li>
+<li><code>time-taken</code> &mdash; czas requesta</li>
+</ul>
+
+<h3>Failed Request Tracing (FRT)</h3>
+<p><strong>Najpotezniejsze narzedzie debug w IIS.</strong> Loguje cale processing requestu krok po kroku.</p>
+
+<pre><code># Wlacz FRT
+Set-WebConfigurationProperty -Filter "/system.applicationHost/sites/siteDefaults/traceFailedRequestsLogging" -Name "enabled" -Value "True"
+
+# Regula dla konkretnego site
+Add-WebConfigurationProperty -PSPath "IIS:\Sites\MyApp" -Filter "system.webServer/tracing/traceFailedRequests" -Name "." -Value @{
+    path = "*"
+    failureDefinitions = @{
+        statusCodes = "500-599"
+    }
+}</code></pre>
+
+<p>Logi w: <code>C:\inetpub\logs\FailedReqLogFiles\</code></p>
+
+<h2>Performance</h2>
+
+<h3>Static content caching</h3>
+
+<pre><code>&lt;system.webServer&gt;
+  &lt;staticContent&gt;
+    &lt;clientCache cacheControlMode="UseMaxAge" cacheControlMaxAge="365.00:00:00" /&gt;
+  &lt;/staticContent&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h3>Compression</h3>
+
+<pre><code>&lt;system.webServer&gt;
+  &lt;urlCompression doStaticCompression="true" doDynamicCompression="true" /&gt;
+  &lt;httpCompression&gt;
+    &lt;dynamicTypes&gt;
+      &lt;add mimeType="text/*" enabled="true" /&gt;
+      &lt;add mimeType="application/json" enabled="true" /&gt;
+      &lt;add mimeType="application/javascript" enabled="true" /&gt;
+    &lt;/dynamicTypes&gt;
+    &lt;staticTypes&gt;
+      &lt;add mimeType="*/*" enabled="true" /&gt;
+    &lt;/staticTypes&gt;
+  &lt;/httpCompression&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h3>Output Caching</h3>
+
+<p>Cachuje response per URL/header (RAM-based).</p>
+
+<h3>Connection limits</h3>
+<ul>
+<li>Domyslnie 5000 connections per app pool</li>
+<li>Tweakuj dla high-traffic</li>
+</ul>
+
+<h2>ASP.NET Core hosting</h2>
+
+<p>ASP.NET Core to <strong>out-of-process</strong> model &mdash; IIS sluzy jako reverse proxy do Kestrel.</p>
+
+<pre><code>Browser &rarr; IIS (port 80/443) &rarr; ASP.NET Core Module &rarr; Kestrel (port wewnetrzny) &rarr; app</code></pre>
+
+<pre><code>&lt;!-- web.config dla ASP.NET Core --&gt;
+&lt;system.webServer&gt;
+  &lt;handlers&gt;
+    &lt;add name="aspNetCore" path="*" verb="*"
+         modules="AspNetCoreModuleV2"
+         resourceType="Unspecified" /&gt;
+  &lt;/handlers&gt;
+  &lt;aspNetCore processPath="dotnet"
+              arguments=".\MyApp.dll"
+              stdoutLogEnabled="true"
+              stdoutLogFile=".\logs\stdout"
+              hostingModel="OutOfProcess" /&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<p>App pool: <strong>No Managed Code</strong> (Kestrel jest .NET Core, nie .NET Framework).</p>
+
+<h2>PHP hosting</h2>
+
+<h3>FastCGI + PHP</h3>
+
+<pre><code># Pobierz PHP NTS x64 (z windows.php.net)
+# Wypakuj do C:\PHP
+
+# Instalacja CGI module
+Install-WindowsFeature Web-CGI
+
+# Skonfiguruj FastCGI
+appcmd set config /section:system.webServer/fastCGI /+"[fullPath='C:\PHP\php-cgi.exe']"
+
+# Mapuj rozszerzenia .php do FastCGI
+appcmd set config /section:system.webServer/handlers /+"[name='PHP_FastCGI',path='*.php',verb='*',modules='FastCgiModule',scriptProcessor='C:\PHP\php-cgi.exe',resourceType='Unspecified']"</code></pre>
+
+<p><strong>Lepiej:</strong> Uzyj <strong>PHP Manager for IIS</strong> (GUI tool).</p>
+
+<h3>Performance dla PHP:</h3>
+<ul>
+<li><strong>OPcache</strong> w php.ini &mdash; kluczowe!</li>
+<li><strong>WinCache</strong> &mdash; Microsoft cache rozszerzenie</li>
+<li>App pool recycling = wolniejsze (PHP nie ma persistent state, ale OPcache sie czysci)</li>
+</ul>
+
+<h2>Bezpieczenstwo IIS - quick wins</h2>
+
+<div class="card green">
+<ol>
+<li>Hide server header (X-Powered-By, Server)</li>
+<li>Disable unused modules</li>
+<li>ApplicationPoolIdentity (nie LocalSystem!)</li>
+<li>HTTPS only (HSTS)</li>
+<li>Request Filtering &mdash; limity URL/query</li>
+<li>IP filtering dla admin URLs</li>
+<li>Default page disabled (wylacz iisstart.htm)</li>
+<li>Update regularnie (Windows Update for IIS)</li>
+<li>Audit logs wlaczony</li>
+<li>Failed Request Tracing dla diagnostyki</li>
+</ol>
+</div>
+
+<p>Szczegoly hardeningu &mdash; patrz rozdzial 07 (Bezpieczenstwo) i 06 (Certyfikaty).</p>
+
+<h2>Narzedzia</h2>
+
+<ul>
+<li><strong>IIS Manager (inetmgr.exe)</strong> &mdash; main GUI</li>
+<li><strong>appcmd.exe</strong> &mdash; CLI dla quick changes</li>
+<li><strong>PowerShell WebAdministration / IISAdministration</strong> modules</li>
+<li><strong>IIS Crypto</strong> (Nartac Software) &mdash; TLS/SSL hardening GUI</li>
+<li><strong>LogParser / Log Parser Studio</strong> &mdash; analyza logow IIS</li>
+<li><strong>PerfMon</strong> &mdash; performance monitoring</li>
+<li><strong>Process Monitor (Sysinternals)</strong> &mdash; file/registry tracing</li>
+<li><strong>Wireshark/Fiddler</strong> &mdash; network traffic analysis</li>
+</ul>
+
+<h2>Nastepne kroki</h2>
+
+<ul>
+<li><strong>Rozdzial 05</strong> &mdash; Konfiguracja zaawansowana (URL Rewrite, ARR, reverse proxy)</li>
+<li><strong>Rozdzial 06</strong> &mdash; Certyfikaty SSL/TLS</li>
+<li><strong>Rozdzial 07</strong> &mdash; Bezpieczenstwo i hardening</li>
+<li><strong>Rozdzial 09</strong> &mdash; Publikowanie uslug publicznych</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="03-active-directory.html">&larr; Active Directory</a>
+    <a href="05-iis-zaawansowane.html">IIS zaawansowane &rarr;</a>
+</div>
+
+</div>
+</body>
+</html>

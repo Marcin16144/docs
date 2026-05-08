@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>IP i adresacja</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}
+.card.orange{border-left:4px solid var(--orange)}
+.card.red{border-left:4px solid var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Sieci</a><span class="sep">/</span><span class="title">IP i adresacja</span></div>
+<div class="container">
+<h1>IP i adresacja IPv4 + IPv6</h1>
+<p class="subtitle">Adresacja sieci, CIDR, subnetting, NAT, IPv6, DHCP - kompletny przewodnik</p>
+
+<h2>IPv4 - format adresu</h2>
+<p>IPv4 (Internet Protocol version 4) z 1981 roku uzywa adresow 32-bitowych zapisywanych jako 4 oktety (bajty) w notacji decimal-dot. Daje to przestrzen 2^32 = ok. 4.3 miliarda adresow.</p>
+
+<pre><code># Format binarny vs decimal:
+11000000.10101000.00000001.00000001  (binarny, 4 oktety po 8 bitow)
+192.168.1.1                          (decimal-dot)
+
+# Maksymalny adres:
+255.255.255.255 = 11111111.11111111.11111111.11111111
+
+# Minimalny:
+0.0.0.0 = 00000000.00000000.00000000.00000000</code></pre>
+
+<h3>Klasy adresow (legacy)</h3>
+<p>Pierwotnie IPv4 byl podzielony na klasy A, B, C, D, E. To podejscie zostalo zastapione przez CIDR w 1993, ale nazewnictwo czasem nadal sie pojawia.</p>
+
+<table>
+<tr><th>Klasa</th><th>Pierwszy oktet</th><th>Domyslna maska</th><th>Liczba sieci</th><th>Liczba hostow / siec</th></tr>
+<tr><td>A</td><td>0-127</td><td>/8 (255.0.0.0)</td><td>128</td><td>16 777 214</td></tr>
+<tr><td>B</td><td>128-191</td><td>/16 (255.255.0.0)</td><td>16 384</td><td>65 534</td></tr>
+<tr><td>C</td><td>192-223</td><td>/24 (255.255.255.0)</td><td>2 097 152</td><td>254</td></tr>
+<tr><td>D</td><td>224-239</td><td>multicast</td><td>-</td><td>-</td></tr>
+<tr><td>E</td><td>240-255</td><td>experimental</td><td>-</td><td>-</td></tr>
+</table>
+
+<h2>CIDR - Classless Inter-Domain Routing</h2>
+<p>CIDR (RFC 4632, 1993) zastapil sztywne klasy elastyczna maska prefiksowa. Notacja /N oznacza ile bitow z lewej strony to czesc sieci.</p>
+
+<pre><code># Przyklady CIDR:
+192.168.1.0/24    -> maska 255.255.255.0       (8 bitow hosta = 256 adresow)
+10.0.0.0/8        -> maska 255.0.0.0           (24 bity hosta = 16M adresow)
+172.16.0.0/12     -> maska 255.240.0.0         (20 bitow hosta = 1M adresow)
+10.0.5.0/26       -> maska 255.255.255.192     (6 bitow hosta = 64 adresy)
+10.0.5.0/30       -> maska 255.255.255.252     (2 bity hosta = 4 adresy)
+10.0.5.0/32       -> pojedynczy adres (host route)</code></pre>
+
+<h3>Kalkulacja podsieci - tabela</h3>
+<table>
+<tr><th>Prefix</th><th>Maska</th><th>Liczba hostow</th><th>Uzyteczne hosty</th><th>Zastosowanie</th></tr>
+<tr><td>/24</td><td>255.255.255.0</td><td>256</td><td>254</td><td>Mala siec biurowa</td></tr>
+<tr><td>/25</td><td>255.255.255.128</td><td>128</td><td>126</td><td>Polowa /24</td></tr>
+<tr><td>/26</td><td>255.255.255.192</td><td>64</td><td>62</td><td>Mala VLAN</td></tr>
+<tr><td>/27</td><td>255.255.255.224</td><td>32</td><td>30</td><td>Mini segment</td></tr>
+<tr><td>/28</td><td>255.255.255.240</td><td>16</td><td>14</td><td>Mala grupa serwerow</td></tr>
+<tr><td>/29</td><td>255.255.255.248</td><td>8</td><td>6</td><td>Punkty styku, link p2p</td></tr>
+<tr><td>/30</td><td>255.255.255.252</td><td>4</td><td>2</td><td>Klasyczny link punkt-punkt</td></tr>
+<tr><td>/31</td><td>255.255.255.254</td><td>2</td><td>2</td><td>RFC 3021 (oszczednosc IP)</td></tr>
+<tr><td>/32</td><td>255.255.255.255</td><td>1</td><td>1</td><td>Pojedynczy host (loopback)</td></tr>
+</table>
+
+<h3>Network address i broadcast</h3>
+<p>W kazdej podsieci pierwszy adres to network address, ostatni to broadcast. Te dwa adresy nie moga byc przypisane hostom (z wyjatkiem /31 i /32).</p>
+
+<pre><code># Przyklad: 192.168.10.0/24
+Network address:    192.168.10.0    (sieciowy, nieuzywalny dla hosta)
+Pierwszy host:      192.168.10.1
+Ostatni host:       192.168.10.254
+Broadcast:          192.168.10.255  (rozglosowy, nieuzywalny dla hosta)
+Hosty uzyteczne:    254 (od .1 do .254)
+
+# Przyklad: 10.20.30.64/26
+Network:            10.20.30.64
+Pierwszy host:      10.20.30.65
+Ostatni host:       10.20.30.126
+Broadcast:          10.20.30.127
+Hosty uzyteczne:    62</code></pre>
+
+<h2>Subnetting - przyklady praktyczne</h2>
+
+<h3>Jak podzielic 10.0.0.0/16 na podsieci /24</h3>
+<pre><code># Sa 2^(24-16) = 256 podsieci /24:
+10.0.0.0/24    (10.0.0.0 - 10.0.0.255)
+10.0.1.0/24    (10.0.1.0 - 10.0.1.255)
+10.0.2.0/24
+...
+10.0.255.0/24  (10.0.255.0 - 10.0.255.255)
+
+# Standardowe przypisanie w firmie:
+10.0.0.0/24    -> Management (administracja, switche, AP)
+10.0.10.0/24   -> Pracownicy biuro
+10.0.20.0/24   -> Goscie WiFi
+10.0.30.0/24   -> VoIP
+10.0.50.0/24   -> Serwery DMZ
+10.0.100.0/24  -> Drukarki, IoT</code></pre>
+
+<h3>VLSM - Variable Length Subnet Masking</h3>
+<p>VLSM pozwala stosowac rozne dlugosci masek w jednej duzej sieci - oszczedza adresow.</p>
+
+<pre><code># Z bloku 192.168.0.0/22 (1024 adresow) dzielimy na nierowne czesci:
+192.168.0.0/24    -> 256 adresow dla glownego biura (max 254 hostow)
+192.168.1.0/25    -> 128 adresow dla oddzialu A (max 126 hostow)
+192.168.1.128/26  -> 64 adresy dla oddzialu B (max 62 hostow)
+192.168.1.192/27  -> 32 adresy dla VPN tunnel (max 30 hostow)
+192.168.2.0/30    -> 4 adresy dla linku point-to-point (2 hosty)
+... reszta wolna</code></pre>
+
+<h2>Adresy specjalne IPv4</h2>
+
+<h3>Adresy prywatne (RFC 1918)</h3>
+<table>
+<tr><th>Zakres</th><th>CIDR</th><th>Liczba adresow</th><th>Typowe uzycie</th></tr>
+<tr><td>10.0.0.0 - 10.255.255.255</td><td>10.0.0.0/8</td><td>16 777 216</td><td>Duze przedsiebiorstwa, korporacje</td></tr>
+<tr><td>172.16.0.0 - 172.31.255.255</td><td>172.16.0.0/12</td><td>1 048 576</td><td>Srednie firmy, AWS VPC</td></tr>
+<tr><td>192.168.0.0 - 192.168.255.255</td><td>192.168.0.0/16</td><td>65 536</td><td>Sieci domowe, mali przedsiebiorcy</td></tr>
+</table>
+
+<h3>Inne specjalne</h3>
+<table>
+<tr><th>Adres</th><th>Opis</th></tr>
+<tr><td><strong>127.0.0.0/8</strong></td><td>Loopback (localhost) - tylko 127.0.0.1 powszechnie uzywany</td></tr>
+<tr><td><strong>169.254.0.0/16</strong></td><td>APIPA / link-local - automatyczny adres gdy DHCP nie odpowiada</td></tr>
+<tr><td><strong>0.0.0.0/8</strong></td><td>"This network" / default route w routingu</td></tr>
+<tr><td><strong>224.0.0.0/4</strong></td><td>Multicast (224.0.0.0 - 239.255.255.255)</td></tr>
+<tr><td><strong>100.64.0.0/10</strong></td><td>CGNAT (Carrier-Grade NAT) - dla operatorow ISP</td></tr>
+</table>
+
+<h2>NAT - Network Address Translation</h2>
+<p>NAT pozwala wielu urzadzeniom z prywatnymi adresami korzystac z internetu przez wspolny publiczny adres IP.</p>
+
+<h3>Typy NAT</h3>
+<ul>
+<li><strong>SNAT</strong> (Source NAT) - zmiana adresu zrodlowego, klasyczny "wychodzacy" NAT z LAN do internetu</li>
+<li><strong>DNAT</strong> (Destination NAT) - zmiana adresu docelowego, np. port forwarding na serwer wewnetrzny</li>
+<li><strong>PAT</strong> (Port Address Translation) - wiele klientow LAN przez jeden publiczny IP poprzez mapowanie portow (NAT overload)</li>
+<li><strong>CGNAT</strong> (Carrier-Grade NAT) - operator ISP daje klientom adresy 100.64.0.0/10 i uzywa NAT zbiorczo</li>
+</ul>
+
+<pre><code># Przyklad PAT (Linux iptables):
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+# Port forwarding (DNAT):
+iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 \
+  -j DNAT --to-destination 192.168.1.100:80
+
+# Hairpin NAT (LAN -> publiczny IP -> z powrotem do LAN):
+iptables -t nat -A POSTROUTING -s 192.168.1.0/24 \
+  -d 192.168.1.100 -p tcp --dport 80 -j MASQUERADE</code></pre>
+
+<div class="card orange">
+<strong>Wada NAT</strong> - lamie zasade end-to-end internetu, utrudnia P2P (gry, VoIP), wymaga NAT traversal (STUN/TURN/ICE). IPv6 mial sie tego pozbyc, ale NAT zostal jako defacto standard.
+</div>
+
+<h2>IPv6 - 128 bitow</h2>
+<p>IPv6 (RFC 8200) uzywa 128 bitow podzielonych na 8 grup po 16 bitow w notacji szesnastkowej. Daje to ok. 3.4 x 10^38 adresow - praktycznie nieskonczonosc.</p>
+
+<pre><code># Pelny format:
+2001:0db8:85a3:0000:0000:8a2e:0370:7334
+
+# Skrocony (zero compression):
+- pomin wiodace zera w grupie:    2001:db8:85a3:0:0:8a2e:370:7334
+- raz zastap kolejne grupy zer ::  2001:db8:85a3::8a2e:370:7334
+
+# Loopback IPv6:
+::1                  (= 0:0:0:0:0:0:0:1)
+
+# Unspecified address:
+::                   (= 0:0:0:0:0:0:0:0)
+
+# Adres z prefixem:
+2001:db8::/32        (uzywany w dokumentacji)
+fe80::1/64           (link-local)</code></pre>
+
+<h3>Typy adresow IPv6</h3>
+<table>
+<tr><th>Prefix</th><th>Typ</th><th>Opis</th></tr>
+<tr><td>2000::/3</td><td>Global Unicast</td><td>Publiczne, routowalne w internecie</td></tr>
+<tr><td>fe80::/10</td><td>Link-Local</td><td>Tylko w obrebie lokalnego segmentu (wymagane na kazdym interfejsie)</td></tr>
+<tr><td>fc00::/7</td><td>Unique Local (ULA)</td><td>Odpowiednik RFC 1918 dla IPv6 (prywatne)</td></tr>
+<tr><td>ff00::/8</td><td>Multicast</td><td>Brak broadcastu w IPv6 - zastepuje go multicast</td></tr>
+<tr><td>::1/128</td><td>Loopback</td><td>Localhost</td></tr>
+<tr><td>2001:db8::/32</td><td>Documentation</td><td>Tylko do przykladow w dokumentacji</td></tr>
+</table>
+
+<h3>Dual-stack vs IPv6-only</h3>
+<ul>
+<li><strong>Dual-stack</strong> - host ma rownoczesnie IPv4 i IPv6, najpopularniejsze dzis (2026)</li>
+<li><strong>IPv6-only z NAT64/DNS64</strong> - sieci nowsze (mobilne) gdzie polaczenia do IPv4-only zasobow przechodza przez tlumacz NAT64</li>
+<li><strong>464XLAT</strong> - rozwiazanie hybrydowe na koncowkach klienckich</li>
+</ul>
+
+<h2>DHCP - Dynamic Host Configuration Protocol</h2>
+<p>DHCP automatycznie przydziela klientom adresy IP, maski, default gateway, DNS i inne parametry sieciowe.</p>
+
+<h3>DHCP DORA - 4 etapy</h3>
+<ol>
+<li><strong>Discover</strong> - klient broadcastuje "kto rozdaje IP?" (UDP 67 server, 68 client)</li>
+<li><strong>Offer</strong> - serwer DHCP odpowiada propozycja IP, maski, gateway, DNS</li>
+<li><strong>Request</strong> - klient akceptuje konkretna oferte (publicznie - inni serwery wiedza)</li>
+<li><strong>Acknowledge</strong> - serwer potwierdza i finalizuje przypisanie wraz z lease time</li>
+</ol>
+
+<pre><code># Konfiguracja DHCP server (isc-dhcp-server):
+subnet 192.168.1.0 netmask 255.255.255.0 {
+  range 192.168.1.100 192.168.1.200;
+  option routers 192.168.1.1;
+  option domain-name-servers 1.1.1.1, 9.9.9.9;
+  option domain-name "lan.local";
+  default-lease-time 86400;
+  max-lease-time 604800;
+}
+
+# Static lease (rezerwacja DHCP):
+host serwer-druku {
+  hardware ethernet AA:BB:CC:DD:EE:FF;
+  fixed-address 192.168.1.50;
+}</code></pre>
+
+<h3>DHCPv6 i SLAAC</h3>
+<p>W IPv6 sa dwa mechanizmy autokonfiguracji:</p>
+<ul>
+<li><strong>SLAAC</strong> (Stateless Address Autoconfiguration) - host sam tworzy adres na podstawie prefixu z routera + EUI-64 lub random</li>
+<li><strong>DHCPv6</strong> - klasyczny serwer DHCP dla IPv6, przydatny w enterprise gdzie potrzebujemy logowania kto co dostal</li>
+</ul>
+
+<h2>Multicast vs Broadcast vs Anycast</h2>
+<table>
+<tr><th>Typ</th><th>Opis</th><th>Zastosowanie</th></tr>
+<tr><td><strong>Unicast</strong></td><td>Jeden nadawca, jeden odbiorca</td><td>HTTP, SSH, wiekszosc ruchu</td></tr>
+<tr><td><strong>Broadcast</strong></td><td>Jeden nadawca, wszyscy w sieci lokalnej</td><td>ARP, DHCP Discover (tylko IPv4)</td></tr>
+<tr><td><strong>Multicast</strong></td><td>Jeden nadawca, grupa subskrybentow</td><td>IPTV, video streaming, OSPF, VRRP</td></tr>
+<tr><td><strong>Anycast</strong></td><td>Wielu nadawcow, najblizszy odpowiada</td><td>DNS root servers, CDN, 1.1.1.1</td></tr>
+</table>
+
+<div class="card green">
+<strong>Anycast w praktyce</strong> - Cloudflare 1.1.1.1 jest tym samym IP na setkach serwerow na calym swiecie. Klient laczy sie do najblizszego dzieki BGP routingowi. To samo dotyczy DNS root servers (a-root, b-root, ..., m-root).
+</div>
+
+<div class="nav-bottom">
+<a href="01-podstawy-sieci.html">&larr; Podstawy sieci</a>
+<a href="03-protokoly-tcp-udp.html">Protokoly TCP/UDP &rarr;</a>
+</div>
+</div>
+</body>
+</html>

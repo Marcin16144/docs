@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Protokoly TCP, UDP, ICMP</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}
+.card.orange{border-left:4px solid var(--orange)}
+.card.red{border-left:4px solid var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Sieci</a><span class="sep">/</span><span class="title">TCP, UDP, ICMP</span></div>
+<div class="container">
+<h1>Protokoly transportowe TCP, UDP, ICMP</h1>
+<p class="subtitle">Warstwa transportowa internetu - jak dziala niezawodne i szybkie przekazywanie danych</p>
+
+<h2>TCP - Transmission Control Protocol</h2>
+<p>TCP (RFC 9293) zapewnia niezawodna, uporzadkowana, polaczeniowa transmisje strumieniowa. To najczesciej uzywany protokol w internecie - HTTP, SSH, FTP, SMTP, IMAP wszystkie pracuja na TCP.</p>
+
+<h3>Cechy TCP</h3>
+<ul>
+<li><strong>Reliable</strong> - kazdy bajt potwierdzany ACK; brak ACK = retransmisja</li>
+<li><strong>Ordered</strong> - dane dostarczane w kolejnosci wysylania (sequence numbers)</li>
+<li><strong>Connection-oriented</strong> - sesja musi byc nawiazana (handshake) i zakonczona (FIN)</li>
+<li><strong>Flow control</strong> - sliding window kontroluje ile danych mozna wyslac przed ACK</li>
+<li><strong>Congestion control</strong> - reaguje na zatory w sieci, zwalnia transmisje</li>
+<li><strong>Stream-based</strong> - aplikacja widzi ciagly strumien bajtow, nie pakiety</li>
+</ul>
+
+<h3>3-way handshake</h3>
+<pre><code># Nawiazanie polaczenia TCP:
+Klient                                Serwer
+  |                                      |
+  | -------- SYN (seq=100) -----------> |   1. Klient: "chce sie polaczyc"
+  |                                      |
+  | <----- SYN-ACK (seq=500, ack=101) -- |   2. Serwer: "OK, ja tez"
+  |                                      |
+  | -------- ACK (seq=101, ack=501) ----> |   3. Klient: "OK, zaczynamy"
+  |                                      |
+  |                                      |
+  | === Connection ESTABLISHED === |</code></pre>
+
+<h3>Zakonczenie polaczenia (4-way)</h3>
+<pre><code># Graceful close (FIN):
+Klient                                Serwer
+  | -------- FIN -------------> |   "skonczylem wysylac"
+  | <-------- ACK ------------- |   "OK"
+  | <-------- FIN ------------- |   "ja tez skonczylem"
+  | -------- ACK -------------> |   "OK, zegnaj"
+
+# Lub abrupt close (RST):
+  | -------- RST -------------> |   "polaczenie ASAP zerwij"</code></pre>
+
+<h3>TCP Flags</h3>
+<table>
+<tr><th>Flag</th><th>Opis</th></tr>
+<tr><td><strong>SYN</strong></td><td>Synchronize - inicjacja polaczenia</td></tr>
+<tr><td><strong>ACK</strong></td><td>Acknowledgment - potwierdzenie odbioru</td></tr>
+<tr><td><strong>FIN</strong></td><td>Finish - normalne zakonczenie polaczenia</td></tr>
+<tr><td><strong>RST</strong></td><td>Reset - przerwanie awaryjne (np. closed port)</td></tr>
+<tr><td><strong>PSH</strong></td><td>Push - wymus natychmiastowe przekazanie do aplikacji</td></tr>
+<tr><td><strong>URG</strong></td><td>Urgent - dane out-of-band (rzadko uzywane)</td></tr>
+<tr><td><strong>ECE/CWR</strong></td><td>ECN flagi (Explicit Congestion Notification)</td></tr>
+</table>
+
+<h3>Sliding window i flow control</h3>
+<p>Kazda strona ogasza receive window - ile danych moze przyjac. Nadawca nie wysyla wiecej niz to okno. Window scaling (RFC 7323) pozwala oknom > 64 KB az do 1 GB.</p>
+
+<pre><code># Linux - parametry TCP window:
+sysctl net.core.rmem_max        # max receive buffer
+sysctl net.ipv4.tcp_rmem        # min/default/max receive buffers
+sysctl net.ipv4.tcp_wmem        # min/default/max send buffers
+sysctl net.ipv4.tcp_window_scaling   # zwykle 1 (enabled)
+
+# Sprawdzenie aktywnych window:
+ss -i                            # extended info per socket</code></pre>
+
+<h3>Congestion control - Reno, Cubic, BBR</h3>
+<table>
+<tr><th>Algorytm</th><th>Rok</th><th>Charakterystyka</th></tr>
+<tr><td><strong>Reno / NewReno</strong></td><td>1990</td><td>Klasyczny - wolny start + AIMD (Additive Increase, Multiplicative Decrease)</td></tr>
+<tr><td><strong>CUBIC</strong></td><td>2008</td><td>Default w Linuksie - krzywa szescienna, lepiej w high-bandwidth</td></tr>
+<tr><td><strong>BBR</strong> (Bottleneck Bandwidth and RTT)</td><td>2016</td><td>Google - mierzy rzeczywista przepustowosc i RTT, nie czeka na pakiety zgubione</td></tr>
+<tr><td><strong>BBRv2/v3</strong></td><td>2020+</td><td>Ulepszone wersje BBR, fairness do CUBIC</td></tr>
+</table>
+
+<pre><code># Linux - zmiana algorytmu congestion control:
+sysctl net.ipv4.tcp_congestion_control       # check current
+sudo sysctl -w net.ipv4.tcp_congestion_control=bbr
+echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
+
+# Dostepne algorytmy:
+sysctl net.ipv4.tcp_available_congestion_control</code></pre>
+
+<h3>MSS - Maximum Segment Size</h3>
+<p>MSS to maksymalny rozmiar TCP payload (bez headerow). Zwykle MTU - IP header - TCP header = 1500 - 20 - 20 = 1460 bajtow dla Ethernet. Dla VPN/MPLS zmniejsza sie o overhead.</p>
+
+<h2>UDP - User Datagram Protocol</h2>
+<p>UDP (RFC 768) jest minimalistyczny: connectionless, bez gwarancji dostarczenia, bez kolejnosci. Header tylko 8 bajtow vs 20+ TCP. Dlatego jest szybki i ma mniejszy overhead.</p>
+
+<pre><code># Header UDP (8 bajtow):
+| Source Port (16) | Dest Port (16) |
+| Length (16)      | Checksum (16)  |
+| ............ Data ............... |</code></pre>
+
+<h3>Kiedy uzywac UDP</h3>
+<ul>
+<li><strong>DNS</strong> - krotkie zapytania, retransmisja na poziomie aplikacji</li>
+<li><strong>VoIP</strong> (RTP) - opozniony pakiet jest gorszy niz zgubiony</li>
+<li><strong>Video streaming</strong> - mozna sobie pozwolic na klatke ubytek</li>
+<li><strong>Gaming online</strong> - liczy sie low latency, nie 100% packet delivery</li>
+<li><strong>NTP</strong> - synchronizacja czasu</li>
+<li><strong>DHCP</strong> - broadcast, brak sesji</li>
+<li><strong>SNMP</strong> - lekkie zapytania monitoringowe</li>
+<li><strong>WireGuard, QUIC</strong> - VPN i HTTP/3 buduja niezawodnosc na UDP</li>
+</ul>
+
+<h2>ICMP - Internet Control Message Protocol</h2>
+<p>ICMP (RFC 792) to protokol "metadanych" warstwy network. Sluzy do diagnostyki, raportowania bledow, kontroli ruchu. NIE jest TCP ani UDP - dziala bezposrednio na IP.</p>
+
+<h3>Najwazniejsze typy ICMP</h3>
+<table>
+<tr><th>Type</th><th>Code</th><th>Nazwa</th><th>Uzycie</th></tr>
+<tr><td>0</td><td>0</td><td>Echo Reply</td><td>Odpowiedz na ping</td></tr>
+<tr><td>3</td><td>0-15</td><td>Destination Unreachable</td><td>Host/network/port nieosiagalny</td></tr>
+<tr><td>3</td><td>4</td><td>Fragmentation Needed</td><td>Path MTU Discovery</td></tr>
+<tr><td>5</td><td>0-3</td><td>Redirect</td><td>Lepsza droga (rzadko legitne)</td></tr>
+<tr><td>8</td><td>0</td><td>Echo Request</td><td>Ping zapytanie</td></tr>
+<tr><td>11</td><td>0</td><td>Time Exceeded</td><td>TTL = 0, baza traceroute</td></tr>
+</table>
+
+<h3>Ping i traceroute</h3>
+<pre><code># ping uzywa Echo Request/Reply:
+$ ping -c 4 1.1.1.1
+PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
+64 bytes from 1.1.1.1: icmp_seq=1 ttl=58 time=8.21 ms
+64 bytes from 1.1.1.1: icmp_seq=2 ttl=58 time=8.43 ms
+64 bytes from 1.1.1.1: icmp_seq=3 ttl=58 time=8.16 ms
+64 bytes from 1.1.1.1: icmp_seq=4 ttl=58 time=8.55 ms
+--- 1.1.1.1 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3005ms
+rtt min/avg/max/mdev = 8.156/8.337/8.547/0.165 ms
+
+# traceroute: wysyla pakiety z rosnacym TTL,
+# routery odsylaja Time Exceeded (ICMP 11)
+$ traceroute -n 1.1.1.1
+ 1  192.168.1.1   1.234 ms   0.987 ms   0.876 ms
+ 2  10.50.1.1     5.432 ms   5.123 ms   5.234 ms
+ 3  79.96.x.x     8.123 ms   8.234 ms   8.345 ms
+ 4  1.1.1.1       8.567 ms   8.456 ms   8.345 ms</code></pre>
+
+<h3>ICMPv6 i NDP</h3>
+<p>W IPv6 ICMP rozszerzono: NDP (Neighbor Discovery Protocol) zastapil ARP. NDP korzysta z multicastu zamiast broadcastu (ktorego nie ma w IPv6).</p>
+
+<ul>
+<li><strong>RS</strong> (Router Solicitation) - klient pyta routery</li>
+<li><strong>RA</strong> (Router Advertisement) - router oglasza prefiks i konfiguracje</li>
+<li><strong>NS</strong> (Neighbor Solicitation) - odpowiednik ARP request</li>
+<li><strong>NA</strong> (Neighbor Advertisement) - odpowiednik ARP reply</li>
+</ul>
+
+<h2>QUIC - Quick UDP Internet Connections</h2>
+<p>QUIC (RFC 9000) to nowoczesny protokol transportowy zbudowany na UDP. Bazuje na nim HTTP/3. Stworzony przez Google w 2012, standaryzowany w 2021 przez IETF.</p>
+
+<h3>Zalety QUIC</h3>
+<ul>
+<li><strong>0-RTT handshake</strong> - przy ponownym polaczeniu zero round-trip time</li>
+<li><strong>Multiplexing bez head-of-line blocking</strong> - kazdy stream niezalezny (w przeciwienstwie do HTTP/2 nad TCP)</li>
+<li><strong>Wbudowane TLS 1.3</strong> - szyfrowanie obowiazkowe</li>
+<li><strong>Connection migration</strong> - przelaczenie z WiFi na 5G bez restartu sesji</li>
+<li><strong>User-space implementation</strong> - latwiej rozwijac niz zmieniac kernel TCP</li>
+</ul>
+
+<h2>Porty - klasyfikacja IANA</h2>
+<table>
+<tr><th>Zakres</th><th>Nazwa</th><th>Opis</th></tr>
+<tr><td>0 - 1023</td><td>Well-known / System</td><td>Wymagaja root/admin do otwarcia (Unix), zarezerwowane dla uslug</td></tr>
+<tr><td>1024 - 49151</td><td>Registered</td><td>Zarejestrowane przez aplikacje w IANA</td></tr>
+<tr><td>49152 - 65535</td><td>Dynamic / Ephemeral</td><td>Tymczasowe porty klientow (Linux: 32768-60999)</td></tr>
+</table>
+
+<h3>Najwazniejsze porty</h3>
+<table>
+<tr><th>Port</th><th>Protokol</th><th>Usluga</th></tr>
+<tr><td>20, 21</td><td>TCP</td><td>FTP (data, control)</td></tr>
+<tr><td>22</td><td>TCP</td><td>SSH, SFTP</td></tr>
+<tr><td>23</td><td>TCP</td><td>Telnet (deprecated)</td></tr>
+<tr><td>25</td><td>TCP</td><td>SMTP (mail wysylanie)</td></tr>
+<tr><td>53</td><td>UDP/TCP</td><td>DNS</td></tr>
+<tr><td>67, 68</td><td>UDP</td><td>DHCP server / client</td></tr>
+<tr><td>80</td><td>TCP</td><td>HTTP</td></tr>
+<tr><td>110</td><td>TCP</td><td>POP3</td></tr>
+<tr><td>123</td><td>UDP</td><td>NTP</td></tr>
+<tr><td>143</td><td>TCP</td><td>IMAP</td></tr>
+<tr><td>161, 162</td><td>UDP</td><td>SNMP / SNMP trap</td></tr>
+<tr><td>389</td><td>TCP</td><td>LDAP</td></tr>
+<tr><td>443</td><td>TCP/UDP</td><td>HTTPS, HTTP/3 (QUIC)</td></tr>
+<tr><td>465</td><td>TCP</td><td>SMTPS</td></tr>
+<tr><td>514</td><td>UDP</td><td>Syslog</td></tr>
+<tr><td>587</td><td>TCP</td><td>SMTP submission</td></tr>
+<tr><td>636</td><td>TCP</td><td>LDAPS</td></tr>
+<tr><td>993</td><td>TCP</td><td>IMAPS</td></tr>
+<tr><td>995</td><td>TCP</td><td>POP3S</td></tr>
+<tr><td>3306</td><td>TCP</td><td>MySQL/MariaDB</td></tr>
+<tr><td>3389</td><td>TCP</td><td>RDP</td></tr>
+<tr><td>5432</td><td>TCP</td><td>PostgreSQL</td></tr>
+<tr><td>6379</td><td>TCP</td><td>Redis</td></tr>
+<tr><td>27017</td><td>TCP</td><td>MongoDB</td></tr>
+</table>
+
+<h2>Port forwarding i NAT traversal</h2>
+<p>Aby aplikacja na komputerze za NAT byla dostepna z internetu, trzeba skonfigurowac port forwarding na routerze. Dla aplikacji P2P (np. WebRTC) stosuje sie automatyczne metody.</p>
+
+<ul>
+<li><strong>UPnP</strong> (Universal Plug and Play) - aplikacja prosi router o otwarcie portu (czesto niebezpieczne, wylaczane w firmach)</li>
+<li><strong>NAT-PMP / PCP</strong> - alternatywa Apple/IETF, prostsza i bezpieczniejsza</li>
+<li><strong>STUN</strong> (Session Traversal Utilities for NAT) - dowiaduje sie publicznego IP/portu</li>
+<li><strong>TURN</strong> (Traversal Using Relays around NAT) - relay gdy bezposrednie polaczenie niemozliwe</li>
+<li><strong>ICE</strong> (Interactive Connectivity Establishment) - lacznie probuje wszystkie metody</li>
+</ul>
+
+<h2>Praktyczne komendy diagnostyczne</h2>
+<pre><code># Test TCP polaczenia (telnet style):
+$ nc -v google.com 443
+Connection to google.com (142.250.74.78) 443 port [tcp/https] succeeded!
+
+# Czy port jest open (skanowanie):
+$ nmap -p 80,443 example.com
+PORT    STATE SERVICE
+80/tcp  open  http
+443/tcp open  https
+
+# Listening porty na lokalnym hoscie:
+$ ss -tulpn
+Netid State   Recv-Q  Local Address:Port
+tcp   LISTEN  0       0.0.0.0:22                  -> sshd
+tcp   LISTEN  0       127.0.0.1:631               -> cupsd
+udp   UNCONN  0       0.0.0.0:68                  -> dhclient
+
+# Aktywne polaczenia:
+$ ss -tn state established
+State    Local Address:Port    Peer Address:Port
+ESTAB    192.168.1.10:49234    140.82.114.4:443
+
+# Liczba polaczen TCP w roznych stanach:
+$ ss -tan | awk '{print $1}' | sort | uniq -c
+    14 ESTAB
+     8 LISTEN
+     3 TIME-WAIT</code></pre>
+
+<div class="card green">
+<strong>Zlote zasada</strong> - TCP gdy potrzebujesz niezawodnosci (HTTP, baza danych, plik), UDP gdy potrzebujesz szybkosci i mozesz tolerowac straty (gry, voip, dns), QUIC gdy potrzebujesz obu (HTTP/3).
+</div>
+
+<div class="nav-bottom">
+<a href="02-ip-i-adresacja.html">&larr; IP i adresacja</a>
+<a href="04-routing-i-ruterowanie.html">Routing &rarr;</a>
+</div>
+</div>
+</body>
+</html>

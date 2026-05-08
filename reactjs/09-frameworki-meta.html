@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meta-frameworki</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">React.js</a><span class="sep">/</span><span class="title">Meta-frameworki</span></div>
+<div class="container">
+<h1>Meta-frameworki</h1>
+<p class="subtitle">Next.js 15, Remix/React Router 7, Astro, Tanstack Start</p>
+
+<h2>Czemu meta-framework?</h2>
+<p>Sam React to tylko warstwa UI. Aby zbudowac produkcyjna aplikacje potrzebujesz: routing, SSR/SSG, optymalizacje (obrazy, fonty), code splitting, data layer, deployment. Meta-frameworki dostarczaja to wszystko + Server Components.</p>
+
+<h2>Next.js 15</h2>
+<p><strong>Next.js</strong> &mdash; #1 framework React (od Vercel). W wersji 15 (2024+) wszystko obraca sie wokol <strong>App Router</strong> (Server Components default).</p>
+
+<h3>Glowne features Next.js 15</h3>
+<ul>
+<li><strong>App Router</strong> &mdash; file-based routing z folderami</li>
+<li><strong>Server Components default</strong> &mdash; wszystko serwer, "use client" gdy potrzeba</li>
+<li><strong>Server Actions</strong> &mdash; mutations bez API endpointow</li>
+<li><strong>Partial Prerendering (PPR)</strong> &mdash; statyczna shell + streaming dynamiczne czesci</li>
+<li><strong>Turbopack</strong> &mdash; nowy bundler (Rust), 10x szybszy dev (stable w 15.0)</li>
+<li><strong>Async Request APIs</strong> &mdash; <code>cookies()</code>, <code>headers()</code>, <code>params</code> sa Promise (Next 15)</li>
+<li><strong>next/image</strong>, <strong>next/font</strong> &mdash; auto optymalizacje</li>
+</ul>
+
+<pre><code># Tworzenie projektu
+npx create-next-app@latest my-app --ts --app --tailwind --src-dir
+
+# Struktura
+src/app/
++- layout.tsx          &lt;- root layout
++- page.tsx            &lt;- /
++- loading.tsx         &lt;- Suspense fallback dla /
++- error.tsx           &lt;- error boundary (Client Component)
++- blog/
+|  +- page.tsx         &lt;- /blog
+|  +- [slug]/
+|     +- page.tsx      &lt;- /blog/foo
++- api/
+|  +- hello/
+|     +- route.ts      &lt;- API endpoint /api/hello
++- (marketing)/        &lt;- group, nie w URL
+   +- about/
+      +- page.tsx      &lt;- /about</code></pre>
+
+<pre><code>// app/blog/[slug]/page.tsx
+export default async function Post({ params }: { params: Promise&lt;{ slug: string }&gt; }) {
+  const { slug } = await params; // Next 15
+  const post = await db.posts.findBySlug(slug);
+  return (
+    &lt;article&gt;
+      &lt;h1&gt;{post.title}&lt;/h1&gt;
+      &lt;p&gt;{post.body}&lt;/p&gt;
+    &lt;/article&gt;
+  );
+}
+
+// fetch z opcjami cache
+const data = await fetch('https://api.example.com', {
+  next: { revalidate: 60, tags: ['posts'] }, // ISR + on-demand revalidation
+});</code></pre>
+
+<h3>Partial Prerendering (PPR)</h3>
+<p>Najwiekszy nowy paradygmat. Strona ma <strong>statyczna shell</strong> (pre-rendered HTML) z <strong>dziurami</strong> dla dynamicznych czesci ktore streamuja sie w runtime.</p>
+
+<pre><code>// app/page.tsx
+export const experimental_ppr = true;
+
+export default function Page() {
+  return (
+    &lt;&gt;
+      &lt;StaticHeader /&gt; {/* pre-renderowane */}
+      &lt;Suspense fallback={&lt;Skeleton /&gt;}&gt;
+        &lt;UserCart /&gt; {/* dynamic, streamuje sie po hydratacji */}
+      &lt;/Suspense&gt;
+      &lt;StaticFooter /&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+
+<h2>Remix / React Router 7</h2>
+<p>W 2024 <strong>Remix</strong> polaczyl sie z <strong>React Router</strong>. Obecna wersja (React Router 7) ma dwa tryby: SPA mode i Framework mode (dawny Remix).</p>
+
+<h3>Filozofia Remix</h3>
+<ul>
+<li>Web fundamentals first &mdash; FormData, Request, Response, cookies</li>
+<li><strong>Loaders</strong> i <strong>actions</strong> per route</li>
+<li>Nested routes z paralelnym data loading</li>
+<li>Progressive enhancement &mdash; dziala bez JS</li>
+</ul>
+
+<pre><code># Tworzenie
+npx create-react-router@latest my-app --template framework
+
+// app/routes/products.$id.tsx
+import { Form, useLoaderData } from 'react-router';
+import type { Route } from './+types/products.$id';
+
+export async function loader({ params }: Route.LoaderArgs) {
+  return await db.products.find(params.id);
+}
+
+export async function action({ request, params }: Route.ActionArgs) {
+  const fd = await request.formData();
+  await db.products.update(params.id, {
+    name: fd.get('name') as string,
+  });
+  return { ok: true };
+}
+
+export default function Product() {
+  const product = useLoaderData&lt;typeof loader&gt;();
+  return (
+    &lt;Form method="post"&gt;
+      &lt;input name="name" defaultValue={product.name} /&gt;
+      &lt;button&gt;Zapisz&lt;/button&gt;
+    &lt;/Form&gt;
+  );
+}</code></pre>
+
+<h2>Astro</h2>
+<p><strong>Astro</strong> &mdash; framework dla content-heavy sites (blogi, dokumentacja, marketing). Zero JS by default, <strong>islands architecture</strong> &mdash; wybrane komponenty hydratuja sie selektywnie.</p>
+
+<pre><code># Instalacja
+npm create astro@latest
+
+# Dodanie React integration
+npx astro add react
+
+---
+// src/pages/index.astro
+import ReactCounter from '../components/Counter';
+const posts = await fetch('https://api.example.com/posts').then(r =&gt; r.json());
+---
+
+&lt;html&gt;
+  &lt;head&gt;&lt;title&gt;Mojstrona&lt;/title&gt;&lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;Posty&lt;/h1&gt;
+    {posts.map(p =&gt; &lt;article&gt;&lt;h2&gt;{p.title}&lt;/h2&gt;&lt;/article&gt;)}
+
+    &lt;!-- React island - hydrate dopiero w viewport --&gt;
+    &lt;ReactCounter client:visible /&gt;
+
+    &lt;!-- Hydrate od razu --&gt;
+    &lt;ReactCounter client:load /&gt;
+
+    &lt;!-- Tylko desktop --&gt;
+    &lt;ReactCounter client:media="(min-width: 768px)" /&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<div class="card">
+<h3>Astro &mdash; kiedy uzywac?</h3>
+<ul>
+<li>Blog, dokumentacja, marketing site &mdash; idealne</li>
+<li>Mocno content-heavy z odrobina interakcji</li>
+<li>Mozesz miksowac React z Vue, Svelte, Solid w jednej stronie</li>
+<li>Lighthouse 100/100/100/100 latwo osiagalne</li>
+</ul>
+<p>Nie nadaje sie do mocno interaktywnych SPA (dashboardy, edytory, social).</p>
+</div>
+
+<h2>Tanstack Start (nowy 2025)</h2>
+<p><strong>Tanstack Start</strong> &mdash; full-stack framework od tworcow Tanstack Query/Router. Type-safe od podstaw, oparty na Vite, server functions.</p>
+
+<pre><code>npm create @tanstack/start@latest my-app
+
+// app/routes/posts.$id.tsx
+import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/start';
+
+const getPost = createServerFn('GET', async (id: string) =&gt; {
+  return await db.posts.find(id);
+});
+
+export const Route = createFileRoute('/posts/$id')({
+  loader: ({ params }) =&gt; getPost(params.id),
+  component: Post,
+});
+
+function Post() {
+  const post = Route.useLoaderData(); // typed
+  return &lt;h1&gt;{post.title}&lt;/h1&gt;;
+}</code></pre>
+
+<h2>Porownanie</h2>
+<table>
+<thead><tr><th>Cecha</th><th>Next.js 15</th><th>React Router 7</th><th>Astro</th><th>Tanstack Start</th></tr></thead>
+<tbody>
+<tr><td>Routing</td><td>File-based</td><td>File-based + JSX</td><td>File-based</td><td>File lub code-based</td></tr>
+<tr><td>SSR/SSG</td><td>Tak</td><td>Tak</td><td>SSG default, SSR opt</td><td>Tak</td></tr>
+<tr><td>RSC</td><td>Tak (default)</td><td>Czesciowy</td><td>NIE (islands)</td><td>Tak</td></tr>
+<tr><td>Server Actions</td><td>Tak</td><td>Tak (actions)</td><td>Brak</td><td>Tak (server fns)</td></tr>
+<tr><td>Type-safety</td><td>Sredni</td><td>Sredni</td><td>Dobry</td><td>Doskonaly</td></tr>
+<tr><td>Bundler</td><td>Webpack/Turbopack</td><td>Vite</td><td>Vite</td><td>Vite</td></tr>
+<tr><td>Najlepsze do</td><td>Wszechstronne, SaaS</td><td>SPA + framework</td><td>Content sites</td><td>Type-safe full-stack</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Co wybrac w 2026?</h3>
+<ul>
+<li><strong>Domyslnie</strong> &rarr; Next.js 15 (najwiekszy ekosystem, SaaS, b2c)</li>
+<li><strong>SPA z opcja SSR</strong> &rarr; React Router 7 lub Tanstack Start</li>
+<li><strong>Blog/docs/marketing</strong> &rarr; Astro</li>
+<li><strong>Type-safety nad wszystko</strong> &rarr; Tanstack Start</li>
+<li><strong>Prosty SPA</strong> &rarr; Vite + React Router (bez framework)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="08-stylowanie.html">&larr; Stylowanie</a>
+<a href="10-testowanie.html">Testowanie &rarr;</a>
+</div>
+</div>
+</body>
+</html>

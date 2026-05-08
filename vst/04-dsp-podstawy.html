@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSP - podstawy programowania audio</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ec4899;--accent-hover:#f472b6;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">Glowna</a>
+<span class="sep">/</span>
+<a href="index.html">VST</a>
+<span class="sep">/</span>
+<span class="title">04. DSP podstawy</span>
+</div>
+
+<div class="container">
+<h1>DSP - podstawy programowania audio</h1>
+<p class="subtitle">Sample rate, buffery, real-time constraints, filtry, oscylatory, FFT, denormale i wszystko czego potrzeba do zaprogramowania pierwszego pluginu.</p>
+
+<h2>Czym jest DSP?</h2>
+<p><strong>DSP</strong> = Digital Signal Processing - przetwarzanie sygnalow w postaci cyfrowej. W kontekscie pluginow VST oznacza to <strong>manipulacje probkami audio</strong> (zwykle 32-bit float lub 64-bit double) wewnatrz funkcji <code>processBlock</code>.</p>
+
+<pre><code>Audio = ciag probek liczbowych w czasie
+
+Probka  -1.0  -0.5  0.0  +0.5  +1.0
+   |     -    -    -    -    -
+   t -&gt;
+   sample[0]=0.2, sample[1]=0.7, sample[2]=0.5, ...</code></pre>
+
+<p><strong>Probka (sample)</strong> to jedna liczba reprezentujaca chwilowe cisnienie akustyczne w danym punkcie czasu. W formacie float zwykle zakres <code>-1.0..+1.0</code>. Wartosci poza tym zakresem to <strong>clipping</strong> (audio overload).</p>
+
+<h2>Sample rate, buffer size, latencja</h2>
+
+<h3>Sample rate (czestotliwosc probkowania)</h3>
+<p>Liczba probek na sekunde. Standardowe wartosci:</p>
+
+<table>
+<thead><tr><th>Sample rate</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td>22050 Hz</td><td>Stare podcasty, niska jakosc</td></tr>
+<tr><td>44100 Hz</td><td>CD, wiekszosc muzyki streaming</td></tr>
+<tr><td>48000 Hz</td><td>Video, broadcasting, modern DAW default</td></tr>
+<tr><td>88200 Hz</td><td>Mastering audio</td></tr>
+<tr><td>96000 Hz</td><td>High-resolution audio, mastering</td></tr>
+<tr><td>176400 Hz</td><td>Niche, mastering</td></tr>
+<tr><td>192000 Hz</td><td>Top-tier mastering, archiwizacja</td></tr>
+</tbody>
+</table>
+
+<p><strong>Twierdzenie Nyquista:</strong> mozesz reprezentowac bezstratnie sygnal o czestotliwosci max <strong>sample_rate / 2</strong>. Przy 48 kHz -&gt; 24 kHz max (powyzej tego wszystko aliasing-uje).</p>
+
+<h3>Buffer size</h3>
+<p>Liczba probek przekazywanych do pluginu w jednym wywolaniu <code>processBlock</code>. Plugin nie wie, kiedy przyjdzie kolejne wywolanie - przetwarza paczkami.</p>
+
+<table>
+<thead><tr><th>Buffer size</th><th>Latencja @ 48 kHz</th><th>Use case</th></tr></thead>
+<tbody>
+<tr><td>32</td><td>0.67 ms</td><td>Live performance, niska latencja</td></tr>
+<tr><td>64</td><td>1.33 ms</td><td>Live performance</td></tr>
+<tr><td>128</td><td>2.67 ms</td><td>Tracking (nagrywanie)</td></tr>
+<tr><td>256</td><td>5.33 ms</td><td>Mixing</td></tr>
+<tr><td>512</td><td>10.67 ms</td><td>Mastering, mocniejsze wtyczki</td></tr>
+<tr><td>1024</td><td>21.33 ms</td><td>Background rendering</td></tr>
+<tr><td>2048</td><td>42.67 ms</td><td>Offline render</td></tr>
+</tbody>
+</table>
+
+<pre><code>Latencja = buffer_size / sample_rate
+
+256 / 48000 = 0.00533 s = 5.33 ms</code></pre>
+
+<p><strong>Mniejszy buffer -&gt; nizsza latencja, wiecej CPU overhead.</strong></p>
+
+<h3>Real-time constraint</h3>
+<p>W audio thread (wywolujacym <code>processBlock</code>) czas przetworzenia bufora <strong>musi byc krotszy niz czas trwania bufora</strong>. Jesli plugin "spoznia sie" - DAW wysle cisze lub powtorzy poprzedni bufor -&gt; <strong>dropout (audible click)</strong>.</p>
+
+<pre><code>processBlock musi trwac:
+  buffer_size = 256 @ 48000 Hz -&gt; masz 5.33 ms na przetworzenie 256 probek
+
+Realnie: zostawiasz margines bezpieczenstwa, np. zuzywajac &lt; 50% CPU,
+inaczej kazdy peak load -&gt; glitch.</code></pre>
+
+<h2>Real-time constraints - nieprzekraczalne reguly</h2>
+
+<p>W audio thread <strong>NIE WOLNO</strong>:</p>
+
+<pre><code>void processBlock(AudioBuffer&lt;float&gt;&amp; buf, MidiBuffer&amp; midi) {
+    // ZAKAZANE - alokacja heap
+    std::vector&lt;float&gt; tmp(buf.getNumSamples());
+    auto* p = new float[1024];
+    delete[] p;
+
+    // ZAKAZANE - locks (priority inversion)
+    std::lock_guard&lt;std::mutex&gt; lk(mutex);
+
+    // ZAKAZANE - I/O
+    std::ofstream("debug.log") &lt;&lt; "test\n";
+    printf("processing\n");
+
+    // ZAKAZANE - system calls o nieprzewidywalnym czasie
+    std::this_thread::sleep_for(...);
+
+    // ZAKAZANE - wyjatki
+    throw std::runtime_error("oops");
+
+    // ZAKAZANE - dynamic dispatch z wirtualnymi tabelami
+    // (drobny narzut, ale w hot loop dodaje sie)
+}</code></pre>
+
+<p>W audio thread <strong>MOZNA</strong>:</p>
+
+<pre><code>void processBlock(...) {
+    // OK Arytmetyka
+    sample = sample * gain + offset;
+
+    // OK Atomic load/store (lock-free)
+    float currentGain = gainAtomic.load(std::memory_order_relaxed);
+
+    // OK Operacje na pre-alokowanej pamieci
+    preAllocatedBuffer[i] = ...;
+
+    // OK Lookup tables
+    float val = sineTable[index];
+
+    // OK Branchless math
+    float out = (input &gt; 0) ? input : -input;
+}</code></pre>
+
+<p><strong>Regula:</strong> wszystko alokuj w <code>prepareToPlay</code>, w <code>processBlock</code> tylko przelicz.</p>
+
+<h2>Filtry - fundament DSP</h2>
+
+<p>Filtry to <strong>obwody przepuszczajace/blokujace</strong> wybrane czestotliwosci. Cztery podstawowe rodzaje:</p>
+
+<pre><code>        Magnitude
+          |
+       1 -|=========\
+          |          \
+       0 -|           \___________
+          +-----|----------------&gt; Frequency
+                fc (cutoff)
+
+          Lowpass: przepuszcza &lt; fc, tlumi &gt; fc
+
+       1 -|        ___________/=====
+          |       /
+       0 -|======/
+          +-----|----------------&gt; Frequency
+                fc
+
+          Highpass: przepuszcza &gt; fc, tlumi &lt; fc
+
+       1 -|       /-\
+          |      /   \
+       0 -|_____/     \______
+          +----|-|-|----------&gt; Frequency
+              f1 fc f2
+
+          Bandpass: przepuszcza pasmo wokol fc
+
+       1 -|====\   /=====
+          |     \ /
+       0 -|      X
+          +-----|------------&gt; Frequency
+                fc
+
+          Notch: blokuje waskie pasmo wokol fc</code></pre>
+
+<h3>IIR vs FIR</h3>
+
+<table>
+<thead><tr><th>Cecha</th><th>IIR (Infinite Impulse Response)</th><th>FIR (Finite Impulse Response)</th></tr></thead>
+<tbody>
+<tr><td>Charakter</td><td>Rekursywny (sprzezenie zwrotne)</td><td>Splotowy (tylko wejscie)</td></tr>
+<tr><td>Stabilnosc</td><td>Moze byc niestabilny</td><td>Zawsze stabilny</td></tr>
+<tr><td>Latencja</td><td>Bardzo niska (1-2 probki)</td><td>Linearna z dlugoscia</td></tr>
+<tr><td>CPU</td><td>Tani</td><td>Drogi (dlugi splot)</td></tr>
+<tr><td>Phase</td><td>Nieliniowy</td><td>Liniowy (mozliwy)</td></tr>
+<tr><td>Zastosowanie</td><td>EQ, sub kompresor, korekcja</td><td>Linear-phase EQ, FIR convolution</td></tr>
+</tbody>
+</table>
+
+<p><strong>Wiekszosc pluginow uzywa IIR</strong> dla efektow real-time (EQ, filtry analogowe). FIR dla linear-phase EQ i convolution reverb.</p>
+
+<h3>Biquad - Roboczy filtr IIR</h3>
+<p><strong>Biquad</strong> (bi-quadratic) to filtr drugiego rzedu - najbardziej uniwersalny IIR. Kazdy parametryczny EQ to seria biquadow.</p>
+
+<pre><code>Transfer function:
+       b0 + b1*z^-1 + b2*z^-2
+H(z) = ---------------------
+       a0 + a1*z^-1 + a2*z^-2
+
+Difference equation (Direct Form II Transposed):
+y[n] = (b0/a0)*x[n] + s1
+s1 = (b1/a0)*x[n] - (a1/a0)*y[n] + s2
+s2 = (b2/a0)*x[n] - (a2/a0)*y[n]</code></pre>
+
+<h3>Implementacja biquad w C++</h3>
+
+<pre><code>class Biquad {
+public:
+    // Direct Form II Transposed - numerycznie stabilny
+    float processSample(float in) noexcept {
+        float out = b0 * in + s1;
+        s1 = b1 * in - a1 * out + s2;
+        s2 = b2 * in - a2 * out;
+        return out;
+    }
+
+    // RBJ Audio EQ Cookbook formulas
+    void setLowpass(float sampleRate, float cutoffHz, float q) {
+        const float w0 = 2.0f * M_PI * cutoffHz / sampleRate;
+        const float cosw = std::cos(w0);
+        const float sinw = std::sin(w0);
+        const float alpha = sinw / (2.0f * q);
+
+        const float a0_ = 1.0f + alpha;
+        b0 = ((1.0f - cosw) * 0.5f) / a0_;
+        b1 = (1.0f - cosw) / a0_;
+        b2 = ((1.0f - cosw) * 0.5f) / a0_;
+        a1 = (-2.0f * cosw) / a0_;
+        a2 = (1.0f - alpha) / a0_;
+    }
+
+    void setHighpass(float sampleRate, float cutoffHz, float q) {
+        const float w0 = 2.0f * M_PI * cutoffHz / sampleRate;
+        const float cosw = std::cos(w0);
+        const float sinw = std::sin(w0);
+        const float alpha = sinw / (2.0f * q);
+
+        const float a0_ = 1.0f + alpha;
+        b0 = ((1.0f + cosw) * 0.5f) / a0_;
+        b1 = -(1.0f + cosw) / a0_;
+        b2 = ((1.0f + cosw) * 0.5f) / a0_;
+        a1 = (-2.0f * cosw) / a0_;
+        a2 = (1.0f - alpha) / a0_;
+    }
+
+    void setBandpass(float sampleRate, float cutoffHz, float q) {
+        const float w0 = 2.0f * M_PI * cutoffHz / sampleRate;
+        const float cosw = std::cos(w0);
+        const float sinw = std::sin(w0);
+        const float alpha = sinw / (2.0f * q);
+
+        const float a0_ = 1.0f + alpha;
+        b0 = alpha / a0_;
+        b1 = 0.0f;
+        b2 = -alpha / a0_;
+        a1 = (-2.0f * cosw) / a0_;
+        a2 = (1.0f - alpha) / a0_;
+    }
+
+    void reset() noexcept { s1 = s2 = 0.0f; }
+
+private:
+    float b0{1.0f}, b1{0.0f}, b2{0.0f};
+    float a1{0.0f}, a2{0.0f};
+    float s1{0.0f}, s2{0.0f};  // state variables
+};
+
+// Uzycie:
+Biquad lpf;
+lpf.setLowpass(48000.0f, 1000.0f, 0.707f);  // 1 kHz cutoff, Q=0.707 (Butterworth)
+
+void processBlock(AudioBuffer&lt;float&gt;&amp; buf, MidiBuffer&amp;) {
+    auto* data = buf.getWritePointer(0);
+    for (int i = 0; i &lt; buf.getNumSamples(); ++i)
+        data[i] = lpf.processSample(data[i]);
+}</code></pre>
+
+<div class="card">
+<p><strong>Q (factor)</strong> - rezonans / "spiczastosc" filtra przy cutoff:</p>
+<ul>
+<li><code>Q = 0.707</code> = Butterworth (gladki, no resonance)</li>
+<li><code>Q = 1.0..2.0</code> = mild resonance</li>
+<li><code>Q &gt; 5.0</code> = mocny rezonans (synth-style)</li>
+</ul>
+</div>
+
+<h2>Oscylatory - generatory sygnalu</h2>
+
+<p>Oscillator generuje cykliczna fale. Cztery podstawowe ksztalty:</p>
+
+<h3>Sine (sinusoida)</h3>
+
+<pre><code>class SineOsc {
+public:
+    void setFrequency(float freqHz, float sampleRate) {
+        phaseInc = 2.0f * M_PI * freqHz / sampleRate;
+    }
+
+    float processSample() noexcept {
+        float out = std::sin(phase);
+        phase += phaseInc;
+        if (phase &gt;= 2.0f * M_PI) phase -= 2.0f * M_PI;
+        return out;
+    }
+private:
+    float phase{0.0f};
+    float phaseInc{0.0f};
+};</code></pre>
+
+<p><strong><code>std::sin</code> jest wolny.</strong> Lookup table czesto szybsza:</p>
+
+<pre><code>constexpr int TABLE_SIZE = 4096;
+static const std::array&lt;float, TABLE_SIZE&gt; sineTable = []{
+    std::array&lt;float, TABLE_SIZE&gt; t{};
+    for (int i = 0; i &lt; TABLE_SIZE; ++i)
+        t[i] = std::sin(2.0f * M_PI * i / TABLE_SIZE);
+    return t;
+}();
+
+float lookupSine(float phase01) {  // phase01 = 0..1
+    const float idx = phase01 * TABLE_SIZE;
+    const int i0 = static_cast&lt;int&gt;(idx) &amp; (TABLE_SIZE - 1);
+    const int i1 = (i0 + 1) &amp; (TABLE_SIZE - 1);
+    const float frac = idx - std::floor(idx);
+    return sineTable[i0] * (1.0f - frac) + sineTable[i1] * frac;
+}</code></pre>
+
+<h3>Saw, Square, Triangle - naive</h3>
+
+<pre><code>// Naive saw (-1..+1, ramping up)
+float naiveSaw(float phase01) {
+    return 2.0f * phase01 - 1.0f;
+}
+
+// Naive square (-1 lub +1)
+float naiveSquare(float phase01) {
+    return phase01 &lt; 0.5f ? 1.0f : -1.0f;
+}
+
+// Naive triangle
+float naiveTriangle(float phase01) {
+    return phase01 &lt; 0.5f
+        ? 4.0f * phase01 - 1.0f
+        : 3.0f - 4.0f * phase01;
+}</code></pre>
+
+<p><strong>Problem:</strong> naive waveforms aliasuja (ostre krawedzie generuja czestotliwosci &gt; Nyquista, ktore "zawijaja sie" do slyszalnego pasma).</p>
+
+<h3>BLEP / BLAMP - anti-aliasing</h3>
+<p><strong>BLEP</strong> (Band-Limited stEP) i <strong>BLAMP</strong> to techniki dodawania korekcji wokol nieciaglosci w sygnale, eliminujace aliasing.</p>
+
+<pre><code>// Polynomial BLEP correction (Valimaki, Huovilainen)
+inline float polyBlep(float t, float dt) {
+    if (t &lt; dt) {
+        const float x = t / dt;
+        return x + x - x * x - 1.0f;
+    } else if (t &gt; 1.0f - dt) {
+        const float x = (t - 1.0f) / dt;
+        return x * x + x + x + 1.0f;
+    }
+    return 0.0f;
+}
+
+class BlepSawOsc {
+    float phase{0.0f};
+    float phaseInc{0.0f};
+public:
+    void setFrequency(float freqHz, float sr) {
+        phaseInc = freqHz / sr;  // 0..1 per sample
+    }
+
+    float processSample() noexcept {
+        float out = 2.0f * phase - 1.0f;          // naive saw
+        out -= polyBlep(phase, phaseInc);          // correction
+        phase += phaseInc;
+        if (phase &gt;= 1.0f) phase -= 1.0f;
+        return out;
+    }
+};</code></pre>
+
+<p><strong>BLAMP</strong> to calka z BLEP - uzywa sie do triangle oscillator (ciagly, ale ma nieciaglosc pochodnej).</p>
+
+<h2>Wavetable synthesis</h2>
+
+<p><strong>Wavetable</strong> = tablica gotowych fal (np. 2048 probek). Oscylator iteruje po tablicy z dowolnym krokiem (= zmienia czestotliwosc).</p>
+
+<pre><code>class WavetableOsc {
+public:
+    void setWavetable(const std::vector&lt;float&gt;&amp; table) {
+        wavetable = table;  // CAUTION: kopiuj w prepareToPlay, nie w processBlock!
+    }
+
+    void setFrequency(float freqHz, float sr) {
+        phaseInc = freqHz * wavetable.size() / sr;
+    }
+
+    float processSample() noexcept {
+        const int i0 = static_cast&lt;int&gt;(phase) % wavetable.size();
+        const int i1 = (i0 + 1) % wavetable.size();
+        const float frac = phase - std::floor(phase);
+        const float out = wavetable[i0] * (1.0f - frac) + wavetable[i1] * frac;
+
+        phase += phaseInc;
+        while (phase &gt;= wavetable.size()) phase -= wavetable.size();
+        return out;
+    }
+private:
+    std::vector&lt;float&gt; wavetable;
+    float phase{0.0f};
+    float phaseInc{0.0f};
+};</code></pre>
+
+<p><strong>Mip-mapped wavetables</strong> - multiple wavetables w roznych "rozdzielczosciach" dla roznych zakresow pitchu - eliminuje aliasing dla wysokich tonow. Uzywaja tego: Serum, Vital, Massive X.</p>
+
+<h2>FFT - analiza czestotliwosciowa</h2>
+
+<p><strong>FFT</strong> = Fast Fourier Transform. Rozklada sygnal czasowy na <strong>czestotliwosci</strong>.</p>
+
+<pre><code>Sygnal czasowy           Spektrum czestotliwosci
+(amplituda vs czas)  -&gt;   (amplituda vs Hz)
+
+Time domain              Frequency domain
+   v                        v
+buf[N]                   bins[N/2+1]  (complex numbers)
+                         kazdy bin = magnitude + phase</code></pre>
+
+<h3>Kiedy uzywac FFT?</h3>
+<ul>
+<li><strong>Spectrum analyzer</strong> (wizualizacja FFT realtime)</li>
+<li><strong>Spectral processing</strong> (vocoder, pitch shifter, denoiser)</li>
+<li><strong>Convolution</strong> (FFT-based - szybsze dla dlugich impulse responses)</li>
+<li><strong>Frequency-domain effects</strong> (Paulstretch, smudge, freeze)</li>
+</ul>
+
+<h3>FFT w JUCE</h3>
+
+<pre><code>constexpr int fftOrder = 11;            // 2^11 = 2048
+constexpr int fftSize = 1 &lt;&lt; fftOrder;
+
+juce::dsp::FFT fft{fftOrder};
+std::array&lt;float, 2 * fftSize&gt; fftData{};
+
+void analyseSpectrum(const float* timeData) {
+    // Skopiuj dane
+    std::copy(timeData, timeData + fftSize, fftData.begin());
+    std::fill(fftData.begin() + fftSize, fftData.end(), 0.0f);
+
+    // Forward FFT (real -&gt; complex)
+    fft.performRealOnlyForwardTransform(fftData.data());
+
+    // fftData zawiera teraz pary (real, imag) per bin
+    for (int bin = 0; bin &lt; fftSize / 2; ++bin) {
+        const float re = fftData[2 * bin];
+        const float im = fftData[2 * bin + 1];
+        const float magnitude = std::sqrt(re * re + im * im);
+        const float phase = std::atan2(im, re);
+        // ... uzyj magnitude / phase
+    }
+}</code></pre>
+
+<div class="card">
+<p><strong>Trade-offs FFT:</strong></p>
+<ul>
+<li>Mala ramka (256) -&gt; szybka odpowiedz czasowa, slaba rozdzielczosc czestotliwosci</li>
+<li>Duza ramka (4096) -&gt; dobra rozdzielczosc Hz, slaba odpowiedz czasowa</li>
+<li><strong>Compromise:</strong> 1024-2048 typowo dla effects</li>
+</ul>
+</div>
+
+<h2>Convolution - splot</h2>
+
+<p><strong>Convolution</strong> = splot dwoch sygnalow. W audio: dzwiek x impulse response (IR) = dzwiek z charakterystyka tej IR.</p>
+
+<pre><code>input x IR(reverb sali) = ten sam dzwiek grany w sali</code></pre>
+
+<h3>Direct convolution (slow):</h3>
+
+<pre><code>// y[n] = sum_{k=0}^{N-1} x[n-k] * h[k]
+void convolve(const std::vector&lt;float&gt;&amp; input,
+              const std::vector&lt;float&gt;&amp; impulseResponse,
+              std::vector&lt;float&gt;&amp; output) {
+    const int N = impulseResponse.size();
+    for (int n = 0; n &lt; input.size(); ++n) {
+        float sum = 0.0f;
+        for (int k = 0; k &lt; N; ++k) {
+            if (n - k &gt;= 0)
+                sum += input[n - k] * impulseResponse[k];
+        }
+        output[n] = sum;
+    }
+}</code></pre>
+
+<p><strong>Zlozonosc:</strong> O(N x M). Dla IR 96000 sampli x buffer 256 = 24,576,000 operacji per buffer = <strong>niedopuszczalne</strong> w realtime.</p>
+
+<h3>FFT-based convolution</h3>
+<p>Uzywajac twierdzenia o splocie: splot w czasie = mnozenie w czestotliwosci.</p>
+
+<pre><code>1. FFT(input) -&gt; X
+2. FFT(IR) -&gt; H (raz, w prepareToPlay)
+3. Y = X * H (element-wise)
+4. iFFT(Y) -&gt; output</code></pre>
+
+<p><strong>Zlozonosc:</strong> O(N log N). Realtime mozliwe nawet dla minutowych IR.</p>
+
+<h3>Partitioned convolution</h3>
+<p>Dla bardzo dlugich IR (cathedral reverb, 10+ sekund) - dzielisz IR na kawalki, processujac kazdy z opoznieniem. <strong>Zero-latency partitioned convolution</strong> - znana m.in. z Altiverb, Waves IR-1.</p>
+
+<p>JUCE oferuje <code>juce::dsp::Convolution</code>:</p>
+
+<pre><code>juce::dsp::Convolution conv;
+
+void prepareToPlay(double sr, int blockSize) {
+    juce::dsp::ProcessSpec spec{sr, (uint32_t)blockSize, 2};
+    conv.prepare(spec);
+    conv.loadImpulseResponse(impulseFile,
+                              juce::dsp::Convolution::Stereo::yes,
+                              juce::dsp::Convolution::Trim::yes,
+                              0);
+}
+
+void processBlock(AudioBuffer&lt;float&gt;&amp; buf, MidiBuffer&amp;) {
+    juce::dsp::AudioBlock&lt;float&gt; block(buf);
+    juce::dsp::ProcessContextReplacing&lt;float&gt; ctx(block);
+    conv.process(ctx);
+}</code></pre>
+
+<h2>Denormale - cichy zabojca CPU</h2>
+
+<p><strong>Denormale</strong> (a.k.a. subnormals) to bardzo male liczby zmiennoprzecinkowe (~10^-38..10^-45). Niektore filtry IIR maja coraz mniejsze stany - w koncu wpadaja w denormalny zakres.</p>
+
+<p><strong>Problem:</strong> procesor x86 obsluguje denormale przez <strong>mikrokod</strong> (~100x wolniejszy niz normalna arytmetyka). Plugin nagle bierze 50% CPU zamiast 1%.</p>
+
+<h3>Rozwiazanie 1: FTZ + DAZ (CPU flag)</h3>
+
+<pre><code>#include &lt;pmmintrin.h&gt;     // SSE3
+#include &lt;xmmintrin.h&gt;     // SSE
+
+void enableFlushDenormalsToZero() {
+    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);            // FTZ
+    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);    // DAZ
+}
+
+// Wywolaj raz na poczatku processBlock (lub w prepareToPlay)
+void processBlock(...) {
+    juce::ScopedNoDenormals noDenormals;  // JUCE helper
+    // ... reszta
+}</code></pre>
+
+<p><code>juce::ScopedNoDenormals</code> ustawia flagi na czas scope i przywraca poprzedni stan.</p>
+
+<h3>Rozwiazanie 2: DC injection (oldschool)</h3>
+
+<pre><code>// Dodaj mikroskopijna stala do sygnalu - zapobiega "zatonieciu" w denormale
+constexpr float DC_OFFSET = 1.0e-25f;
+sample += DC_OFFSET;</code></pre>
+
+<p>W 2026 <strong>FTZ/DAZ jest standardem</strong> - DC injection to legacy hack.</p>
+
+<h2>DC blocking</h2>
+
+<p><strong>DC offset</strong> (stala skladowa) w sygnale powoduje:</p>
+<ul>
+<li>Asymetryczne clipping</li>
+<li>Marnowanie headroom</li>
+<li>Pozornie glosniejsze peaks</li>
+</ul>
+
+<p><strong>DC blocker</strong> = bardzo nisko-pasmowy highpass (~5-20 Hz):</p>
+
+<pre><code>class DcBlocker {
+    float x1{0.0f}, y1{0.0f};
+    static constexpr float R = 0.995f;  // ~5 Hz @ 48 kHz
+public:
+    float processSample(float in) noexcept {
+        const float out = in - x1 + R * y1;
+        x1 = in;
+        y1 = out;
+        return out;
+    }
+};</code></pre>
+
+<p>Czesto wstawiany <strong>na koncu pluginu</strong> zeby "wyczyscic" wyjscie (wazne dla nieliniowych efektow: distortion, saturation, kompresja).</p>
+
+<h2>Smoothing parametrow - anti-zipper</h2>
+
+<p>Gdy user kreci pokretlem szybko, parametr zmienia sie skokowo. Bez smoothing -&gt; <strong>zipper noise</strong> (chrobotanie):</p>
+
+<pre><code>// Nagle skok
+gain = newGain;  // trzask!
+
+// Smoothed (linear)
+class LinearSmoother {
+    float current{0.0f}, target{0.0f};
+    float step{0.0f};
+    int countdown{0};
+public:
+    void setRamp(float fromValue, float toValue, int numSamples) {
+        current = fromValue;
+        target = toValue;
+        step = (target - current) / numSamples;
+        countdown = numSamples;
+    }
+
+    float getNextValue() noexcept {
+        if (countdown &gt; 0) {
+            current += step;
+            --countdown;
+        } else {
+            current = target;
+        }
+        return current;
+    }
+};
+
+// Smoothed (exponential, simple one-pole)
+class ExpSmoother {
+    float current{0.0f}, target{0.0f};
+    float coeff{0.99f};
+public:
+    void setTimeMs(float timeMs, float sampleRate) {
+        coeff = std::exp(-1.0f / (sampleRate * timeMs * 0.001f));
+    }
+    void setTarget(float t) { target = t; }
+    float processSample() noexcept {
+        current = target + coeff * (current - target);
+        return current;
+    }
+};</code></pre>
+
+<p>JUCE ma gotowe <code>juce::SmoothedValue&lt;float, ValueSmoothingTypes::Linear&gt;</code> - uzywaj.</p>
+
+<pre><code>juce::SmoothedValue&lt;float&gt; gainSmooth;
+
+void prepareToPlay(double sr, int blockSize) {
+    gainSmooth.reset(sr, 0.05);  // 50 ms ramp
+    gainSmooth.setCurrentAndTargetValue(0.5f);
+}
+
+void processBlock(AudioBuffer&lt;float&gt;&amp; buf, MidiBuffer&amp;) {
+    gainSmooth.setTargetValue(gainParam-&gt;get());
+    for (int i = 0; i &lt; buf.getNumSamples(); ++i) {
+        const float g = gainSmooth.getNextValue();
+        for (int ch = 0; ch &lt; buf.getNumChannels(); ++ch)
+            buf.getWritePointer(ch)[i] *= g;
+    }
+}</code></pre>
+
+<h2>Stereo processing - Mid/Side</h2>
+
+<p><strong>Mid/Side encoding:</strong></p>
+<pre><code>mid  = (L + R) / 2     // mono component
+side = (L - R) / 2     // stereo component
+
+Decoding:
+L = mid + side
+R = mid - side</code></pre>
+
+<p>Typowe uzycia:</p>
+<ul>
+<li><strong>Stereo width</strong> = side gain</li>
+<li><strong>Mono compatibility</strong> = ile robisz z mid</li>
+<li><strong>Mid/Side EQ</strong> - osobne EQ na srodek (wokal, bas) i boki (reverb, ambient)</li>
+<li><strong>Stereo widener</strong> - mocne narzedzie miksowania</li>
+</ul>
+
+<pre><code>void processBlockMidSide(AudioBuffer&lt;float&gt;&amp; buf) {
+    auto* L = buf.getWritePointer(0);
+    auto* R = buf.getWritePointer(1);
+    const int N = buf.getNumSamples();
+
+    for (int i = 0; i &lt; N; ++i) {
+        const float mid = 0.5f * (L[i] + R[i]);
+        const float side = 0.5f * (L[i] - R[i]);
+
+        // ... process mid i side osobno
+        const float wideSide = side * sideGain;
+
+        L[i] = mid + wideSide;
+        R[i] = mid - wideSide;
+    }
+}</code></pre>
+
+<h2>Oversampling - dla nieliniowych procesow</h2>
+
+<p><strong>Aliasing</strong> w nieliniowych operacjach (saturation, soft clipping, distortion) generuje czestotliwosci &gt; Nyquista, ktore "zawijaja sie" do slyszalnego pasma -&gt; brzydkie artefakty.</p>
+
+<p><strong>Rozwiazanie:</strong> oversampling. Up-samplujesz x 2/4/8, robisz nieliniowe processing, low-pass filtrujesz, down-samplujesz.</p>
+
+<pre><code>Original:        |-------------|  (48 kHz)
+                  v upsample x4
+Oversampled:    |-----------------------------|  (192 kHz)
+                  v apply nonlinear (distortion)
+Distorted:      |=============================|
+                  v lowpass filter (anti-aliasing)
+                  v downsample x4
+Output:          |-------------|  (48 kHz, alias-free)</code></pre>
+
+<p>JUCE:</p>
+
+<pre><code>juce::dsp::Oversampling&lt;float&gt; oversampling{
+    2,                        // 2 channels
+    2,                        // log2(factor) -&gt; 2 = 4x oversampling
+    juce::dsp::Oversampling&lt;float&gt;::filterHalfBandPolyphaseIIR,
+    true                      // max quality
+};
+
+void prepareToPlay(double sr, int blockSize) {
+    oversampling.initProcessing(blockSize);
+}
+
+void processBlock(AudioBuffer&lt;float&gt;&amp; buf, MidiBuffer&amp;) {
+    juce::dsp::AudioBlock&lt;float&gt; block(buf);
+    auto upsampledBlock = oversampling.processSamplesUp(block);
+
+    // Nieliniowe processing na upsampledBlock
+    for (int ch = 0; ch &lt; upsampledBlock.getNumChannels(); ++ch) {
+        auto* data = upsampledBlock.getChannelPointer(ch);
+        for (size_t i = 0; i &lt; upsampledBlock.getNumSamples(); ++i)
+            data[i] = std::tanh(data[i] * drive);  // soft clipping
+    }
+
+    oversampling.processSamplesDown(block);
+}</code></pre>
+
+<p><strong>Koszt:</strong> 4x oversampling = ~3-4x wiecej CPU. Wlacz tylko dla nieliniowych operacji, zostaw liniowe (EQ, delay) bez oversamplingu.</p>
+
+<h2>Lookup tables i precomputation</h2>
+
+<pre><code>// Drogi: std::tanh w hot loop
+for (int i = 0; i &lt; N; ++i)
+    out[i] = std::tanh(in[i] * drive);
+
+// Lepiej: lookup table
+constexpr int LUT_SIZE = 4096;
+static const std::array&lt;float, LUT_SIZE&gt; tanhLut = []{
+    std::array&lt;float, LUT_SIZE&gt; t{};
+    for (int i = 0; i &lt; LUT_SIZE; ++i) {
+        const float x = -5.0f + 10.0f * i / (LUT_SIZE - 1);
+        t[i] = std::tanh(x);
+    }
+    return t;
+}();
+
+float fastTanh(float x) {
+    x = std::clamp(x, -5.0f, 5.0f);
+    const float idx = (x + 5.0f) / 10.0f * (LUT_SIZE - 1);
+    const int i0 = static_cast&lt;int&gt;(idx);
+    const int i1 = std::min(i0 + 1, LUT_SIZE - 1);
+    const float frac = idx - i0;
+    return tanhLut[i0] * (1.0f - frac) + tanhLut[i1] * frac;
+}</code></pre>
+
+<p>W 2026 <strong>CPU-y sa tak szybkie</strong>, ze czesto <code>std::tanh</code> jest wystarczajacy - ale w tight loops i obciazonych pluginach lookup wciaz sie oplaca.</p>
+
+<h2>SIMD - wektoryzacja</h2>
+
+<p>Modern CPU (AVX, NEON) potrafi wykonac <strong>4-8 operacji float jednoczesnie</strong>:</p>
+
+<pre><code>#include &lt;immintrin.h&gt;     // AVX
+
+void multiplyArrays(float* a, const float* b, int n) {
+    int i = 0;
+    // SIMD: 8 floats per iteration
+    for (; i + 8 &lt;= n; i += 8) {
+        __m256 va = _mm256_loadu_ps(&amp;a[i]);
+        __m256 vb = _mm256_loadu_ps(&amp;b[i]);
+        __m256 vc = _mm256_mul_ps(va, vb);
+        _mm256_storeu_ps(&amp;a[i], vc);
+    }
+    // Cleanup
+    for (; i &lt; n; ++i) a[i] *= b[i];
+}</code></pre>
+
+<p><strong>JUCE alternatywa</strong> - <code>juce::dsp::SIMDRegister&lt;float&gt;</code> (cross-platform: SSE / NEON / AVX).</p>
+
+<p><strong>W 2026</strong> kompilator (Clang, GCC) <strong>auto-wektoryzuje</strong> wiele petli - czesto reczny SIMD niepotrzebny. Sprawdz disassembly (<code>-O3 -mavx2 -fopt-info-vec</code>).</p>
+
+<h2>Zlota lista: checklist DSP-poprawnego pluginu</h2>
+
+<div class="card">
+<ul>
+<li>&#9744; <code>prepareToPlay</code> alokuje wszystkie bufory</li>
+<li>&#9744; <code>processBlock</code> nie alokuje, nie locuje, nie I/O</li>
+<li>&#9744; <code>juce::ScopedNoDenormals</code> na poczatku <code>processBlock</code></li>
+<li>&#9744; DC blocker na wyjsciu (jesli nieliniowe)</li>
+<li>&#9744; <code>juce::SmoothedValue</code> dla kazdego parametru wplywajacego na sygnal</li>
+<li>&#9744; Oversampling dla saturacji / clippingu / nieliniowych</li>
+<li>&#9744; Anti-aliasing dla oscylatorow (BLEP/BLAMP)</li>
+<li>&#9744; Lookup tables dla <code>tan</code>/<code>exp</code>/<code>pow</code> w hot loops</li>
+<li>&#9744; Atomic dla parametrow cross-thread</li>
+<li>&#9744; Test pluginval level 10 -&gt; 0 errors</li>
+<li>&#9744; Test 1000+ instances bez memory leak</li>
+<li>&#9744; Test rozne sample rates (44.1, 48, 96, 192 kHz)</li>
+<li>&#9744; Test rozne buffer sizes (32, 64, 128, ..., 2048)</li>
+</ul>
+</div>
+
+<h2>Materialy do nauki DSP</h2>
+
+<div class="card">
+<h3>Ksiazki</h3>
+<ul>
+<li><strong>The Audio Programming Book</strong> - Boulanger, Lazzarini (MIT Press)</li>
+<li><strong>Designing Audio Effect Plugins in C++</strong> - Will Pirkle</li>
+<li><strong>DAFX: Digital Audio Effects</strong> - Udo Zolzer</li>
+<li><strong>Computer Music: Synthesis, Composition, and Performance</strong> - Dodge &amp; Jerse</li>
+<li><strong>The Theory and Technique of Electronic Music</strong> - Miller Puckette (free PDF)</li>
+</ul>
+
+<h3>Online</h3>
+<ul>
+<li><strong>musicdsp.org</strong> - repozytorium algorytmow</li>
+<li><strong>dsp.stackexchange.com</strong> - Q&amp;A</li>
+<li><strong>Will Pirkle YouTube</strong> - rozdzialy z ksiazek</li>
+<li><strong>The Audio Programmer YouTube</strong> - Joshua Hodge</li>
+<li><strong>Cytomic - Andy Simper papers</strong> (ZDF/topology-preserving)</li>
+<li><strong>Vadim Zavalishin - The Art of VA Filter Design</strong> (free PDF, fundamentalna)</li>
+<li><strong>JUCE DSP Tutorials</strong> - juce.com/learn/tutorials</li>
+</ul>
+
+<h3>Free DSP source</h3>
+<ul>
+<li><strong>Vital Synth</strong> (github.com/mtytel/vital) - wavetable</li>
+<li><strong>Surge XT</strong> (github.com/surge-synthesizer/surge) - synth ogromnych rozmiarow</li>
+<li><strong>JUCE Examples</strong> - gotowe oscillatory, filtry, FFT</li>
+</ul>
+</div>
+
+<h2>Co dalej?</h2>
+<ul>
+<li><strong>Rozdzial 05</strong> - Tworzenie pierwszej wtyczki (JUCE Hello World)</li>
+<li><strong>Rozdzial 06</strong> - Cross-platform: build, signing, notarization</li>
+<li><strong>Rozdzial 08</strong> - Zaawansowane DSP (convolution reverb, multi-band, spectral FX)</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="03-narzedzia-programistyczne.html">&larr; 03. Narzedzia programistyczne</a>
+<a href="05-tworzenie-pierwszej-wtyczki.html">05. Tworzenie pierwszej wtyczki &rarr;</a>
+</div>
+</div>
+</body>
+</html>

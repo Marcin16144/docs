@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backup i recovery</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">Backup i recovery</span>
+</div>
+
+<div class="container">
+<h1>Backup i recovery</h1>
+<p class="subtitle">Strategie kopii zapasowych, narzedzia natywne, chmura i odtwarzanie po awarii.</p>
+
+<h2>Zasada 3-2-1</h2>
+<p>Kanon backupu mowi: <strong>3 kopie</strong> danych w <strong>2 roznych mediach</strong>, <strong>1 kopia offsite</strong>. Wspolczesne rozszerzenie 3-2-1-1-0 dodaje: 1 kopia immutable/offline, 0 bledow w testach restore.</p>
+<table>
+<tr><th>Element</th><th>Cel</th><th>Przyklad</th></tr>
+<tr><td>3 kopie</td><td>Tolerowanie utraty pojedynczych nosnikow</td><td>Produkcja + backup lokalny + backup chmurowy</td></tr>
+<tr><td>2 media</td><td>Roznorodnosc technologii (uszkodzenie nie dotyczy obu)</td><td>Dysk + tasma, dysk + chmura</td></tr>
+<tr><td>1 offsite</td><td>Ochrona przed katastrofa fizyczna (pozar, powodz)</td><td>Inny budynek, region chmury</td></tr>
+<tr><td>1 immutable/offline</td><td>Ochrona przed ransomware</td><td>WORM disk, air-gapped tape</td></tr>
+<tr><td>0 bledow</td><td>Regularne testy odtwarzania</td><td>Mesieczny test restore</td></tr>
+</table>
+
+<h2>RTO vs RPO</h2>
+<div class="card">
+<p><strong>RTO (Recovery Time Objective)</strong> - maksymalny dopuszczalny czas niedostepnosci (kiedy uslugi musza wrocic).</p>
+<p style="margin:0"><strong>RPO (Recovery Point Objective)</strong> - maksymalna dopuszczalna utrata danych (jak czesto trzeba robic backup).</p>
+</div>
+
+<table>
+<tr><th>Klasa</th><th>RTO</th><th>RPO</th><th>Strategia</th></tr>
+<tr><td>Mission-critical</td><td>< 15 min</td><td>< 5 min</td><td>HA cluster + sync replication, hot standby</td></tr>
+<tr><td>Business-critical</td><td>< 4 h</td><td>< 1 h</td><td>Async replication, quick restore from snapshot</td></tr>
+<tr><td>Important</td><td>< 24 h</td><td>< 24 h</td><td>Daily backup, off-site copy</td></tr>
+<tr><td>Non-critical</td><td>< 7 dni</td><td>< 7 dni</td><td>Weekly backup, archive storage</td></tr>
+</table>
+
+<h2>Windows Server Backup</h2>
+<p>Wbudowane narzedzie WSB (Windows Server Backup) i jego CLI <code>wbadmin</code> daje podstawowe mozliwosci backupu - System State, Bare-Metal Recovery, Volume, File-level. Dziala dobrze dla pojedynczych serwerow i malych srodowisk.</p>
+<pre><code># Instalacja Windows Server Backup
+Install-WindowsFeature Windows-Server-Backup
+
+# Backup System State (zawiera AD, registry, IIS metabase, COM+, certificates)
+wbadmin start systemstatebackup -backupTarget:F: -quiet
+
+# Backup pelny (Bare Metal Recovery)
+wbadmin start backup -backupTarget:F: `
+                     -include:C:,D: `
+                     -allCritical `
+                     -systemstate `
+                     -vssFull `
+                     -quiet
+
+# Pobranie historii backupow
+wbadmin get versions
+
+# Restore na poziomie pliku
+wbadmin start recovery -version:01/15/2025-22:00 `
+                        -itemType:File `
+                        -items:C:\Data `
+                        -recoveryTarget:E:\Restore `
+                        -overwrite:CreateCopy</code></pre>
+
+<h2>Volume Shadow Copy Service (VSS)</h2>
+<p>VSS to mechanizm Windows umozliwiajacy spojny backup plikow w uzyciu (otwarte przez aplikacje). Backup tools wywoluja VSS, ktore tworza "writers" specyficzne dla aplikacji (SQL, Exchange, Hyper-V, AD).</p>
+<pre><code># Lista VSS writers (kazdy = aplikacja wspierajaca consistent snapshot)
+vssadmin list writers
+
+# Lista shadow storage
+vssadmin list shadowstorage
+
+# Wlaczenie Previous Versions na woluminie (uzytkownicy moga przywracac sami)
+# Konfiguracja przez File Explorer -&gt; Properties -&gt; Shadow Copies -&gt; Enable
+
+# Tworzenie shadow copy z PowerShell
+$shadow = (Get-WmiObject -List Win32_ShadowCopy).Create("C:\", "ClientAccessible")</code></pre>
+
+<h2>Azure Backup</h2>
+<p>Managed cloud backup od Microsoftu. Agent <strong>Microsoft Azure Recovery Services Agent (MARS)</strong> instalowany na serwerze backupuje pliki/foldery/system state do Recovery Services Vault w Azure.</p>
+
+<h3>Skladniki Azure Backup</h3>
+<table>
+<tr><th>Komponent</th><th>Zastosowanie</th></tr>
+<tr><td>MARS Agent</td><td>Prosty backup plikow + System State z on-prem</td></tr>
+<tr><td>MABS (Microsoft Azure Backup Server)</td><td>Backup wielu serwerow z lokalnego serwera (DPM bez SCDPM license)</td></tr>
+<tr><td>Azure Backup Server System Center DPM</td><td>Pelne System Center DPM z replikacja do Azure</td></tr>
+<tr><td>Azure VM Backup</td><td>Snapshot VM w Azure (agent VM Extension)</td></tr>
+<tr><td>Azure Backup Vault Storage</td><td>Geo-redundant storage, immutable, soft delete</td></tr>
+</table>
+
+<pre><code># Rejestracja MARS agent w vault (po instalacji msi)
+Start-OBRegistration
+
+# Konfiguracja policy backupu
+$policy = New-OBPolicy
+$schedule = New-OBSchedule -DaysOfWeek Monday,Wednesday,Friday `
+                            -TimesOfDay "22:00"
+$retention = New-OBRetentionPolicy -RetentionDays 30
+
+Add-OBSchedule  -Policy $policy -Schedule $schedule
+Add-OBRetentionPolicy -Policy $policy -RetentionPolicy $retention
+
+# Folder do backupu
+$source = New-OBFileSpec -FileSpec "C:\Data"
+Add-OBFileSpec -Policy $policy -FileSpec $source
+
+# Wdrozenie polityki
+Set-OBPolicy -Policy $policy</code></pre>
+
+<h2>Backupowanie Active Directory</h2>
+<div class="card">
+<p><strong>Dla DC krytyczne sa:</strong> System State backup (zawiera baze NTDS.dit, SYSVOL, registry, IIS metabase). Minimum dwa kontrolery domeny + dzienny System State backup z retencja co najmniej 60 dni.</p>
+</div>
+<pre><code># Backup System State na DC (target nie moze byc na woluminie systemowym)
+wbadmin start systemstatebackup -backupTarget:E: -quiet
+
+# Tombstone Lifetime - kontrola "starosci" backupu
+# Domyslnie 180 dni - backup musi byc nowszy by byl uzyteczny
+Get-ADObject -Identity "CN=Directory Service,CN=Windows NT,CN=Services,$((Get-ADRootDSE).configurationNamingContext)" `
+             -Properties tombstoneLifetime
+
+# Authoritative restore (przywrocenie usunietego OU)
+# Boot DC w trybie Directory Services Restore Mode (DSRM)
+# Uruchomic ntdsutil
+ntdsutil
+    activate instance ntds
+    authoritative restore
+    restore subtree "OU=Sales,DC=contoso,DC=local"
+    quit
+    quit</code></pre>
+
+<h3>AD Recycle Bin</h3>
+<p>Wbudowany "kosz" dla obiektow AD - umozliwia odzyskanie usunietego obiektu z pelnym zachowaniem atrybutow. Aktywowany raz, wlaczony forever.</p>
+<pre><code># Wlaczenie AD Recycle Bin (raz, na zawsze - nie da sie wylaczyc)
+Enable-ADOptionalFeature -Identity "Recycle Bin Feature" `
+                          -Scope ForestOrConfigurationSet `
+                          -Target "contoso.local"
+
+# Restoreowanie usunietego uzytkownika
+Get-ADObject -Filter 'isDeleted -eq $true -and SamAccountName -eq "jkowalski"' `
+             -IncludeDeletedObjects |
+    Restore-ADObject</code></pre>
+
+<h2>Backup IIS</h2>
+<pre><code># Konfiguracja IIS (applicationHost.config)
+$dest = "D:\Backups\IIS\$(Get-Date -Format 'yyyy-MM-dd')"
+New-Item -Path $dest -ItemType Directory -Force
+
+# Backup applicationHost + redirection.config + administration.config
+Copy-Item "$env:windir\System32\inetsrv\config\applicationHost.config" $dest
+Copy-Item "$env:windir\System32\inetsrv\config\redirection.config" $dest
+Copy-Item "$env:windir\System32\inetsrv\config\administration.config" $dest
+
+# Eksport konfiguracji site/pool
+&amp; "$env:windir\System32\inetsrv\appcmd.exe" list sites /xml &gt; $dest\sites.xml
+&amp; "$env:windir\System32\inetsrv\appcmd.exe" list apppools /xml &gt; $dest\apppools.xml
+
+# Eksport certyfikatow (z prywatnym kluczem)
+Get-ChildItem Cert:\LocalMachine\My | ForEach-Object {
+    $thumb = $_.Thumbprint
+    Export-PfxCertificate -Cert $_ `
+                          -FilePath "$dest\cert-$thumb.pfx" `
+                          -Password (ConvertTo-SecureString "BackupPassword!" -AsPlainText -Force)
+}</code></pre>
+
+<h2>Disaster Recovery Plan</h2>
+<p>Backup to <strong>nie</strong> DR. DR plan to dokument opisujacy jak organizacja kontynuuje dzialanie po katastrofie - role, kolejnosc odtwarzania, RTO/RPO per system, kontakty, alternatywne lokalizacje.</p>
+
+<h3>Elementy planu DR</h3>
+<ul>
+<li><strong>Business Impact Analysis (BIA)</strong> - klasyfikacja systemow wg krytycznosci</li>
+<li><strong>Recovery Sequence</strong> - kolejnosc odtwarzania (np. AD -&gt; DNS -&gt; SQL -&gt; aplikacje)</li>
+<li><strong>Personel i role</strong> - kto co robi, dane kontaktowe (off-hours)</li>
+<li><strong>Dokumentacja runbookow</strong> - krok po kroku procedury restore</li>
+<li><strong>Komunikacja</strong> - status page, mail/SMS broadcasting</li>
+<li><strong>Alternatywna lokalizacja</strong> - cold/warm/hot site, region DR w chmurze</li>
+<li><strong>Tabletop exercises</strong> - regularne cwiczenia teoretyczne</li>
+<li><strong>DR drill</strong> - rzeczywiste cwiczenie z odtwarzaniem (raz na pol roku)</li>
+</ul>
+
+<h2>Test restoreu - kluczowy</h2>
+<div class="card">
+<p><strong>Backup ktory nigdy nie byl testowany nie istnieje.</strong> Najczestsze problemy to: brak dostepu do tasm/dyskow, niewiadome haslo do encryption, niekompletny System State, brak wymaganych komponentow do odzyskania (Recovery Services Vault credentials, MARS passphrase).</p>
+</div>
+
+<ul>
+<li>Test restore co najmniej raz na miesiac dla krytycznych systemow</li>
+<li>Restore nie do produkcji - osobna VM/dysk testowy</li>
+<li>Test odtwarzania z najstarszego dostepnego backupu (sprawdza retencje)</li>
+<li>Dokumentowanie kazdego testu - czas, wynik, problemy</li>
+<li>Test pelnego DR (przelaczenie do site DR) raz na rok</li>
+</ul>
+
+<h2>Ochrona przed ransomware</h2>
+<ul>
+<li><strong>Immutable backups</strong> - WORM (Write Once Read Many) lub Locked policy w cloud</li>
+<li><strong>Air-gapped backups</strong> - tasma odlaczona, offline storage</li>
+<li><strong>Multi-Factor Authentication</strong> dla dostepu do konsoli backupu</li>
+<li>Soft delete + recycle bin w Recovery Services Vault (Azure - 14 dni domyslnie)</li>
+<li>Separate credentials dla backupu (nie domain admin)</li>
+<li>Monitoring zmian wzorcow backup (gwaltowne zwiekszenie compression ratio = encryption)</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="10-monitoring-i-logowanie.html">&larr; Monitoring i logowanie</a>
+    <a href="12-aktualizacje-i-patchowanie.html">Aktualizacje i patchowanie &rarr;</a>
+</div>
+</div>
+</body>
+</html>

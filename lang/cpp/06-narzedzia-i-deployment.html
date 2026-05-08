@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Narzedzia i deployment C++</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">C++</a>
+    <span class="sep">/</span>
+    <span class="title">Narzedzia i deployment</span>
+</div>
+
+<div class="container">
+<h1>Narzedzia i deployment C++</h1>
+<p class="subtitle">CMake template, vcpkg/Conan, cross-compilation, static vs dynamic, Docker, GDB/LLDB, perf profiling.</p>
+
+<h2>Kompletny CMake template</h2>
+<pre><code># CMakeLists.txt - production-ready
+cmake_minimum_required(VERSION 3.25)
+project(MyApp
+    VERSION 1.0.0
+    DESCRIPTION "Modern C++ application"
+    LANGUAGES CXX
+)
+
+# Standard
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Out-of-source builds
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+    message(FATAL_ERROR "In-source build forbidden")
+endif()
+
+# Default build type
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# Compile commands dla clangd
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Warnings
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Wall -Wextra -Wpedantic -Wshadow)
+endif()
+
+# Sanitizers w Debug
+option(ENABLE_SANITIZERS "Enable ASan + UBSan" ON)
+if(ENABLE_SANITIZERS AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+endif()
+
+# Hardening
+add_compile_definitions($&lt;$&lt;CONFIG:Release&gt;:_FORTIFY_SOURCE=3&gt;)
+
+# Subdirectories
+add_subdirectory(src)
+add_subdirectory(tests)
+
+# Install
+include(GNUInstallDirs)
+install(TARGETS myapp
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)</code></pre>
+
+<h2>vcpkg manifest mode</h2>
+<pre><code>// vcpkg.json
+{
+  "name": "myapp",
+  "version-string": "1.0.0",
+  "dependencies": [
+    "fmt",
+    "spdlog",
+    "nlohmann-json",
+    {
+      "name": "boost",
+      "features": ["asio", "beast"]
+    }
+  ],
+  "builtin-baseline": "abc123def456...",
+  "overrides": [
+    { "name": "fmt", "version": "10.2.1" }
+  ]
+}
+
+// vcpkg-configuration.json - features platform-specific
+{
+  "default-registry": {
+    "kind": "git",
+    "repository": "https://github.com/microsoft/vcpkg",
+    "baseline": "abc123def456..."
+  }
+}</code></pre>
+
+<pre><code># Build
+cmake --preset=default \
+  -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+cmake --build build</code></pre>
+
+<h2>Conan 2 - conanfile.py</h2>
+<pre><code>from conan import ConanFile
+from conan.tools.cmake import CMakeDeps, CMakeToolchain, CMake
+
+class MyAppConan(ConanFile):
+    name = "myapp"
+    version = "1.0.0"
+    settings = "os", "compiler", "build_type", "arch"
+    options = {"shared": [True, False], "fPIC": [True, False]}
+    default_options = {"shared": False, "fPIC": True}
+
+    def requirements(self):
+        self.requires("fmt/10.2.1")
+        self.requires("spdlog/1.13.0")
+        self.requires("nlohmann_json/3.11.3")
+
+    def build_requirements(self):
+        self.tool_requires("cmake/3.28.0")
+        self.test_requires("catch2/3.5.0")
+
+    def layout(self):
+        from conan.tools.cmake import cmake_layout
+        cmake_layout(self)
+
+    def generate(self):
+        deps = CMakeDeps(self)
+        deps.generate()
+        tc = CMakeToolchain(self)
+        tc.generate()
+
+# Polecenia
+# conan install . --output-folder=build --build=missing -s build_type=Release
+# cmake --preset conan-release
+# cmake --build --preset conan-release</code></pre>
+
+<h2>Cross-compilation</h2>
+
+<h3>Mac/Linux &rarr; Linux ARM</h3>
+<pre><code># Toolchain file - aarch64-toolchain.cmake
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
+
+set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+
+set(CMAKE_FIND_ROOT_PATH /usr/aarch64-linux-gnu)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+
+# Build
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=aarch64-toolchain.cmake</code></pre>
+
+<h3>Windows &rarr; Linux (MinGW)</h3>
+<pre><code># Z Windows uzywajac MinGW-w64 cross compiler
+# Lub WSL2 - uruchom Linux toolchain w WSL
+
+# Z Linux: cross-compile dla Windows (mingw-w64)
+sudo apt install mingw-w64
+x86_64-w64-mingw32-g++ -static-libgcc -static-libstdc++ main.cpp -o app.exe</code></pre>
+
+<h3>zig cc - uniwersalny cross compiler</h3>
+<pre><code># zig instaluje sie jako jeden binary i ma vendoring libc dla wszystkich platform
+zig c++ -target aarch64-linux-gnu main.cpp
+zig c++ -target x86_64-windows-gnu main.cpp -o app.exe
+zig c++ -target x86_64-macos main.cpp</code></pre>
+
+<h2>Static vs dynamic linking</h2>
+<table>
+<thead><tr><th>Aspekt</th><th>Static</th><th>Dynamic</th></tr></thead>
+<tbody>
+<tr><td>Rozmiar binary</td><td>Wiekszy (wszystko wbudowane)</td><td>Mniejszy</td></tr>
+<tr><td>Pamiec systemu</td><td>Kazdy proces ma swoja kopie</td><td>Wspoldzielenie kodu</td></tr>
+<tr><td>Update biblioteki</td><td>Wymaga re-link</td><td>Wystarczy podmiana .so/.dll</td></tr>
+<tr><td>Dependency hell</td><td>Brak (samowystarczalne)</td><td>Tak</td></tr>
+<tr><td>Best dla</td><td>CLI tools, distroless</td><td>Wieksze aplikacje</td></tr>
+</tbody></table>
+
+<pre><code># GCC/Clang
+g++ -static main.cpp -o myapp                # full static (jesli libc pozwala)
+g++ -static-libgcc -static-libstdc++ main.cpp # tylko C++ runtime static
+
+# CMake
+add_executable(myapp main.cpp)
+target_link_options(myapp PRIVATE -static-libgcc -static-libstdc++)</code></pre>
+
+<h2>Docker dla C++ - multi-stage</h2>
+<pre><code># syntax=docker/dockerfile:1.7
+# Stage 1: build
+FROM ubuntu:24.04 AS build
+
+RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends \
+    g++-13 \
+    cmake \
+    ninja-build \
+    git \
+    ca-certificates \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY . .
+
+# vcpkg cache mount
+RUN --mount=type=cache,target=/vcpkg/buildtrees \
+    --mount=type=cache,target=/vcpkg/downloads \
+    cmake -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    &amp;&amp; cmake --build build --parallel
+
+# Stage 2: minimal runtime
+FROM gcr.io/distroless/cc-debian12
+
+COPY --from=build /src/build/myapp /usr/local/bin/myapp
+
+USER nonroot:nonroot
+ENTRYPOINT ["/usr/local/bin/myapp"]</code></pre>
+
+<h2>Debugowanie - GDB</h2>
+<pre><code># Kompilacja z symbolami
+g++ -g -O0 main.cpp -o myapp
+
+# Uruchomienie
+gdb ./myapp
+(gdb) break main             # breakpoint
+(gdb) run                    # start
+(gdb) next                   # step over
+(gdb) step                   # step into
+(gdb) print x                # zmienna
+(gdb) backtrace              # stack trace
+(gdb) info locals            # lokalne
+(gdb) continue               # do nast. break
+(gdb) watch x                # watch zmiennej
+(gdb) thread apply all bt    # bt wszystkich watkow
+
+# .gdbinit - automatyczne komendy
+echo "set print pretty on" &gt; ~/.gdbinit
+echo "set pagination off" &gt;&gt; ~/.gdbinit</code></pre>
+
+<h2>LLDB (macOS, Linux z Clang)</h2>
+<pre><code>lldb ./myapp
+(lldb) breakpoint set --name main      # b main
+(lldb) run                              # r
+(lldb) next                             # n
+(lldb) step                             # s
+(lldb) print var                        # p var
+(lldb) frame variable                   # locals
+(lldb) thread backtrace                 # bt</code></pre>
+
+<h2>WinDbg / Visual Studio Debugger</h2>
+<pre><code># WinDbg - dla Windows kernel + user-mode
+windbg.exe -g myapp.exe args
+
+# Visual Studio - F5 dla debug
+# Visual Studio Code - launch.json + cppvsdbg/cppdbg adapter</code></pre>
+
+<h2>perf - profiling (Linux)</h2>
+<pre><code># Sample
+perf record -g ./myapp
+perf report
+
+# Real-time
+perf top
+
+# Stat - liczniki sprzetowe
+perf stat ./myapp
+# Output: cycles, instructions, cache-misses, branch-misses
+
+# Flame graph
+git clone https://github.com/brendangregg/FlameGraph
+perf record -F 99 -g ./myapp
+perf script | ./FlameGraph/stackcollapse-perf.pl | ./FlameGraph/flamegraph.pl &gt; flame.svg</code></pre>
+
+<h2>Callgrind</h2>
+<pre><code># Profiling z Valgrind
+valgrind --tool=callgrind ./myapp
+
+# Wizualizacja
+kcachegrind callgrind.out.&lt;pid&gt;</code></pre>
+
+<h2>GitHub Actions - CI dla C++</h2>
+<pre><code>name: CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        compiler: [gcc-13, clang-17, msvc]
+        exclude:
+          - os: windows-latest
+            compiler: gcc-13
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+
+      - name: Configure
+        run: cmake --preset=ci
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test (z ASan)
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Sanitizer build
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cmake -B build-asan -DENABLE_SANITIZERS=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build-asan
+          ctest --test-dir build-asan</code></pre>
+
+<div class="card">
+<h3>Production checklist C++</h3>
+<ul>
+<li>Build z hardening flags (-D_FORTIFY_SOURCE=3, -fstack-protector-strong)</li>
+<li>Symbole debug (-g) zachowane offline (split debug)</li>
+<li>strip binary w produkcji</li>
+<li>Crash reporting (Sentry, Crashpad, Breakpad)</li>
+<li>Static analysis w CI (clang-tidy, cppcheck)</li>
+<li>Sanitizers w testach (ASan, UBSan, TSan w nightly)</li>
+<li>Reproducible builds (-fdebug-prefix-map, -frandom-seed)</li>
+<li>Locked dependencies (vcpkg baseline / Conan lockfile)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="05-ochrona-kodu-przed-kradzieza.html">&larr; Ochrona kodu</a>
+<a href="index.html">Wroc do C++ &rarr;</a>
+</div>
+</div>
+</body>
+</html>

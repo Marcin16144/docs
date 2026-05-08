@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data fetching</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">React.js</a><span class="sep">/</span><span class="title">Data fetching</span></div>
+<div class="container">
+<h1>Data fetching</h1>
+<p class="subtitle">Tanstack Query, SWR, Server Components i Suspense</p>
+
+<h2>Co to znaczy "server state"?</h2>
+<p><strong>Server state</strong> roznia sie od client state:</p>
+<ul>
+<li>Trzymany na serwerze, klient ma <strong>cache</strong> &mdash; nie zrodlo prawdy</li>
+<li>Moze sie zmienic bez wiedzy klienta &mdash; wymaga refetch/invalidation</li>
+<li>Asynchroniczny &mdash; loading/error states</li>
+<li>Wiele uzytkownikow moze go widziec/zmieniac</li>
+</ul>
+<p>Nie traktuj go jako lokalnego state w Redux/Zustand &mdash; uzyj <strong>Tanstack Query</strong> lub <strong>SWR</strong>.</p>
+
+<h2>Tanstack Query (#1 w 2026)</h2>
+<p><strong>Tanstack Query</strong> (dawniej React Query) to <strong>standardowy wybor</strong>. Cache, deduplication, background refetch, optimistic updates, infinite scroll.</p>
+
+<pre><code># Instalacja
+npm i @tanstack/react-query @tanstack/react-query-devtools
+
+// main.tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,           // dane "swieze" przez 60s
+      gcTime: 5 * 60_000,          // cache zywy 5 min
+      refetchOnWindowFocus: true,  // refetch gdy okno znow ma focus
+      retry: 2,                    // 2 retry przy bledzie
+    },
+  },
+});
+
+createRoot(document.getElementById('root')).render(
+  &lt;QueryClientProvider client={queryClient}&gt;
+    &lt;App /&gt;
+    &lt;ReactQueryDevtools /&gt;
+  &lt;/QueryClientProvider&gt;
+);</code></pre>
+
+<h3>useQuery &mdash; pobieranie danych</h3>
+<pre><code>import { useQuery } from '@tanstack/react-query';
+
+function Posts() {
+  const { data, isPending, error, isFetching, refetch } = useQuery({
+    queryKey: ['posts'],
+    queryFn: async () =&gt; {
+      const r = await fetch('/api/posts');
+      if (!r.ok) throw new Error('Blad ' + r.status);
+      return r.json();
+    },
+  });
+
+  if (isPending) return &lt;p&gt;Ladowanie...&lt;/p&gt;;
+  if (error) return &lt;p&gt;Blad: {error.message}&lt;/p&gt;;
+
+  return (
+    &lt;&gt;
+      {isFetching &amp;&amp; &lt;span&gt;Odswiezam...&lt;/span&gt;}
+      &lt;ul&gt;{data.map(p =&gt; &lt;li key={p.id}&gt;{p.title}&lt;/li&gt;)}&lt;/ul&gt;
+      &lt;button onClick={() =&gt; refetch()}&gt;Refresh&lt;/button&gt;
+    &lt;/&gt;
+  );
+}
+
+// Z parametrem
+function Post({ id }) {
+  const { data } = useQuery({
+    queryKey: ['post', id],
+    queryFn: () =&gt; fetch(`/api/posts/${id}`).then(r =&gt; r.json()),
+    enabled: !!id, // nie odpalaj jesli id falsy
+  });
+  return data ? &lt;h1&gt;{data.title}&lt;/h1&gt; : null;
+}</code></pre>
+
+<h3>useMutation &mdash; zmiana danych</h3>
+<pre><code>import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+function NewPost() {
+  const qc = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (post) =&gt; fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(post),
+    }).then(r =&gt; r.json()),
+
+    onSuccess: () =&gt; {
+      qc.invalidateQueries({ queryKey: ['posts'] }); // refetch listy
+    },
+    onError: (err) =&gt; {
+      console.error('Blad:', err);
+    },
+  });
+
+  return (
+    &lt;button
+      onClick={() =&gt; mutation.mutate({ title: 'Nowy post' })}
+      disabled={mutation.isPending}
+    &gt;
+      {mutation.isPending ? 'Tworze...' : 'Utworz'}
+    &lt;/button&gt;
+  );
+}</code></pre>
+
+<h3>Optimistic updates</h3>
+<pre><code>const mutation = useMutation({
+  mutationFn: updateTodo,
+  onMutate: async (newTodo) =&gt; {
+    await qc.cancelQueries({ queryKey: ['todos'] });
+    const prev = qc.getQueryData(['todos']);
+    qc.setQueryData(['todos'], (old) =&gt;
+      old.map(t =&gt; t.id === newTodo.id ? newTodo : t)
+    );
+    return { prev };
+  },
+  onError: (err, _newTodo, ctx) =&gt; qc.setQueryData(['todos'], ctx.prev),
+  onSettled: () =&gt; qc.invalidateQueries({ queryKey: ['todos'] }),
+});</code></pre>
+
+<h3>Infinite Query</h3>
+<pre><code>import { useInfiniteQuery } from '@tanstack/react-query';
+
+const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  queryKey: ['posts'],
+  queryFn: ({ pageParam }) =&gt; fetch(`/api/posts?cursor=${pageParam}`).then(r =&gt; r.json()),
+  initialPageParam: 0,
+  getNextPageParam: (last) =&gt; last.nextCursor,
+});
+
+// Render
+{data.pages.flatMap(p =&gt; p.items).map(item =&gt; ...)}
+{hasNextPage &amp;&amp; (
+  &lt;button onClick={() =&gt; fetchNextPage()} disabled={isFetchingNextPage}&gt;
+    Wiecej
+  &lt;/button&gt;
+)}</code></pre>
+
+<h2>SWR &mdash; alternatywa od Vercel</h2>
+<p><strong>SWR</strong> ("stale-while-revalidate") &mdash; lekka biblioteka. Mniejsza, prostsza, mniej feature'ow niz Tanstack Query.</p>
+
+<pre><code>npm i swr
+
+import useSWR from 'swr';
+
+const fetcher = (url) =&gt; fetch(url).then(r =&gt; r.json());
+
+function Profile() {
+  const { data, error, isLoading, mutate } = useSWR('/api/user', fetcher);
+  if (error) return &lt;p&gt;Blad&lt;/p&gt;;
+  if (isLoading) return &lt;p&gt;...&lt;/p&gt;;
+  return &lt;h1&gt;{data.name}&lt;/h1&gt;;
+}</code></pre>
+
+<h2>Server Components &mdash; data fetching na serwerze</h2>
+<p>W Next.js App Router (React 19) <strong>komponenty serwerowe sa async</strong>. Pobieranie bezposrednio bez useEffect ani Tanstack Query.</p>
+
+<pre><code>// app/posts/page.jsx (Server Component)
+async function getPosts() {
+  const r = await fetch('https://api.example.com/posts', {
+    next: { revalidate: 60 }, // ISR &mdash; cache na 60s
+  });
+  return r.json();
+}
+
+export default async function PostsPage() {
+  const posts = await getPosts();
+  return (
+    &lt;ul&gt;{posts.map(p =&gt; &lt;li key={p.id}&gt;{p.title}&lt;/li&gt;)}&lt;/ul&gt;
+  );
+}</code></pre>
+
+<h2>Suspense for Data</h2>
+<p>Suspense pozwala "zaczekac" na dane bez recznej obslugi loading state. Dziala z RSC i z use().</p>
+
+<pre><code>import { Suspense } from 'react';
+
+export default function Page() {
+  return (
+    &lt;&gt;
+      &lt;h1&gt;Strona&lt;/h1&gt;
+      &lt;Suspense fallback={&lt;p&gt;Ladowanie postow...&lt;/p&gt;}&gt;
+        &lt;Posts /&gt;
+      &lt;/Suspense&gt;
+      &lt;Suspense fallback={&lt;p&gt;Ladowanie komentarzy...&lt;/p&gt;}&gt;
+        &lt;Comments /&gt;
+      &lt;/Suspense&gt;
+    &lt;/&gt;
+  );
+}
+
+// Posts moze byc async server component &mdash; Suspense automatycznie zlapie</code></pre>
+
+<h3>use() z promise</h3>
+<pre><code>import { use } from 'react';
+
+function PostList({ postsPromise }) {
+  const posts = use(postsPromise);
+  return &lt;ul&gt;...&lt;/ul&gt;;
+}
+
+export default function Page() {
+  const postsPromise = fetch('/api/posts').then(r =&gt; r.json());
+  return (
+    &lt;Suspense fallback={&lt;p&gt;...&lt;/p&gt;}&gt;
+      &lt;PostList postsPromise={postsPromise} /&gt;
+    &lt;/Suspense&gt;
+  );
+}</code></pre>
+
+<h2>Error Boundaries</h2>
+<p>React nie lapie domyslnie bledow z renderu. Trzeba uzyc Error Boundary (klasa lub biblioteka jak react-error-boundary).</p>
+
+<pre><code>import { ErrorBoundary } from 'react-error-boundary';
+
+function ErrorFallback({ error, resetErrorBoundary }) {
+  return (
+    &lt;div role="alert"&gt;
+      &lt;p&gt;Cos poszlo nie tak: {error.message}&lt;/p&gt;
+      &lt;button onClick={resetErrorBoundary}&gt;Sprobuj ponownie&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}
+
+&lt;ErrorBoundary FallbackComponent={ErrorFallback}&gt;
+  &lt;Suspense fallback={&lt;Spinner /&gt;}&gt;
+    &lt;Posts /&gt;
+  &lt;/Suspense&gt;
+&lt;/ErrorBoundary&gt;</code></pre>
+
+<h2>Porownanie</h2>
+<table>
+<thead><tr><th>Narzedzie</th><th>Rozmiar</th><th>Features</th><th>Najlepsze do</th></tr></thead>
+<tbody>
+<tr><td>Tanstack Query</td><td>~14 KB</td><td>Wszystko (cache, mutations, infinite, devtools)</td><td>SPA i hybrydy &mdash; #1</td></tr>
+<tr><td>SWR</td><td>~5 KB</td><td>Cache, revalidate, prosta API</td><td>Mniejsze projekty</td></tr>
+<tr><td>fetch + useEffect</td><td>0 KB</td><td>Brak cache, brak deduplication</td><td>Tylko prototypy</td></tr>
+<tr><td>Server Components</td><td>0 KB klient</td><td>Direct DB, ISR, streaming</td><td>Next.js full-stack</td></tr>
+<tr><td>use() + Suspense</td><td>built-in</td><td>Czysta integracja z Suspense</td><td>RSC, react streaming</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Rekomendacja 2026</h3>
+<ul>
+<li><strong>Klient SPA</strong> &rarr; Tanstack Query (zawsze)</li>
+<li><strong>Next.js App Router</strong> &rarr; Server Components dla danych "domyslnie", Tanstack Query dla interaktywnego klienta</li>
+<li><strong>Mutacje</strong> w Next.js &rarr; Server Actions (eliminuja API endpoints)</li>
+<li><strong>NIGDY</strong> nie trzymaj server state w Redux/Zustand &mdash; uzyj cache layer</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="06-formy-i-walidacja.html">&larr; Formy i walidacja</a>
+<a href="08-stylowanie.html">Stylowanie &rarr;</a>
+</div>
+</div>
+</body>
+</html>

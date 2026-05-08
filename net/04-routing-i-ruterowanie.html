@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Routing</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}
+.card.orange{border-left:4px solid var(--orange)}
+.card.red{border-left:4px solid var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Sieci</a><span class="sep">/</span><span class="title">Routing</span></div>
+<div class="container">
+<h1>Routing - kierowanie ruchu</h1>
+<p class="subtitle">Tablice routingu, protokoly RIP, OSPF, BGP, static routing, ECMP, MPLS</p>
+
+<h2>Czym jest routing</h2>
+<p>Routing to proces wyboru najlepszej drogi dla pakietow IP miedzy roznymi sieciami. Router (urzadzenie warstwy 3 OSI) dla kazdego pakietu sprawdza jego docelowy adres IP w tablicy routingu i wysyla do odpowiedniego next-hopa.</p>
+
+<p>Routing odbywa sie etapowo - kazdy router patrzy tylko jeden krok do przodu. Pelna sciezka jest wynikiem kooperacji wszystkich routerow na trasie.</p>
+
+<h2>Tablica routingu</h2>
+<p>Tablica routingu (routing table, FIB - Forwarding Information Base) zawiera wpisy mapujace docelowe sieci na next-hop i interfejs wyjsciowy.</p>
+
+<table>
+<tr><th>Pole</th><th>Opis</th></tr>
+<tr><td><strong>Destination</strong></td><td>Sieci docelowa (np. 10.0.0.0/24)</td></tr>
+<tr><td><strong>Next hop / Gateway</strong></td><td>Adres IP nastepnego routera</td></tr>
+<tr><td><strong>Interface</strong></td><td>Lokalny interfejs wyjsciowy (eth0, ge-0/0/1)</td></tr>
+<tr><td><strong>Metric</strong></td><td>Koszt trasy - mniejsza wartosc = lepiej</td></tr>
+<tr><td><strong>AD</strong> (Administrative Distance)</td><td>Cisco - priorytet zrodla informacji</td></tr>
+</table>
+
+<pre><code># Przyklad tablicy Linux:
+$ ip route show
+default via 192.168.1.1 dev eth0 proto dhcp metric 100
+10.0.0.0/24 via 10.50.0.1 dev wg0 proto static
+169.254.0.0/16 dev eth0 scope link metric 1000
+192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.10
+
+# Cisco IOS:
+Router# show ip route
+Codes: L - local, C - connected, S - static, R - RIP,
+       O - OSPF, B - BGP, * - candidate default
+Gateway of last resort is 192.168.1.1 to network 0.0.0.0
+S*    0.0.0.0/0 [1/0] via 192.168.1.1
+O     10.0.0.0/24 [110/20] via 10.0.50.1, 00:15:23, GigabitEthernet0/0
+C     192.168.1.0/24 is directly connected, GigabitEthernet0/1</code></pre>
+
+<h3>Longest Prefix Match</h3>
+<p>Gdy w tablicy jest wiele pasujacych wpisow, router wybiera ten z najdluzszym prefixem (najbardziej specyficzny).</p>
+
+<pre><code># Gdy tablica zawiera:
+0.0.0.0/0          via 1.1.1.1
+10.0.0.0/8         via 2.2.2.2
+10.0.5.0/24        via 3.3.3.3
+10.0.5.128/26      via 4.4.4.4
+
+# Pakiet do 10.0.5.150 -> idzie przez 4.4.4.4 (najdluzszy match /26)
+# Pakiet do 10.0.5.50  -> idzie przez 3.3.3.3 (/24)
+# Pakiet do 10.20.0.5  -> idzie przez 2.2.2.2 (/8)
+# Pakiet do 8.8.8.8    -> idzie przez 1.1.1.1 (default)</code></pre>
+
+<h2>Default gateway</h2>
+<p>Default gateway to wpis 0.0.0.0/0 (IPv6: ::/0) - "wszystko inne idzie tam". Bez default route host moze komunikowac sie tylko w obrebie wlasnej podsieci.</p>
+
+<pre><code># Linux - default gateway:
+ip route add default via 192.168.1.1
+ip route show default
+
+# Windows:
+route add 0.0.0.0 mask 0.0.0.0 192.168.1.1
+route print
+
+# Cisco:
+ip route 0.0.0.0 0.0.0.0 192.168.1.1
+
+# MikroTik:
+/ip route add dst-address=0.0.0.0/0 gateway=192.168.1.1</code></pre>
+
+<h2>Static routing</h2>
+<p>Trasy dodawane recznie. Proste, niezawodne, ale nie skaluja sie i nie reaguja na awarie.</p>
+
+<h3>Linux</h3>
+<pre><code># Dodaj trase:
+ip route add 10.0.0.0/24 via 192.168.1.254 dev eth0
+
+# Trwale zapis (Debian/Ubuntu /etc/network/interfaces):
+auto eth0
+iface eth0 inet static
+    address 192.168.1.10/24
+    gateway 192.168.1.1
+    up ip route add 10.0.0.0/24 via 192.168.1.254
+
+# NetworkManager:
+nmcli connection modify "Wired" ipv4.routes "10.0.0.0/24 192.168.1.254"
+
+# Usun:
+ip route del 10.0.0.0/24</code></pre>
+
+<h3>Cisco IOS</h3>
+<pre><code>! Wejscie do trybu konfiguracji
+Router# enable
+Router# configure terminal
+
+! Static route: cel maska next-hop
+Router(config)# ip route 10.0.0.0 255.255.255.0 192.168.1.254
+
+! Z exit interface zamiast next-hop:
+Router(config)# ip route 10.0.0.0 255.255.255.0 GigabitEthernet0/1
+
+! Default route:
+Router(config)# ip route 0.0.0.0 0.0.0.0 192.168.1.1
+
+! Static dla IPv6:
+Router(config)# ipv6 route 2001:db8::/32 2001:db8:0:1::1</code></pre>
+
+<h3>MikroTik RouterOS</h3>
+<pre><code># Static route:
+/ip route add dst-address=10.0.0.0/24 gateway=192.168.1.254
+
+# Z distance (metric):
+/ip route add dst-address=0.0.0.0/0 gateway=192.168.1.1 distance=1
+/ip route add dst-address=0.0.0.0/0 gateway=192.168.2.1 distance=2  # backup
+
+# Routing rules (policy-based):
+/ip route rule add src-address=10.10.10.0/24 table=isp2</code></pre>
+
+<h2>Dynamic routing - protokoly</h2>
+
+<h3>RIP - Routing Information Protocol</h3>
+<p>Najprostszy, najstarszy. Distance-vector, metryka = liczba hopow (max 15, 16 = unreachable). Aktualizacje co 30 sekund. Wolna konwergencja, niewskazany w nowych wdrozeniach. RIPv2 (RFC 2453) wspiera CIDR, RIPng - dla IPv6.</p>
+
+<h3>OSPF - Open Shortest Path First</h3>
+<p>Najpopularniejszy protokol w enterprise. Link-state, kazdy router buduje topologiczny graf sieci i liczy najkrotsza droge algorytmem Dijkstra.</p>
+
+<ul>
+<li>Areas - hierarchiczna struktura, area 0 to backbone</li>
+<li>Cost = bandwidth-based (default reference 100 Mbps)</li>
+<li>OSPFv2 dla IPv4, OSPFv3 dla IPv6</li>
+<li>Szybka konwergencja (sekundy)</li>
+</ul>
+
+<pre><code># Cisco IOS - prosta konfiguracja OSPF:
+Router(config)# router ospf 1
+Router(config-router)# router-id 1.1.1.1
+Router(config-router)# network 192.168.1.0 0.0.0.255 area 0
+Router(config-router)# network 10.0.0.0 0.0.0.255 area 0
+
+# Sprawdzenie:
+Router# show ip ospf neighbor
+Router# show ip ospf interface
+Router# show ip route ospf</code></pre>
+
+<h3>EIGRP - Enhanced Interior Gateway Routing Protocol</h3>
+<p>Cisco proprietary (od 2013 czesciowo otwarty). Hybrydowy - distance-vector z elementami link-state. Algorytm DUAL (Diffusing Update Algorithm). Bardzo szybka konwergencja, ale ograniczony do urzadzen Cisco.</p>
+
+<h3>IS-IS - Intermediate System to Intermediate System</h3>
+<p>Podobny do OSPF, link-state. Szczegolnie popularny u operatorow ISP - dziala na warstwie 2 (Data Link), wiec niezalezny od IPv4/IPv6. Lepiej skaluje sie niz OSPF w bardzo duzych sieciach.</p>
+
+<h3>BGP - Border Gateway Protocol</h3>
+<p>Krol routingu w internecie. Path-vector protocol. Lacy <strong>autonomous systems</strong> (AS) - kazdy ISP, korporacja, czy chmura ma wlasny ASN (Autonomous System Number).</p>
+
+<ul>
+<li><strong>eBGP</strong> - miedzy roznymi AS (np. ISP a klient)</li>
+<li><strong>iBGP</strong> - wewnatrz tego samego AS</li>
+<li>BGP nie szuka najkrotszej drogi technicznie - liczy biznesowe priorytety (path attributes)</li>
+<li>Path Attributes: AS_PATH, NEXT_HOP, LOCAL_PREF, MED, ORIGIN, Communities</li>
+</ul>
+
+<pre><code># Cisco - prosta konfiguracja eBGP:
+Router(config)# router bgp 65001
+Router(config-router)# bgp router-id 1.1.1.1
+Router(config-router)# neighbor 192.0.2.1 remote-as 64500
+Router(config-router)# network 203.0.113.0 mask 255.255.255.0
+
+# Sprawdzenie:
+Router# show ip bgp summary
+Router# show ip bgp neighbors
+Router# show ip route bgp</code></pre>
+
+<div class="card orange">
+<strong>BGP outage = polowa internetu down</strong>. Slynne incydenty: Facebook 2021 (BGP withdrawal), Cloudflare 2020, Pakistan vs YouTube 2008 (route hijack). Stad RPKI (Resource Public Key Infrastructure) i podpisywanie tras.
+</div>
+
+<h2>Routing metrics i Administrative Distance</h2>
+
+<h3>Administrative Distance (Cisco)</h3>
+<p>Kiedy ten sam prefix jest znany z roznych protokolow, AD decyduje ktory zwyciezy:</p>
+
+<table>
+<tr><th>Zrodlo</th><th>AD</th></tr>
+<tr><td>Connected</td><td>0</td></tr>
+<tr><td>Static</td><td>1</td></tr>
+<tr><td>EIGRP summary</td><td>5</td></tr>
+<tr><td>eBGP</td><td>20</td></tr>
+<tr><td>EIGRP internal</td><td>90</td></tr>
+<tr><td>OSPF</td><td>110</td></tr>
+<tr><td>IS-IS</td><td>115</td></tr>
+<tr><td>RIP</td><td>120</td></tr>
+<tr><td>iBGP</td><td>200</td></tr>
+<tr><td>Unknown</td><td>255 (nie uzywaj)</td></tr>
+</table>
+
+<h3>Metryki w protokolach</h3>
+<table>
+<tr><th>Protokol</th><th>Metryka</th></tr>
+<tr><td>RIP</td><td>Hop count (max 15)</td></tr>
+<tr><td>OSPF</td><td>Cost = ref-bandwidth / interface-bandwidth</td></tr>
+<tr><td>EIGRP</td><td>Composite: bandwidth, delay, reliability, load, MTU</td></tr>
+<tr><td>BGP</td><td>Path attributes (AS_PATH, LOCAL_PREF, MED)</td></tr>
+<tr><td>IS-IS</td><td>Cost (default 10 per link)</td></tr>
+</table>
+
+<h2>ECMP - Equal-Cost Multi-Path</h2>
+<p>ECMP pozwala load-balancowac ruch na wielu rownorzednych sciezkach (te same metryki). Hashing per flow zapobiega out-of-order delivery dla TCP.</p>
+
+<pre><code># Linux - ECMP:
+ip route add 10.0.0.0/24 \
+  nexthop via 192.168.1.1 dev eth0 weight 1 \
+  nexthop via 192.168.1.2 dev eth0 weight 1
+
+# Cisco - automatycznie gdy multi-path:
+ip route 10.0.0.0 255.255.255.0 192.168.1.1
+ip route 10.0.0.0 255.255.255.0 192.168.1.2
+maximum-paths 4   # OSPF allows multiple equal-cost</code></pre>
+
+<h2>Policy-based routing (PBR)</h2>
+<p>PBR pozwala kierowac ruch nie tylko wedlug docelowego IP, ale tez na podstawie zrodla, portu, DSCP, interface, etc.</p>
+
+<pre><code># Linux PBR (ip rule):
+# Stworz tabela 100, dodaj domyslna trase
+ip route add default via 10.0.1.1 table 100
+
+# Reguly: ruch z 192.168.10.0/24 -> tabela 100
+ip rule add from 192.168.10.0/24 lookup 100
+
+# Sprawdzenie:
+ip rule show
+ip route show table 100
+
+# Cisco PBR (route-map):
+access-list 10 permit 192.168.10.0 0.0.0.255
+route-map ISP2 permit 10
+  match ip address 10
+  set ip next-hop 10.0.1.1
+interface GigabitEthernet0/1
+  ip policy route-map ISP2</code></pre>
+
+<h2>MPLS - Multi-Protocol Label Switching</h2>
+<p>MPLS to technika "label switching" gdzie routery przelaczaja pakiety na podstawie krotkich etykiet zamiast pelnego adresu IP. Stosowana glownie u operatorow.</p>
+
+<ul>
+<li>Pakiety dostaja label stack przy wejsciu do sieci MPLS (Provider Edge)</li>
+<li>Routery rdzeniowe (P routers) przelaczaja po labels - szybciej niz IP lookup</li>
+<li>Label distribution: LDP, RSVP-TE</li>
+<li>MPLS L3VPN, L2VPN/VPLS, Traffic Engineering, Fast Reroute</li>
+</ul>
+
+<h2>VRF - Virtual Routing and Forwarding</h2>
+<p>VRF to wirtualizacja routera - jeden fizyczny router moze miec wiele niezaleznych tablic routingu. Czesto stosowane w MPLS L3VPN.</p>
+
+<pre><code># Cisco VRF:
+Router(config)# ip vrf CUSTOMER-A
+Router(config-vrf)# rd 100:1
+Router(config-vrf)# route-target both 100:1
+Router(config)# interface GigabitEthernet0/1
+Router(config-if)# ip vrf forwarding CUSTOMER-A
+Router(config-if)# ip address 10.1.1.1 255.255.255.0
+
+# Linux VRF (network namespaces):
+ip link add vrf-customer-a type vrf table 100
+ip link set vrf-customer-a up
+ip link set eth1 master vrf-customer-a</code></pre>
+
+<h2>Linux routing - zaawansowane</h2>
+<pre><code># Multiple routing tables (RPDB):
+echo "100 isp1" >> /etc/iproute2/rt_tables
+echo "200 isp2" >> /etc/iproute2/rt_tables
+
+# Trasy do tabel:
+ip route add default via 10.0.1.1 dev eth0 table isp1
+ip route add default via 10.0.2.1 dev eth1 table isp2
+
+# Reguly: oznacz pakiety i kieruj:
+iptables -t mangle -A PREROUTING -i eth0 -j CONNMARK --restore-mark
+iptables -t mangle -A PREROUTING -m mark --mark 0 -j MARK --set-mark 1
+iptables -t mangle -A PREROUTING -j CONNMARK --save-mark
+
+ip rule add fwmark 1 lookup isp1
+ip rule add fwmark 2 lookup isp2
+
+# Source-based routing:
+ip rule add from 10.0.10.0/24 lookup isp1
+ip rule add from 10.0.20.0/24 lookup isp2</code></pre>
+
+<h2>Komendy debugowania</h2>
+<pre><code># Cisco IOS:
+show ip route                 # tablica routingu
+show ip route 8.8.8.8         # konkretny prefix lookup
+show ip protocols             # aktywne protokoly
+show ip cef                   # forwarding table
+debug ip routing              # ostroznie - wiele logow
+
+# Linux:
+ip route show                 # tablica
+ip route get 8.8.8.8          # ktora trasa zostanie uzyta
+traceroute -n 8.8.8.8         # widoczna sciezka
+mtr 8.8.8.8                   # ciagle traceroute
+ip -s link                    # statystyki interfejsow
+
+# MikroTik:
+/ip route print
+/ip route check 8.8.8.8
+
+# Generic - which gateway:
+ip route get 8.8.8.8
+# Output: 8.8.8.8 via 192.168.1.1 dev eth0 src 192.168.1.10 uid 1000</code></pre>
+
+<div class="card green">
+<strong>Praktyczna wskazowka</strong> - dla malej sieci wystarczy default gateway + ewentualnie kilka tras statycznych. OSPF wlaczamy gdy mamy 5+ routerow lub potrzebujemy redundancji. BGP gdy mamy wlasny AS i wieksze konfiguracje multi-WAN.
+</div>
+
+<div class="nav-bottom">
+<a href="03-protokoly-tcp-udp.html">&larr; TCP/UDP</a>
+<a href="05-routery-i-switche.html">Sprzet sieciowy &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Routing</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">React.js</a><span class="sep">/</span><span class="title">Routing</span></div>
+<div class="container">
+<h1>Routing</h1>
+<p class="subtitle">React Router 7, Next.js App Router, Tanstack Router</p>
+
+<h2>Trzy glowne opcje</h2>
+<p>React sam nie posiada routera &mdash; to oddzielna biblioteka. W 2026 dominuja:</p>
+<ul>
+<li><strong>React Router 7</strong> &mdash; standard SPA, w 2024 polaczyl sie z Remix</li>
+<li><strong>Next.js App Router</strong> &mdash; file-based routing w meta-frameworku</li>
+<li><strong>Tanstack Router</strong> &mdash; type-safe routing z <strong>file-based</strong> lub code-based</li>
+</ul>
+
+<h2>React Router 7</h2>
+<p>W 2024 Remix (meta-framework od tworcow React Router) zostal wlaczony do React Router 7. Mozesz uzywac go jako:</p>
+<ul>
+<li><strong>SPA mode</strong> &mdash; klasyczny client-side routing (jak v6)</li>
+<li><strong>Framework mode</strong> &mdash; full-stack z loaders, actions, SSR (dawny Remix)</li>
+</ul>
+
+<pre><code># Instalacja
+npm i react-router
+
+// app.jsx &mdash; SPA mode
+import { BrowserRouter, Routes, Route, Link, Outlet, useParams } from 'react-router';
+
+function Layout() {
+  return (
+    &lt;&gt;
+      &lt;nav&gt;
+        &lt;Link to="/"&gt;Home&lt;/Link&gt;
+        &lt;Link to="/posts"&gt;Posty&lt;/Link&gt;
+      &lt;/nav&gt;
+      &lt;main&gt;&lt;Outlet /&gt;&lt;/main&gt;
+    &lt;/&gt;
+  );
+}
+
+function Post() {
+  const { id } = useParams();
+  return &lt;h1&gt;Post {id}&lt;/h1&gt;;
+}
+
+export default function App() {
+  return (
+    &lt;BrowserRouter&gt;
+      &lt;Routes&gt;
+        &lt;Route path="/" element={&lt;Layout /&gt;}&gt;
+          &lt;Route index element={&lt;Home /&gt;} /&gt;
+          &lt;Route path="posts"&gt;
+            &lt;Route index element={&lt;PostList /&gt;} /&gt;
+            &lt;Route path=":id" element={&lt;Post /&gt;} /&gt;
+          &lt;/Route&gt;
+          &lt;Route path="*" element={&lt;NotFound /&gt;} /&gt;
+        &lt;/Route&gt;
+      &lt;/Routes&gt;
+    &lt;/BrowserRouter&gt;
+  );
+}</code></pre>
+
+<h3>Framework mode (loaders i actions)</h3>
+<pre><code>// routes/posts.$id.jsx
+export async function loader({ params }) {
+  const post = await db.posts.find(params.id);
+  if (!post) throw new Response('Not found', { status: 404 });
+  return post;
+}
+
+export async function action({ request, params }) {
+  const fd = await request.formData();
+  await db.posts.update(params.id, { title: fd.get('title') });
+  return redirect(`/posts/${params.id}`);
+}
+
+export default function PostRoute() {
+  const post = useLoaderData();
+  return (
+    &lt;Form method="post"&gt;
+      &lt;input name="title" defaultValue={post.title} /&gt;
+      &lt;button&gt;Zapisz&lt;/button&gt;
+    &lt;/Form&gt;
+  );
+}</code></pre>
+
+<h2>Next.js App Router</h2>
+<p>W Next.js 13+ <strong>App Router</strong> uzywa konwencji <strong>file-based</strong> &mdash; struktura folderow staje sie struktura URL.</p>
+
+<pre><code>app/
++- layout.jsx          &lt;- root layout (zastepuje _app)
++- page.jsx            &lt;- /
++- about/
+|  +- page.jsx         &lt;- /about
++- blog/
+|  +- layout.jsx       &lt;- layout dla /blog/*
+|  +- page.jsx         &lt;- /blog
+|  +- [slug]/
+|     +- page.jsx      &lt;- /blog/[slug]
++- shop/
+|  +- [...categories]/
+|     +- page.jsx      &lt;- /shop/foo, /shop/foo/bar (catch-all)
++- (admin)/            &lt;- route group, nie widoczne w URL
+|  +- dashboard/
+|     +- page.jsx      &lt;- /dashboard
++- api/
+   +- users/
+      +- route.js      &lt;- API endpoint /api/users
+</code></pre>
+
+<pre><code>// app/blog/[slug]/page.jsx &mdash; Server Component
+export default async function BlogPost({ params }) {
+  const { slug } = await params; // Next 15: params is Promise
+  const post = await db.posts.findBySlug(slug);
+  return (
+    &lt;article&gt;
+      &lt;h1&gt;{post.title}&lt;/h1&gt;
+      &lt;p&gt;{post.body}&lt;/p&gt;
+    &lt;/article&gt;
+  );
+}
+
+// generateMetadata &mdash; tytul, OG, etc.
+export async function generateMetadata({ params }) {
+  const { slug } = await params;
+  const post = await db.posts.findBySlug(slug);
+  return { title: post.title, description: post.excerpt };
+}
+
+// generateStaticParams &mdash; SSG
+export async function generateStaticParams() {
+  const posts = await db.posts.all();
+  return posts.map(p =&gt; ({ slug: p.slug }));
+}</code></pre>
+
+<h3>Specjalne pliki w App Router</h3>
+<table>
+<thead><tr><th>Plik</th><th>Cel</th></tr></thead>
+<tbody>
+<tr><td>page.jsx</td><td>UI route'a, dostepny pod URL</td></tr>
+<tr><td>layout.jsx</td><td>Wspolny layout dla folderu (zostaje przy nawigacji)</td></tr>
+<tr><td>loading.jsx</td><td>Suspense fallback podczas ladowania</td></tr>
+<tr><td>error.jsx</td><td>Error boundary dla segmentu (Client Component)</td></tr>
+<tr><td>not-found.jsx</td><td>UI 404 dla folderu</td></tr>
+<tr><td>route.js</td><td>API endpoint (GET, POST, etc.)</td></tr>
+<tr><td>middleware.js</td><td>Middleware przed renderem</td></tr>
+</tbody>
+</table>
+
+<h3>Linki i nawigacja</h3>
+<pre><code>import Link from 'next/link';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+
+&lt;Link href="/blog/intro"&gt;Czytaj&lt;/Link&gt;
+&lt;Link href={{ pathname: '/shop', query: { sort: 'price' } }}&gt;Sklep&lt;/Link&gt;
+
+// Programowo
+const router = useRouter();
+router.push('/dashboard');
+router.replace('/login');
+router.back();
+
+const pathname = usePathname();    // '/blog/intro'
+const params = useSearchParams();  // ReadonlyURLSearchParams</code></pre>
+
+<h2>Tanstack Router</h2>
+<p><strong>Tanstack Router</strong> &mdash; nowoczesny router z <strong>type-safe</strong> linkami i parametrami. File-based lub code-based. 100% TypeScript-first.</p>
+
+<pre><code># Instalacja
+npm i @tanstack/react-router @tanstack/react-router-devtools
+
+// routes/posts.$postId.tsx
+import { createFileRoute } from '@tanstack/react-router';
+
+export const Route = createFileRoute('/posts/$postId')({
+  loader: async ({ params }) =&gt; {
+    return await fetchPost(params.postId);
+  },
+  component: PostComponent,
+});
+
+function PostComponent() {
+  const post = Route.useLoaderData(); // typed!
+  const { postId } = Route.useParams(); // typed string
+  return &lt;h1&gt;{post.title}&lt;/h1&gt;;
+}
+
+// W komponencie &mdash; typed Link
+import { Link } from '@tanstack/react-router';
+
+&lt;Link to="/posts/$postId" params={{ postId: '123' }}&gt;Zobacz&lt;/Link&gt;
+// TS error gdy zapomnisz parametru!</code></pre>
+
+<h2>Porownanie</h2>
+<table>
+<thead><tr><th>Cecha</th><th>React Router 7</th><th>Next.js App Router</th><th>Tanstack Router</th></tr></thead>
+<tbody>
+<tr><td>Tryb</td><td>SPA i Framework</td><td>SSR/SSG/RSC (full-stack)</td><td>SPA i Start (full-stack)</td></tr>
+<tr><td>Routing config</td><td>JSX lub file-based</td><td>File-based (folders)</td><td>Code lub file-based</td></tr>
+<tr><td>Type safety</td><td>Sredni (z generatorem)</td><td>Sredni</td><td>Doskonaly (built-in)</td></tr>
+<tr><td>Server Components</td><td>Tak (framework mode)</td><td>Tak (default)</td><td>Tak (Tanstack Start)</td></tr>
+<tr><td>Bundle size</td><td>~14 KB</td><td>czesc Next.js</td><td>~12 KB</td></tr>
+<tr><td>Najlepsze do</td><td>Migracja Remix, SPA</td><td>Full-stack, SEO</td><td>Type-safe SPA</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Co wybrac?</h3>
+<ul>
+<li><strong>Full-stack z SEO</strong> &rarr; Next.js App Router</li>
+<li><strong>SPA, type-safe, mocna DX</strong> &rarr; Tanstack Router</li>
+<li><strong>Migracja z Remix lub stary RR projekt</strong> &rarr; React Router 7</li>
+<li><strong>Static site z React islands</strong> &rarr; Astro</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="04-state-management.html">&larr; State management</a>
+<a href="06-formy-i-walidacja.html">Formy i walidacja &rarr;</a>
+</div>
+</div>
+</body>
+</html>

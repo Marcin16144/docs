@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uwierzytelnianie Blazor WASM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor WebAssembly</a><span class="sep">/</span><span class="title">Uwierzytelnianie</span></div>
+<div class="container">
+<h1>Uwierzytelnianie Blazor WASM</h1>
+<p class="subtitle">OIDC, MSAL, OAuth 2.0 PKCE, BFF pattern, token storage</p>
+
+<h2>Wyzwanie WASM &mdash; bezpieczne tokeny</h2>
+<p>Blazor WASM dziala w przegladarce &mdash; cala logika i stan sa <strong>dostepne dla XSS</strong>. To zmienia podejscie do auth:</p>
+<ul>
+<li>Tokeny w localStorage = nieuchronnie XSS-vulnerable</li>
+<li>Tokeny w sessionStorage = jak wyzej, jeszcze gorzej (per zakladka)</li>
+<li>Tokeny w pamieci JS = znikaja po refresh, niewygodne UX</li>
+<li><strong>Najlepiej: BFF pattern</strong> &mdash; tokeny w httpOnly cookie</li>
+</ul>
+
+<h2>OIDC z OpenID Connect (autoryzacja)</h2>
+<p>Standard branzy &mdash; OAuth 2.0 + OpenID Connect. Wspierany przez Auth0, Azure AD, Okta, Keycloak, IdentityServer.</p>
+
+<pre><code>// Program.cs
+builder.Services.AddOidcAuthentication(options =&gt;
+{
+    builder.Configuration.Bind("Oidc", options.ProviderOptions);
+    options.ProviderOptions.ResponseType = "code";
+    options.ProviderOptions.DefaultScopes.Add("openid");
+    options.ProviderOptions.DefaultScopes.Add("profile");
+    options.ProviderOptions.DefaultScopes.Add("email");
+});</code></pre>
+
+<pre><code>// appsettings.json
+{
+  "Oidc": {
+    "Authority": "https://example.eu.auth0.com",
+    "ClientId": "abc123",
+    "RedirectUri": "https://app.example.com/authentication/login-callback",
+    "PostLogoutRedirectUri": "https://app.example.com/"
+  }
+}</code></pre>
+
+<h2>Authentication.razor &mdash; default flow</h2>
+<pre><code>@page "/authentication/{action}"
+
+&lt;RemoteAuthenticatorView Action="@Action" /&gt;
+
+@code {
+    [Parameter] public string? Action { get; set; }
+}</code></pre>
+
+<p>Komponent obsluguje akcje: login, login-callback, login-failed, logout, logout-callback, profile, register.</p>
+
+<h2>App.razor z auth</h2>
+<pre><code>&lt;CascadingAuthenticationState&gt;
+    &lt;Router AppAssembly="@typeof(App).Assembly"&gt;
+        &lt;Found Context="routeData"&gt;
+            &lt;AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"&gt;
+                &lt;NotAuthorized&gt;
+                    &lt;p&gt;Musisz sie zalogowac.&lt;/p&gt;
+                    &lt;a href="authentication/login"&gt;Login&lt;/a&gt;
+                &lt;/NotAuthorized&gt;
+            &lt;/AuthorizeRouteView&gt;
+        &lt;/Found&gt;
+    &lt;/Router&gt;
+&lt;/CascadingAuthenticationState&gt;</code></pre>
+
+<h2>Login button</h2>
+<pre><code>@inject NavigationManager Nav
+@inject SignOutSessionStateManager SignOut
+
+&lt;AuthorizeView&gt;
+    &lt;Authorized&gt;
+        Witaj @context.User.Identity?.Name!
+        &lt;button @onclick="LogoutAsync"&gt;Logout&lt;/button&gt;
+    &lt;/Authorized&gt;
+    &lt;NotAuthorized&gt;
+        &lt;a href="authentication/login"&gt;Login&lt;/a&gt;
+    &lt;/NotAuthorized&gt;
+&lt;/AuthorizeView&gt;
+
+@code {
+    private async Task LogoutAsync()
+    {
+        await SignOut.SetSignOutState();
+        Nav.NavigateTo("authentication/logout");
+    }
+}</code></pre>
+
+<h2>Calling secured API z tokenem</h2>
+<pre><code>// Program.cs
+builder.Services.AddHttpClient("Api", c =&gt;
+{
+    c.BaseAddress = new Uri("https://api.example.com/");
+})
+.AddHttpMessageHandler&lt;BaseAddressAuthorizationMessageHandler&gt;();
+
+builder.Services.AddScoped(sp =&gt;
+    sp.GetRequiredService&lt;IHttpClientFactory&gt;().CreateClient("Api"));</code></pre>
+
+<p>Handler dodaje Authorization header z tokenem aktualnie zalogowanego uzytkownika &mdash; sprawnie odswieza wygasle tokeny.</p>
+
+<h2>MSAL &mdash; Microsoft Authentication Library</h2>
+<p>Dla integracji z Microsoft Entra ID (Azure AD), Microsoft accounts.</p>
+<pre><code>builder.Services.AddMsalAuthentication(options =&gt;
+{
+    builder.Configuration.Bind("AzureAd", options.ProviderOptions.Authentication);
+    options.ProviderOptions.DefaultAccessTokenScopes.Add("api://my-api/access_as_user");
+});</code></pre>
+
+<pre><code>{
+  "AzureAd": {
+    "Authority": "https://login.microsoftonline.com/common",
+    "ClientId": "11111111-1111-1111-1111-111111111111",
+    "ValidateAuthority": true
+  }
+}</code></pre>
+
+<h2>OAuth 2.0 PKCE flow</h2>
+<p>PKCE (Proof Key for Code Exchange) &mdash; standard dla SPA aplikacji. Eliminuje potrzebe client secret w przegladarce.</p>
+<ol>
+<li>WASM generuje code_verifier (random string)</li>
+<li>WASM oblicza code_challenge = SHA256(code_verifier)</li>
+<li>Wysyla user na /authorize z code_challenge</li>
+<li>Otrzymuje authorization_code z callback</li>
+<li>Wymienia kod na token wysylajac code_verifier</li>
+<li>Server weryfikuje hash &mdash; eliminuje interception attacks</li>
+</ol>
+<p>OIDC handler w Blazor uzywa PKCE automatycznie.</p>
+
+<h2>BFF pattern (preferowany 2026)</h2>
+<p>Backend-For-Frontend &mdash; eliminuje tokeny z przegladarki.</p>
+
+<pre><code>Klient (Blazor WASM)
+    | (cookies httpOnly)
+    v
+BFF API (ASP.NET Core)
+    | (server-side tokens)
+    v
+Identity Provider (Auth0, Entra ID)</code></pre>
+
+<p>BFF API dziala jako proxy. WASM nie ma dostepu do tokenu &mdash; nie moze byc XSS-stolen.</p>
+
+<h3>Implementacja BFF z YARP</h3>
+<pre><code>// BFF Program.cs
+builder.Services.AddAuthentication(opts =&gt;
+{
+    opts.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    opts.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+})
+.AddCookie(opts =&gt;
+{
+    opts.Cookie.HttpOnly = true;
+    opts.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    opts.Cookie.SameSite = SameSiteMode.Strict;
+})
+.AddOpenIdConnect(opts =&gt;
+{
+    opts.Authority = "https://example.eu.auth0.com";
+    opts.ClientId = "abc";
+    opts.ClientSecret = builder.Configuration["Auth0:ClientSecret"];
+    opts.SaveTokens = true; // server-side
+});
+
+// Reverse proxy do API
+builder.Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    .AddTransforms(b =&gt; b.AddRequestTransform(async ctx =&gt;
+    {
+        var token = await ctx.HttpContext.GetTokenAsync("access_token");
+        if (token != null)
+            ctx.ProxyRequest.Headers.Authorization = new("Bearer", token);
+    }));</code></pre>
+
+<h2>Token storage strategie &mdash; porownanie</h2>
+<table>
+<thead><tr><th>Storage</th><th>Bezpieczenstwo XSS</th><th>UX</th></tr></thead>
+<tbody>
+<tr><td>localStorage</td><td>NIE odporne &mdash; XSS read</td><td>Persistuje miedzy sesjami</td></tr>
+<tr><td>sessionStorage</td><td>NIE odporne &mdash; XSS read</td><td>Per zakladka</td></tr>
+<tr><td>In-memory</td><td>Lepiej (XSS musi byc szybki)</td><td>Znika po refresh</td></tr>
+<tr><td>HttpOnly cookie (BFF)</td><td>Najlepiej</td><td>Persistuje, niewidoczne dla JS</td></tr>
+</tbody>
+</table>
+
+<h2>Custom AuthenticationStateProvider</h2>
+<p>Dla wlasnych systemow (legacy, custom JWT) tworzysz wlasny provider.</p>
+<pre><code>public class CustomAuthStateProvider : AuthenticationStateProvider
+{
+    private readonly ILocalStorageService localStorage;
+    private readonly HttpClient http;
+
+    public override async Task&lt;AuthenticationState&gt; GetAuthenticationStateAsync()
+    {
+        var token = await localStorage.GetItemAsync&lt;string&gt;("authToken");
+
+        if (string.IsNullOrEmpty(token))
+            return Anonymous;
+
+        var claims = ParseClaimsFromJwt(token);
+        var identity = new ClaimsIdentity(claims, "jwt");
+        return new AuthenticationState(new ClaimsPrincipal(identity));
+    }
+
+    public void NotifyUserAuthentication(string token)
+    {
+        NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+    }
+
+    private static AuthenticationState Anonymous =&gt;
+        new(new ClaimsPrincipal(new ClaimsIdentity()));
+}</code></pre>
+
+<h2>Refresh token rotation</h2>
+<p>Dla dlugotrwalych sesji uzywaj refresh tokens. Standardowo:</p>
+<ul>
+<li>access_token &mdash; krotki (15 min - 1 godz)</li>
+<li>refresh_token &mdash; dlugi (dni-tygodnie), uzywany do regeneracji access</li>
+<li>Rotation &mdash; kazda regeneracja invaliduje stary refresh</li>
+</ul>
+
+<h2>Authorize attribute</h2>
+<pre><code>@page "/dashboard"
+@attribute [Authorize]
+
+&lt;h1&gt;Dashboard&lt;/h1&gt;</code></pre>
+
+<pre><code>@page "/admin"
+@attribute [Authorize(Roles = "Admin")]</code></pre>
+
+<pre><code>@page "/premium"
+@attribute [Authorize(Policy = "PremiumPlan")]</code></pre>
+
+<h2>AuthorizeView</h2>
+<pre><code>&lt;AuthorizeView Roles="Admin"&gt;
+    &lt;Authorized&gt;
+        &lt;a href="/admin"&gt;Admin panel&lt;/a&gt;
+    &lt;/Authorized&gt;
+&lt;/AuthorizeView&gt;
+
+&lt;AuthorizeView&gt;
+    &lt;Authorized&gt;Witaj @context.User.Identity?.Name&lt;/Authorized&gt;
+    &lt;NotAuthorized&gt;Zaloguj sie&lt;/NotAuthorized&gt;
+    &lt;Authorizing&gt;Sprawdzam...&lt;/Authorizing&gt;
+&lt;/AuthorizeView&gt;</code></pre>
+
+<h2>Common security mistakes</h2>
+<ul>
+<li>Tokeny w localStorage &mdash; XSS storno</li>
+<li>Brak HTTPS &mdash; man-in-the-middle</li>
+<li>Brak walidacji audience na JWT</li>
+<li>Liberalne CORS (allow any origin)</li>
+<li>Polleganie tylko na walidacji client-side</li>
+<li>Brak CSP header &mdash; XSS injection</li>
+<li>Logowanie tokenow do console / Application Insights</li>
+</ul>
+
+<div class="card">
+<h3>Rekomendowany pattern 2026</h3>
+<ol>
+<li>Pierwszorzednie: BFF pattern z httpOnly cookies</li>
+<li>Drugorzendnie: OIDC + MSAL/AddOidcAuthentication, ale w pamieci tokenu</li>
+<li>Authorization na komponencie i route</li>
+<li>Refresh token rotation</li>
+<li>HTTPS tylko, HSTS, CSP</li>
+<li>Walidacja na BFF/API tez (nie tylko WASM)</li>
+</ol>
+</div>
+
+<div class="nav-bottom">
+<a href="05-wydajnosc-wasm.html">&larr; Wydajnosc WASM</a>
+<a href="07-deployment-wasm.html">Deployment WASM &rarr;</a>
+</div>
+</div>
+</body>
+</html>

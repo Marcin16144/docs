@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formy i walidacja</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">React.js</a><span class="sep">/</span><span class="title">Formy i walidacja</span></div>
+<div class="container">
+<h1>Formy i walidacja</h1>
+<p class="subtitle">react-hook-form, Tanstack Form, Zod, Valibot i Server Actions</p>
+
+<h2>Controlled vs Uncontrolled</h2>
+<p>Dwa podejscia do formularzy w Reakcie:</p>
+<ul>
+<li><strong>Controlled</strong> &mdash; React trzyma wartosc w state, kazda zmiana to setter (rerender)</li>
+<li><strong>Uncontrolled</strong> &mdash; DOM trzyma wartosc, czytasz przez ref lub FormData (mniej rerenderow)</li>
+</ul>
+
+<pre><code>// Controlled
+function Controlled() {
+  const [name, setName] = useState('');
+  return (
+    &lt;input value={name} onChange={e =&gt; setName(e.target.value)} /&gt;
+  );
+}
+
+// Uncontrolled
+function Uncontrolled() {
+  const ref = useRef(null);
+  const submit = () =&gt; alert(ref.current.value);
+  return (
+    &lt;&gt;
+      &lt;input defaultValue="" ref={ref} /&gt;
+      &lt;button onClick={submit}&gt;OK&lt;/button&gt;
+    &lt;/&gt;
+  );
+}
+
+// Z FormData (modern uncontrolled)
+function Modern() {
+  const submit = (e) =&gt; {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    console.log(Object.fromEntries(fd));
+  };
+  return (
+    &lt;form onSubmit={submit}&gt;
+      &lt;input name="email" /&gt;
+      &lt;input name="password" type="password" /&gt;
+      &lt;button&gt;Login&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+<h2>react-hook-form (#1 w 2026)</h2>
+<p><strong>react-hook-form</strong> to najpopularniejsza biblioteka. Uzywa uncontrolled inputs &mdash; minimalne rerendery, doskonala wydajnosc.</p>
+
+<pre><code># Instalacja
+npm i react-hook-form
+
+import { useForm } from 'react-hook-form';
+
+function LoginForm() {
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
+
+  const onSubmit = async (data) =&gt; {
+    await api.login(data);
+  };
+
+  return (
+    &lt;form onSubmit={handleSubmit(onSubmit)}&gt;
+      &lt;input
+        {...register('email', {
+          required: 'Email wymagany',
+          pattern: { value: /^.+@.+$/, message: 'Niepoprawny email' },
+        })}
+      /&gt;
+      {errors.email &amp;&amp; &lt;p&gt;{errors.email.message}&lt;/p&gt;}
+
+      &lt;input
+        type="password"
+        {...register('password', {
+          required: 'Haslo wymagane',
+          minLength: { value: 8, message: 'Min 8 znakow' },
+        })}
+      /&gt;
+      {errors.password &amp;&amp; &lt;p&gt;{errors.password.message}&lt;/p&gt;}
+
+      &lt;button disabled={isSubmitting}&gt;
+        {isSubmitting ? 'Loguje...' : 'Zaloguj'}
+      &lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+<h2>Zod &mdash; schema validation</h2>
+<p><strong>Zod</strong> to biblioteka do walidacji opartej na schematach z TypeScript inferencja. Zwykle lacza ja z react-hook-form.</p>
+
+<pre><code># Instalacja
+npm i zod @hookform/resolvers
+
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+const schema = z.object({
+  email: z.string().email('Niepoprawny email'),
+  password: z.string().min(8, 'Min 8 znakow'),
+  age: z.coerce.number().min(18, 'Min 18 lat'),
+  terms: z.literal(true, { errorMap: () =&gt; ({ message: 'Musisz zaakceptowac' }) }),
+});
+
+type FormData = z.infer&lt;typeof schema&gt;; // { email: string; password: string; age: number; terms: true }
+
+function Form() {
+  const { register, handleSubmit, formState: { errors } } = useForm&lt;FormData&gt;({
+    resolver: zodResolver(schema),
+  });
+
+  return (
+    &lt;form onSubmit={handleSubmit(data =&gt; console.log(data))}&gt;
+      &lt;input {...register('email')} /&gt;
+      {errors.email &amp;&amp; &lt;p&gt;{errors.email.message}&lt;/p&gt;}
+
+      &lt;input type="password" {...register('password')} /&gt;
+      &lt;input type="number" {...register('age')} /&gt;
+      &lt;input type="checkbox" {...register('terms')} /&gt;
+      &lt;button&gt;Zapisz&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+<h2>Valibot &mdash; lzejsza alternatywa Zoda</h2>
+<p><strong>Valibot</strong> ma podobne API co Zod, ale jest zaprojektowany z modularnoscia. Tree-shakable &mdash; wynik bundle ~10x mniejszy.</p>
+
+<pre><code>npm i valibot
+
+import * as v from 'valibot';
+
+const schema = v.object({
+  email: v.pipe(v.string(), v.email('Niepoprawny email')),
+  age: v.pipe(v.number(), v.minValue(18)),
+});
+
+const result = v.safeParse(schema, data);
+if (result.success) console.log(result.output);
+else console.log(result.issues);</code></pre>
+
+<h2>Tanstack Form</h2>
+<p><strong>Tanstack Form</strong> &mdash; nowy gracz (2024). Type-safe od podstaw, framework agnostic (React, Vue, Solid).</p>
+
+<pre><code>import { useForm } from '@tanstack/react-form';
+
+function App() {
+  const form = useForm({
+    defaultValues: { email: '', password: '' },
+    onSubmit: async ({ value }) =&gt; { await api.login(value); },
+  });
+
+  return (
+    &lt;form onSubmit={(e) =&gt; { e.preventDefault(); form.handleSubmit(); }}&gt;
+      &lt;form.Field
+        name="email"
+        validators={{
+          onChange: ({ value }) =&gt; !value.includes('@') ? 'Niepoprawny email' : undefined,
+        }}
+        children={(field) =&gt; (
+          &lt;&gt;
+            &lt;input
+              value={field.state.value}
+              onChange={e =&gt; field.handleChange(e.target.value)}
+            /&gt;
+            {field.state.meta.errors?.[0] &amp;&amp; &lt;p&gt;{field.state.meta.errors[0]}&lt;/p&gt;}
+          &lt;/&gt;
+        )}
+      /&gt;
+      &lt;button&gt;Submit&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+<h2>Formik (legacy)</h2>
+<p>Niegdys popularny, dzis <strong>legacy</strong>. Wolniejszy (controlled inputs, czeste rerendery), wiekszy bundle, slabszy DX. Nowe projekty &mdash; uzyj react-hook-form lub Tanstack Form.</p>
+
+<h2>Server Actions z React 19</h2>
+<p>Z React 19 + Next.js 15 mozesz tworzyc formularze z zerem JS po stronie klienta &mdash; akcje wykonuja sie na serwerze.</p>
+
+<pre><code>// app/actions.js
+'use server';
+import { z } from 'zod';
+import { redirect } from 'next/navigation';
+
+const schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+});
+
+export async function login(prevState, formData) {
+  const parsed = schema.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+  });
+
+  if (!parsed.success) {
+    return { errors: parsed.error.flatten().fieldErrors };
+  }
+
+  const ok = await verifyCredentials(parsed.data);
+  if (!ok) return { errors: { _form: ['Bledne dane logowania'] } };
+
+  redirect('/dashboard');
+}
+
+// app/login/page.jsx
+'use client';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
+import { login } from '@/app/actions';
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return &lt;button disabled={pending}&gt;{pending ? 'Loguje...' : 'Zaloguj'}&lt;/button&gt;;
+}
+
+export default function LoginForm() {
+  const [state, action] = useActionState(login, { errors: {} });
+  return (
+    &lt;form action={action}&gt;
+      &lt;input name="email" /&gt;
+      {state.errors?.email &amp;&amp; &lt;p&gt;{state.errors.email[0]}&lt;/p&gt;}
+      &lt;input name="password" type="password" /&gt;
+      {state.errors?.password &amp;&amp; &lt;p&gt;{state.errors.password[0]}&lt;/p&gt;}
+      {state.errors?._form &amp;&amp; &lt;p&gt;{state.errors._form[0]}&lt;/p&gt;}
+      &lt;SubmitButton /&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+<h2>Porownanie</h2>
+<table>
+<thead><tr><th>Biblioteka</th><th>Rozmiar</th><th>Type-safe</th><th>Rerendery</th><th>Use case</th></tr></thead>
+<tbody>
+<tr><td>react-hook-form</td><td>~9 KB</td><td>Tak (z resolver)</td><td>Minimalne</td><td>#1 wybor 2026</td></tr>
+<tr><td>Tanstack Form</td><td>~6 KB</td><td>Doskonaly</td><td>Minimalne</td><td>Nowy projekt z TS</td></tr>
+<tr><td>Formik</td><td>~13 KB</td><td>Sredni</td><td>Czeste</td><td>Legacy &mdash; nie dla nowych</td></tr>
+<tr><td>Server Actions</td><td>0 KB klient</td><td>Tak</td><td>Brak</td><td>Next.js full-stack, prosta forma</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Walidacja: Zod czy Valibot?</h3>
+<ul>
+<li><strong>Zod</strong> &mdash; popularniejszy, wiecej integracji (Tanstack Query, tRPC, Hono)</li>
+<li><strong>Valibot</strong> &mdash; mniejszy bundle (kluczowe dla mobile), tree-shaking</li>
+<li>Oba maja podobne API i TS inference</li>
+<li>Wybierz Zod jesli ekosystem juz go uzywa, Valibot jesli zalezy ci na rozmiarze</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="05-routing.html">&larr; Routing</a>
+<a href="07-data-fetching.html">Data fetching &rarr;</a>
+</div>
+</div>
+</body>
+</html>

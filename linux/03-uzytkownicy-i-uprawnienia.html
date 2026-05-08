@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linux - uzytkownicy i uprawnienia</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fb923c;--accent-hover:#fdba74;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Linux</a><span class="sep">/</span><span class="title">Uzytkownicy i uprawnienia</span></div>
+<div class="container">
+<h1>Uzytkownicy i uprawnienia w Linuxie</h1>
+<p class="subtitle">Zarzadzanie kontami, sudo, chmod, ACL, capabilities, AppArmor</p>
+
+<h2>Model uzytkownikow w Linuxie</h2>
+<p>Linux to system wieloosobowy, w ktorym kazdy proces dziala w kontekscie konkretnego uzytkownika i grup. Uzytkownik <strong>root</strong> (UID=0) ma pelne uprawnienia, zwykli uzytkownicy maja UID >= 1000 (na Ubuntu). Uzytkownicy systemowi (np. www-data, sshd) maja UID < 1000 i sluza do uruchamiania uslug.</p>
+
+<table>
+<tr><th>Plik</th><th>Zawartosc</th></tr>
+<tr><td><code>/etc/passwd</code></td><td>Lista uzytkownikow (login, UID, GID, shell, home)</td></tr>
+<tr><td><code>/etc/shadow</code></td><td>Zaszyfrowane hasla i polityki (tylko root)</td></tr>
+<tr><td><code>/etc/group</code></td><td>Lista grup i ich czlonkow</td></tr>
+<tr><td><code>/etc/gshadow</code></td><td>Zaszyfrowane hasla grupowe</td></tr>
+<tr><td><code>/etc/sudoers</code></td><td>Konfiguracja uprawnien sudo</td></tr>
+</table>
+
+<h2>Tworzenie i usuwanie uzytkownikow</h2>
+<p>Ubuntu ma dwa podobne narzedzia: <strong>useradd</strong> (niskopoziomowe, POSIX) i <strong>adduser</strong> (interaktywny skrypt Perl, latwiejszy w uzyciu). W skryptach uzywaj useradd, w pracy interaktywnej adduser.</p>
+
+<pre><code># useradd - niskopoziomowe (musisz pamietac o flagach)
+sudo useradd -m -s /bin/bash -G sudo -c "Jan Kowalski" jkowalski
+sudo passwd jkowalski
+
+# Wyjasnienie flag:
+# -m - utworz katalog domowy /home/jkowalski
+# -s /bin/bash - shell domyslny
+# -G sudo - dodaj do grupy sudo
+# -c - komentarz (zazwyczaj pelne imie i nazwisko)
+
+# adduser - interaktywny, pyta o haslo i dane
+sudo adduser jkowalski
+
+# Usuniecie uzytkownika
+sudo userdel jkowalski            # bez katalogu domowego
+sudo userdel -r jkowalski         # razem z /home/jkowalski i mailbox
+
+# Zmiana hasla
+sudo passwd jkowalski             # ustawia haslo dla uzytkownika
+passwd                            # zmiana wlasnego hasla</code></pre>
+
+<h2>Grupy</h2>
+<pre><code># Lista grup uzytkownika
+groups jkowalski
+id jkowalski
+
+# Tworzenie grupy
+sudo groupadd developers
+
+# Dodanie uzytkownika do grupy (DOPISANIE - flaga -a jest kluczowa!)
+sudo usermod -aG developers jkowalski
+
+# UWAGA: usermod -G bez -a NADPISZE wszystkie grupy uzytkownika!
+
+# Usuniecie z grupy
+sudo gpasswd -d jkowalski developers
+
+# Usuniecie grupy
+sudo groupdel developers
+
+# Po dodaniu do grupy uzytkownik musi sie wylogowac/zalogowac
+# lub uzyc 'newgrp developers'</code></pre>
+
+<h2>Sudo i visudo</h2>
+<p><strong>sudo</strong> pozwala uruchamiac komendy jako inny uzytkownik (najczesciej root). Konfiguracja w <code>/etc/sudoers</code> oraz <code>/etc/sudoers.d/</code>. <strong>Nigdy</strong> nie edytuj sudoers bezposrednio - uzywaj <code>visudo</code>, ktory waliduje skladnie i zapobiega zablokowaniu sie.</p>
+
+<pre><code># Edycja konfiguracji sudo
+sudo visudo
+
+# Edycja konkretnego pliku w sudoers.d
+sudo visudo -f /etc/sudoers.d/myrules
+
+# Sprawdzenie aktualnych uprawnien
+sudo -l
+
+# Uruchomienie komendy jako inny uzytkownik
+sudo -u www-data ls /var/www
+sudo -u postgres psql
+
+# Powloka roota (preferuj sudo -i nad sudo su)
+sudo -i</code></pre>
+
+<h3>Przyklady regul w sudoers</h3>
+<pre><code># Skladnia: KTO MA= (JAKO_KOGO) [NOPASSWD:] CO
+
+# Pelne uprawnienia bez hasla (niebezpieczne, ale wygodne)
+jkowalski ALL=(ALL:ALL) NOPASSWD:ALL
+
+# Konkretny user moze restartowac nginx bez hasla
+deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart nginx
+
+# Cala grupa moze zarzadzac docker
+%docker ALL=(root) NOPASSWD: /usr/bin/docker
+
+# Uzytkownik moze uruchamiac konkretne komendy
+backup ALL=(root) NOPASSWD: /usr/bin/rsync, /usr/bin/tar
+
+# Standardowy sudo (pyta o haslo)
+%sudo ALL=(ALL:ALL) ALL</code></pre>
+
+<h2>Uprawnienia plikow - chmod</h2>
+<p>Kazdy plik w Linuxie ma trzy klasy uprawnien: <strong>user (u)</strong>, <strong>group (g)</strong>, <strong>others (o)</strong>. Dla kazdej klasy mozliwe sa trzy uprawnienia: <strong>read (r=4)</strong>, <strong>write (w=2)</strong>, <strong>execute (x=1)</strong>.</p>
+
+<table>
+<tr><th>Liczbowo</th><th>Symbolicznie</th><th>Znaczenie</th></tr>
+<tr><td>700</td><td>rwx------</td><td>Prywatny katalog uzytkownika</td></tr>
+<tr><td>755</td><td>rwxr-xr-x</td><td>Standardowe uprawnienia katalogu/skryptu</td></tr>
+<tr><td>644</td><td>rw-r--r--</td><td>Standardowe uprawnienia pliku</td></tr>
+<tr><td>600</td><td>rw-------</td><td>Tylko wlasciciel czyta i pisze (np. klucze SSH)</td></tr>
+<tr><td>777</td><td>rwxrwxrwx</td><td>Wszyscy moga wszystko (NIEBEZPIECZNE)</td></tr>
+</table>
+
+<pre><code># Notacja liczbowa
+chmod 755 script.sh
+chmod 644 document.txt
+chmod 600 ~/.ssh/id_ed25519
+
+# Notacja symboliczna - precyzyjne dodawanie/odejmowanie
+chmod u+x script.sh        # dodaj wykonywalnosc dla wlasciciela
+chmod g-w document.txt     # zabierz zapis grupie
+chmod o=r config.conf      # ustaw 'others' wylacznie na odczyt
+chmod a+r public.html      # all (ugo) - dodaj odczyt dla wszystkich
+
+# Rekursywnie
+chmod -R 755 /var/www/html
+
+# Tylko katalogi 755, tylko pliki 644 (bezpieczna kombinacja)
+find /var/www -type d -exec chmod 755 {} \;
+find /var/www -type f -exec chmod 644 {} \;</code></pre>
+
+<h2>chown - zmiana wlasciciela</h2>
+<pre><code># Zmiana wlasciciela
+sudo chown jkowalski file.txt
+
+# Zmiana wlasciciela i grupy
+sudo chown jkowalski:developers file.txt
+
+# Tylko grupa
+sudo chgrp developers file.txt
+sudo chown :developers file.txt
+
+# Rekursywnie
+sudo chown -R www-data:www-data /var/www/html
+
+# Skopiowanie wlascicielstwa z innego pliku
+sudo chown --reference=template.txt new.txt</code></pre>
+
+<h2>umask - domyslne uprawnienia</h2>
+<p><strong>umask</strong> okresla, ktore uprawnienia sa <em>odejmowane</em> przy tworzeniu plikow. Domyslnie 022 - nowe pliki dostaja 644, katalogi 755.</p>
+
+<pre><code># Sprawdzenie aktualnej umask
+umask
+
+# Ustawienie restrykcyjnej umask (pliki 600, katalogi 700)
+umask 077
+
+# Trwale ustawienie - dodaj do ~/.bashrc lub /etc/profile
+echo 'umask 027' >> ~/.bashrc</code></pre>
+
+<h2>Specjalne bity: SUID, SGID, sticky</h2>
+
+<table>
+<tr><th>Bit</th><th>Liczbowo</th><th>Symbolicznie</th><th>Dzialanie</th></tr>
+<tr><td>SUID</td><td>4xxx</td><td>u+s</td><td>Plik wykonywany z uprawnieniami wlasciciela (np. /usr/bin/passwd)</td></tr>
+<tr><td>SGID</td><td>2xxx</td><td>g+s</td><td>Na pliku - jak SUID dla grupy. Na katalogu - nowe pliki dziedzicza grupe katalogu</td></tr>
+<tr><td>Sticky</td><td>1xxx</td><td>+t</td><td>Tylko wlasciciel pliku moze go usunac z katalogu (jak /tmp)</td></tr>
+</table>
+
+<pre><code># SUID - pozwala zwyklemu userowi zmienic haslo
+ls -l /usr/bin/passwd
+# -rwsr-xr-x 1 root root  /usr/bin/passwd (litera 's' w polu wlasciciela)
+
+# Ustawienie SGID na katalogu zespolowym (pliki dziedzicza grupe)
+sudo chmod g+s /shared/team
+sudo chmod 2775 /shared/team
+
+# Sticky bit na /tmp
+ls -ld /tmp
+# drwxrwxrwt 1 root root  /tmp (litera 't' na koncu)
+
+# Wyszukanie wszystkich SUID w systemie (audyt bezpieczenstwa)
+sudo find / -perm -4000 -type f 2>/dev/null</code></pre>
+
+<h2>ACL - rozszerzone uprawnienia</h2>
+<p>Standardowy model "user/group/others" jest ograniczony. <strong>ACL</strong> (Access Control Lists) pozwala nadawac uprawnienia konkretnym uzytkownikom i grupom poza wlascicielem.</p>
+
+<pre><code># Instalacja narzedzi (zazwyczaj juz jest)
+sudo apt install acl
+
+# Sprawdzenie ACL pliku
+getfacl document.txt
+
+# Nadanie uzytkownikowi prawa odczytu i zapisu
+setfacl -m u:jkowalski:rw document.txt
+
+# Nadanie grupie prawa odczytu
+setfacl -m g:developers:r document.txt
+
+# Domyslne ACL na katalogu (dziedziczone przez nowe pliki)
+setfacl -d -m g:developers:rwx /shared/projects
+
+# Usuniecie konkretnego ACL
+setfacl -x u:jkowalski document.txt
+
+# Usuniecie wszystkich ACL
+setfacl -b document.txt
+
+# Plus '+' na koncu uprawnien w ls -l oznacza obecnosc ACL
+ls -l document.txt
+# -rw-rw-r--+ 1 root root</code></pre>
+
+<h2>Capabilities</h2>
+<p><strong>Capabilities</strong> rozbijaja uprawnienia roota na granularne flagi. Zamiast nadawac SUID, ktory daje pelne uprawnienia roota, mozesz nadac konkretna capability. Przyklad - <code>ping</code> potrzebuje tylko CAP_NET_RAW, a nie pelnego roota.</p>
+
+<pre><code># Instalacja narzedzi
+sudo apt install libcap2-bin
+
+# Sprawdzenie capabilities pliku
+getcap /usr/bin/ping
+
+# Nadanie capabilities (np. uruchamianie procesu na porcie ponizej 1024)
+sudo setcap 'cap_net_bind_service=+ep' /usr/bin/node
+
+# Po tym Node.js moze nasluchiwac na porcie 80/443 bez sudo
+
+# Lista wszystkich capabilities
+capsh --print
+
+# Usuniecie
+sudo setcap -r /usr/bin/node</code></pre>
+
+<h2>AppArmor (Ubuntu)</h2>
+<p>Ubuntu uzywa <strong>AppArmor</strong> jako Mandatory Access Control. AppArmor ogranicza co kazdy program moze zrobic - ktore pliki czytac, do ktorych sieci sie laczyc. Inne dystrybucje (RHEL, Fedora) preferuja SELinux. AppArmor jest prostszy w konfiguracji.</p>
+
+<pre><code># Status AppArmor
+sudo apparmor_status
+
+# Lista zaladowanych profili
+sudo aa-status
+
+# Tryby dzialania profilu:
+# enforce - blokuje niedozwolone akcje
+# complain - tylko loguje (uzyteczne do tworzenia profili)
+
+# Przelaczenie profilu w tryb complain
+sudo aa-complain /etc/apparmor.d/usr.bin.firefox
+
+# Powrot do enforce
+sudo aa-enforce /etc/apparmor.d/usr.bin.firefox
+
+# Logi naruszen w dziennikach
+sudo journalctl -k | grep apparmor
+sudo dmesg | grep DENIED</code></pre>
+
+<h2>passwd i chage - polityki hasel</h2>
+<pre><code># Wymuszenie zmiany hasla przy nastepnym logowaniu
+sudo passwd -e jkowalski
+
+# Zablokowanie konta
+sudo passwd -l jkowalski
+sudo usermod -L jkowalski
+
+# Odblokowanie
+sudo passwd -u jkowalski
+sudo usermod -U jkowalski
+
+# Wyswietlenie polityki haslowej
+sudo chage -l jkowalski
+
+# Ustawienie maksymalnego okresu waznosci hasla na 90 dni
+sudo chage -M 90 jkowalski
+
+# Konto wygasa za 365 dni
+sudo chage -E $(date -d "+365 days" +%Y-%m-%d) jkowalski</code></pre>
+
+<div class="card">
+<strong>Najlepsze praktyki bezpieczenstwa:</strong>
+<ul>
+<li>Nie loguj sie jako root - uzywaj sudo</li>
+<li>Stosuj zasade najmniejszych uprawnien (least privilege)</li>
+<li>Regularnie audytuj pliki SUID/SGID</li>
+<li>Hasla min. 12 znakow, polityka 90 dni dla kont uprzywilejowanych</li>
+<li>Uzywaj kluczy SSH zamiast hasel (ed25519)</li>
+<li>Konfiguruj fail2ban przy publicznym SSH</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="02-zarzadzanie-pakietami.html">&larr; Zarzadzanie pakietami</a>
+<a href="04-procesy-i-zasoby.html">Procesy i zasoby &rarr;</a>
+</div>
+</div>
+</body>
+</html>

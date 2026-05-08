@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Routing i nawigacja Blazor</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">WWW</a><span class="sep">/</span><a href="index.html">Blazor</a><span class="sep">/</span><span class="title">Routing i nawigacja</span></div>
+<div class="container">
+<h1>Routing i nawigacja Blazor</h1>
+<p class="subtitle">App.razor, NavigationManager, route parametry, route constraints, protected routes</p>
+
+<h2>App.razor &mdash; root komponent</h2>
+<p>Plik <code>App.razor</code> definiuje routing dla calej aplikacji. Komponent <code>Router</code> przeszukuje zalozenia w danym assembly i mapuje URL na odpowiednie strony.</p>
+<pre><code>&lt;Router AppAssembly="@typeof(App).Assembly"&gt;
+    &lt;Found Context="routeData"&gt;
+        &lt;RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" /&gt;
+        &lt;FocusOnNavigate RouteData="@routeData" Selector="h1" /&gt;
+    &lt;/Found&gt;
+    &lt;NotFound&gt;
+        &lt;PageTitle&gt;Nie znaleziono&lt;/PageTitle&gt;
+        &lt;LayoutView Layout="@typeof(MainLayout)"&gt;
+            &lt;p&gt;Strona nie istnieje.&lt;/p&gt;
+        &lt;/LayoutView&gt;
+    &lt;/NotFound&gt;
+&lt;/Router&gt;</code></pre>
+
+<h2>Definiowanie strony</h2>
+<p>Dyrektywa <code>@page</code> przypisuje routing URL do komponentu. Mozesz miec wiele <code>@page</code> dyrektyw na jednej stronie (aliasy URL).</p>
+<pre><code>@page "/products"
+@page "/produkty"
+
+&lt;h1&gt;Lista produktow&lt;/h1&gt;</code></pre>
+
+<h2>Route parameters</h2>
+<pre><code>@page "/users/{Id:int}"
+
+&lt;h1&gt;Uzytkownik #@Id&lt;/h1&gt;
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        // Wywolane przy kazdej zmianie URL
+    }
+}</code></pre>
+
+<h2>Route constraints</h2>
+<table>
+<thead><tr><th>Constraint</th><th>Opis</th></tr></thead>
+<tbody>
+<tr><td><code>{id:int}</code></td><td>Liczba calkowita</td></tr>
+<tr><td><code>{id:long}</code></td><td>Long</td></tr>
+<tr><td><code>{val:double}</code></td><td>Liczba zmiennoprzecinkowa</td></tr>
+<tr><td><code>{val:bool}</code></td><td>true/false</td></tr>
+<tr><td><code>{date:datetime}</code></td><td>Data ISO</td></tr>
+<tr><td><code>{id:guid}</code></td><td>GUID</td></tr>
+<tr><td><code>{name?}</code></td><td>Optional parameter</td></tr>
+<tr><td><code>{*rest}</code></td><td>Catch-all (zlapie reszte URL)</td></tr>
+</tbody>
+</table>
+
+<pre><code>@page "/orders/{Year:int}/{Month:int?}"
+@page "/files/{*path}"
+
+@code {
+    [Parameter] public int Year { get; set; }
+    [Parameter] public int? Month { get; set; }
+    [Parameter] public string Path { get; set; } = "";
+}</code></pre>
+
+<h2>Query string parameters</h2>
+<pre><code>@page "/search"
+
+&lt;h1&gt;Wyniki: @Query&lt;/h1&gt;
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? Query { get; set; }
+
+    [SupplyParameterFromQuery(Name = "page")]
+    public int Page { get; set; } = 1;
+}
+
+&lt;!-- URL: /search?Query=blazor&amp;page=2 --&gt;</code></pre>
+
+<h2>NavigationManager</h2>
+<p>Wbudowany serwis do programatycznej nawigacji.</p>
+<pre><code>@inject NavigationManager Navigation
+
+&lt;button @onclick="GoToProducts"&gt;Produkty&lt;/button&gt;
+&lt;button @onclick="GoBack"&gt;Powrot&lt;/button&gt;
+
+@code {
+    private void GoToProducts()
+    {
+        Navigation.NavigateTo("/products");
+    }
+
+    private void GoToProductWithReplace(int id)
+    {
+        Navigation.NavigateTo($"/products/{id}", replace: true);
+    }
+
+    private void ForceReload()
+    {
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo(Navigation.HistoryEntryState ?? "/");
+    }
+}</code></pre>
+
+<h3>Subskrypcja zmiany URL</h3>
+<pre><code>@inject NavigationManager Navigation
+@implements IDisposable
+
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        Console.WriteLine($"Nawigacja do: {e.Location}");
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}</code></pre>
+
+<h2>NavLink &mdash; aktywny link</h2>
+<p>Komponent <code>NavLink</code> automatycznie dodaje klase <code>active</code> gdy URL pasuje.</p>
+<pre><code>&lt;nav&gt;
+  &lt;NavLink href="/" Match="NavLinkMatch.All"&gt;Home&lt;/NavLink&gt;
+  &lt;NavLink href="/products"&gt;Produkty&lt;/NavLink&gt;
+  &lt;NavLink href="/contact" ActiveClass="active text-bold"&gt;Kontakt&lt;/NavLink&gt;
+&lt;/nav&gt;</code></pre>
+
+<h2>Route ordering &mdash; kolejnosc dopasowania</h2>
+<p>Blazor wybiera najbardziej specyficzny route. Litera ma pierwszenstwo nad parametrem, parametr nad catch-all.</p>
+<pre><code>@page "/products"           // 1. najbardziej specyficzny
+@page "/products/{id:int}"  // 2. z parametrem
+@page "/products/{*rest}"   // 3. catch-all</code></pre>
+
+<h2>Protected routes &mdash; AuthorizeView</h2>
+<p>Aby chronic strone wymagajaca logowania uzyj <code>[Authorize]</code> i <code>AuthorizeRouteView</code>.</p>
+<pre><code>&lt;!-- App.razor --&gt;
+&lt;Router AppAssembly="@typeof(App).Assembly"&gt;
+    &lt;Found Context="routeData"&gt;
+        &lt;AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"&gt;
+            &lt;NotAuthorized&gt;
+                &lt;p&gt;Zaloguj sie aby zobaczyc te strone.&lt;/p&gt;
+            &lt;/NotAuthorized&gt;
+        &lt;/AuthorizeRouteView&gt;
+    &lt;/Found&gt;
+&lt;/Router&gt;</code></pre>
+
+<pre><code>@page "/admin"
+@attribute [Authorize(Roles = "Admin")]
+
+&lt;h1&gt;Panel administratora&lt;/h1&gt;</code></pre>
+
+<h2>Layouts</h2>
+<p>Layout to wspolne ramy aplikacji. Dziedziczy z <code>LayoutComponentBase</code>.</p>
+<pre><code>@inherits LayoutComponentBase
+
+&lt;header&gt;Logo i nav&lt;/header&gt;
+&lt;main&gt;@Body&lt;/main&gt;
+&lt;footer&gt;Stopka&lt;/footer&gt;</code></pre>
+
+<p>Mozesz nadpisac layout per strona:</p>
+<pre><code>@page "/admin/dashboard"
+@layout AdminLayout
+
+&lt;h1&gt;Dashboard&lt;/h1&gt;</code></pre>
+
+<h2>Programmatic redirect po akcji</h2>
+<pre><code>@inject NavigationManager Nav
+
+@code {
+    private async Task SaveAndRedirect()
+    {
+        await ProductService.SaveAsync(model);
+        Nav.NavigateTo($"/products/{model.Id}");
+    }
+}</code></pre>
+
+<h2>404 i error pages</h2>
+<pre><code>&lt;Router AppAssembly="@typeof(App).Assembly"&gt;
+    &lt;NotFound&gt;
+        &lt;PageTitle&gt;404&lt;/PageTitle&gt;
+        &lt;div class="error-page"&gt;
+            &lt;h1&gt;Nie znaleziono&lt;/h1&gt;
+            &lt;a href="/"&gt;Wroc na strone glowna&lt;/a&gt;
+        &lt;/div&gt;
+    &lt;/NotFound&gt;
+&lt;/Router&gt;</code></pre>
+
+<div class="card">
+<h3>Wskazowka &mdash; PageTitle</h3>
+<p>Komponent <code>PageTitle</code> umozliwia zmiane tytulu strony bez JS interop:</p>
+<pre><code>@page "/products/{Id:int}"
+
+&lt;PageTitle&gt;Produkt @Id - Sklep&lt;/PageTitle&gt;
+&lt;HeadContent&gt;
+    &lt;meta name="description" content="Produkt @Id"&gt;
+&lt;/HeadContent&gt;</code></pre>
+</div>
+
+<div class="nav-bottom">
+<a href="01-podstawy-blazor.html">&larr; Podstawy Blazor</a>
+<a href="03-state-management.html">State management &rarr;</a>
+</div>
+</div>
+</body>
+</html>

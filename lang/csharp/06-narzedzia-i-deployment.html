@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Narzedzia i deployment .NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">C#</a>
+    <span class="sep">/</span>
+    <span class="title">Narzedzia i deployment</span>
+</div>
+
+<div class="container">
+<h1>Narzedzia i deployment .NET</h1>
+<p class="subtitle">Visual Studio 2025, Rider, dotnet CLI, AOT, single-file publish, Docker, Kubernetes, Azure, GitHub Actions.</p>
+
+<h2>IDE - Visual Studio 2025 / Rider</h2>
+
+<table>
+<thead><tr><th>Funkcja</th><th>VS 2025</th><th>Rider</th><th>VS Code</th></tr></thead>
+<tbody>
+<tr><td>Refactoring</td><td>Bardzo dobry</td><td>Najlepszy</td><td>Sredni (z C# Dev Kit)</td></tr>
+<tr><td>Debugowanie</td><td>Najlepsze</td><td>Bardzo dobre</td><td>Dobre</td></tr>
+<tr><td>Performance</td><td>Wolniejsze</td><td>Sredniej</td><td>Najlzejsze</td></tr>
+<tr><td>Cross-platform</td><td>Win/Mac (deprek)</td><td>Win/Mac/Linux</td><td>Win/Mac/Linux</td></tr>
+<tr><td>Hot Reload</td><td>Tak</td><td>Tak</td><td>Tak</td></tr>
+<tr><td>Cena</td><td>Community free</td><td>Subscription</td><td>Free</td></tr>
+</tbody></table>
+
+<h2>dotnet CLI - workflow</h2>
+<pre><code># Tworzenie projektow
+dotnet new sln -n MyApp
+dotnet new webapi -o src/MyApp.Api
+dotnet new classlib -o src/MyApp.Core
+dotnet new xunit -o tests/MyApp.Tests
+
+# Solution
+dotnet sln add src/MyApp.Api
+dotnet sln add src/MyApp.Core
+dotnet sln add tests/MyApp.Tests
+
+# Reference
+dotnet add src/MyApp.Api reference src/MyApp.Core
+dotnet add tests/MyApp.Tests reference src/MyApp.Core
+
+# Build
+dotnet build
+dotnet build -c Release
+
+# Test
+dotnet test
+dotnet test --collect:"XPlat Code Coverage"
+
+# Run + watch
+dotnet run --project src/MyApp.Api
+dotnet watch run --project src/MyApp.Api
+
+# Format / lint
+dotnet format
+dotnet format --verify-no-changes  # CI</code></pre>
+
+<h2>Native AOT - kompilacja do natywnego binary</h2>
+<p>Native AOT (Ahead-of-Time) eliminuje JIT &mdash; aplikacja jest skompilowana do prawdziwego natywnego kodu. Plusy: szybki start (10x), maly footprint, brak zaleznosci od .NET runtime. Minusy: brak refleksji w czasie runtime, ograniczenia na biblioteki.</p>
+
+<pre><code>&lt;!-- .csproj --&gt;
+&lt;PropertyGroup&gt;
+    &lt;TargetFramework&gt;net9.0&lt;/TargetFramework&gt;
+    &lt;PublishAot&gt;true&lt;/PublishAot&gt;
+    &lt;StripSymbols&gt;true&lt;/StripSymbols&gt;
+    &lt;InvariantGlobalization&gt;true&lt;/InvariantGlobalization&gt;
+&lt;/PropertyGroup&gt;
+
+# Publish
+dotnet publish -c Release -r linux-x64
+
+# Wynik:
+# bin/Release/net9.0/linux-x64/publish/MyApp     (single binary, ~10 MB)
+# Zaden runtime nie jest potrzebny!</code></pre>
+
+<h2>Single-file publish</h2>
+<pre><code># Jeden plik .exe z runtime'em w srodku
+dotnet publish -c Release -r win-x64 \
+    --self-contained \
+    -p:PublishSingleFile=true \
+    -p:IncludeNativeLibrariesForSelfExtract=true
+
+# Trimming - usuwanie nieuzywanego kodu
+dotnet publish -c Release -r win-x64 \
+    --self-contained \
+    -p:PublishSingleFile=true \
+    -p:PublishTrimmed=true</code></pre>
+
+<h2>Ready-to-Run (R2R)</h2>
+<p>Pre-kompilacja IL do natywnego kodu &mdash; szybszy start aplikacji. Mniej restrykcji niz AOT.</p>
+
+<pre><code>dotnet publish -c Release -r linux-x64 \
+    -p:PublishReadyToRun=true</code></pre>
+
+<h2>Docker dla .NET - multi-stage</h2>
+<pre><code># syntax=docker/dockerfile:1.7
+# Stage 1: SDK build
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
+WORKDIR /src
+
+# Cache restore
+COPY ["src/MyApp.Api/MyApp.Api.csproj", "MyApp.Api/"]
+COPY ["src/MyApp.Core/MyApp.Core.csproj", "MyApp.Core/"]
+COPY ["Directory.Packages.props", "."]
+COPY ["nuget.config", "."]
+RUN dotnet restore "MyApp.Api/MyApp.Api.csproj"
+
+# Build + publish
+COPY src/ .
+RUN dotnet publish "MyApp.Api/MyApp.Api.csproj" \
+    -c Release \
+    -o /app/publish \
+    --no-restore \
+    /p:UseAppHost=false
+
+# Stage 2: runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS runtime
+WORKDIR /app
+
+# Non-root user
+RUN adduser -D -u 1000 appuser
+USER appuser
+
+COPY --from=build --chown=appuser:appuser /app/publish .
+
+ENV ASPNETCORE_URLS=http://+:8080 \
+    DOTNET_RUNNING_IN_CONTAINER=true \
+    DOTNET_USE_POLLING_FILE_WATCHER=false
+
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "MyApp.Api.dll"]</code></pre>
+
+<h3>Chiseled images (.NET 8+)</h3>
+<p>Microsoft oferuje "chiseled" images &mdash; ultra-male, distroless. Bez shell, bez package managera, ~30 MB.</p>
+
+<pre><code>FROM mcr.microsoft.com/dotnet/aspnet:9.0-noble-chiseled AS runtime
+# vs ~210 MB dla normalnego aspnet image</code></pre>
+
+<h2>Kubernetes - Helm chart</h2>
+<pre><code># Chart.yaml
+apiVersion: v2
+name: myapp
+version: 1.0.0
+appVersion: "1.0"
+
+# values.yaml
+replicaCount: 3
+image:
+  repository: myapp
+  tag: "1.0"
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    spec:
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080</code></pre>
+
+<h2>Azure deployment</h2>
+<table>
+<thead><tr><th>Service</th><th>Best for</th></tr></thead>
+<tbody>
+<tr><td>App Service</td><td>Klasyczne aplikacje webowe, prosta konfiguracja</td></tr>
+<tr><td>Container Apps</td><td>Microservices, serverless containers (KEDA scaling)</td></tr>
+<tr><td>Functions</td><td>Event-driven, serverless</td></tr>
+<tr><td>AKS</td><td>Pelny Kubernetes</td></tr>
+<tr><td>Static Web Apps</td><td>Blazor WASM, SPA + API</td></tr>
+</tbody></table>
+
+<pre><code># Azure CLI deployment
+az webapp create \
+    --resource-group myRG \
+    --plan myPlan \
+    --name myapp \
+    --runtime "DOTNETCORE:9.0"
+
+# Deploy
+az webapp deploy \
+    --resource-group myRG \
+    --name myapp \
+    --src-path bin/Release/net9.0/publish.zip</code></pre>
+
+<h2>GitHub Actions - CI/CD</h2>
+<pre><code>name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('**/packages.lock.json') }}
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Format check
+        run: dotnet format --verify-no-changes
+
+      - name: Vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive 2&gt;&amp;1 | tee output.txt
+          ! grep -q "has the following vulnerable" output.txt
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release \
+          --logger "trx;LogFileName=test-results.trx" \
+          --collect:"XPlat Code Coverage"
+
+      - name: Publish
+        if: github.ref == 'refs/heads/main'
+        run: dotnet publish src/MyApp.Api -c Release -o publish
+
+      - name: Build Docker
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker build -t myapp:${{ github.sha }} .
+          docker tag myapp:${{ github.sha }} myapp:latest</code></pre>
+
+<div class="card">
+<h3>Production checklist</h3>
+<ul>
+<li>Logging strukturalne (Serilog + Seq/Elastic)</li>
+<li>Health checks (/health/live, /health/ready)</li>
+<li>Metrics (OpenTelemetry, Prometheus)</li>
+<li>Distributed tracing (OTel + Jaeger/Tempo)</li>
+<li>Graceful shutdown (handle SIGTERM)</li>
+<li>Resource limits w K8s</li>
+<li>HPA / VPA dla autoscaling</li>
+<li>Vault dla secrets, nie env vars</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="05-ochrona-kodu-przed-kradzieza.html">&larr; Ochrona kodu</a>
+<a href="index.html">Wroc do C# &rarr;</a>
+</div>
+</div>
+</body>
+</html>

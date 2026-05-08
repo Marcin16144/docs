@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy Blazor Server</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Server</a><span class="sep">/</span><span class="title">Podstawy</span></div>
+<div class="container">
+<h1>Podstawy Blazor Server</h1>
+<p class="subtitle">Architektura SignalR, server-side rendering, plusy, minusy, dotnet new blazorserver</p>
+
+<h2>Architektura</h2>
+<p>Blazor Server to model, w ktorym <strong>logika komponentow zyje na serwerze</strong>. Klient utrzymuje stale polaczenie SignalR (najczesciej WebSocket), przez ktore przekazywane sa zdarzenia UI (klikniecia, focus, input) i odbierane sa <strong>diffy DOM</strong> do zastosowania.</p>
+
+<pre><code>Browser (klient)         SignalR connection         Server
+  +------+                  +-------+                +---------+
+  | DOM  | &lt;-- DOM diff --- | hub   | &lt;-- render --- | C# code |
+  | UI   | --- event ----&gt;  | /hub  | --- handle --&gt;| state   |
+  +------+                  +-------+                +---------+</code></pre>
+
+<h2>Co to oznacza w praktyce</h2>
+<ul>
+<li>Cala logika i stan komponentow zyja na serwerze</li>
+<li>Przegladarka pobiera tylko maly bootstrap (~250 KB) + cienkie wrapper JS</li>
+<li>Kazdy klikniecie / input idzie przez WebSocket na serwer</li>
+<li>Odpowiedz to <strong>diff drzewa renderowanego</strong>, nie pelny HTML</li>
+<li>Stan jest "zywy" w pamieci servera per uzytkownik (circuit)</li>
+</ul>
+
+<h2>Plusy</h2>
+<ul>
+<li><strong>Bardzo maly bundle</strong> &mdash; brak runtime .NET w przegladarce</li>
+<li><strong>Szybki startup</strong> &mdash; pierwsze ladowanie ~100-300ms</li>
+<li><strong>Pelny dostep do .NET</strong> &mdash; bezposrednio uzywasz EF Core, plikow, itp.</li>
+<li><strong>Zaden kod do klienta</strong> &mdash; bezpieczenstwo logiki biznesowej</li>
+<li><strong>Real-time UI</strong> &mdash; latwo aktualizowac zmiana z innego watku</li>
+<li>Dobre dla aplikacji intranetowych z dobra siecia</li>
+</ul>
+
+<h2>Minusy</h2>
+<ul>
+<li><strong>Latency</strong> &mdash; kazda interakcja round trip (50-200ms)</li>
+<li><strong>Persistent connection</strong> &mdash; klient musi miec WebSocket otwarty przez caly czas</li>
+<li><strong>Skalowanie</strong> &mdash; kazdy uzytkownik to ~1-5 MB pamieci na serwerze</li>
+<li><strong>Sticky sessions</strong> &mdash; load balancer musi trzymac uzytkownika na tym samym serwerze</li>
+<li><strong>Reconnection UX</strong> &mdash; przy disconnect uzytkownik widzi "Trying to reconnect..."</li>
+<li>Nie dziala offline</li>
+<li>Slabsze dla mobile (slabe sieci, polaczenia z latency)</li>
+</ul>
+
+<h2>Tworzenie projektu</h2>
+<pre><code># .NET 9 - aktualny szablon
+dotnet new blazor -o MyApp --interactivity Server
+
+# Stary szablon (.NET 7)
+dotnet new blazorserver -o MyApp
+
+cd MyApp
+dotnet run</code></pre>
+
+<h3>Struktura projektu</h3>
+<pre><code>MyApp/
+  Components/
+    App.razor              # Root komponent
+    Routes.razor           # Router
+    Layout/
+      MainLayout.razor
+      NavMenu.razor
+    Pages/
+      Home.razor
+      Counter.razor
+      Weather.razor
+    _Imports.razor         # Globalne usings
+  Program.cs               # Setup DI, middleware
+  appsettings.json
+  Properties/launchSettings.json
+  wwwroot/
+    css/
+    js/
+    favicon.png</code></pre>
+
+<h2>Program.cs</h2>
+<pre><code>var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+builder.Services.AddScoped&lt;WeatherService&gt;();
+
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseAntiforgery();
+
+app.MapRazorComponents&lt;App&gt;()
+    .AddInteractiveServerRenderMode();
+
+app.Run();</code></pre>
+
+<h2>App.razor &mdash; root</h2>
+<pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="pl"&gt;
+&lt;head&gt;
+    &lt;meta charset="utf-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;base href="/"&gt;
+    &lt;link rel="stylesheet" href="css/site.css"&gt;
+    &lt;HeadOutlet @rendermode="@InteractiveServer" /&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;Routes @rendermode="@InteractiveServer" /&gt;
+    &lt;script src="_framework/blazor.web.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h2>Counter.razor &mdash; klasyczny przyklad</h2>
+<pre><code>@page "/counter"
+@rendermode InteractiveServer
+
+&lt;PageTitle&gt;Counter&lt;/PageTitle&gt;
+
+&lt;h1&gt;Counter&lt;/h1&gt;
+&lt;p role="status"&gt;Current count: @currentCount&lt;/p&gt;
+&lt;button class="btn btn-primary" @onclick="IncrementCount"&gt;Click me&lt;/button&gt;
+
+@code {
+    private int currentCount = 0;
+
+    private void IncrementCount()
+    {
+        currentCount++;
+    }
+}</code></pre>
+
+<h2>WebSocket connection requirement</h2>
+<p>Blazor Server <strong>wymaga</strong> WebSocket lub Server-Sent Events. Long-polling dziala jako fallback ale jest wolny.</p>
+<ul>
+<li>IIS &mdash; trzeba wlaczyc rolu "WebSocket Protocol"</li>
+<li>Nginx &mdash; <code>proxy_set_header Upgrade $http_upgrade</code></li>
+<li>Azure App Service &mdash; <code>az webapp config set --web-sockets-enabled true</code></li>
+<li>Reverse proxy musi przepuszczac WebSockets</li>
+</ul>
+
+<h2>SignalR config</h2>
+<pre><code>builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents()
+    .AddHubOptions(options =&gt;
+    {
+        options.MaximumReceiveMessageSize = 1024 * 1024; // 1 MB
+        options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+    });</code></pre>
+
+<h2>Memory per user</h2>
+<p>Kazdy aktywny uzytkownik to circuit (logical connection). Trzyma:</p>
+<ul>
+<li>Stan komponentow (~tysiace obiektow)</li>
+<li>Render tree</li>
+<li>Cascading values</li>
+<li>Scoped services</li>
+</ul>
+<p>Typowa aplikacja: <strong>1-5 MB per user</strong>. Serwer 4 GB RAM = ~1000-2000 aktywnych uzytkownikow. Skalowanie wymaga sharding lub Azure SignalR Service.</p>
+
+<h2>Kiedy wybrac Blazor Server?</h2>
+<ul>
+<li>Aplikacje wewnetrzne, intranet, dobre lacze</li>
+<li>Admin paneli, dashboardy biznesowe</li>
+<li>Wymagana ochrona logiki biznesowej (kod nie idzie do klienta)</li>
+<li>Latwa integracja z bazaa danych, plikami serwerowymi</li>
+<li>Real-time aktualizacje (notyfikacje, czat, dashboard live)</li>
+<li>Mniej niz ~5000 jednoczesnie aktywnych uzytkownikow</li>
+</ul>
+
+<h2>Kiedy NIE wybrac Blazor Server?</h2>
+<ul>
+<li>Public site z slabymi laczami (mobile, 3G)</li>
+<li>Aplikacja musi dzialac offline</li>
+<li>Setki tysiecy uzytkownikow jednoczesnie (drogi infrastructure)</li>
+<li>Globalna dystrybucja &mdash; latency intercontinental</li>
+</ul>
+
+<div class="card">
+<h3>Werdykt</h3>
+<p>Blazor Server to perfekcyjny wybor dla <strong>aplikacji biznesowych</strong> zorientowanych na serwer (B2B, intranet, panele admin), gdy mozesz zalozyc dobre lacze. Dla aplikacji publicznych mobile-first lepiej wybrac Blazor WebAssembly lub Blazor United z auto mode.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="index.html">&larr; Powrot do Blazor Server</a>
+<a href="02-circuit-management.html">Circuit management &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dockerfile best practices</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Docker</a><span class="sep">/</span><span class="title">Dockerfile best practices</span></div>
+<div class="container">
+<h1>Dockerfile best practices</h1>
+<p class="subtitle">Multi-stage builds, .dockerignore, layer caching, BuildKit</p>
+
+<h2>Multi-stage builds &mdash; obowiazek 2026</h2>
+<p>Najwazniejsza technika. Buildujesz w jednym stage, kopiujesz tylko artefakty do drugiego. Wynik: maly obraz produkcyjny bez narzedzi build.</p>
+
+<pre><code># Node.js &mdash; przyklad
+# === Stage 1: builder ===
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# === Stage 2: runtime ===
+FROM node:20-alpine AS runtime
+WORKDIR /app
+
+# Tylko produkcyjne deps
+COPY package*.json ./
+RUN npm ci --omit=dev &amp;&amp; npm cache clean --force
+
+# Tylko zbudowane artefakty
+COPY --from=builder /app/dist ./dist
+
+USER node
+EXPOSE 3000
+CMD ["node", "dist/server.js"]
+
+# Wynik: ~150 MB zamiast ~1 GB</code></pre>
+
+<h3>Go &mdash; przyklad ekstremalny</h3>
+<pre><code># Stage 1: build
+FROM golang:1.22 AS builder
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app ./cmd/api
+
+# Stage 2: minimalny runtime
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=builder /app /app
+USER nonroot:nonroot
+EXPOSE 8080
+ENTRYPOINT ["/app"]
+
+# Final image: ~10 MB!</code></pre>
+
+<h2>.dockerignore &mdash; KLUCZOWE</h2>
+<p>Plik <code>.dockerignore</code> okresla co NIE wysyla sie do daemona przy <code>COPY .</code>. Bez niego wysylasz <code>node_modules</code>, <code>.git</code>, sekrety, cache.</p>
+
+<pre><code># .dockerignore
+.git
+.gitignore
+.dockerignore
+Dockerfile*
+docker-compose*.yml
+
+node_modules
+npm-debug.log
+.next
+.cache
+dist
+build
+coverage
+
+.env
+.env.local
+.env.*.local
+*.pem
+
+.vscode
+.idea
+*.swp
+
+README.md
+CHANGELOG.md
+docs
+test
+**/*.test.js
+**/*.spec.ts</code></pre>
+
+<div class="card">
+<h3>Skutki braku .dockerignore</h3>
+<ul>
+<li>Build wolniejszy (gigabajty wysylane do daemona)</li>
+<li>Wieksze obrazy (np. <code>.git</code> z historia 500 MB)</li>
+<li>Wycieki sekretow (<code>.env</code> trafia do obrazu)</li>
+<li>Cache invalidation przez kazda zmiane lokalna (np. .vscode/)</li>
+</ul>
+</div>
+
+<h2>Layer caching</h2>
+<p>Docker buduje warstwami. Kazdy <code>RUN</code>, <code>COPY</code>, <code>ADD</code> to nowa warstwa. Jesli nic sie nie zmienilo, Docker re-uzyva cache. Strategia: <strong>najpierw to co rzadko sie zmienia</strong>.</p>
+
+<pre><code># ZLE &mdash; cache invalidation przy kazdej zmianie kodu
+FROM node:20-alpine
+WORKDIR /app
+COPY . .                  # zmiana JEDNEGO pliku &rarr; cache padl
+RUN npm ci                # ...wiec npm ci zostanie powtorzony
+CMD ["node", "index.js"]
+
+# DOBRZE &mdash; package.json osobno
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./     # zmiana tylko gdy deps sie zmienia
+RUN npm ci                # cache do tego momentu
+COPY . .                  # zmiana kodu nie unieksztalca npm ci
+CMD ["node", "index.js"]</code></pre>
+
+<h2>Wybor base image</h2>
+
+<h3>Alpine</h3>
+<pre><code>FROM node:20-alpine
+# ~50 MB &mdash; musl libc, busybox, malo narzedzi
+# Uwaga: niektore biblioteki C nie kompiluja na musl (rzadko)</code></pre>
+
+<h3>Distroless (Google)</h3>
+<pre><code>FROM gcr.io/distroless/nodejs20-debian12:nonroot
+# Tylko runtime &mdash; brak shella, package managera, busybox
+# Bezpieczne, male (~80 MB), ale debug trudniejszy
+# Wersja "debug" ma busybox: gcr.io/distroless/.../debug</code></pre>
+
+<h3>Chainguard Images</h3>
+<pre><code>FROM cgr.dev/chainguard/node:latest
+# Hardened obrazy &mdash; minimalne, signed, zero CVE
+# Komercyjne support, free dla wielu obrazow
+# Najczystszy security stance w 2026</code></pre>
+
+<h3>Slim Debian</h3>
+<pre><code>FROM node:20-slim
+# ~120 MB, glibc, dpkg/apt &mdash; latwe instalacje
+# Kompromis miedzy Alpine i pelnym Debian</code></pre>
+
+<table>
+<thead><tr><th>Base</th><th>Rozmiar</th><th>Uwagi</th></tr></thead>
+<tbody>
+<tr><td>node:20</td><td>~1.1 GB</td><td>Pelen Debian, do dev</td></tr>
+<tr><td>node:20-slim</td><td>~250 MB</td><td>Slim Debian, dobra rownowaga</td></tr>
+<tr><td>node:20-alpine</td><td>~180 MB</td><td>Maly, musl libc</td></tr>
+<tr><td>distroless/nodejs20</td><td>~150 MB</td><td>Tylko runtime, brak shella</td></tr>
+<tr><td>chainguard/node</td><td>~120 MB</td><td>Hardened, zero CVE</td></tr>
+</tbody>
+</table>
+
+<h2>BuildKit features</h2>
+<p>BuildKit to nowoczesny backend buildu. <strong>Default w nowoczesnym Dockerze</strong>. Daje:</p>
+<ul>
+<li>Parallel builds (multi-stage paralelnie)</li>
+<li>Mount cache (npm, pip, go cache)</li>
+<li>Mount secrets (bez wlasnoscia w warstwie)</li>
+<li>SSH agent forwarding</li>
+<li>Inline cache export</li>
+</ul>
+
+<pre><code># syntax=docker/dockerfile:1.7
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Cache npm
+COPY package*.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
+
+# Secret &mdash; nie ma w final image
+RUN --mount=type=secret,id=npm,target=/root/.npmrc \
+    npm install @private/package
+
+COPY . .
+RUN npm run build
+
+# SSH dla git private
+RUN --mount=type=ssh \
+    git clone git@github.com:user/private.git</code></pre>
+
+<pre><code># Build z secret
+docker build --secret id=npm,src=$HOME/.npmrc .
+
+# Build z SSH
+docker build --ssh default .</code></pre>
+
+<h2>RUN &mdash; lacz komendy</h2>
+<pre><code># ZLE &mdash; trzy warstwy + apt cache w obrazie
+RUN apt-get update
+RUN apt-get install -y curl
+RUN apt-get clean
+
+# DOBRZE &mdash; jedna warstwa, cache wyczyszczony
+RUN apt-get update &amp;&amp; \
+    apt-get install -y --no-install-recommends curl ca-certificates &amp;&amp; \
+    rm -rf /var/lib/apt/lists/*
+
+# Alpine
+RUN apk add --no-cache curl ca-certificates</code></pre>
+
+<h2>ARG vs ENV</h2>
+<table>
+<thead><tr><th></th><th>ARG</th><th>ENV</th></tr></thead>
+<tbody>
+<tr><td>Zasieg</td><td>Tylko build time</td><td>Build + runtime</td></tr>
+<tr><td>W kontenerze</td><td>Niedostepne</td><td>Dostepne (env)</td></tr>
+<tr><td>Override</td><td><code>--build-arg</code></td><td><code>-e</code> przy run</td></tr>
+<tr><td>Use case</td><td>Wersja, target arch</td><td>Konfiguracja runtime</td></tr>
+</tbody>
+</table>
+
+<pre><code>ARG NODE_VERSION=20
+FROM node:${NODE_VERSION}-alpine
+
+ARG BUILD_DATE
+ARG VERSION
+
+LABEL build.date="${BUILD_DATE}" version="${VERSION}"
+
+ENV NODE_ENV=production \
+    PORT=3000 \
+    LOG_LEVEL=info
+
+# Build:
+# docker build --build-arg VERSION=1.2.3 --build-arg BUILD_DATE=$(date -u +%FT%TZ) .</code></pre>
+
+<h2>CMD vs ENTRYPOINT</h2>
+<pre><code># CMD &mdash; default command, latwo override przy run
+CMD ["node", "index.js"]
+# docker run image  -&gt; node index.js
+# docker run image bash -&gt; bash
+
+# ENTRYPOINT &mdash; sztywny "wykonawca", argumenty doklejane
+ENTRYPOINT ["node"]
+CMD ["index.js"]
+# docker run image -&gt; node index.js
+# docker run image other.js -&gt; node other.js
+
+# Przyklad &mdash; wrapper init
+ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
+CMD ["node", "dist/server.js"]</code></pre>
+
+<h2>USER &mdash; nigdy jako root</h2>
+<pre><code>FROM node:20-alpine
+
+# Stworz usera
+RUN addgroup -g 1001 -S app &amp;&amp; \
+    adduser -u 1001 -S app -G app
+
+WORKDIR /app
+COPY --chown=app:app . .
+
+USER app
+CMD ["node", "index.js"]
+
+# Lub w node:alpine jest juz user 'node'
+USER node</code></pre>
+
+<h2>HEALTHCHECK</h2>
+<pre><code>HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -fsS http://localhost:3000/health || exit 1
+
+# docker ps pokaze (healthy) / (unhealthy)
+# Compose moze czekac na zdrowie zaleznosci</code></pre>
+
+<h2>Pelny przyklad &mdash; Next.js produkcyjny</h2>
+<pre><code># syntax=docker/dockerfile:1.7
+ARG NODE_VERSION=20
+
+FROM node:${NODE_VERSION}-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
+
+FROM node:${NODE_VERSION}-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+FROM node:${NODE_VERSION}-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup -g 1001 -S nodejs &amp;&amp; \
+    adduser -u 1001 -S nextjs -G nodejs
+
+# Standalone output Next.js
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+USER nextjs
+EXPOSE 3000
+ENV PORT=3000 HOSTNAME="0.0.0.0"
+
+HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://localhost:3000 || exit 1
+
+CMD ["node", "server.js"]</code></pre>
+
+<div class="card">
+<h3>Best practices &mdash; checklist</h3>
+<ul>
+<li>Multi-stage build (builder + runtime)</li>
+<li>.dockerignore z node_modules, .git, .env</li>
+<li>COPY package.json &mdash; RUN npm ci &mdash; COPY . (kolejnosc dla cache)</li>
+<li>Maly base image (alpine / distroless / chainguard)</li>
+<li>USER nonroot (nie root)</li>
+<li>HEALTHCHECK</li>
+<li>Tag wersji (nie tylko :latest)</li>
+<li>Pin wersji base (FROM node:20.11-alpine, nie :20)</li>
+<li>BuildKit (cache mounts, secrets)</li>
+<li>Single process per container (uzywaj init jak dumb-init)</li>
+<li>NIE rob: COPY .env, hardcoded secrets, ADD url (uzyj curl)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="05-komendy-docker.html">&larr; Komendy Docker</a>
+<a href="07-docker-compose.html">Docker Compose &rarr;</a>
+</div>
+</div>
+</body>
+</html>

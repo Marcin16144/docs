@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IIS Application Pools</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="04-iis-podstawy.html">IIS - podstawy</a>
+    <span class="sep">/</span>
+    <span class="title">Application Pools</span>
+</div>
+
+<div class="container">
+<h1>IIS Application Pools</h1>
+<p class="subtitle">Izolacja aplikacji, recycling, identity i tryby pipeline - serce konfiguracji IIS.</p>
+
+<h2>Czym jest Application Pool</h2>
+<p>Application Pool (pula aplikacji) to <strong>granica izolacji</strong> aplikacji webowych w IIS. Kazdy app pool to <strong>osobny proces robotniczy w3wp.exe</strong> (Worker Process). Aplikacje w roznych poolach nie wplywaja na siebie - crash, memory leak czy CPU spike w jednej puli nie zatrzymuje pozostalych.</p>
+
+<div class="card">
+<p><strong>Zasada:</strong> Jedna witryna (lub grupa logicznie powiazanych aplikacji) = jeden Application Pool. Nigdy nie hostowac niepowiazanych aplikacji w tym samym poolu - jezeli jedna padnie, padaja wszystkie.</p>
+</div>
+
+<h2>Architektura: w3wp.exe</h2>
+<table>
+<tr><th>Komponent</th><th>Opis</th></tr>
+<tr><td>HTTP.sys (kernel-mode)</td><td>Listener portow 80/443, kolejkowanie requestow, cache odpowiedzi</td></tr>
+<tr><td>WAS (Windows Process Activation Service)</td><td>Demon zarzadzajacy procesami w3wp.exe (start/stop/recycle)</td></tr>
+<tr><td>w3wp.exe (worker process)</td><td>Wlasciwy proces aplikacji - .NET runtime, ASP.NET pipeline, modules</td></tr>
+<tr><td>App Pool config</td><td>applicationHost.config - definicja pool (identity, recycling, .NET ver)</td></tr>
+</table>
+
+<h2>Zarzadzanie poolami przez PowerShell</h2>
+<pre><code>Import-Module WebAdministration
+
+# Tworzenie poola
+New-WebAppPool -Name "MyApp-Pool"
+
+# Konfiguracja
+Set-ItemProperty "IIS:\AppPools\MyApp-Pool" -Name "managedRuntimeVersion" -Value "v4.0"
+Set-ItemProperty "IIS:\AppPools\MyApp-Pool" -Name "managedPipelineMode" -Value "Integrated"
+Set-ItemProperty "IIS:\AppPools\MyApp-Pool" -Name "enable32BitAppOnWin64" -Value $false
+
+# Identity
+Set-ItemProperty "IIS:\AppPools\MyApp-Pool" -Name "processModel.identityType" -Value "ApplicationPoolIdentity"
+
+# Listing wszystkich pool
+Get-ChildItem IIS:\AppPools | Select-Object Name, State, ManagedRuntimeVersion
+
+# Restart i stop
+Restart-WebAppPool -Name "MyApp-Pool"
+Stop-WebAppPool    -Name "MyApp-Pool"
+Start-WebAppPool   -Name "MyApp-Pool"
+
+# Stan procesow w3wp na zywo
+Get-IISAppPool | ForEach-Object {
+    [PSCustomObject]@{
+        Pool   = $_.Name
+        State  = $_.State
+        PID    = (Get-IISAppPool -Name $_.Name).WorkerProcesses.ProcessId
+    }
+}</code></pre>
+
+<h2>Recycling - kontrolowany restart</h2>
+<p>Recycling tworzy nowy proces w3wp.exe, przelacza nowe requesty na nowy proces, a stary konczy obsluge biezacych requestow przed terminacja. Cel: ograniczenie skutkow memory leakow, zwolnienie pamieci, zaladowanie nowej konfiguracji.</p>
+
+<h3>Triggery recyclingu</h3>
+<table>
+<tr><th>Trigger</th><th>Domyslnie</th><th>Rekomendacja</th></tr>
+<tr><td>Regular Time Interval</td><td>1740 min (29h)</td><td>Wylaczyc lub zmienic na specyficzny czas (np. 03:00)</td></tr>
+<tr><td>Specific Times (Schedule)</td><td>brak</td><td>Wlaczyc o stalej godzinie nocnej</td></tr>
+<tr><td>Private Memory Limit</td><td>0 (unlimited)</td><td>1500-2000 MB dla 32-bit, 4-8 GB dla 64-bit</td></tr>
+<tr><td>Virtual Memory Limit</td><td>0</td><td>Tylko jezeli aplikacja ma znana górne wartosc</td></tr>
+<tr><td>Request Limit</td><td>0</td><td>Zwykle nie uzywany</td></tr>
+<tr><td>Configuration Change</td><td>true</td><td>Zostaw - zmiana web.config = recycle</td></tr>
+</table>
+
+<pre><code># Recycling po przekroczeniu 1500 MB pamieci prywatnej
+Set-ItemProperty "IIS:\AppPools\MyApp-Pool" `
+    -Name "recycling.periodicRestart.privateMemory" -Value 1500000
+
+# Recycling o staej godzinie 03:00 (zamiast Regular Time Interval)
+Clear-ItemProperty "IIS:\AppPools\MyApp-Pool" `
+    -Name "recycling.periodicRestart.time"
+Set-ItemProperty "IIS:\AppPools\MyApp-Pool" `
+    -Name "recycling.periodicRestart.time" -Value "00:00:00"
+Add-WebConfiguration "/system.applicationHost/applicationPools/add[@name='MyApp-Pool']/recycling/periodicRestart/schedule" `
+    -Value @{value="03:00:00"}</code></pre>
+
+<h3>Idle Timeout</h3>
+<p>Idle timeout zatrzymuje proces w3wp gdy aplikacja nie ma ruchu przez X minut (domyslnie 20). Oszczedza pamiec, ale nastepny request bedzie wolny (cold start).</p>
+<ul>
+<li>Aplikacje krytyczne / always-running: <code>idleTimeout = 0</code> (nigdy)</li>
+<li>+ <code>startMode = AlwaysRunning</code></li>
+<li>+ Application Initialization Module dla preloadu</li>
+</ul>
+
+<h2>Identity - kto wykonuje proces</h2>
+<table>
+<tr><th>Identity</th><th>Konto</th><th>Zastosowanie</th></tr>
+<tr><td>ApplicationPoolIdentity (default)</td><td>Wirtualne konto IIS APPPOOL\PoolName</td><td>Najlepsze - automatyczna izolacja, brak hasel</td></tr>
+<tr><td>NetworkService</td><td>NT AUTHORITY\NETWORK SERVICE</td><td>Legacy, dostep sieciowy jako maszyna AD</td></tr>
+<tr><td>LocalService</td><td>NT AUTHORITY\LOCAL SERVICE</td><td>Niskie uprawnienia, brak dostepu sieciowego</td></tr>
+<tr><td>LocalSystem</td><td>NT AUTHORITY\SYSTEM</td><td>NIGDY - pelne uprawnienia</td></tr>
+<tr><td>SpecificUser (Custom)</td><td>Konto AD lub lokalne</td><td>Dla legacy aplikacji wymagajacych konkretnego konta</td></tr>
+</table>
+
+<div class="card">
+<p><strong>ApplicationPoolIdentity</strong> jest wirtualnym kontem (SID) tworzonym dynamicznie. Mozna mu nadawac uprawnienia jak normalnemu kontu: <code>icacls C:\AppData /grant "IIS APPPOOL\MyApp-Pool:(OI)(CI)RX"</code>. Dla dostepu do zasobow sieciowych (np. SMB share) trzeba uzywac konta domenowego (gMSA - Group Managed Service Account).</p>
+</div>
+
+<h3>gMSA - Group Managed Service Account</h3>
+<p>Konto domenowe z automatycznie rotowanym haslem (kazde 30 dni). Idealne dla app pool wymagajacych dostepu do zasobow sieciowych (SMB, SQL Windows auth) bez recznego zarzadzania haslem.</p>
+<pre><code># Na DC: utworzenie gMSA
+New-ADServiceAccount -Name "gMSA-WebApp" `
+                      -DNSHostName "gMSA-WebApp.contoso.local" `
+                      -PrincipalsAllowedToRetrieveManagedPassword "WebServers"
+
+# Na serwerze IIS:
+Install-ADServiceAccount -Identity "gMSA-WebApp"
+Test-ADServiceAccount     -Identity "gMSA-WebApp"
+
+# Konfiguracja w app pool
+Set-ItemProperty "IIS:\AppPools\MyApp-Pool" -Name "processModel.identityType" -Value "SpecificUser"
+Set-ItemProperty "IIS:\AppPools\MyApp-Pool" -Name "processModel.userName"     -Value "CONTOSO\gMSA-WebApp$"
+Set-ItemProperty "IIS:\AppPools\MyApp-Pool" -Name "processModel.password"     -Value ""</code></pre>
+
+<h2>.NET CLR Version</h2>
+<table>
+<tr><th>managedRuntimeVersion</th><th>Co obsluguje</th></tr>
+<tr><td>v4.0</td><td>.NET Framework 4.x (4.5, 4.6, 4.7, 4.8)</td></tr>
+<tr><td>v2.0</td><td>.NET Framework 2.0/3.0/3.5 (legacy)</td></tr>
+<tr><td>No Managed Code</td><td>.NET Core / .NET 5+ / Node / Python / PHP / static</td></tr>
+</table>
+
+<div class="card">
+<p><strong>WAZNE:</strong> Dla .NET Core / .NET 5+ ustawienie musi byc <strong>"No Managed Code"</strong> - aplikacja .NET Core dziala w osobnym procesie (lub in-process via aspNetCoreModuleV2). Pozostawienie v4.0 powoduje konflikty.</p>
+</div>
+
+<h2>Pipeline mode: Integrated vs Classic</h2>
+<table>
+<tr><th>Mode</th><th>Charakterystyka</th><th>Kiedy</th></tr>
+<tr><td>Integrated</td><td>ASP.NET integruje sie z pipeline IIS - native modules + managed modules wspoldzielone</td><td>Domyslny dla nowych aplikacji</td></tr>
+<tr><td>Classic</td><td>Stary IIS 6 model - ASP.NET jako ISAPI extension, osobny pipeline</td><td>Tylko legacy aplikacje wymagajace tego trybu</td></tr>
+</table>
+
+<h2>Wildcard application pools - hosting masowy</h2>
+<p>W shared hosting standardem jest jeden pool per witryna z osobna identity dla izolacji uzytkownikow. Skrypt automatyczny:</p>
+<pre><code># Dla kazdej witryny, jezeli nie ma poola, utworz dedykowany
+Get-ChildItem IIS:\Sites | ForEach-Object {
+    $site     = $_.Name
+    $poolName = "Pool-$site"
+
+    if (-not (Test-Path "IIS:\AppPools\$poolName")) {
+        New-WebAppPool -Name $poolName
+        Set-ItemProperty "IIS:\AppPools\$poolName" -Name "managedRuntimeVersion" -Value "v4.0"
+        Set-ItemProperty "IIS:\AppPools\$poolName" -Name "processModel.identityType" -Value "ApplicationPoolIdentity"
+
+        # Limity zabezpieczajace
+        Set-ItemProperty "IIS:\AppPools\$poolName" -Name "cpu.limit"          -Value 50000  # 50% CPU max
+        Set-ItemProperty "IIS:\AppPools\$poolName" -Name "cpu.action"         -Value "Throttle"
+        Set-ItemProperty "IIS:\AppPools\$poolName" -Name "recycling.periodicRestart.privateMemory" -Value 500000
+    }
+    Set-ItemProperty "IIS:\Sites\$site" -Name "applicationPool" -Value $poolName
+}</code></pre>
+
+<h2>Monitoring poola</h2>
+<pre><code># Aktywne worker processes
+Get-IISAppPool | ForEach-Object {
+    foreach ($wp in $_.WorkerProcesses) {
+        $proc = Get-Process -Id $wp.ProcessId -ErrorAction SilentlyContinue
+        [PSCustomObject]@{
+            Pool      = $_.Name
+            PID       = $wp.ProcessId
+            CPU_Sec   = if ($proc) { $proc.CPU } else { 0 }
+            Memory_MB = if ($proc) { [math]::Round($proc.PrivateMemorySize64/1MB, 0) } else { 0 }
+            State     = $wp.State
+        }
+    }
+} | Format-Table -AutoSize
+
+# Aktywne requesty w poolu
+Import-Module WebAdministration
+Get-WebRequest | Where-Object {$_.AppPoolName -eq "MyApp-Pool"}</code></pre>
+
+<h2>Best practices</h2>
+<ul>
+<li>Jeden pool per aplikacja (lub grupa powiazanych)</li>
+<li>ApplicationPoolIdentity zawsze gdy mozliwe (gMSA tylko dla zewnetrznych zasobow)</li>
+<li>Recycling oparty na private memory limit, nie na regular interval</li>
+<li>Schedule recycling o stalej godzinie nocnej zamiast losowych intervalow</li>
+<li>Aplikacje krytyczne: idleTimeout=0, startMode=AlwaysRunning, App Initialization</li>
+<li>Monitoring rozmiaru w3wp.exe - alarmy na zblizajace sie limity</li>
+<li>Logging Failed Request Tracing dla problemow startowych</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="04-iis-podstawy.html">&larr; IIS - podstawy</a>
+    <a href="04-02-iis-modules-i-handlers.html">Modules i handlers &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy Windows Server</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-color:var(--green)}
+.card.orange{border-color:var(--orange)}
+.card.red{border-color:var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">Podstawy Windows Server</span>
+</div>
+
+<div class="container">
+<h1>Podstawy Windows Server</h1>
+<p class="subtitle">Wprowadzenie do Windows Server 2025: edycje, licencjonowanie, role, wirtualizacja i administracja.</p>
+
+<h2>Wprowadzenie</h2>
+
+<p>Windows Server to system operacyjny serwerowy od Microsoft, uzywany w przedsiebiorstwach do hostowania uslug sieciowych, baz danych, aplikacji webowych, kontroli domeny (Active Directory) i wirtualizacji (Hyper-V).</p>
+
+<p><strong>Aktualna wersja w 2026:</strong> Windows Server 2025 (wydane pozno 2024, dojrzala w 2026), wciaz wspierane: Server 2022, 2019.</p>
+
+<h2>Edycje (2026)</h2>
+
+<table>
+<thead>
+<tr><th>Edycja</th><th>Cena/CPU</th><th>Use case</th><th>Limity</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Standard</strong></td><td>~$1100</td><td>SMB, dedykowane role</td><td>2 Hyper-V VM, 1 Container Host</td></tr>
+<tr><td><strong>Datacenter</strong></td><td>~$6200</td><td>Cloud, wysoka wirtualizacja</td><td>Nielimitowane VM, Software-Defined Datacenter</td></tr>
+<tr><td><strong>Datacenter: Azure Edition</strong></td><td>Subscription</td><td>Tylko w Azure / Hot-patching</td><td>Hot-patch (no reboots), SMB over QUIC</td></tr>
+<tr><td><strong>Essentials</strong></td><td>~$500 (server-based)</td><td>Male firmy do 25 uzytkownikow</td><td>1 fizyczny serwer, brak Hyper-V license</td></tr>
+<tr><td><strong>Standard / Datacenter ARC</strong></td><td>Subscription</td><td>Cross-cloud z Azure ARC</td><td>Hybrid management</td></tr>
+</tbody>
+</table>
+
+<h3>Klucz wyboru:</h3>
+<ul>
+<li><strong>Standard</strong> &mdash; 90% scenariuszy on-prem, kilka VM</li>
+<li><strong>Datacenter</strong> &mdash; gdy planujesz ponad 2 VM, hyper-converged, SDN</li>
+<li><strong>Azure Edition</strong> &mdash; Azure-only, z hot-patching (no reboots dla updates!)</li>
+<li><strong>Essentials</strong> &mdash; bardzo male firmy (rzadko uzywana w 2026)</li>
+</ul>
+
+<h2>Licencjonowanie</h2>
+
+<p><strong>Per-Core Licensing (od 2016):</strong></p>
+<ul>
+<li>Min. 16 core licenses na serwer (8 cores &times; 2 packs)</li>
+<li>Min. 8 core licenses na CPU</li>
+<li>Kazdy fizyczny core musi byc licencjonowany</li>
+<li>Plus <strong>CAL (Client Access Licenses)</strong> dla kazdego uzytkownika/urzadzenia</li>
+</ul>
+
+<pre><code>Przyklad: serwer z 2x CPU 16-core (32 cores total)
+- 32 core licenses (16 packow po 2 core)
+- + CALs dla uzytkownikow
+- Datacenter: nielimitowane VM
+- Standard: tylko 2 VM (jesli wiecej, kup kolejne core licenses dla 2 VM wiecej)</code></pre>
+
+<p><strong>Ulatwienia w 2026:</strong></p>
+<ul>
+<li><strong>Software Assurance (SA)</strong> &mdash; daje upgrade do najnowszej wersji + dodatkowe benefity</li>
+<li><strong>Subscription model</strong> dla Datacenter Azure Edition</li>
+<li><strong>Azure Hybrid Benefit</strong> &mdash; uzywaj on-prem licencji w Azure (oszczednosc do 40%)</li>
+</ul>
+
+<h2>Wymagania sprzetowe (Server 2025)</h2>
+
+<p><strong>Minimum:</strong></p>
+<ul>
+<li>CPU: 1.4 GHz x64 (z VBS, Hypervisor-V support)</li>
+<li>RAM: 512 MB (Server Core), 2 GB (Desktop Experience)</li>
+<li>Dysk: 32 GB</li>
+<li>TPM 2.0 (preferowane, czesciowo wymagane)</li>
+<li>Secure Boot capable</li>
+</ul>
+
+<p><strong>Realistic dla produkcji (single role):</strong></p>
+<ul>
+<li>CPU: 8+ cores, 2.5+ GHz (Intel Xeon, AMD EPYC)</li>
+<li>RAM: 32+ GB</li>
+<li>Dysk: NVMe SSD 256+ GB (system) + storage</li>
+<li>2&times; NIC (separacja management i data)</li>
+<li>Redundancy: dual PSU, RAID, ECC RAM</li>
+</ul>
+
+<p><strong>Server 2025 wymagania new:</strong></p>
+<ul>
+<li>Mocno preferowane: TPM 2.0</li>
+<li>VBS (Virtualization-Based Security) &mdash; domyslnie ON</li>
+<li>Memory integrity &mdash; domyslnie ON</li>
+<li>Niektore features wymagaja HVCI (Hypervisor-protected Code Integrity)</li>
+</ul>
+
+<h2>Server Core vs Desktop Experience</h2>
+
+<h3>Server Core (zalecany dla produkcji)</h3>
+
+<p><strong>Co to:</strong> Windows Server bez GUI. Tylko CMD, PowerShell, wybrane konsole MMC zdalnie.</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li><strong>Mniejsza powierzchnia ataku</strong> &mdash; brak browse, brak GUI bugs</li>
+<li><strong>Mniej updates</strong> (mniej komponentow = rzadziej restart)</li>
+<li><strong>Mniej zasobow</strong> (RAM, dysk, CPU)</li>
+<li><strong>Szybszy boot</strong></li>
+<li><strong>Latwiejsze zarzadzanie via PowerShell DSC, Ansible</strong></li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Brak GUI lokalnie &mdash; wymaga umiejetnosci PowerShell</li>
+<li>Niektore aplikacje 3rd party wymagaja Desktop (rzadko w 2026)</li>
+<li>Trudniejszy troubleshooting wizualny</li>
+</ul>
+</div>
+
+<h3>Desktop Experience (Server with Desktop)</h3>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>GUI (Server Manager, MMC, Edge browser)</li>
+<li>Latwe dla poczatkujacych administratorow</li>
+<li>Wszystkie 3rd party narzedzia dzialaja</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Wieksza powierzchnia ataku</li>
+<li>Czestsze updates &rarr; czestsze reboot</li>
+<li>Wiecej zasobow</li>
+</ul>
+</div>
+
+<h3>Rekomendacja 2026:</h3>
+<ul>
+<li><strong>Server Core</strong> dla produkcji (zwlaszcza uslugi publiczne)</li>
+<li><strong>Desktop Experience</strong> dla labow, jump hostow, rzadko-uzywanych serwerow</li>
+<li><strong>Windows Admin Center</strong> zastepuje wiekszosc MMC consoles &mdash; mozesz zarzadzac Server Core z webowego GUI</li>
+</ul>
+
+<h2>Role i Features</h2>
+
+<h3>Glowne role:</h3>
+
+<table>
+<thead>
+<tr><th>Rola</th><th>Co robi</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Active Directory Domain Services</strong></td><td>Centralna kontrola tozsamosci, kerberos auth</td></tr>
+<tr><td><strong>DNS Server</strong></td><td>Rozwiazywanie nazw</td></tr>
+<tr><td><strong>DHCP Server</strong></td><td>Dynamiczne IP</td></tr>
+<tr><td><strong>IIS (Web Server)</strong></td><td>Hosting aplikacji webowych</td></tr>
+<tr><td><strong>Hyper-V</strong></td><td>Wirtualizacja</td></tr>
+<tr><td><strong>File and Storage Services</strong></td><td>SMB, iSCSI, Storage Spaces</td></tr>
+<tr><td><strong>Print Services</strong></td><td>Centralne drukowanie</td></tr>
+<tr><td><strong>Remote Desktop Services</strong></td><td>Terminal Server / VDI</td></tr>
+<tr><td><strong>WSUS / MECM</strong></td><td>Zarzadzanie aktualizacjami</td></tr>
+<tr><td><strong>Network Policy Server (NPS)</strong></td><td>RADIUS, 802.1x</td></tr>
+<tr><td><strong>Active Directory Certificate Services</strong></td><td>Wlasne PKI</td></tr>
+<tr><td><strong>Active Directory Federation Services</strong></td><td>SSO, claims-based auth</td></tr>
+<tr><td><strong>Failover Clustering</strong></td><td>High Availability</td></tr>
+<tr><td><strong>Storage Replica</strong></td><td>Block-level replication</td></tr>
+</tbody>
+</table>
+
+<h3>Features (dodatki, nie role):</h3>
+
+<ul>
+<li><strong>PowerShell, .NET Framework 4.8 / .NET 8/9</strong></li>
+<li><strong>WSL2</strong> (od Server 2022) &mdash; Linux containers</li>
+<li><strong>Containers</strong> &mdash; Docker / Windows Containers</li>
+<li><strong>SMB</strong> (rozne wersje), <strong>NFS Client/Server</strong></li>
+<li><strong>BitLocker</strong> (szyfrowanie dyskow)</li>
+<li><strong>RSAT</strong> (Remote Server Administration Tools)</li>
+<li><strong>WindowsDefenderFeatures</strong></li>
+</ul>
+
+<h3>Zasada: minimalizm</h3>
+
+<div class="card orange">
+<p><strong>Instaluj tylko te role i features, ktorych faktycznie potrzebujesz.</strong></p>
+<p>Kazda rola = wieksza powierzchnia ataku. Nie instaluj "na zapas".</p>
+</div>
+
+<pre><code># Lista zainstalowanych rol
+Get-WindowsFeature | Where-Object {$_.Installed -eq $true}
+
+# Instalacja (przyklad: IIS)
+Install-WindowsFeature -Name Web-Server -IncludeManagementTools
+
+# Usuniecie niepotrzebnych
+Uninstall-WindowsFeature -Name Print-Services</code></pre>
+
+<h2>Narzedzia administracyjne</h2>
+
+<h3>Tradycyjne:</h3>
+<ul>
+<li><strong>Server Manager</strong> &mdash; GUI dashboard z rolami</li>
+<li><strong>MMC consoles</strong> (services.msc, eventvwr.msc, gpedit.msc...)</li>
+<li><strong>Active Directory Users and Computers</strong> (dsa.msc)</li>
+<li><strong>DNS Manager</strong> (dnsmgmt.msc)</li>
+<li><strong>Group Policy Management</strong> (gpmc.msc)</li>
+</ul>
+
+<h3>Nowoczesne (preferowane w 2026):</h3>
+
+<h4>Windows Admin Center (WAC)</h4>
+<ul>
+<li><strong>Web-based UI</strong> zarzadzania serwerami</li>
+<li>Zastepuje wiele MMC consoles</li>
+<li>Dziala z lokalnego maszyny lub gateway server</li>
+<li>Free, ale Microsoft promuje</li>
+<li>Integruje sie z Azure (Azure Arc)</li>
+</ul>
+
+<h4>PowerShell + DSC</h4>
+<ul>
+<li><strong>PowerShell 7.x</strong> &mdash; modern, cross-platform</li>
+<li><strong>Desired State Configuration (DSC)</strong> &mdash; IaC dla Windows</li>
+<li><strong>PowerShell Remoting (WinRM)</strong> &mdash; zarzadzanie zdalne</li>
+<li><strong>Just Enough Administration (JEA)</strong> &mdash; restricted PowerShell endpoints</li>
+</ul>
+
+<h4>Azure Arc (hybrid)</h4>
+<ul>
+<li>Zarzadzaj on-prem serwerami <strong>jak Azure VM</strong></li>
+<li>Update management, security, monitoring centralnie z Azure portal</li>
+<li>Bardzo popularne w 2026 dla hybrid</li>
+</ul>
+
+<h4>RSAT (Remote Server Administration Tools)</h4>
+<ul>
+<li>Pakiet narzedzi do zarzadzania zdalnie (z Windows 11)</li>
+<li>AD, DNS, DHCP, GPO, IIS Manager, etc.</li>
+</ul>
+
+<h2>Storage</h2>
+
+<h3>Storage Spaces</h3>
+<p>Software-defined storage. Laczy fizyczne dyski w pule, z RAID-like resilience.</p>
+
+<pre><code># Stworz storage pool
+New-StoragePool -FriendlyName "DataPool" -StorageSubsystemFriendlyName "Windows Storage*" -PhysicalDisks (Get-PhysicalDisk -CanPool $true)
+
+# Stworz virtual disk z mirroring
+New-VirtualDisk -StoragePoolFriendlyName "DataPool" -FriendlyName "Data" -Size 1TB -ResiliencySettingName Mirror</code></pre>
+
+<h3>Storage Spaces Direct (S2D)</h3>
+<p>Hyper-converged storage &mdash; kilka serwerow dzieli dyski jako klaster. Datacenter only.</p>
+
+<h3>ReFS vs NTFS</h3>
+
+<table>
+<thead>
+<tr><th>Cecha</th><th>NTFS</th><th>ReFS (Resilient FS)</th></tr>
+</thead>
+<tbody>
+<tr><td>Metadata integrity</td><td>OK</td><td>Excellent (checksums)</td></tr>
+<tr><td>Self-healing</td><td>Nie</td><td>Tak</td></tr>
+<tr><td>Block cloning</td><td>Nie</td><td>Tak (szybkie kopie VHD)</td></tr>
+<tr><td>Max file</td><td>256 TB</td><td>35 PB</td></tr>
+<tr><td>Boot drive</td><td>TAK</td><td>NIE (w 2026 niewspierany)</td></tr>
+<tr><td>Compression</td><td>Tak</td><td>Tak (od Server 2022)</td></tr>
+<tr><td>Quota</td><td>Tak</td><td>Tak</td></tr>
+</tbody>
+</table>
+
+<p><strong>Zasada:</strong> ReFS dla data volumes (zwlaszcza VHD storage), NTFS dla system.</p>
+
+<h2>Networking</h2>
+
+<h3>Komponenty:</h3>
+<ul>
+<li><strong>NIC Teaming</strong> &mdash; agregacja kart sieciowych (LACP, switch independent)</li>
+<li><strong>VLAN tagging</strong> &mdash; separacja sieciowa</li>
+<li><strong>DCB (Data Center Bridging)</strong> &mdash; QoS dla storage</li>
+<li><strong>SR-IOV</strong> &mdash; direct hardware access dla VM</li>
+<li><strong>Windows Defender Firewall</strong> &mdash; firewall z zaawansowana konfiguracja</li>
+</ul>
+
+<h3>Best practices:</h3>
+<ol>
+<li><strong>Separuj management network</strong> od data</li>
+<li><strong>Uzywaj statycznego IP</strong> dla serwerow (nie DHCP)</li>
+<li><strong>DNS resolution</strong> zawsze testuj (<code>nslookup</code>, <code>Resolve-DnsName</code>)</li>
+<li><strong>Disable IPv6</strong> tylko jesli wiesz co robisz (Microsoft odradza!)</li>
+<li><strong>Hardware vs software firewall</strong> &mdash; uzywaj obu</li>
+</ol>
+
+<h2>Wirtualizacja</h2>
+
+<h3>Hyper-V</h3>
+<ul>
+<li>Built-in hypervisor (od Server 2008)</li>
+<li>Bezplatny w Windows Server (Standard: 2 VM, Datacenter: unlimited)</li>
+<li><strong>Generation 2 VM</strong> &mdash; UEFI, Secure Boot, wieksza wydajnosc</li>
+<li><strong>Shielded VM</strong> &mdash; encrypted, protected from host admin</li>
+</ul>
+
+<h3>Containers (od Server 2016)</h3>
+<ul>
+<li><strong>Windows Containers</strong> &mdash; natywne</li>
+<li><strong>Hyper-V Containers</strong> &mdash; wieksza izolacja</li>
+<li><strong>Linux Containers via WSL2</strong> (od Server 2022)</li>
+<li><strong>Kubernetes on Windows</strong> &mdash; coraz dojrzalsze, ale Linux wciaz dominuje</li>
+</ul>
+
+<h3>Wybor w 2026:</h3>
+<ul>
+<li><strong>Linux workload?</strong> &mdash; Linux na Hyper-V VM lub Linux directly</li>
+<li><strong>Windows-specific (IIS, .NET Framework)?</strong> &mdash; Windows Containers lub VM</li>
+<li><strong>Modern .NET?</strong> &mdash; Linux containers (cross-platform)</li>
+</ul>
+
+<h2>High Availability</h2>
+
+<h3>Failover Clustering</h3>
+<ul>
+<li>Wiele serwerow, jedna usluga, automatic failover</li>
+<li><strong>Cluster Shared Volumes (CSV)</strong> &mdash; shared storage</li>
+<li>Wymaga: shared storage (iSCSI, FC) lub S2D, witness (disk/cloud)</li>
+</ul>
+
+<h3>Network Load Balancing (NLB)</h3>
+<ul>
+<li>Software load balancing dla web, RDS</li>
+<li>Limit ~32 nodes</li>
+<li>Dla nowoczesnych aplikacji: wolisz Application Gateway, KEMP, F5</li>
+</ul>
+
+<h3>Storage Replica</h3>
+<ul>
+<li>Block-level replikacja (sync lub async)</li>
+<li>DR dla on-prem</li>
+<li>Datacenter edition only</li>
+</ul>
+
+<h3>Azure Site Recovery</h3>
+<ul>
+<li>DR do chmury Azure</li>
+<li>Bardzo popularny w 2026 dla on-prem disaster recovery</li>
+</ul>
+
+<h2>Update lifecycle</h2>
+
+<table>
+<thead>
+<tr><th>Wersja</th><th>Wsparcie do</th><th>Status</th></tr>
+</thead>
+<tbody>
+<tr><td>Server 2025</td><td>2034 (Extended)</td><td>Aktualne</td></tr>
+<tr><td>Server 2022</td><td>2031 (Extended)</td><td>Aktualne</td></tr>
+<tr><td>Server 2019</td><td>2029</td><td>Mainstream end</td></tr>
+<tr><td>Server 2016</td><td>2027</td><td>Extended only</td></tr>
+<tr><td>Server 2012 R2</td><td>2023 (skonczony!)</td><td>NIEWSPIERANY</td></tr>
+</tbody>
+</table>
+
+<p><strong>Zasada:</strong> Nigdy nie uzywaj niewspieranego OS w produkcji (Server 2012 R2 &mdash; krytyczne ryzyko bezpieczenstwa).</p>
+
+<h2>Co nowe w Server 2025?</h2>
+
+<ul>
+<li><strong>Hot-patching</strong> &mdash; instalacja patchy bez restartu (Datacenter Azure Edition)</li>
+<li><strong>SMB over QUIC</strong> &mdash; bezpieczny SMB przez internet (replace VPN)</li>
+<li><strong>Active Directory improvements</strong> &mdash; 32k page size, lateral movement protection</li>
+<li><strong>WinRM nad QUIC</strong> &mdash; szybszy management</li>
+<li><strong>Witness on Azure</strong> &mdash; cluster witness w chmurze</li>
+<li><strong>Improved virtualization</strong> &mdash; VBS Enclaves, GPU partitioning</li>
+<li><strong>Better security defaults</strong> &mdash; VBS, HVCI, Credential Guard ON by default</li>
+</ul>
+
+<h2>Zasady administracji</h2>
+
+<ol>
+<li><strong>Principle of Least Privilege</strong> &mdash; minimalne uprawnienia dla kazdej operacji</li>
+<li><strong>Defense in Depth</strong> &mdash; wiele warstw zabezpieczen (firewall, AV, hardening)</li>
+<li><strong>Documentation</strong> &mdash; dokumentuj kazda zmiane (ADR for infrastructure)</li>
+<li><strong>Automation</strong> &mdash; PowerShell DSC, Ansible (avoid clicky-click)</li>
+<li><strong>Monitoring</strong> &mdash; wszystko musi byc monitorowane (logs, metrics)</li>
+<li><strong>Backups</strong> &mdash; 3-2-1 rule (3 kopie, 2 nosniki, 1 off-site)</li>
+<li><strong>Patching</strong> &mdash; regularnie, ale testuj najpierw (test environment)</li>
+<li><strong>Disaster Recovery plan</strong> &mdash; masz, testujesz, dokumentujesz</li>
+</ol>
+
+<h2>Nauka i certyfikacje (2026)</h2>
+
+<p><strong>Microsoft certifications:</strong></p>
+<ul>
+<li><strong>Microsoft Certified: Windows Server Hybrid Administrator Associate</strong> (AZ-800/801)</li>
+<li><strong>Microsoft Certified: Identity and Access Administrator Associate</strong> (SC-300)</li>
+<li><strong>Microsoft Certified: Cybersecurity Architect Expert</strong> (SC-100)</li>
+</ul>
+
+<p><strong>Ksiazki:</strong></p>
+<ul>
+<li>"Windows Server 2025 Inside Out" (Microsoft Press)</li>
+<li>"Windows Server Cookbook" (O'Reilly)</li>
+</ul>
+
+<p><strong>Online:</strong></p>
+<ul>
+<li>Microsoft Learn &mdash; official, free</li>
+<li>Pluralsight &mdash; paid, dobre kursy</li>
+<li>LinkedIn Learning</li>
+<li>YouTube: NetworkChuck, John Savill (swietne deep-dives)</li>
+</ul>
+
+<h2>Kiedy NIE uzywac Windows Server?</h2>
+
+<ul>
+<li><strong>Web hosting (mass-market)</strong> &mdash; Linux + Nginx tansze i lepsze</li>
+<li><strong>Containers przy Linux microservices</strong> &mdash; Linux native</li>
+<li><strong>HPC, ML training</strong> &mdash; Linux dominuje</li>
+<li><strong>Edge computing</strong> &mdash; czesto Linux ARM</li>
+</ul>
+
+<p><strong>Windows Server swieci gdy:</strong></p>
+<ul>
+<li>Active Directory, Exchange, SharePoint</li>
+<li>Aplikacje .NET Framework (legacy)</li>
+<li>IIS hosting (zwlaszcza ASP.NET legacy)</li>
+<li>Hyper-V dla Windows VM</li>
+<li>Print services</li>
+<li>Integration z Microsoft 365, Azure</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="index.html">&larr; Indeks</a>
+    <a href="02-instalacja-i-konfiguracja.html">Instalacja i konfiguracja &rarr;</a>
+</div>
+
+</div>
+</body>
+</html>

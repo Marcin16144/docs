@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bezpieczenstwo aplikacji .NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">C#</a>
+    <span class="sep">/</span>
+    <span class="title">Bezpieczenstwo aplikacji</span>
+</div>
+
+<div class="container">
+<h1>Bezpieczenstwo aplikacji .NET</h1>
+<p class="subtitle">OWASP, ASP.NET Identity, Data Protection, Anti-Forgery, JWT, Authorization policies, NuGet supply chain.</p>
+
+<h2>OWASP Top 10 dla .NET</h2>
+<table>
+<thead><tr><th>Zagrozenie</th><th>.NET-specyficzna ochrona</th></tr></thead>
+<tbody>
+<tr><td>SQL Injection</td><td>EF Core (parametryzowane), Dapper z parametrami, nigdy string concat</td></tr>
+<tr><td>XSS</td><td>Razor automatic encoding, AntiXssEncoder, HtmlEncoder</td></tr>
+<tr><td>CSRF</td><td>AntiForgery middleware, [ValidateAntiForgeryToken]</td></tr>
+<tr><td>Broken Authentication</td><td>ASP.NET Identity, OAuth2/OIDC, MFA</td></tr>
+<tr><td>Insecure Deserialization</td><td>Unikaj BinaryFormatter (deprecated), uzywaj System.Text.Json</td></tr>
+<tr><td>Vulnerable Components</td><td>dotnet list package --vulnerable, Dependabot</td></tr>
+<tr><td>Sensitive Data Exposure</td><td>Data Protection API, Always Encrypted, secrets vault</td></tr>
+</tbody></table>
+
+<h2>ASP.NET Identity</h2>
+<p>Identity to framework do zarzadzania kontami, hasłami, rolami, claimami w ASP.NET Core.</p>
+
+<pre><code>// Program.cs
+builder.Services.AddIdentity&lt;ApplicationUser, IdentityRole&gt;(options =&gt;
+{
+    // Password requirements
+    options.Password.RequiredLength = 12;
+    options.Password.RequireDigit = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+
+    // Lockout - rate limiting prob
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+
+    // Email confirmation
+    options.SignIn.RequireConfirmedEmail = true;
+})
+.AddEntityFrameworkStores&lt;AppDb&gt;()
+.AddDefaultTokenProviders();</code></pre>
+
+<h3>Hashowanie hasel - PBKDF2</h3>
+<p>Identity uzywa PBKDF2 z 100,000+ iteracji. Mozna podmienic na Argon2 przez custom <code>IPasswordHasher&lt;TUser&gt;</code>.</p>
+
+<h2>Data Protection API</h2>
+<p>System do szyfrowania danych w aplikacji - cookies, tokeny, sensitive query strings.</p>
+
+<pre><code>// Konfiguracja - persystencja kluczy
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(@"/var/keys"))
+    .ProtectKeysWithCertificate("thumbprint")
+    .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
+
+// Uzycie - DI
+public class TokenService(IDataProtectionProvider dpProvider)
+{
+    private readonly IDataProtector _protector =
+        dpProvider.CreateProtector("MyApp.Tokens.v1");
+
+    public string Protect(string plain) =&gt; _protector.Protect(plain);
+    public string Unprotect(string cipher) =&gt; _protector.Unprotect(cipher);
+}
+
+// Time-limited tokens
+var protector = dpProvider.CreateProtector("PasswordReset")
+    .ToTimeLimitedDataProtector();
+var token = protector.Protect(userId, TimeSpan.FromHours(1));</code></pre>
+
+<h2>Anti-Forgery (CSRF)</h2>
+<pre><code>// Program.cs
+builder.Services.AddAntiforgery(options =&gt;
+{
+    options.HeaderName = "X-XSRF-TOKEN";
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+});
+
+// Razor - automatyczny token w formularzu
+&lt;form asp-action="Submit" method="post"&gt;
+    @* @Html.AntiForgeryToken() - automatyczne dla form tag helper *@
+    &lt;input name="title" /&gt;
+    &lt;button type="submit"&gt;OK&lt;/button&gt;
+&lt;/form&gt;
+
+// Controller - validacja
+[HttpPost]
+[ValidateAntiForgeryToken]
+public IActionResult Submit(MyDto dto) { /* ... */ }
+
+// W .NET 7+ - automatyczna walidacja dla MVC
+builder.Services.AddControllersWithViews(options =&gt;
+{
+    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+});</code></pre>
+
+<h2>Secure cookies</h2>
+<pre><code>builder.Services.ConfigureApplicationCookie(options =&gt;
+{
+    options.Cookie.HttpOnly = true;            // niedostepne dla JS
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;  // tylko HTTPS
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = true;
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/Forbidden";
+});</code></pre>
+
+<h2>JWT validation</h2>
+<pre><code>builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =&gt;
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(2),
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+            // Asymetryczne tez mozliwe (RsaSecurityKey)
+        };
+
+        options.MapInboundClaims = false;  // standardowe nazwy claims
+    });
+
+builder.Services.AddAuthorization();
+
+app.UseAuthentication();
+app.UseAuthorization();</code></pre>
+
+<h2>Authorization policies</h2>
+<pre><code>// Definicja polityk
+builder.Services.AddAuthorization(options =&gt;
+{
+    options.AddPolicy("AdminOnly", p =&gt; p.RequireRole("Admin"));
+
+    options.AddPolicy("AtLeast21", p =&gt; p.RequireAssertion(ctx =&gt;
+    {
+        var birth = ctx.User.FindFirst("DateOfBirth")?.Value;
+        return DateTime.TryParse(birth, out var dob)
+            &amp;&amp; (DateTime.Today - dob).TotalDays / 365 &gt;= 21;
+    }));
+
+    options.AddPolicy("CanEditPost", p =&gt; p
+        .RequireAuthenticatedUser()
+        .AddRequirements(new SameAuthorRequirement()));
+});
+
+// Custom requirement + handler
+public class SameAuthorRequirement : IAuthorizationRequirement { }
+
+public class SameAuthorHandler(IPostRepo repo)
+    : AuthorizationHandler&lt;SameAuthorRequirement, Post&gt;
+{
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext ctx,
+        SameAuthorRequirement req,
+        Post post)
+    {
+        if (ctx.User.FindFirst("sub")?.Value == post.AuthorId)
+            ctx.Succeed(req);
+    }
+}
+
+// Uzycie
+[Authorize(Policy = "AdminOnly")]
+public IActionResult Admin() =&gt; Ok();</code></pre>
+
+<h2>Rate limiting (.NET 7+)</h2>
+<pre><code>builder.Services.AddRateLimiter(options =&gt;
+{
+    options.AddFixedWindowLimiter("auth", o =&gt;
+    {
+        o.PermitLimit = 5;
+        o.Window = TimeSpan.FromMinutes(1);
+        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit = 0;
+    });
+
+    options.RejectionStatusCode = 429;
+});
+
+app.UseRateLimiter();
+
+app.MapPost("/api/login", LoginHandler)
+   .RequireRateLimiting("auth");</code></pre>
+
+<h2>NuGet supply chain security</h2>
+
+<h3>Sprawdzanie podatnosci</h3>
+<pre><code># Lista podatnych paczek
+dotnet list package --vulnerable
+dotnet list package --vulnerable --include-transitive
+
+# Lista przestarzalych
+dotnet list package --deprecated
+
+# Lista wszystkich z transitive
+dotnet list package --include-transitive</code></pre>
+
+<h3>Signed packages</h3>
+<pre><code>&lt;!-- Wymuszenie signed packages w nuget.config --&gt;
+&lt;configuration&gt;
+  &lt;config&gt;
+    &lt;add key="signatureValidationMode" value="require" /&gt;
+  &lt;/config&gt;
+  &lt;trustedSigners&gt;
+    &lt;repository name="nuget.org" serviceIndex="https://api.nuget.org/v3/index.json"&gt;
+      &lt;certificate ... /&gt;
+    &lt;/repository&gt;
+  &lt;/trustedSigners&gt;
+&lt;/configuration&gt;</code></pre>
+
+<h3>Dependabot / Snyk</h3>
+<pre><code># .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10</code></pre>
+
+<h2>SQL Injection - parametryzacja</h2>
+<pre><code>// ZLE - SQL Injection
+var name = Request.Query["name"];
+var sql = $"SELECT * FROM Users WHERE Name = '{name}'";
+
+// DOBRZE - EF Core
+var users = await db.Users
+    .Where(u =&gt; u.Name == name)
+    .ToListAsync();
+
+// DOBRZE - FromSqlInterpolated
+var users = await db.Users
+    .FromSqlInterpolated($"SELECT * FROM Users WHERE Name = {name}")
+    .ToListAsync();
+
+// DOBRZE - Dapper z parametrami
+var users = await connection.QueryAsync&lt;User&gt;(
+    "SELECT * FROM Users WHERE Name = @Name",
+    new { Name = name });</code></pre>
+
+<h2>Secrets management</h2>
+<pre><code># Development - User Secrets (nie w repo!)
+dotnet user-secrets init
+dotnet user-secrets set "Jwt:Key" "supersecret-min-32-chars"
+
+# Production - Azure Key Vault
+builder.Configuration.AddAzureKeyVault(
+    new Uri("https://myvault.vault.azure.net/"),
+    new DefaultAzureCredential());
+
+# AWS Secrets Manager / HashiCorp Vault tez wspierane</code></pre>
+
+<div class="card">
+<h3>Secure-by-default checklist</h3>
+<ul>
+<li>HTTPS only (UseHttpsRedirection + HSTS)</li>
+<li>CSP headers (Content-Security-Policy)</li>
+<li>Anti-Forgery tokens dla form-based</li>
+<li>Rate limiting na endpointach auth</li>
+<li>Brak BinaryFormatter (deprecated)</li>
+<li>Secrets w User Secrets / Key Vault</li>
+<li>dotnet list package --vulnerable w CI</li>
+<li>Signed NuGet packages</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="03-frameworki-i-ekosystem.html">&larr; Frameworki</a>
+<a href="05-ochrona-kodu-przed-kradzieza.html">Ochrona kodu &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker na Linux</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Docker</a><span class="sep">/</span><span class="title">Docker na Linux</span></div>
+<div class="container">
+<h1>Docker na Linux</h1>
+<p class="subtitle">Native install, rootless mode, Podman, kernel features</p>
+
+<h2>Linux &mdash; native srodowisko Dockera</h2>
+<p>Docker pierwotnie powstal dla Linuxa i tutaj dziala <strong>natywnie</strong>. Brak VM, brak emulacji &mdash; kontenery to procesy hosta izolowane przez kernel.</p>
+
+<pre><code>+------------------+
+|   Linux host     |
++------------------+
+|   dockerd        |  &lt;- daemon
+|     |            |
+|     v            |
+|  containerd      |
+|     |            |
+|     v            |
+|   runc           |  &lt;- runtime
+|   (namespaces, cgroups, capabilities)
+|                  |
+|  Container       |  &lt;- po prostu proces!
++------------------+</code></pre>
+
+<h2>Instalacja na Ubuntu / Debian</h2>
+<p>Oficjalny sposob &mdash; przez apt repository Dockera (zawsze najnowsza wersja).</p>
+
+<pre><code># Usun stare wersje
+sudo apt-get remove docker docker-engine docker.io containerd runc
+
+# Pre-req
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
+
+# Klucz repo
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+  sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Repo
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu $(. /etc/os-release &amp;&amp; echo $VERSION_CODENAME) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list &gt; /dev/null
+
+# Instalacja
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Test
+sudo docker run hello-world
+
+# Bez sudo &mdash; dodaj usera do grupy docker
+sudo usermod -aG docker $USER
+newgrp docker
+
+docker run hello-world  # bez sudo</code></pre>
+
+<h2>Fedora / RHEL</h2>
+<pre><code>sudo dnf -y install dnf-plugins-core
+sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+
+# Test
+docker run hello-world</code></pre>
+
+<h2>Arch Linux</h2>
+<pre><code>sudo pacman -S docker docker-buildx docker-compose
+sudo systemctl enable --now docker.service
+sudo usermod -aG docker $USER
+
+docker run hello-world</code></pre>
+
+<h2>Alpine Linux</h2>
+<pre><code>sudo apk add docker docker-cli-compose
+sudo rc-update add docker default
+sudo service docker start
+sudo addgroup $USER docker</code></pre>
+
+<h2>Rootless Docker</h2>
+<p><strong>Rootless mode</strong> &mdash; daemon i kontenery dzialaja jako zwykly user (nie root). Wieksze bezpieczenstwo: nawet jesli kontener zostanie skompromitowany, atakujacy nie ma roota na hoscie.</p>
+
+<pre><code># Instalacja (Ubuntu)
+sudo apt-get install -y dbus-user-session uidmap
+
+# Wylacz system docker (jesli zainstalowany)
+sudo systemctl disable --now docker.service docker.socket
+
+# Setup rootless
+dockerd-rootless-setuptool.sh install
+
+# Wlaczenie auto-start dla usera
+systemctl --user enable docker
+loginctl enable-linger $(whoami)
+
+# DOCKER_HOST per user
+export DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock
+echo 'export DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock' &gt;&gt; ~/.bashrc
+
+# Test
+docker run hello-world
+
+# Limitations rootless:
+# - cgroup v2 wymagane
+# - Brak portow &lt; 1024 bez setcap
+# - Brak overlay storage driver na niektorych FS &mdash; uzywa fuse-overlayfs
+# - Brak --net=host (workaround: slirp4netns)</code></pre>
+
+<h2>Podman &mdash; daemonless alternatywa</h2>
+<p><strong>Podman</strong> (Red Hat) &mdash; OSS alternatywa Dockera. CLI kompatybilne (<code>alias docker=podman</code> dziala). Glowne roznice:</p>
+<ul>
+<li><strong>Daemonless</strong> &mdash; brak dlugo zyjacego procesu, kazdy kontener to fork</li>
+<li><strong>Rootless first</strong> &mdash; default jest bezpieczny user-mode</li>
+<li><strong>Pod</strong> jako koncept (jak w Kubernetes) &mdash; grupa kontenerow ze wspolna siecia</li>
+<li>Generowanie systemd unit files dla kontenerow (Quadlet)</li>
+<li>Brak swarmu &mdash; uzywa Kubernetes</li>
+</ul>
+
+<pre><code># Instalacja
+sudo apt-get install -y podman      # Ubuntu/Debian
+sudo dnf install -y podman          # Fedora/RHEL
+sudo pacman -S podman               # Arch
+
+# Uzycie identyczne
+podman run hello-world
+podman ps -a
+podman build -t myapp .
+
+# Pod (grupa kontenerow)
+podman pod create --name webapp -p 8080:80
+podman run -d --pod webapp nginx
+podman run -d --pod webapp redis</code></pre>
+
+<h2>Systemd integration (Quadlet)</h2>
+<p>Zamiast pisac wlasne service files, Podman/systemd ma <strong>Quadlet</strong> &mdash; .container files automatycznie konwertowane na .service.</p>
+
+<pre><code># ~/.config/containers/systemd/myapp.container
+[Unit]
+Description=Moja aplikacja
+After=network-online.target
+
+[Container]
+Image=ghcr.io/user/myapp:latest
+PublishPort=8080:80
+Volume=/var/data:/data:Z
+Environment=NODE_ENV=production
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
+
+# Reload + start
+systemctl --user daemon-reload
+systemctl --user start myapp.service
+systemctl --user enable myapp.service</code></pre>
+
+<h3>Docker w systemd (klasycznie)</h3>
+<pre><code># /etc/systemd/system/myapp.service
+[Unit]
+Description=Myapp container
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+ExecStartPre=-/usr/bin/docker stop myapp
+ExecStartPre=-/usr/bin/docker rm myapp
+ExecStart=/usr/bin/docker run --rm --name myapp \
+  -p 8080:80 \
+  -v /var/data:/data \
+  -e NODE_ENV=production \
+  ghcr.io/user/myapp:latest
+ExecStop=/usr/bin/docker stop myapp
+
+[Install]
+WantedBy=multi-user.target
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now myapp</code></pre>
+
+<h2>Kernel features &mdash; jak dziala kontener</h2>
+
+<h3>Namespaces</h3>
+<p>Kazdy kontener ma wlasne <strong>namespaces</strong> &mdash; izolowane widoki zasobow:</p>
+<table>
+<thead><tr><th>Namespace</th><th>Co izoluje</th></tr></thead>
+<tbody>
+<tr><td>PID</td><td>Procesy &mdash; wlasny PID 1, niewidoczne procesy hosta</td></tr>
+<tr><td>NET</td><td>Interfejsy sieciowe, routing, firewall</td></tr>
+<tr><td>MNT</td><td>Punkty montowania &mdash; wlasny widok filesystemu</td></tr>
+<tr><td>UTS</td><td>Hostname, domena</td></tr>
+<tr><td>IPC</td><td>SysV IPC, kolejki POSIX</td></tr>
+<tr><td>USER</td><td>Mapowanie UID/GID &mdash; wewnatrz root, na hoscie nie-root</td></tr>
+<tr><td>CGROUP</td><td>Widok hierarchii cgroup</td></tr>
+</tbody>
+</table>
+
+<h3>cgroups v2</h3>
+<p><strong>cgroups</strong> (control groups) limituja zasoby per proces:</p>
+<ul>
+<li>CPU &mdash; udzial procesora, throttling</li>
+<li>Memory &mdash; max RAM, swap, OOM behavior</li>
+<li>I/O &mdash; przepustowosc dysku, IOPS</li>
+<li>PIDs &mdash; max liczba procesow</li>
+</ul>
+
+<pre><code>docker run --cpus 0.5 --memory 512m --pids-limit 100 myapp</code></pre>
+
+<h3>Capabilities</h3>
+<p>Linux ma <strong>capabilities</strong> &mdash; granularne uprawnienia roota. Domyslnie kontener ma 14 z 38, ale dla bezpieczenstwa zrzucaj wszystkie i dodawaj tylko potrzebne.</p>
+
+<pre><code># Domyslne capabilities (czesc):
+CAP_NET_BIND_SERVICE   # bind portow &lt; 1024
+CAP_CHOWN              # zmiana wlasciciela
+CAP_DAC_OVERRIDE       # ignoruj DAC
+
+# Bezpieczne podejscie
+docker run --cap-drop ALL --cap-add NET_BIND_SERVICE myapp</code></pre>
+
+<h2>Bezpieczenstwo grupy "docker"</h2>
+<div class="card">
+<h3>UWAGA &mdash; user w grupie docker = root</h3>
+<p>Dodanie usera do grupy <code>docker</code> daje mu <strong>efektywny dostep root</strong> do hosta. Dlaczego?</p>
+<pre><code># User moze wykonac
+docker run -v /:/host -it alpine sh
+# I edytowac dowolny plik na hoscie jako root!</code></pre>
+<p><strong>Zalecenia:</strong></p>
+<ul>
+<li>Na <strong>produkcji</strong> NIE dodawaj userow do grupy docker</li>
+<li>Uzywaj <strong>rootless mode</strong> jesli potrzebujesz user-friendly</li>
+<li>Dla CI/CD &mdash; dedykowany user lub Podman rootless</li>
+<li>Audytuj kto jest w grupie: <code>getent group docker</code></li>
+</ul>
+</div>
+
+<h2>Storage drivers</h2>
+<table>
+<thead><tr><th>Driver</th><th>Typ FS</th><th>Status 2026</th></tr></thead>
+<tbody>
+<tr><td>overlay2</td><td>Domyslny</td><td>Standard, najszybszy</td></tr>
+<tr><td>fuse-overlayfs</td><td>Rootless mode</td><td>Standard rootless</td></tr>
+<tr><td>btrfs</td><td>Btrfs filesystem</td><td>Niche</td></tr>
+<tr><td>zfs</td><td>ZFS</td><td>Niche, wymaga setupu</td></tr>
+<tr><td>devicemapper</td><td>(deprecated)</td><td>USUWANY</td></tr>
+</tbody>
+</table>
+
+<pre><code>docker info | grep "Storage Driver"</code></pre>
+
+<div class="card">
+<h3>Setup produkcyjny &mdash; checklist</h3>
+<ul>
+<li>Latest stable Docker (apt repo, nie distro package)</li>
+<li>cgroups v2 wlaczone (Ubuntu 22.04+ default)</li>
+<li>overlay2 storage driver</li>
+<li>Logi konfiguracja: <code>/etc/docker/daemon.json</code> z log-driver json-file + max-size</li>
+<li>Live restore wlaczony &mdash; daemon update bez restartu kontenerow</li>
+<li>Rootless dla bezpieczenstwa lub Podman</li>
+<li>Firewall (ufw/firewalld) &mdash; uwaga, Docker domyslnie bypass'uje iptables UFW</li>
+<li>Auto-update obrazow (Watchtower / Diun)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="03-docker-macos.html">&larr; Docker na macOS</a>
+<a href="05-komendy-docker.html">Komendy Docker &rarr;</a>
+</div>
+</div>
+</body>
+</html>

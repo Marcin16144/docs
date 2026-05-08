@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy Docker</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Docker</a>
+    <span class="sep">/</span>
+    <span class="title">Podstawy Docker</span>
+</div>
+<div class="container">
+<h1>Podstawy Docker</h1>
+<p class="subtitle">Wprowadzenie do konteneryzacji aplikacji</p>
+
+<h2>Czym jest Docker?</h2>
+<p><strong>Docker</strong> to platforma do <strong>konteneryzacji</strong> aplikacji. Pozwala "zapakowac" aplikacje razem z jej zaleznosciami (biblioteki, narzedzia, konfiguracja) w izolowane kontenery, ktore uruchamiaja sie identycznie na kazdym systemie.</p>
+
+<pre><code>"Dziala u mnie na komputerze" -&gt; "Dziala wszedzie"</code></pre>
+
+<h2>Kontenery vs Maszyny Wirtualne (VM)</h2>
+
+<pre><code>+----------------------------+  +----------------------------+
+|      Maszyny Wirtualne     |  |        Kontenery           |
++----------------------------+  +----------------------------+
+|  App A    App B    App C   |  |  App A    App B    App C   |
+|  Bins/Libs Bins/Libs       |  |  Bins/Libs Bins/Libs       |
+|  +----+  +----+  +----+    |  |  +--------------------+    |
+|  |Guest| |Guest| |Guest|   |  |  |   Docker Engine    |    |
+|  | OS  | | OS  | | OS  |   |  |  +--------------------+    |
+|  +----+  +----+  +----+    |  |       Host OS              |
+|      Hypervisor            |  |         Hardware           |
+|       Host OS              |  |                            |
+|       Hardware             |  |                            |
++----------------------------+  +----------------------------+
+
+VM:                              Kontener:
+- Pelny OS guest                 - Wspoldzieli kernel hosta
+- ~GB pamieci                    - ~MB pamieci
+- Minuty startu                  - Sekundy startu
+- Pelna izolacja                 - Process-level izolacja</code></pre>
+
+<table>
+<thead>
+<tr><th>Aspekt</th><th>VM</th><th>Kontener</th></tr>
+</thead>
+<tbody>
+<tr><td>Rozmiar</td><td>GB</td><td>MB</td></tr>
+<tr><td>Start</td><td>minuty</td><td>sekundy</td></tr>
+<tr><td>Zasoby</td><td>ciezkie</td><td>lekkie</td></tr>
+<tr><td>Izolacja</td><td>pelna (rozne kernele)</td><td>namespace + cgroups</td></tr>
+<tr><td>Use case</td><td>rozne OS, full isolation</td><td>mikroservices, dev/prod parity</td></tr>
+<tr><td>Density</td><td>dziesiatki na hoscie</td><td>tysiace na hoscie</td></tr>
+</tbody>
+</table>
+
+<p><strong>Kluczowa roznica:</strong> kontenery <strong>wspoldziela kernel</strong> hosta. Dlatego sa lekkie ale <strong>musza byc Linux</strong> (na macOS i Windows Docker uruchamia mini-VM Linux).</p>
+
+<h2>Kluczowe pojecia</h2>
+
+<div class="card">
+<h3>Image (obraz)</h3>
+<p><strong>Niemodyfikowalny</strong> template aplikacji + zaleznosci. Sklada sie z <strong>warstw</strong> (layers).</p>
+
+<pre><code>my-app:1.0
++-- Layer 1: Ubuntu 22.04 base       &lt;- wspoldzielony miedzy obrazami
++-- Layer 2: apt install nodejs      &lt;- wspoldzielony jesli inne obrazy tez
++-- Layer 3: COPY package.json
++-- Layer 4: RUN npm install
++-- Layer 5: COPY src/               &lt;- zmienia sie przy kazdym build</code></pre>
+</div>
+
+<div class="card">
+<h3>Container (kontener)</h3>
+<p><strong>Dzialajaca instancja</strong> obrazu. Mozna miec wiele kontenerow z tego samego obrazu.</p>
+
+<pre><code>docker run nginx          # Kontener 1
+docker run nginx          # Kontener 2 (z tego samego obrazu nginx)</code></pre>
+</div>
+
+<div class="card">
+<h3>Registry (rejestr)</h3>
+<p><strong>Repozytorium obrazow</strong>. Gdzie przechowujesz/pobierasz obrazy.</p>
+<ul>
+<li><strong>Docker Hub</strong> (hub.docker.com) - domyslny, publiczny</li>
+<li><strong>GitHub Container Registry</strong> (ghcr.io) - popularny w 2026</li>
+<li><strong>AWS ECR</strong>, <strong>Google Artifact Registry</strong>, <strong>Azure Container Registry</strong> - cloud</li>
+<li><strong>Harbor</strong>, <strong>Nexus</strong>, <strong>JFrog Artifactory</strong> - self-hosted</li>
+<li><strong>GitLab Container Registry</strong> - wbudowany w GitLab</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Dockerfile</h3>
+<p><strong>Tekstowy plik</strong> opisujacy jak zbudowac obraz.</p>
+
+<pre><code>FROM node:20-alpine
+WORKDIR /app
+COPY package.json .
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD ["node", "server.js"]</code></pre>
+</div>
+
+<div class="card">
+<h3>Volume (wolumen)</h3>
+<p><strong>Trwaly storage</strong> dla kontenerow (kontenery sa ephemeral - dane gina przy rm).</p>
+
+<h3>Network (siec)</h3>
+<p>Pozwala kontenerom komunikowac sie ze soba.</p>
+
+<h3>Compose</h3>
+<p><strong>docker-compose.yaml</strong> lub <strong>compose.yaml</strong> - definiuje wieloskladnikowe aplikacje.</p>
+</div>
+
+<h2>Architektura Docker</h2>
+
+<pre><code>+------------------------------------------+
+|           Docker Client (CLI)            |
+|  docker run, docker build, docker ps...  |
++------------------+-----------------------+
+                   | REST API
++------------------v-----------------------+
+|           Docker Daemon (dockerd)        |
+|  - Manages images, containers, networks  |
+|  - Runs as root (Linux) lub WSL2 (Win)   |
++------------------+-----------------------+
+                   |
+        +----------+----------+
+        v          v          v
+   +--------+ +--------+ +--------+
+   |Container| |Container| |Container|
+   |   A    | |   B    | |   C    |
+   +--------+ +--------+ +--------+
+        |          |          |
+        +----------+----------+
+                   v
+           Docker Network (bridge)</code></pre>
+
+<p><strong>Komponenty pod spodem:</strong></p>
+<ul>
+<li><strong>runc / containerd</strong> - niskopoziomowy runtime</li>
+<li><strong>OCI</strong> (Open Container Initiative) - standard format obrazow</li>
+<li><strong>Linux kernel features</strong>: namespaces, cgroups, capabilities, seccomp</li>
+</ul>
+
+<h2>Docker Engine vs Docker Desktop</h2>
+
+<div class="card">
+<h3>Docker Engine (CE - Community Edition)</h3>
+<ul>
+<li><strong>Free</strong>, open source</li>
+<li>Tylko Linux (natively)</li>
+<li>Sam Docker daemon + CLI</li>
+<li>Dla serwerow, CI/CD, produkcja</li>
+</ul>
+
+<h3>Docker Desktop</h3>
+<ul>
+<li>GUI app + Docker Engine + dodatki</li>
+<li>Windows, macOS, Linux</li>
+<li><strong>Platne</strong> dla firm &gt; 250 osob / &gt;$10M revenue (od 2021)</li>
+<li>Free dla individuals i small businesses</li>
+<li>Zawiera: Docker Compose, Kubernetes (opcjonalnie), Extensions</li>
+</ul>
+</div>
+
+<p><strong>W 2026:</strong> licencjonowanie Docker Desktop kontrowersyjne - wiele firm migruje do <strong>Podman Desktop</strong>, <strong>Rancher Desktop</strong>, <strong>OrbStack</strong> (macOS), <strong>Colima</strong> (macOS).</p>
+
+<h2>Workflow Docker - typowy</h2>
+
+<pre><code>1. Stworz Dockerfile
+   |
+   v
+2. docker build -t myapp:1.0 .
+   (buduje obraz z Dockerfile)
+   |
+   v
+3. docker run myapp:1.0
+   (uruchamia kontener)
+   |
+   v
+4. docker push myapp:1.0
+   (wysyla do registry)
+   |
+   v
+5. Inny serwer:
+   docker pull myapp:1.0
+   docker run myapp:1.0</code></pre>
+
+<h2>Pierwsza interakcja</h2>
+
+<pre><code># Pobierz i uruchom hello-world
+docker run hello-world
+
+# Co sie stalo?
+# 1. Docker daemon szuka obrazu hello-world lokalnie
+# 2. Nie znalazl -&gt; pobiera z Docker Hub (registry)
+# 3. Tworzy kontener z tego obrazu
+# 4. Daemon uruchamia kontener ktory wypisuje "Hello from Docker!"
+# 5. Kontener konczy sie i zatrzymuje</code></pre>
+
+<h2>Dlaczego Docker?</h2>
+
+<div class="card">
+<h3>Plusy:</h3>
+<ul>
+<li><strong>Reproducibility</strong> - dziala identycznie wszedzie</li>
+<li><strong>Isolation</strong> - aplikacje nie wchodza sobie w parade</li>
+<li><strong>Lightweight</strong> - szybkie, malo zasobow</li>
+<li><strong>Portability</strong> - Windows, Mac, Linux, cloud</li>
+<li><strong>Microservices</strong> - naturalne podejscie</li>
+<li><strong>CI/CD friendly</strong> - builds, tests w izolacji</li>
+<li><strong>Onboarding</strong> - <code>docker compose up</code> i juniora w 5 min ma srodowisko</li>
+</ul>
+
+<h3>Minusy:</h3>
+<ul>
+<li><strong>Performance overhead</strong> - zwlaszcza na Mac/Windows (mini-VM)</li>
+<li><strong>Persistence</strong> - wymaga Volumes (kontenery sa ephemeral)</li>
+<li><strong>Networking</strong> - bywa skomplikowane (zwlaszcza multi-host)</li>
+<li><strong>Security</strong> - domyslnie root, wymaga konfiguracji</li>
+<li><strong>Docker Desktop licensing</strong> - koszt dla wiekszych firm</li>
+<li><strong>Storage</strong> - obrazy zajmuja miejsce (czysc regularnie!)</li>
+</ul>
+</div>
+
+<h2>Alternatywy Docker (2026)</h2>
+
+<table>
+<thead>
+<tr><th>Narzedzie</th><th>Platform</th><th>Charakterystyka</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Podman</strong></td><td>Linux, Win, Mac</td><td>Daemonless, rootless first, Red Hat</td></tr>
+<tr><td><strong>containerd</strong></td><td>Linux</td><td>Niskopoziomowy, uzywany przez K8s</td></tr>
+<tr><td><strong>Buildah</strong></td><td>Linux</td><td>Tylko building images (pair z Podman)</td></tr>
+<tr><td><strong>OrbStack</strong></td><td>macOS</td><td>Najszybszy na Mac, $96/yr personal, free dla edu</td></tr>
+<tr><td><strong>Colima</strong></td><td>macOS</td><td>Free, open source alternative do Docker Desktop</td></tr>
+<tr><td><strong>Rancher Desktop</strong></td><td>Win, Mac, Linux</td><td>Free, dla K8s</td></tr>
+<tr><td><strong>Lima</strong></td><td>macOS</td><td>Linux VM, baza Colimy</td></tr>
+<tr><td><strong>nerdctl</strong></td><td>Linux</td><td>Docker-compatible CLI dla containerd</td></tr>
+</tbody>
+</table>
+
+<h2>Standard OCI</h2>
+<p><strong>OCI (Open Container Initiative)</strong> to standard zapewniajacy compatibility:</p>
+<ul>
+<li><strong>OCI Image Spec</strong> - format obrazow</li>
+<li><strong>OCI Runtime Spec</strong> - uruchamianie kontenerow</li>
+</ul>
+<p>Skutek: obraz zbudowany przez Docker dziala w Podman, containerd, etc.</p>
+
+<h2>Kontenery Linux vs Windows</h2>
+
+<div class="card">
+<h3>Kontenery Linux (99% przypadkow)</h3>
+<ul>
+<li>Dzialaja na Linux hosts natywnie</li>
+<li>Na macOS / Windows: przez mini-VM Linux</li>
+<li>Standard branzowy</li>
+</ul>
+
+<h3>Kontenery Windows (rzadkie)</h3>
+<ul>
+<li>Tylko Windows hosts (Server 2016+, Windows 11 Pro)</li>
+<li>2 modele: <strong>Windows Server containers</strong> (shared kernel) i <strong>Hyper-V containers</strong> (isolated)</li>
+<li>Use case: legacy .NET Framework apps, Windows-specific deps</li>
+<li>Ciezsze niz Linux containers (GB+ image sizes)</li>
+</ul>
+</div>
+
+<p><strong>W 2026:</strong> Windows Containers sa niche - wiekszosc modern .NET apps uzywa .NET 8/9 ktore dziala cross-platform -&gt; kontener Linux preferowany.</p>
+
+<h2>Co dalej w tej dokumentacji?</h2>
+
+<table>
+<thead>
+<tr><th>Rozdzial</th><th>Co znajdziesz</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>02. Docker na Windows</strong></td><td>Docker Desktop, WSL2, troubleshooting, GPU</td></tr>
+<tr><td><strong>03. Docker na macOS</strong></td><td>Docker Desktop, Colima, OrbStack, Apple Silicon</td></tr>
+<tr><td><strong>04. Docker na Linux</strong></td><td>Native install per distro, rootless, Podman</td></tr>
+<tr><td><strong>05. Komendy Docker</strong></td><td>Kompletny reference wszystkich komend</td></tr>
+<tr><td><strong>06. Dockerfile best practices</strong></td><td>Multi-stage, caching, security, BuildKit</td></tr>
+<tr><td><strong>07. Docker Compose</strong></td><td>Aplikacje wieloskladnikowe</td></tr>
+<tr><td><strong>08. Siec Docker</strong></td><td>Network drivers, port mapping, DNS</td></tr>
+<tr><td><strong>09. Wolumeny</strong></td><td>Persistence, backup, performance</td></tr>
+<tr><td><strong>10. Bezpieczenstwo</strong></td><td>Rootless, secrets, image scanning</td></tr>
+</tbody>
+</table>
+
+<h2>Zasoby do nauki</h2>
+<ul>
+<li><strong>docs.docker.com</strong> - oficjalna dokumentacja</li>
+<li><strong>Play with Docker</strong> (labs.play-with-docker.com) - playground w przegladarce</li>
+<li><strong>DockerCon</strong> - konferencja, nagrania na YouTube</li>
+<li><strong>Bret Fisher</strong> - popular Docker trainer (YouTube, Udemy)</li>
+<li><strong>TechWorld with Nana</strong> - YouTube tutoriale</li>
+<li><strong>Awesome Docker</strong> (github.com/veggiemonk/awesome-docker) - curated lista</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="index.html">&larr; Docker</a>
+<a href="02-docker-windows.html">Docker na Windows &rarr;</a>
+</div>
+</div>
+</body>
+</html>

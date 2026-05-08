@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Let's Encrypt na Windows</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="06-certyfikaty-ssl-tls.html">Certyfikaty SSL/TLS</a>
+    <span class="sep">/</span>
+    <span class="title">Let's Encrypt</span>
+</div>
+
+<div class="container">
+<h1>Let's Encrypt na Windows Server</h1>
+<p class="subtitle">Darmowe, automatycznie odnawiane certyfikaty TLS przez ACME - win-acme i Posh-ACME.</p>
+
+<h2>Czym jest Let's Encrypt</h2>
+<p>Let's Encrypt to publiczne CA (Certificate Authority) wydajace darmowe certyfikaty TLS przez protokol <strong>ACME</strong> (Automatic Certificate Management Environment, RFC 8555). Certyfikaty waznosc 90 dni - co wymusza automatyzacje odnawiania.</p>
+
+<table>
+<tr><th>Cecha</th><th>Wartosc</th></tr>
+<tr><td>Cena</td><td>Darmowy (0 zl)</td></tr>
+<tr><td>Waznosc</td><td>90 dni (zaplanowane skrocenie do 6 dni)</td></tr>
+<tr><td>Typ</td><td>Domain Validated (DV) - tylko walidacja domeny</td></tr>
+<tr><td>Wildcardy</td><td>Tak (*.example.com), wymaga DNS-01 challenge</td></tr>
+<tr><td>SAN (Subject Alternative Names)</td><td>Tak, do 100 domen w jednym certyfikacie</td></tr>
+<tr><td>Rate limit</td><td>50 certyfikatow per zarejestrowana domena na tydzien</td></tr>
+<tr><td>OCSP stapling</td><td>Wspierany</td></tr>
+</table>
+
+<h2>win-acme - najpopularniejszy klient</h2>
+<p>win-acme (WACS) to dojrzaly klient ACME dla Windows pisany w .NET. Latwo integruje sie z IIS, automatycznie konfiguruje binding HTTPS i tworzy Scheduled Task do odnawiania.</p>
+
+<h3>Instalacja</h3>
+<pre><code># Pobranie najnowszej wersji
+$url = "https://github.com/win-acme/win-acme/releases/latest/download/win-acme.v2.2.x.x64.pluggable.zip"
+$dest = "C:\Tools\win-acme"
+New-Item -ItemType Directory -Force -Path $dest
+Invoke-WebRequest -Uri $url -OutFile "$dest\wacs.zip"
+Expand-Archive "$dest\wacs.zip" -DestinationPath $dest -Force
+
+# Uruchomienie (wymaga uprawnien Administrator)
+Set-Location $dest
+.\wacs.exe</code></pre>
+
+<h3>Interaktywne wydanie certyfikatu</h3>
+<pre><code>.\wacs.exe
+
+# Menu glowne:
+# N: Create certificate (default settings)
+# M: Create certificate (full options)
+# R: Run renewals
+# A: Manage renewals
+# O: More options
+# Q: Quit
+
+# Wybor: N (najprostsze - dla witryny IIS)
+# WACS pobiera liste witryn z IIS i pyta ktora wybrac.
+# Po zatwierdzeniu wykonuje:
+# 1. Generuje key pair RSA/ECDSA
+# 2. Tworzy CSR
+# 3. Wysyla zlecenie do Let's Encrypt
+# 4. HTTP-01 challenge: zapisuje token w .well-known/acme-challenge
+# 5. LE walid uje, wydaje certyfikat
+# 6. Importuje cert do Cert:\LocalMachine\WebHosting
+# 7. Konfiguruje HTTPS binding na porcie 443
+# 8. Tworzy Scheduled Task "win-acme renew" - codziennie 09:00</code></pre>
+
+<h3>Pelne opcje (M)</h3>
+<p>Tryb pelnych opcji daje pelna kontrole nad: HTTP-01 vs DNS-01 challenge, wybor walidatora (FTP, SFTP, plik), miejsce zapisu certyfikatu, format eksportu (PFX, PEM), instalacja w wielu miejscach, hooki przed/po.</p>
+
+<h3>Unattended (skrypt)</h3>
+<pre><code># Skrypt automatyczny dla wielu serwerow / CI/CD
+.\wacs.exe `
+    --target manual `
+    --host "app.example.com,www.example.com" `
+    --webroot "C:\inetpub\wwwroot" `
+    --validation http-01 `
+    --installation iis `
+    --installationsiteid 1 `
+    --emailaddress "admin@example.com" `
+    --accepttos `
+    --closeonfinish</code></pre>
+
+<h2>HTTP-01 vs DNS-01 challenge</h2>
+<table>
+<tr><th>Challenge</th><th>Jak dziala</th><th>Wymagania</th><th>Wsparcie wildcardow</th></tr>
+<tr><td>HTTP-01</td><td>LE pobiera plik z http://domain/.well-known/acme-challenge/TOKEN</td><td>Port 80 dostepny z Internetu</td><td>NIE</td></tr>
+<tr><td>DNS-01</td><td>LE sprawdza rekord TXT _acme-challenge.domain</td><td>Dostep do DNS API (Cloudflare, Azure DNS, AWS Route 53)</td><td>TAK (*.domain)</td></tr>
+<tr><td>TLS-ALPN-01</td><td>LE laczy sie po TLS i sprawdza ALPN extension</td><td>Port 443 dostepny</td><td>NIE</td></tr>
+</table>
+
+<h2>DNS-01 dla wildcardow (Cloudflare)</h2>
+<pre><code># Konfiguracja API token w Cloudflare:
+# 1. Cloudflare Dashboard -&gt; My Profile -&gt; API Tokens -&gt; Create Token
+# 2. Template: "Edit zone DNS"
+# 3. Zone Resources: Include -&gt; Specific zone -&gt; example.com
+# 4. Skopiowanie tokenu
+
+# W win-acme wybor:
+# M -&gt; Create certificate (full options)
+# Validation: dns-01
+# Plugin: Cloudflare DNS
+# API token: &lt;wklej token&gt;
+# Domain: *.example.com,example.com
+
+# Po wydaniu wildcard mozna uzyc dla:
+# app.example.com, www.example.com, api.example.com, mail.example.com itd.</code></pre>
+
+<h2>DNS-01 dla Azure DNS</h2>
+<pre><code># Wymagane:
+# 1. Azure DNS zone (cena ~0.50 USD/mc)
+# 2. Service Principal z uprawnieniem "DNS Zone Contributor"
+
+# Tworzenie SP w Azure Cloud Shell:
+az ad sp create-for-rbac --name "win-acme-dns" `
+    --role "DNS Zone Contributor" `
+    --scopes "/subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Network/dnsZones/example.com"
+
+# Output:
+# {
+#   "appId":       "...",   -&gt; ClientId
+#   "password":    "...",   -&gt; Secret
+#   "tenant":      "..."    -&gt; TenantId
+# }
+
+# W win-acme: Plugin Azure
+# Tenant ID, Client ID, Client Secret, Subscription ID, Resource Group, Zone Name</code></pre>
+
+<h2>Storage certyfikatow w Windows</h2>
+<table>
+<tr><th>Lokalizacja</th><th>Sciezka</th><th>Zastosowanie</th></tr>
+<tr><td>Personal (LocalMachine\My)</td><td>Cert:\LocalMachine\My</td><td>Domyslne dla wlasnych certyfikatow serwera</td></tr>
+<tr><td>WebHosting</td><td>Cert:\LocalMachine\WebHosting</td><td>Dedykowany store IIS - shared by app pools</td></tr>
+<tr><td>Trusted Root CA</td><td>Cert:\LocalMachine\Root</td><td>Korzenie zaufanych CA (LE Root w Windows juz jest)</td></tr>
+<tr><td>Intermediate CA</td><td>Cert:\LocalMachine\CA</td><td>Posrednie CA (LE R3, E1)</td></tr>
+</table>
+
+<pre><code># Listing certyfikatow Let's Encrypt
+Get-ChildItem Cert:\LocalMachine\WebHosting |
+    Where-Object { $_.Issuer -like "*Let's Encrypt*" } |
+    Select Subject, Thumbprint, NotAfter, FriendlyName
+
+# Eksport do PFX (np. dla innych aplikacji)
+$cert = Get-ChildItem Cert:\LocalMachine\WebHosting |
+    Where-Object { $_.Subject -like "*example.com*" } |
+    Sort-Object NotAfter -Descending |
+    Select-Object -First 1
+$pwd = ConvertTo-SecureString "ExportPass!" -AsPlainText -Force
+Export-PfxCertificate -Cert $cert `
+                      -FilePath "C:\export\example.com.pfx" `
+                      -Password $pwd</code></pre>
+
+<h2>Automatyczne odnawianie</h2>
+<p>WACS tworzy Scheduled Task <strong>"win-acme renew"</strong> uruchamiany codziennie. Zadanie sprawdza czy ktores certyfikaty wygasaja w ciagu 30 dni i odnawia je. Jezeli odnawianie sie powiedzie, automatycznie aktualizuje binding IIS.</p>
+<pre><code># Manualne uruchomienie odnowien
+.\wacs.exe --renew
+
+# Sprawdzenie listy zarejestrowanych odnowien
+.\wacs.exe --list
+
+# Konkretne odnowienie (test)
+.\wacs.exe --renew --force --id "renewal-id-here"
+
+# Sprawdzenie scheduled task
+Get-ScheduledTask -TaskName "win-acme renew*"</code></pre>
+
+<h2>Posh-ACME - alternatywa PowerShell</h2>
+<p>Posh-ACME to natywny modul PowerShell wspierajacy ACME z poziomu skryptow. Dobry dla automatyzacji, srodowisk bez IIS lub gdzie potrzebna pelna kontrola programowa.</p>
+<pre><code># Instalacja
+Install-Module Posh-ACME -Scope AllUsers -Force
+
+# Konfiguracja serwera ACME (production)
+Set-PAServer LE_PROD
+
+# Akceptacja TOS i rejestracja konta
+Set-PAAccount -KeyLength 2048 -Contact "admin@example.com" -AcceptTOS
+
+# Wydanie certyfikatu z DNS-01 (Cloudflare)
+$pArgs = @{
+    CFToken = (Read-Host "Cloudflare token" -AsSecureString)
+}
+New-PACertificate "*.example.com","example.com" `
+    -DnsPlugin Cloudflare `
+    -PluginArgs $pArgs `
+    -AcceptTOS
+
+# Lokalizacja certyfikatow:
+# %LocalAppData%\Posh-ACME\acme-v02.api.letsencrypt.org\
+# Pliki: cert.cer, chain.cer, fullchain.cer, cert.key, cert.pfx
+
+# Odnawianie wszystkich
+Submit-Renewal -AllOrders</code></pre>
+
+<h2>Diagnostyka</h2>
+<pre><code># Sprawdzenie waznosci certyfikatu z konsoli
+$url = "https://example.com"
+$req = [System.Net.HttpWebRequest]::Create($url)
+$req.GetResponse() | Out-Null
+$cert = $req.ServicePoint.Certificate
+$cert2 = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 $cert
+"Subject:    $($cert2.Subject)"
+"Issuer:     $($cert2.Issuer)"
+"Valid from: $($cert2.NotBefore)"
+"Valid to:   $($cert2.NotAfter)"
+"Days left:  $(($cert2.NotAfter - (Get-Date)).Days)"
+
+# Test bindingu IIS po stronie klienta
+Test-NetConnection -ComputerName example.com -Port 443
+openssl s_client -connect example.com:443 -servername example.com</code></pre>
+
+<h2>Best practices</h2>
+<ul>
+<li>HTTP-01 dla pojedynczych domen - prostota</li>
+<li>DNS-01 dla wildcardow + dla serwerow nieosiagalnych z Internetu</li>
+<li>Wildcard zamiast wielu pojedynczych - 1 cert dla *.example.com</li>
+<li>WebHosting store zamiast Personal - wspoldzielony przez wiele witryn</li>
+<li>Monitorowac waznosc certyfikatow (alert 14 dni przed wygasnieciem)</li>
+<li>Backup konta ACME (klucz rejestracji) - utrata = nowa rejestracja</li>
+<li>Staging environment LE do testow (LE_STAGE w Posh-ACME)</li>
+<li>Hooki post-renewal: aktualizacja certyfikatu w innych aplikacjach (Postfix, RDS, RDP Gateway)</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="06-certyfikaty-ssl-tls.html">&larr; Certyfikaty SSL/TLS</a>
+    <a href="06-02-konfiguracja-tls.html">Konfiguracja TLS &rarr;</a>
+</div>
+</div>
+</body>
+</html>

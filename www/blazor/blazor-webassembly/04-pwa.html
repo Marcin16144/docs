@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PWA Blazor WebAssembly</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor WebAssembly</a><span class="sep">/</span><span class="title">PWA</span></div>
+<div class="container">
+<h1>PWA &mdash; Progressive Web App</h1>
+<p class="subtitle">Service workers, offline, manifest.json, install jako app, push notifications</p>
+
+<h2>Czym jest PWA?</h2>
+<p><strong>Progressive Web App</strong> to strona WWW, ktora dziala jak natywna aplikacja:</p>
+<ul>
+<li>Mozna ja zainstalowac (ikona w start menu / dock)</li>
+<li>Otwarcie bez paska przegladarki (chrome-less)</li>
+<li>Dziala offline (service worker cache)</li>
+<li>Push notifications (na desktop i Android)</li>
+<li>Background sync</li>
+<li>Dziala w iOS, Android, Windows, macOS, Linux</li>
+</ul>
+<p>Blazor WebAssembly pasuje idealnie &mdash; jest static-host, dziala offline po pobraniu, ma .NET runtime w przegladarce.</p>
+
+<h2>Generowanie projektu z PWA</h2>
+<pre><code>dotnet new blazorwasm --pwa -o MyPwaApp
+cd MyPwaApp
+dotnet run</code></pre>
+
+<p>Otrzymujesz dodatkowo:</p>
+<ul>
+<li><code>wwwroot/manifest.json</code> &mdash; metadata o aplikacji</li>
+<li><code>wwwroot/service-worker.js</code> &mdash; dev service worker</li>
+<li><code>wwwroot/service-worker.published.js</code> &mdash; production cache strategy</li>
+<li><code>wwwroot/icon-192.png</code>, <code>icon-512.png</code> &mdash; ikony aplikacji</li>
+</ul>
+
+<h2>manifest.json</h2>
+<pre><code>{
+  "name": "My PWA App",
+  "short_name": "MyApp",
+  "id": "com.example.myapp",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#7c3aed",
+  "description": "Aplikacja Blazor WASM PWA",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "shortcuts": [
+    { "name": "Dashboard", "url": "/dashboard", "icons": [{"src":"shortcut.png","sizes":"96x96"}] }
+  ]
+}</code></pre>
+
+<h2>Service worker &mdash; cache strategy</h2>
+<p>Plik <code>service-worker.published.js</code> generowany domyslnie:</p>
+<pre><code>self.importScripts('./service-worker-assets.js');
+
+self.addEventListener('install', event =&gt; event.waitUntil(onInstall(event)));
+self.addEventListener('activate', event =&gt; event.waitUntil(onActivate(event)));
+self.addEventListener('fetch', event =&gt; event.respondWith(onFetch(event)));
+
+const cacheNamePrefix = 'offline-cache-';
+const cacheName = `${cacheNamePrefix}${self.assetsManifest.version}`;
+
+async function onInstall(event) {
+    const assetsRequests = self.assetsManifest.assets
+        .filter(asset =&gt; /\.(html|js|json|css|wasm|dll|png|svg)$/.test(asset.url))
+        .map(asset =&gt; new Request(asset.url, { integrity: asset.hash, cache: 'no-cache' }));
+
+    await caches.open(cacheName).then(cache =&gt; cache.addAll(assetsRequests));
+}
+
+async function onActivate(event) {
+    const cacheKeys = await caches.keys();
+    await Promise.all(cacheKeys
+        .filter(key =&gt; key.startsWith(cacheNamePrefix) &amp;&amp; key !== cacheName)
+        .map(key =&gt; caches.delete(key)));
+}
+
+async function onFetch(event) {
+    let cachedResponse = null;
+    if (event.request.method === 'GET') {
+        const shouldServeIndex = event.request.mode === 'navigate';
+        const request = shouldServeIndex ? 'index.html' : event.request;
+        const cache = await caches.open(cacheName);
+        cachedResponse = await cache.match(request);
+    }
+    return cachedResponse || fetch(event.request);
+}</code></pre>
+
+<h2>Strategie cache</h2>
+
+<h3>Cache First (default Blazor PWA)</h3>
+<p>Najpierw szukaj w cache &mdash; dopiero przy braku idz po sieci. Idealne dla aplikacji bardziej offline-first.</p>
+
+<h3>Network First</h3>
+<p>Najpierw spytaj sieci, potem cache jako fallback. Idealne dla aplikacji wymagajacej zawsze swiezych danych.</p>
+<pre><code>async function onFetch(event) {
+    try {
+        const response = await fetch(event.request);
+        const cache = await caches.open(cacheName);
+        cache.put(event.request, response.clone());
+        return response;
+    } catch {
+        return caches.match(event.request);
+    }
+}</code></pre>
+
+<h3>Stale While Revalidate</h3>
+<p>Zwroc z cache, w tle pobierz aktualna wersje na nastepnym ladowanie.</p>
+
+<h2>Instalacja jako natywna aplikacja</h2>
+<p>Po spelnieniu kryteriow PWA przegladarka pokazuje <strong>install prompt</strong> (Chrome / Edge: ikona w pasku adresu). Mozesz tez programowo pokazac install button:</p>
+<pre><code>// js/pwa-install.js
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e =&gt; {
+    e.preventDefault();
+    deferredPrompt = e;
+    DotNet.invokeMethodAsync('MyApp', 'OnPwaInstallable');
+});
+
+window.installPwa = async () =&gt; {
+    if (!deferredPrompt) return false;
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    return choice.outcome === 'accepted';
+};</code></pre>
+
+<pre><code>@inject IJSRuntime JS
+
+&lt;button @onclick="Install" disabled="@(!isInstallable)"&gt;
+    Zainstaluj aplikacje
+&lt;/button&gt;
+
+@code {
+    private bool isInstallable;
+
+    [JSInvokable]
+    public static void OnPwaInstallable()
+    {
+        // ustaw flag aby pokazac przycisk
+    }
+
+    private async Task Install()
+    {
+        await JS.InvokeAsync&lt;bool&gt;("installPwa");
+    }
+}</code></pre>
+
+<h2>Push notifications</h2>
+<p>Wspolczesnie wspierane na: Chrome, Edge, Firefox (desktop + Android), Safari (iOS 16.4+).</p>
+
+<h3>Subscribe</h3>
+<pre><code>// js
+window.subscribeToPush = async (publicKey) =&gt; {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+    return JSON.stringify(sub);
+};</code></pre>
+
+<h3>Service worker handler</h3>
+<pre><code>self.addEventListener('push', event =&gt; {
+    const data = event.data?.json();
+    event.waitUntil(self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: '/icon-192.png',
+        badge: '/badge.png',
+        data: { url: data.url }
+    }));
+});
+
+self.addEventListener('notificationclick', event =&gt; {
+    event.notification.close();
+    event.waitUntil(clients.openWindow(event.notification.data.url));
+});</code></pre>
+
+<h2>Server-side push (.NET)</h2>
+<pre><code>using WebPush;
+
+var vapidDetails = new VapidDetails("mailto:admin@example.com",
+    publicKey: "...", privateKey: "...");
+var pushClient = new WebPushClient();
+
+var subscription = new PushSubscription(endpoint, p256dh, auth);
+var payload = JsonSerializer.Serialize(new {
+    title = "Nowa wiadomosc",
+    body = "Otrzymano email...",
+    url = "/inbox"
+});
+
+await pushClient.SendNotificationAsync(subscription, payload, vapidDetails);</code></pre>
+
+<h2>Background sync</h2>
+<p>Pozwala synchronizowac dane gdy uzytkownik wraca online.</p>
+<pre><code>// js
+async function queueRequest(data) {
+    const reg = await navigator.serviceWorker.ready;
+    await reg.sync.register('upload-pending');
+    // zapisz dane w IndexedDB
+}
+
+// service-worker.js
+self.addEventListener('sync', event =&gt; {
+    if (event.tag === 'upload-pending') {
+        event.waitUntil(syncPendingData());
+    }
+});</code></pre>
+
+<h2>Update strategy</h2>
+<p>Gdy publikujesz nowa wersje, service worker musi sie odswiezyc. Standardowy flow:</p>
+<ol>
+<li>Nowy SW pobiera sie w tle</li>
+<li>Stary SW dziala dalej (uzytkownik nie widzi zmian)</li>
+<li>Po zamknieciu wszystkich zakladek -&gt; nowy SW aktywny</li>
+<li>Mozesz wymusic skipWaiting() aby od razu uzyc nowej wersji</li>
+</ol>
+
+<pre><code>self.addEventListener('install', event =&gt; {
+    self.skipWaiting();
+    event.waitUntil(/*...*/);
+});
+
+self.addEventListener('activate', event =&gt; {
+    event.waitUntil(self.clients.claim());
+});</code></pre>
+
+<h2>Pokaz "Update available" bar</h2>
+<pre><code>// js
+navigator.serviceWorker.addEventListener('controllerchange', () =&gt; {
+    DotNet.invokeMethodAsync('MyApp', 'OnNewVersionAvailable');
+});</code></pre>
+
+<h2>iOS limitations</h2>
+<p>Apple bardziej restrykcyjnie podchodzi do PWA:</p>
+<ul>
+<li>Push notifications wspierane od iOS 16.4 (marzec 2023)</li>
+<li>Brak background sync</li>
+<li>Cache size limity (max ~50 MB)</li>
+<li>SW timeoutuje po 30 sekundach inactivity</li>
+<li>WebP nie jest preferowany &mdash; uzywaj JPEG/PNG dla ikon</li>
+</ul>
+
+<h2>Lighthouse audit</h2>
+<p>Sprawdz w Chrome DevTools -&gt; Lighthouse -&gt; PWA. Dobry score wymaga:</p>
+<ul>
+<li>HTTPS only</li>
+<li>Service worker zarejestrowany</li>
+<li>manifest.json z 192x192 i 512x512 ikonami</li>
+<li>Theme color w &lt;meta&gt; i manifest</li>
+<li>Viewport meta</li>
+<li>Apple-touch-icon (dla iOS)</li>
+</ul>
+
+<div class="card">
+<h3>Use cases dla Blazor WASM PWA</h3>
+<ul>
+<li>Aplikacje narzedziowe (kalkulatory, konwertery)</li>
+<li>Notepad / Markdown editors offline-first</li>
+<li>Mobile-friendly dashboardy biznesowe</li>
+<li>Aplikacje terenowe (inspekcje, formularze)</li>
+<li>Prototypy aplikacji mobilnych bez App Store</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="03-http-i-api-calls.html">&larr; HTTP i API calls</a>
+<a href="05-wydajnosc-wasm.html">Wydajnosc WASM &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>07 — Narzedzia i deployment</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ce422b;--accent-hover:#e85d2f;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-left:4px solid var(--green)}.card.red{border-left:4px solid var(--red)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">Jezyki</a><span class="sep">/</span><a href="index.html">Rust</a><span class="sep">/</span><span class="title">Narzedzia i deployment</span></div>
+    <div class="container">
+        <h1>Narzedzia i deployment</h1>
+        <p class="subtitle">Pelne wykorzystanie ekosystemu Cargo, IDE rust-analyzer, cross-compilation, Docker, CI/CD i deploy do nowoczesnych platform.</p>
+
+        <h2>Cargo — gleboko</h2>
+
+        <h3>Workspaces — projekty multi-crate</h3>
+
+        <p>Workspace pozwala miec jeden projekt skladajacy sie z wielu crates ktore wspoldziela <code>Cargo.lock</code> i <code>target/</code>. Idealne dla dzielenia kodu pomiedzy backend, CLI i bibliotekami.</p>
+
+        <pre><code># Cargo.toml (root)
+[workspace]
+resolver = "3"
+members = [
+    "core",        # biblioteka wspoldzielona
+    "api",         # web server
+    "cli",         # narzedzie linii polecen
+    "worker",      # background jobs
+]
+
+[workspace.dependencies]
+tokio = { version = "1.40", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls"] }
+
+# core/Cargo.toml
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }</code></pre>
+
+        <h3>Features — conditional compilation</h3>
+
+        <pre><code># Cargo.toml
+[features]
+default = ["json"]
+json = ["dep:serde_json"]
+yaml = ["dep:serde_yaml"]
+full = ["json", "yaml", "metrics"]
+metrics = ["dep:prometheus"]
+
+[dependencies]
+serde_json = { version = "1.0", optional = true }
+serde_yaml = { version = "0.9", optional = true }
+prometheus = { version = "0.13", optional = true }
+
+# Build z konkretnym feature
+cargo build --features yaml --no-default-features
+cargo build --features full</code></pre>
+
+        <p>W kodzie:</p>
+
+        <pre><code>#[cfg(feature = "json")]
+pub mod json_support {
+    pub fn parsuj(s: &amp;str) -&gt; Result&lt;serde_json::Value, _&gt; { /* ... */ }
+}
+
+#[cfg(feature = "yaml")]
+pub mod yaml_support { /* ... */ }</code></pre>
+
+        <h3>Profile — dev, release, bench, test</h3>
+
+        <pre><code>[profile.dev]
+opt-level = 0           # szybka kompilacja
+debug = true
+incremental = true
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.bench]
+opt-level = 3
+debug = true            # symbole dla profilingu
+
+# Custom profile
+[profile.dist]
+inherits = "release"
+opt-level = "z"         # rozmiar nad szybkoscia
+strip = "symbols"</code></pre>
+
+        <h3>Publish do crates.io</h3>
+
+        <pre><code># Login (jednorazowo)
+cargo login &lt;token-z-crates.io&gt;
+
+# Sprawdz przed publish
+cargo package
+cargo package --list
+
+# Dry-run
+cargo publish --dry-run
+
+# Publish
+cargo publish</code></pre>
+
+        <h2>Code formatting i linting</h2>
+
+        <h3>rustfmt</h3>
+
+        <p>Wbudowane w toolchain. Konfigurowalne przez <code>rustfmt.toml</code>:</p>
+
+        <pre><code># rustfmt.toml
+edition = "2024"
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Unix"
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+reorder_imports = true
+
+# uzycie
+cargo fmt           # formatuj
+cargo fmt -- --check   # tylko sprawdz (CI)</code></pre>
+
+        <h3>clippy — must-have linter</h3>
+
+        <p>Clippy zawiera ponad 600 lintow podzielonych na kategorie. Bez clippy programowanie w Rust traci polowe wartosci feedback loop.</p>
+
+        <pre><code># Instalacja (zwykle juz jest)
+rustup component add clippy
+
+# Standardowe uzycie
+cargo clippy
+
+# Warning jako error (CI)
+cargo clippy -- -D warnings
+
+# Ze wszystkimi pedantic + nursery
+cargo clippy -- -W clippy::pedantic -W clippy::nursery
+
+# Tylko konkretna kategoria
+cargo clippy -- -W clippy::correctness</code></pre>
+
+        <p>Kategorie clippy:</p>
+
+        <ul>
+            <li><strong>correctness</strong> — kod prawie na pewno blad</li>
+            <li><strong>suspicious</strong> — kod ktory wyglada na blad</li>
+            <li><strong>style</strong> — naruszenia idiomatycznego stylu</li>
+            <li><strong>complexity</strong> — kod ktory mozna uproscic</li>
+            <li><strong>perf</strong> — wzorce z przewidywalnym narzutem</li>
+            <li><strong>pedantic</strong> — bardzo restrykcyjne (opt-in)</li>
+            <li><strong>nursery</strong> — eksperymentalne</li>
+            <li><strong>cargo</strong> — problemy z metadanami Cargo.toml</li>
+        </ul>
+
+        <h2>IDE i edytory</h2>
+
+        <h3>rust-analyzer — LSP standard</h3>
+
+        <p><strong>rust-analyzer</strong> jest oficjalnym LSP serverem rozwijanym przez Rust Foundation. Dziala wszedzie gdzie jest LSP: VS Code, Vim/Neovim, Emacs, Helix, Sublime, JetBrains.</p>
+
+        <ul>
+            <li>Inline type hints, parametry, lifetimes</li>
+            <li>Autocomplete z trait method resolution</li>
+            <li>Refaktor: extract function, inline, rename, change signature</li>
+            <li>Code actions: derive, fill match arms, expand macro</li>
+            <li>Quick fix dla compiler errors</li>
+            <li>Run/debug single test from gutter</li>
+        </ul>
+
+        <h3>JetBrains RustRover</h3>
+
+        <p>Komercyjne IDE dedykowane Rust (rebrand wczesniejszego pluginu IntelliJ Rust). Cena okolo <strong>USD 99/rok</strong> personal, <strong>USD 269/rok</strong> commercial. Free dla studentow i open-source.</p>
+
+        <h2>Dokumentacja — rustdoc</h2>
+
+        <p>Wbudowany generator dokumentacji. Komentarze <code>///</code> nad pozycjami sa parsowane i staja sie HTML.</p>
+
+        <pre><code>/// Oblicza pole prostokata.
+///
+/// # Argumenty
+///
+/// * `szerokosc` - dlugosc boku poziomego
+/// * `wysokosc` - dlugosc boku pionowego
+///
+/// # Przyklad
+///
+/// ```
+/// let p = moja_lib::pole_prostokata(3.0, 4.0);
+/// assert_eq!(p, 12.0);
+/// ```
+///
+/// # Panic
+///
+/// Funkcja nie panickuje dla wartosci dodatnich. Dla ujemnych zwraca
+/// wartosc niefizyczna (matematyczne pole).
+pub fn pole_prostokata(szerokosc: f64, wysokosc: f64) -&gt; f64 {
+    szerokosc * wysokosc
+}</code></pre>
+
+        <pre><code># Generuj i otworz w przegladarce
+cargo doc --open
+
+# Bez deps (szybciej)
+cargo doc --no-deps
+
+# Sprawdz czy wszystkie publiczne items maja docs (CI!)
+RUSTDOCFLAGS="-D missing-docs" cargo doc
+
+# Run doctests (kod w komentarzach)
+cargo test --doc</code></pre>
+
+        <h2>Cross-compilation</h2>
+
+        <h3>Targets</h3>
+
+        <table>
+            <thead><tr><th>Target triple</th><th>Platforma</th></tr></thead>
+            <tbody>
+                <tr><td><code>x86_64-unknown-linux-gnu</code></td><td>Linux 64-bit (glibc)</td></tr>
+                <tr><td><code>x86_64-unknown-linux-musl</code></td><td>Linux 64-bit (musl, static)</td></tr>
+                <tr><td><code>aarch64-unknown-linux-gnu</code></td><td>Linux ARM64 (server, RPi 4+)</td></tr>
+                <tr><td><code>x86_64-pc-windows-msvc</code></td><td>Windows x64 (MSVC linker)</td></tr>
+                <tr><td><code>x86_64-pc-windows-gnu</code></td><td>Windows x64 (MinGW)</td></tr>
+                <tr><td><code>x86_64-apple-darwin</code></td><td>macOS Intel</td></tr>
+                <tr><td><code>aarch64-apple-darwin</code></td><td>macOS Apple Silicon</td></tr>
+                <tr><td><code>wasm32-unknown-unknown</code></td><td>WebAssembly bez platformy</td></tr>
+                <tr><td><code>wasm32-wasi</code></td><td>WASI runtime</td></tr>
+                <tr><td><code>thumbv7em-none-eabihf</code></td><td>Cortex-M4F embedded</td></tr>
+                <tr><td><code>riscv32imc-unknown-none-elf</code></td><td>ESP32-C3 / RISC-V embedded</td></tr>
+            </tbody>
+        </table>
+
+        <h3>cross — Docker-based cross-compilation</h3>
+
+        <p>Tool <code>cross</code> rozwiazuje problem braku linkers i shared libraries dla docelowej platformy uzywajac dedykowanych Docker images.</p>
+
+        <pre><code>cargo install cross
+
+# Compilacja Linux ARM64 z Linux x64
+cross build --release --target aarch64-unknown-linux-gnu
+
+# Static binary musl (idealne dla containerow)
+cross build --release --target x86_64-unknown-linux-musl</code></pre>
+
+        <h2>Docker — multi-stage builds</h2>
+
+        <p>Rust binaries sa native, ktore znaczy ze obrazy moga byc bardzo male. Multi-stage build z distroless final image to standard.</p>
+
+        <pre><code># Dockerfile
+FROM rust:1.86-alpine AS builder
+WORKDIR /app
+
+# Cache dla deps (osobny layer)
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src &amp;&amp; echo "fn main() {}" &gt; src/main.rs &amp;&amp; \
+    cargo build --release &amp;&amp; \
+    rm -rf src
+
+# Faktyczny build
+COPY src ./src
+RUN cargo build --release &amp;&amp; \
+    strip target/release/moja_aplikacja
+
+# Final image — distroless
+FROM gcr.io/distroless/cc-debian12
+COPY --from=builder /app/target/release/moja_aplikacja /
+
+ENTRYPOINT ["/moja_aplikacja"]</code></pre>
+
+        <p>Typowe rozmiary:</p>
+
+        <ul>
+            <li><strong>FROM scratch</strong> + static musl: 5-15 MB</li>
+            <li><strong>FROM gcr.io/distroless/cc</strong>: 25-30 MB (potrzebuje libc dynamic)</li>
+            <li><strong>FROM alpine</strong>: 15-20 MB</li>
+            <li><strong>FROM debian:slim</strong>: 80 MB+</li>
+            <li><strong>Porownanie:</strong> typowy obraz Node.js 200-400 MB, JVM 250+ MB</li>
+        </ul>
+
+        <h2>CI/CD — GitHub Actions</h2>
+
+        <p>Pelny przyklad workflow z cache, matrix testing i build artifactow:</p>
+
+        <pre><code># .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [stable]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --all-features --workspace
+
+      - name: Build release
+        run: cargo build --release
+
+  audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    name: Release binaries
+    needs: [test, audit]
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/moja_aplikacja*</code></pre>
+
+        <h2>Release automation</h2>
+
+        <ul>
+            <li><strong>cargo-release</strong> — automatyzuje bumping wersji, tagowanie git, publish</li>
+            <li><strong>cargo-dist</strong> — generuje cross-platform binary releases (axodotdev). Stworzony przez Cargo team alumni.</li>
+            <li><strong>release-plz</strong> — automatyczny release na podstawie conventional commits</li>
+            <li><strong>cargo-smart-release</strong> — alternatywa cargo-release z dependency-aware logic</li>
+        </ul>
+
+        <h2>Profilowanie wydajnosci</h2>
+
+        <table>
+            <thead><tr><th>Narzedzie</th><th>Platforma</th><th>Cel</th></tr></thead>
+            <tbody>
+                <tr><td><strong>cargo flamegraph</strong></td><td>Linux / macOS</td><td>CPU flame graphs (perf-based)</td></tr>
+                <tr><td><strong>perf</strong></td><td>Linux</td><td>Najpotezniejszy CPU profiler</td></tr>
+                <tr><td><strong>samply</strong></td><td>Cross-platform</td><td>Uploadowanie do Firefox Profiler UI</td></tr>
+                <tr><td><strong>Tracy</strong></td><td>Cross-platform</td><td>Real-time profiler dla games / latency-critical</td></tr>
+                <tr><td><strong>Instruments</strong></td><td>macOS</td><td>Native Apple profiler</td></tr>
+                <tr><td><strong>VTune</strong></td><td>Cross-platform</td><td>Intel pro profiler (free dla open-source)</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Profile pamieci</h3>
+
+        <ul>
+            <li><strong>valgrind --tool=massif</strong> — heap profiling (Linux)</li>
+            <li><strong>heaptrack</strong> — bardzo dobry alternatywa dla valgrind</li>
+            <li><strong>dhat</strong> — Rust crate do dynamic heap profiling</li>
+            <li><strong>jemallocator</strong> — alokator z built-in profilingiem</li>
+        </ul>
+
+        <h2>Benchmarking — criterion</h2>
+
+        <pre><code># Cargo.toml
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "moje_benchmarki"
+harness = false
+
+# benches/moje_benchmarki.rs
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use moja_lib::sortuj;
+
+fn bench_sortowanie(c: &amp;mut Criterion) {
+    let mut grupa = c.benchmark_group("sortowanie");
+    for rozmiar in [100, 1000, 10000].iter() {
+        grupa.bench_with_input(format!("size_{}", rozmiar), rozmiar, |b, &amp;n| {
+            let dane: Vec&lt;i32&gt; = (0..n).rev().collect();
+            b.iter(|| sortuj(black_box(dane.clone())));
+        });
+    }
+}
+
+criterion_group!(benches, bench_sortowanie);
+criterion_main!(benches);
+
+# Uruchomienie:
+cargo bench</code></pre>
+
+        <h2>Deployment targets</h2>
+
+        <h3>AWS Lambda — cargo-lambda</h3>
+
+        <pre><code>cargo install cargo-lambda
+
+# Nowy projekt
+cargo lambda new moja_lambda
+cd moja_lambda
+
+# Build dla Lambda (musl + ARM Graviton)
+cargo lambda build --release --arm64
+
+# Deploy
+cargo lambda deploy</code></pre>
+
+        <h3>Cloudflare Workers — WASM</h3>
+
+        <pre><code># wrangler.toml
+name = "moj-worker"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-05-01"
+
+[build]
+command = "cargo install -q worker-build &amp;&amp; worker-build --release"
+
+# Worker w Rust
+use worker::*;
+
+#[event(fetch)]
+async fn main(req: Request, env: Env, _ctx: Context) -&gt; Result&lt;Response&gt; {
+    Response::ok("Witaj z Cloudflare Workers!")
+}</code></pre>
+
+        <h3>Fly.io — super low cold starts</h3>
+
+        <p>Fly.io specjalizuje sie w deploy native binaries (z Dockerfile) z cold start ponizej 100ms. Idealne dla Rust mikroapp.</p>
+
+        <pre><code>flyctl launch
+flyctl deploy</code></pre>
+
+        <h3>Inne platformy</h3>
+
+        <ul>
+            <li><strong>Shuttle.rs</strong> — PaaS dedykowany Rust (Cargo-native)</li>
+            <li><strong>Railway</strong> — auto-detect Rust, Dockerfile based</li>
+            <li><strong>Render</strong> — wsparcie Rust przez Docker</li>
+            <li><strong>Kubernetes</strong> — typowe deployment dla mikrouslug Rust</li>
+        </ul>
+
+        <h2>Package distribution</h2>
+
+        <ul>
+            <li><strong>crates.io</strong> — publiczny rejestr (defaultowy)</li>
+            <li><strong>JFrog Artifactory</strong> — najpopularniejszy enterprise private registry</li>
+            <li><strong>Cloudsmith</strong> — managed Cargo registry</li>
+            <li><strong>self-hosted: kellnr, ktra</strong> — open-source registries</li>
+        </ul>
+
+        <h3>Konfiguracja prywatnego registry</h3>
+
+        <pre><code># ~/.cargo/config.toml
+[registries.firma]
+index = "sparse+https://artifactory.firma.com/cargo/index/"
+
+[net]
+git-fetch-with-cli = true
+
+# Cargo.toml
+[dependencies]
+moja_biblioteka = { version = "1.0", registry = "firma" }</code></pre>
+
+        <div class="card orange">
+            <h3>Praktyczna checklist</h3>
+            <ul>
+                <li>cargo fmt + cargo clippy + cargo test w pre-commit hook</li>
+                <li>cargo audit + cargo deny w CI</li>
+                <li>Multi-stage Dockerfile z distroless final image</li>
+                <li>GitHub Actions matrix testing (Linux + Win + macOS)</li>
+                <li>Workspaces dla projektow ponad 2-3 crate</li>
+                <li>cargo-release lub release-plz dla automatycznego releasu</li>
+                <li>rust-analyzer + clippy w VS Code minimum</li>
+            </ul>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="06-ochrona-kodu-przed-kradzieza.html">← Ochrona kodu</a>
+            <a href="index.html">Indeks Rust →</a>
+        </div>
+    </div>
+</body>
+</html>

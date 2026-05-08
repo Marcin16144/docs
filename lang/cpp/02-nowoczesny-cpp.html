@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nowoczesny C++</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">C++</a>
+    <span class="sep">/</span>
+    <span class="title">Nowoczesny C++</span>
+</div>
+
+<div class="container">
+<h1>Nowoczesny C++ (20/23/26)</h1>
+<p class="subtitle">Modules, concepts, ranges, coroutines, std::expected, deducing this, constexpr expansion, std::format, reflection (C++26).</p>
+
+<h2>Modules (C++20)</h2>
+<p>Modules zastepuja archaiczny system <code>#include</code>. Drastycznie szybsza kompilacja, brak macros leaking, brak ODR violation.</p>
+
+<pre><code>// math.cppm - module interface
+export module math;
+
+export int dodaj(int a, int b) {
+    return a + b;
+}
+
+export namespace math {
+    int kwadrat(int x) { return x * x; }
+}
+
+// main.cpp
+import math;
+import std;             // std module (C++23)
+
+int main() {
+    std::cout &lt;&lt; dodaj(2, 3) &lt;&lt; '\n';
+    return 0;
+}
+
+// Kompilacja - module support
+g++ -std=c++23 -fmodules-ts main.cpp math.cppm
+clang++ -std=c++23 --precompile math.cppm</code></pre>
+
+<h2>Concepts (C++20)</h2>
+<p>Concepts to type constraints dla template'ow &mdash; wymuszaja wymagania na typie, czytelne bledy, lepsze diagnostyki.</p>
+
+<pre><code>#include &lt;concepts&gt;
+
+// Definiowanie concept
+template&lt;typename T&gt;
+concept Numeric = std::integral&lt;T&gt; || std::floating_point&lt;T&gt;;
+
+// Uzycie - 4 sposoby
+template&lt;Numeric T&gt;
+T dodaj(T a, T b) { return a + b; }
+
+// Skrocona forma
+auto pomnoz(Numeric auto a, Numeric auto b) {
+    return a * b;
+}
+
+// Requires clause
+template&lt;typename T&gt;
+requires Numeric&lt;T&gt;
+T podziel(T a, T b) { return a / b; }
+
+// Bardziej zlozone wymagania
+template&lt;typename T&gt;
+concept Printable = requires(T x) {
+    { std::cout &lt;&lt; x } -&gt; std::same_as&lt;std::ostream&amp;&gt;;
+};
+
+void wypisz(Printable auto x) {
+    std::cout &lt;&lt; x;
+}</code></pre>
+
+<h2>Ranges (C++20)</h2>
+<p>Lazy evaluation, composable, pipelined. Zastepuje algorytmy iteratorowe.</p>
+
+<pre><code>#include &lt;ranges&gt;
+#include &lt;vector&gt;
+#include &lt;iostream&gt;
+
+namespace rv = std::ranges::views;
+
+int main() {
+    std::vector&lt;int&gt; v = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+    // Stary styl
+    std::vector&lt;int&gt; rezultat;
+    for (int n : v) {
+        if (n % 2 == 0) rezultat.push_back(n * n);
+    }
+
+    // Ranges - composable, lazy
+    auto wynik = v
+        | rv::filter([](int n) { return n % 2 == 0; })
+        | rv::transform([](int n) { return n * n; })
+        | rv::take(3);
+
+    for (int n : wynik) {
+        std::cout &lt;&lt; n &lt;&lt; ' ';   // 4 16 36
+    }
+
+    // C++23 - std::ranges::to&lt;&gt;
+    auto wektor = v
+        | rv::filter([](int n) { return n &gt; 5; })
+        | std::ranges::to&lt;std::vector&gt;();
+}</code></pre>
+
+<h2>Coroutines (C++20)</h2>
+<p>Stackless coroutines &mdash; <code>co_await</code>, <code>co_yield</code>, <code>co_return</code>. Podstawa pod async I/O.</p>
+
+<pre><code>#include &lt;coroutine&gt;
+#include &lt;iostream&gt;
+
+// Generator - lazy sequence
+generator&lt;int&gt; fibonacci() {
+    int a = 0, b = 1;
+    while (true) {
+        co_yield a;
+        std::tie(a, b) = std::make_pair(b, a + b);
+    }
+}
+
+int main() {
+    int i = 0;
+    for (int n : fibonacci()) {
+        if (i++ &gt;= 10) break;
+        std::cout &lt;&lt; n &lt;&lt; ' ';   // 0 1 1 2 3 5 8 13 21 34
+    }
+}
+
+// Async task example (uproszczone)
+task&lt;int&gt; pobierzDaneAsync() {
+    auto data = co_await fetchUrl("https://example.com");
+    co_return data.size();
+}</code></pre>
+
+<h2>std::expected (C++23)</h2>
+<p>Bezpieczna alternatywa dla wyjatkow &mdash; sukces albo blad. Inspirowane Rust's <code>Result&lt;T, E&gt;</code>.</p>
+
+<pre><code>#include &lt;expected&gt;
+
+enum class FileError {
+    NotFound,
+    PermissionDenied,
+    IoError
+};
+
+std::expected&lt;std::string, FileError&gt; readFile(const std::string&amp; path) {
+    if (!std::filesystem::exists(path)) {
+        return std::unexpected(FileError::NotFound);
+    }
+    // ... wczytaj plik
+    return "zawartosc pliku";
+}
+
+// Uzycie
+auto wynik = readFile("data.txt");
+if (wynik) {
+    std::cout &lt;&lt; *wynik;
+} else {
+    if (wynik.error() == FileError::NotFound) {
+        std::cerr &lt;&lt; "Plik nie istnieje\n";
+    }
+}
+
+// Chainable - and_then, or_else, transform
+auto rozmiar = readFile("data.txt")
+    .transform([](auto&amp; s) { return s.size(); })
+    .or_else([](auto err) -&gt; std::expected&lt;size_t, FileError&gt; {
+        return 0;
+    });</code></pre>
+
+<h2>Deducing this (C++23)</h2>
+<p>Eksplicytny obiekt parameter w metodach &mdash; pozwala na perfect forwarding, deduction kategorii wartosci, eliminuje powielanie kodu.</p>
+
+<pre><code>class Container {
+    std::vector&lt;int&gt; data_;
+public:
+    // Stary sposob - musisz pisac 4 wersje (const, &amp;, &amp;&amp;, const&amp;&amp;)
+    auto&amp; get() &amp; { return data_; }
+    const auto&amp; get() const&amp; { return data_; }
+    auto&amp;&amp; get() &amp;&amp; { return std::move(data_); }
+    const auto&amp;&amp; get() const&amp;&amp; { return std::move(data_); }
+
+    // Nowy sposob (C++23)
+    template&lt;typename Self&gt;
+    auto&amp;&amp; get(this Self&amp;&amp; self) {
+        return std::forward&lt;Self&gt;(self).data_;
+    }
+};
+
+// Tez umozliwia recursion w lambdach!
+auto silnia = [](this auto&amp; self, int n) -&gt; int {
+    if (n &lt;= 1) return 1;
+    return n * self(n - 1);
+};</code></pre>
+
+<h2>std::format (C++20)</h2>
+<p>Type-safe formatowanie tekstu &mdash; jak Pythonowe f-stringi. Lepsze od printf, std::stringstream.</p>
+
+<pre><code>#include &lt;format&gt;
+
+// Podstawy
+std::string s = std::format("{} ma {} lat", "Anna", 30);
+// "Anna ma 30 lat"
+
+// Pozycyjne argumenty
+std::format("{1} {0}", "swiat", "Witaj");  // "Witaj swiat"
+
+// Specyfikatory
+std::format("{:.2f}", 3.14159);            // "3.14"
+std::format("{:10}", "abc");               // "abc       "
+std::format("{:&gt;10}", "abc");              // "       abc"
+std::format("{:0&gt;5}", 42);                 // "00042"
+std::format("{:#x}", 255);                 // "0xff"
+
+// std::print (C++23) - bezposredni output
+std::print("{} ma {} lat\n", "Anna", 30);
+std::println("Hello!");</code></pre>
+
+<h2>constexpr expansion</h2>
+<p>Wiecej i wiecej kodu mozna uruchomic w czasie kompilacji. C++23 dopuszcza <code>std::vector</code>, <code>std::string</code> w constexpr.</p>
+
+<pre><code>// C++20 - constexpr STL
+constexpr auto sumaKwadratow(int n) {
+    std::vector&lt;int&gt; v;
+    for (int i = 1; i &lt;= n; ++i) v.push_back(i * i);
+    int suma = 0;
+    for (int x : v) suma += x;
+    return suma;
+}
+
+// W czasie kompilacji
+constexpr int wynik = sumaKwadratow(10);  // 385
+
+// consteval - tylko w czasie kompilacji
+consteval int kompilowane(int x) {
+    return x * x;
+}
+
+// constinit - inicjalizacja na etapie static-init
+constinit int globalna = kompilowane(5);</code></pre>
+
+<h2>Designated initializers (C++20)</h2>
+<pre><code>struct Config {
+    std::string name;
+    int port = 80;
+    bool debug = false;
+};
+
+// C++20 - designated init (z C99)
+Config cfg = {
+    .name = "myapp",
+    .port = 8080,
+    .debug = true
+};</code></pre>
+
+<h2>Three-way comparison &lt;=&gt; (C++20)</h2>
+<pre><code>#include &lt;compare&gt;
+
+class Wektor3D {
+public:
+    double x, y, z;
+
+    // Generuje wszystkie operatory: ==, !=, &lt;, &lt;=, &gt;, &gt;=
+    auto operator&lt;=&gt;(const Wektor3D&amp;) const = default;
+};
+
+Wektor3D a{1, 2, 3}, b{1, 2, 3};
+bool same = (a == b);          // true
+bool less = (a &lt; b);           // false</code></pre>
+
+<h2>C++26 - co przyjdzie</h2>
+<table>
+<thead><tr><th>Funkcja</th><th>Opis</th></tr></thead>
+<tbody>
+<tr><td>Pattern matching</td><td>Skladnia <code>match</code> jak w Rust/C#</td></tr>
+<tr><td>Static reflection</td><td>Refleksja w czasie kompilacji</td></tr>
+<tr><td>Contracts</td><td>Pre/postconditions formalne</td></tr>
+<tr><td>std::execution</td><td>Senders/Receivers async framework</td></tr>
+<tr><td>std::linalg</td><td>BLAS-like linear algebra</td></tr>
+<tr><td>std::simd</td><td>Portable SIMD</td></tr>
+</tbody></table>
+
+<div class="card">
+<h3>Migracja: stary &rarr; nowoczesny C++</h3>
+<ul>
+<li><code>typedef</code> &rarr; <strong>using</strong></li>
+<li><code>NULL</code> &rarr; <strong>nullptr</strong></li>
+<li>Surowy ptr + new/delete &rarr; <strong>unique_ptr/shared_ptr</strong></li>
+<li>Stale int konstanty &rarr; <strong>enum class</strong></li>
+<li>printf &rarr; <strong>std::format / std::print</strong></li>
+<li>SFINAE &rarr; <strong>concepts</strong></li>
+<li>Iteratory + <std::transform> &rarr; <strong>ranges</strong></li>
+<li><code>#include</code> &rarr; <strong>import</strong> (gdy compiler wspiera)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="01-podstawy-cpp.html">&larr; Podstawy C++</a>
+<a href="03-frameworki-i-ekosystem.html">Frameworki &rarr;</a>
+</div>
+</div>
+</body>
+</html>

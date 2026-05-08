@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python dla AI i Data Science</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#facc15;--accent-hover:#fde047;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">Python</a>
+    <span class="sep">/</span>
+    <span class="title">AI i Data Science</span>
+</div>
+
+<div class="container">
+<h1>Python dla AI i Data Science</h1>
+<p class="subtitle">NumPy 2, Pandas 2 (Arrow), PyTorch, Hugging Face, LangChain, scikit-learn, Jupyter / Marimo, RAPIDS.</p>
+
+<h2>NumPy 2.x - fundament numeryki</h2>
+<p>NumPy 2.0 (czerwiec 2024) to pierwszy major release od 2006. Nowy ABI, czystsze API, ~30% szybsze niektore operacje, lepsze ze stringami.</p>
+
+<pre><code>import numpy as np
+print(np.__version__)   # 2.x
+
+# Tablice
+arr = np.array([1, 2, 3, 4, 5])
+matrix = np.zeros((3, 3))
+ones = np.ones((2, 4), dtype=np.float32)
+
+# Operacje wektorowe
+arr * 2                  # [2, 4, 6, 8, 10]
+arr + arr                # element-wise
+np.dot(arr, arr)         # iloczyn skalarny
+matrix @ matrix          # mnozenie macierzy
+
+# Broadcasting
+a = np.array([[1, 2, 3], [4, 5, 6]])
+b = np.array([10, 20, 30])
+print(a + b)             # broadcasts b do kazdego wiersza
+
+# Statystyki
+arr.mean(), arr.std(), arr.median()
+arr.min(), arr.max()
+np.percentile(arr, [25, 50, 75])
+
+# Random (nowe API od 1.17+)
+rng = np.random.default_rng(seed=42)
+data = rng.normal(0, 1, size=(1000, 100))</code></pre>
+
+<h2>Pandas 2 - z PyArrow backend</h2>
+<p>Pandas 2 wprowadza opcjonalny <strong>Apache Arrow backend</strong>, ktory daje:</p>
+<ul>
+<li>Znacznie wiecej typow danych (decimal, string, list)</li>
+<li>NULL handling zgodny z bazami danych (zamiast NaN dla wszystkiego)</li>
+<li>2-50x szybsze operacje na stringach</li>
+<li>Mniejsze zuzycie pamieci</li>
+<li>Zero-copy interop z innymi narzedziami Arrow</li>
+</ul>
+
+<pre><code>import pandas as pd
+
+# Wczytanie z Arrow backend
+df = pd.read_csv("dane.csv", dtype_backend="pyarrow")
+
+# Lub konwersja istniejacego DF
+df = df.convert_dtypes(dtype_backend="pyarrow")
+
+print(df.dtypes)
+# id              int64[pyarrow]
+# nazwa          string[pyarrow]
+# data    timestamp[ns][pyarrow]
+
+# Klasyczne API dziala normalnie
+df.groupby("kategoria")["cena"].mean()
+df.query("cena &gt; 100 and rok == 2026")
+
+# Read parquet (preferowany format)
+df = pd.read_parquet("dane.parquet", engine="pyarrow")
+df.to_parquet("output.parquet", compression="zstd")
+
+# Read JSON Lines
+df = pd.read_json("dane.jsonl", lines=True)
+
+# SQL
+df = pd.read_sql_query("SELECT * FROM users", conn)</code></pre>
+
+<h2>Polars - alternatywa dla Pandas</h2>
+<p>Polars (Rust-based) jest 5-30x szybszy niz Pandas dla wielu operacji. Lazy evaluation, multithreading, lepsze API.</p>
+
+<pre><code>import polars as pl
+
+df = pl.read_parquet("data.parquet")
+
+# Lazy frame
+result = (
+    pl.scan_parquet("data.parquet")
+    .filter(pl.col("price") &gt; 100)
+    .group_by("category")
+    .agg([
+        pl.col("price").mean().alias("avg_price"),
+        pl.col("price").count().alias("count"),
+    ])
+    .sort("avg_price", descending=True)
+    .collect()    # wykonuje query
+)</code></pre>
+
+<h2>PyTorch 2.x - deep learning</h2>
+<p>PyTorch 2.0 wprowadzil <code>torch.compile()</code> &mdash; JIT compilation dajacy znaczne przyspieszenie modelu (1.3-2x szybsze treningi).</p>
+
+<pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+# Sprawdz GPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class Network(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(784, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, 10)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.dropout(x, 0.2)
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)
+
+model = Network().to(device)
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+
+# torch.compile - JIT speedup (PyTorch 2.0+)
+model = torch.compile(model)
+
+# Trening
+for epoch in range(epochs):
+    for x, y in dataloader:
+        x, y = x.to(device), y.to(device)
+        optimizer.zero_grad()
+        out = model(x)
+        loss = F.cross_entropy(out, y)
+        loss.backward()
+        optimizer.step()</code></pre>
+
+<h2>Hugging Face Transformers</h2>
+<pre><code># Instalacja
+uv add transformers torch
+
+from transformers import pipeline
+
+# Najprostsze uzycie - pipeline
+classifier = pipeline("sentiment-analysis")
+result = classifier("I love this product!")
+# [{'label': 'POSITIVE', 'score': 0.9998}]
+
+# Generowanie tekstu
+generator = pipeline("text-generation", model="gpt2")
+output = generator("Once upon a time", max_length=50)
+
+# Translation
+translator = pipeline("translation_pl_to_en")
+print(translator("Witaj swiecie"))
+
+# Custom model + tokenizer
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+model_id = "microsoft/deberta-v3-base"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForSequenceClassification.from_pretrained(model_id)
+
+inputs = tokenizer("Hello world", return_tensors="pt")
+outputs = model(**inputs)</code></pre>
+
+<h2>LangChain / LlamaIndex - LLM frameworks</h2>
+
+<h3>LangChain - komponenty dla aplikacji LLM</h3>
+<pre><code>from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "Jestes pomocnym asystentem"),
+    ("human", "{question}"),
+])
+
+chain = prompt | llm | StrOutputParser()
+
+response = chain.invoke({"question": "Co to jest Python?"})
+
+# RAG (Retrieval Augmented Generation)
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+
+vectorstore = Chroma(embedding_function=OpenAIEmbeddings())
+vectorstore.add_documents(docs)
+retriever = vectorstore.as_retriever()</code></pre>
+
+<h3>LlamaIndex - prosciej dla RAG</h3>
+<pre><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+# Wczytaj dokumenty
+documents = SimpleDirectoryReader("./data").load_data()
+
+# Stworz index
+index = VectorStoreIndex.from_documents(documents)
+
+# Pytaj
+query_engine = index.as_query_engine()
+response = query_engine.query("Co to jest Python?")
+print(response)</code></pre>
+
+<h2>scikit-learn - klasyczny ML</h2>
+<pre><code>from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, accuracy_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+# Podzial danych
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# Pipeline (preprocessing + model)
+pipe = Pipeline([
+    ("scaler", StandardScaler()),
+    ("clf", RandomForestClassifier(n_estimators=100, max_depth=10)),
+])
+
+pipe.fit(X_train, y_train)
+predictions = pipe.predict(X_test)
+print(f"Accuracy: {accuracy_score(y_test, predictions):.4f}")
+print(classification_report(y_test, predictions))
+
+# Cross-validation
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(pipe, X, y, cv=5, scoring="f1_macro")
+print(f"CV F1: {scores.mean():.3f} +/- {scores.std():.3f}")
+
+# Hyperparameter tuning
+from sklearn.model_selection import GridSearchCV
+param_grid = {
+    "clf__n_estimators": [50, 100, 200],
+    "clf__max_depth": [5, 10, 20, None],
+}
+grid = GridSearchCV(pipe, param_grid, cv=5, n_jobs=-1)
+grid.fit(X_train, y_train)
+print(grid.best_params_)</code></pre>
+
+<h2>Jupyter / Marimo</h2>
+
+<table>
+<thead><tr><th>Aspekt</th><th>Jupyter</th><th>Marimo</th></tr></thead>
+<tbody>
+<tr><td>Format</td><td>.ipynb (JSON)</td><td>.py (zwykly Python)</td></tr>
+<tr><td>Reactive</td><td>Nie (kolejnosc komorek wazna)</td><td>Tak (auto re-run dependencies)</td></tr>
+<tr><td>Git diff</td><td>Slabe (JSON binary-like)</td><td>Czysty Python diff</td></tr>
+<tr><td>Hidden state</td><td>Problem (kernel state)</td><td>Brak ukrytego stanu</td></tr>
+<tr><td>Deployment</td><td>Wymaga Voila/Streamlit</td><td>Built-in webapp mode</td></tr>
+</tbody></table>
+
+<pre><code># Jupyter - klasyk
+uv add jupyterlab
+uv run jupyter lab
+
+# Marimo - nowoczesna alternatywa
+uv add marimo
+uv run marimo edit notebook.py
+
+# Marimo notebook to czysty Python:
+import marimo as mo
+
+@app.cell
+def cell_1():
+    import pandas as pd
+    df = pd.read_csv("data.csv")
+    return df,
+
+@app.cell
+def cell_2(df):
+    return df.head()</code></pre>
+
+<h2>RAPIDS - GPU dataframes (NVIDIA)</h2>
+<p>RAPIDS to NVIDIA's open-source stack do GPU-accelerated data science. cuDF (Pandas-like) + cuML (sklearn-like).</p>
+
+<pre><code># Instalacja (Linux + NVIDIA GPU)
+uv add cudf-cu12 cuml-cu12
+
+# cuDF - jak Pandas, ale na GPU
+import cudf
+
+df = cudf.read_parquet("huge_data.parquet")   # Z dysku do GPU memory
+result = df.groupby("category").agg({"price": "mean"})
+
+# Pandas-like API ale 10-100x szybsze na duzych danych
+
+# cuML - sklearn-like
+from cuml.linear_model import LogisticRegression
+clf = LogisticRegression()
+clf.fit(X_gpu, y_gpu)</code></pre>
+
+<h2>uv pip install dla ML/AI</h2>
+<pre><code># pyproject.toml dla ML projektu
+[project]
+name = "ml-project"
+version = "0.1.0"
+requires-python = "&gt;=3.13"
+dependencies = [
+    "numpy&gt;=2.0",
+    "pandas&gt;=2.2",
+    "polars&gt;=1.0",
+    "scikit-learn&gt;=1.5",
+    "torch&gt;=2.5",
+    "transformers&gt;=4.45",
+    "datasets",
+    "matplotlib",
+    "seaborn",
+]
+
+[dependency-groups]
+notebook = ["jupyterlab", "ipywidgets"]
+dev = ["pytest", "ruff", "mypy"]
+
+# Instalacja
+uv sync
+uv sync --group notebook   # z opcjonalna grupa</code></pre>
+
+<h2>Visualization - matplotlib / seaborn / plotly</h2>
+<pre><code>import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+# Seaborn (statystyczna wizualizacja)
+sns.set_theme(style="whitegrid")
+sns.scatterplot(data=df, x="rok", y="cena", hue="kategoria")
+plt.title("Trend cen")
+plt.savefig("plot.png", dpi=200, bbox_inches="tight")
+
+# Plotly - interaktywne
+import plotly.express as px
+fig = px.scatter(df, x="rok", y="cena", color="kategoria",
+                 hover_data=["nazwa"])
+fig.show()
+fig.write_html("plot.html")</code></pre>
+
+<div class="card">
+<h3>Rekomendowany AI/ML stack 2026</h3>
+<ul>
+<li><strong>Manage:</strong> uv (super szybki dependency)</li>
+<li><strong>Data:</strong> Polars / Pandas 2 (PyArrow)</li>
+<li><strong>Numerics:</strong> NumPy 2</li>
+<li><strong>Classic ML:</strong> scikit-learn</li>
+<li><strong>Deep Learning:</strong> PyTorch + torch.compile</li>
+<li><strong>NLP:</strong> Hugging Face Transformers</li>
+<li><strong>LLM apps:</strong> LangChain / LlamaIndex</li>
+<li><strong>Notebooks:</strong> Marimo (lub Jupyter)</li>
+<li><strong>GPU dataframes:</strong> RAPIDS cuDF</li>
+<li><strong>Tracking:</strong> MLflow / Weights &amp; Biases</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="05-ochrona-kodu-przed-kradzieza.html">&larr; Ochrona kodu</a>
+<a href="index.html">Wroc do Python &rarr;</a>
+</div>
+</div>
+</body>
+</html>

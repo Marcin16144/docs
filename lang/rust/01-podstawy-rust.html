@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>01 — Podstawy Rust</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ce422b;--accent-hover:#e85d2f;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-left:4px solid var(--green)}.card.red{border-left:4px solid var(--red)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">Jezyki</a><span class="sep">/</span><a href="index.html">Rust</a><span class="sep">/</span><span class="title">Podstawy Rust</span></div>
+    <div class="container">
+        <h1>Podstawy Rust</h1>
+        <p class="subtitle">Wprowadzenie do jezyka, ktory zmienil sposob mysleniaa o systems programming. Ownership, borrowing, lifetimes — i dlaczego sa wazne.</p>
+
+        <h2>Historia w pigulce</h2>
+
+        <p>Rust narodzil sie w 2010 roku jako personalny projekt Grayodona Hoare, inzyniera Mozilla Research. W 2010 firma Mozilla zaczela oficjalnie sponsorowac jego rozwoj, widzac w nim potencjal zastapienia C++ w niskopoziomowych komponentach przegladarki. Pierwsza wersja stabilna 1.0 ukazala sie w maju 2015 roku.</p>
+
+        <p>Punktem zwrotnym byl <strong>luty 2021</strong>, gdy powstala niezalezna <strong>Rust Foundation</strong>, do ktorej dolaczyly Mozilla, Microsoft, Google, AWS, Meta i Huawei jako platinum sponsors. Od tego czasu Rust rozwija sie szybko i niezaleznie od pojedynczego sponsora.</p>
+
+        <p>W 2026 dominujaca specyfikacja jezyka to <strong>Rust 2024 edition</strong> (oficjalnie wydana w lutym 2025), ktora wprowadzila let-else stabilization, async closures, RPITIT (return position impl trait in trait) i ulepszony lifetime elision.</p>
+
+        <h2>Instalacja przez rustup</h2>
+
+        <p>Standardowy instalator to <strong>rustup</strong> — toolchain manager, ktory zarzadza wieloma wersjami kompilatora i targetami cross-compilation.</p>
+
+        <h3>Linux / macOS</h3>
+        <pre><code>curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh</code></pre>
+
+        <h3>Windows</h3>
+        <p>Pobierz <code>rustup-init.exe</code> z <code>rustup.rs</code>. Wymaga MSVC build tools (Visual Studio Build Tools 2022 lub nowsze).</p>
+
+        <h3>Weryfikacja</h3>
+        <pre><code>rustc --version
+# rustc 1.86.0 (xxxxxxxxx 2026-04-15)
+cargo --version
+# cargo 1.86.0 (xxxxxxxxx 2026-04-10)</code></pre>
+
+        <h2>Cargo — package manager + build tool</h2>
+
+        <p>Cargo jest jednym z najmocniejszych argumentow za Rustem. To zintegrowany system, ktory zastepuje make, autotools, npm, pip — wszystko w jednym narzedziu.</p>
+
+        <table>
+            <thead><tr><th>Komenda</th><th>Co robi</th></tr></thead>
+            <tbody>
+                <tr><td><code>cargo new mojprojekt</code></td><td>Tworzy nowy projekt (binary lub <code>--lib</code>)</td></tr>
+                <tr><td><code>cargo build</code></td><td>Kompilacja w trybie debug (target/debug/)</td></tr>
+                <tr><td><code>cargo build --release</code></td><td>Optymalizowana kompilacja produkcyjna</td></tr>
+                <tr><td><code>cargo run</code></td><td>Buduje i uruchamia binary</td></tr>
+                <tr><td><code>cargo test</code></td><td>Uruchamia wszystkie testy (unit + integration)</td></tr>
+                <tr><td><code>cargo add tokio</code></td><td>Dodaje dependency z crates.io do Cargo.toml</td></tr>
+                <tr><td><code>cargo check</code></td><td>Sprawdza kod bez generowania binary (szybsze niz build)</td></tr>
+                <tr><td><code>cargo doc --open</code></td><td>Generuje i otwiera dokumentacje projektu</td></tr>
+                <tr><td><code>cargo fmt</code></td><td>Formatuje kod wedlug rustfmt</td></tr>
+                <tr><td><code>cargo clippy</code></td><td>Linter z 600+ regulami (must-have)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Pierwszy program — Hello World</h2>
+
+        <pre><code>// src/main.rs
+fn main() {
+    println!("Hello, world!");
+}</code></pre>
+
+        <p>Plik <code>Cargo.toml</code> generowany automatycznie przez <code>cargo new</code>:</p>
+
+        <pre><code>[package]
+name = "moja_aplikacja"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# tu dodamy biblioteki, np.:
+# tokio = { version = "1.40", features = ["full"] }
+# serde = { version = "1.0", features = ["derive"] }</code></pre>
+
+        <h2>Skladnia podstawowa</h2>
+
+        <h3>Zmienne — domyslnie immutable</h3>
+
+        <pre><code>let x = 5;          // immutable (niezmienna) — domyslnie!
+// x = 6;            // BLAD kompilacji!
+let mut y = 5;      // mutable
+y = 6;              // OK
+
+const MAX: u32 = 100_000; // const — zawsze immutable, typ wymagany</code></pre>
+
+        <h3>Typy podstawowe</h3>
+
+        <table>
+            <thead><tr><th>Typ</th><th>Rozmiar</th><th>Zakres / opis</th></tr></thead>
+            <tbody>
+                <tr><td><code>i8, i16, i32, i64, i128</code></td><td>1-16 B</td><td>signed integers (i32 to default)</td></tr>
+                <tr><td><code>u8, u16, u32, u64, u128</code></td><td>1-16 B</td><td>unsigned integers</td></tr>
+                <tr><td><code>isize, usize</code></td><td>arch-zalezny</td><td>indeksy / pointer-size</td></tr>
+                <tr><td><code>f32, f64</code></td><td>4 / 8 B</td><td>floating point IEEE 754</td></tr>
+                <tr><td><code>bool</code></td><td>1 B</td><td>true / false</td></tr>
+                <tr><td><code>char</code></td><td>4 B</td><td>Unicode scalar value</td></tr>
+                <tr><td><code>&amp;str</code></td><td>fat pointer</td><td>string slice (immutable)</td></tr>
+                <tr><td><code>String</code></td><td>heap</td><td>UTF-8 string owned, growable</td></tr>
+                <tr><td><code>Vec&lt;T&gt;</code></td><td>heap</td><td>dynamic array (slice owned)</td></tr>
+                <tr><td><code>[T; N]</code></td><td>stack</td><td>fixed-size array</td></tr>
+                <tr><td><code>Option&lt;T&gt;</code></td><td>enum</td><td>Some(T) lub None</td></tr>
+                <tr><td><code>Result&lt;T,E&gt;</code></td><td>enum</td><td>Ok(T) lub Err(E)</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Funkcje</h3>
+
+        <pre><code>fn dodaj(a: i32, b: i32) -&gt; i32 {
+    a + b   // brak srednika = wartosc zwracana (expression)
+}
+
+fn pozdrow(imie: &amp;str) {
+    println!("Czesc, {}!", imie);
+}
+
+fn main() {
+    let suma = dodaj(3, 4);
+    pozdrow("Anna");
+}</code></pre>
+
+        <h2>Ownership, Borrowing, Lifetimes — serce Rusta</h2>
+
+        <p>To kluczowy koncept, ktory rozni Rust od wszystkich innych mainstream languages. Kompilator wymusza w czasie kompilacji zasady, ktore zapobiegaja use-after-free, double-free, data race i wycieki pamieci — bez garbage collectora.</p>
+
+        <h3>Trzy zasady ownership</h3>
+
+        <ol>
+            <li>Kazda wartosc ma <strong>jednego wlasciciela</strong> (variable)</li>
+            <li>W danej chwili moze byc <strong>tylko jeden wlasciciel</strong></li>
+            <li>Gdy wlasciciel wychodzi ze scope, wartosc jest <strong>automatycznie zwalniana</strong> (drop)</li>
+        </ol>
+
+        <h3>Move semantics</h3>
+
+        <pre><code>let s1 = String::from("witaj");
+let s2 = s1;           // MOVE — s1 juz nie istnieje!
+// println!("{}", s1); // BLAD kompilacji!
+println!("{}", s2);    // OK</code></pre>
+
+        <h3>Borrowing — referencje</h3>
+
+        <pre><code>fn dlugosc(s: &amp;String) -&gt; usize {
+    s.len()           // immutable borrow
+}
+
+fn main() {
+    let s = String::from("witaj");
+    let dl = dlugosc(&amp;s);   // pozyczamy, nie movujemy
+    println!("'{}' ma {} znakow", s, dl);  // s nadal istnieje!
+}</code></pre>
+
+        <h3>Mutable borrow — tylko jeden na raz</h3>
+
+        <pre><code>fn dodaj_wykrzyknik(s: &amp;mut String) {
+    s.push('!');
+}
+
+let mut s = String::from("witaj");
+dodaj_wykrzyknik(&amp;mut s);   // mutable borrow
+println!("{}", s);          // "witaj!"</code></pre>
+
+        <h3>Smart pointers</h3>
+
+        <table>
+            <thead><tr><th>Typ</th><th>Zastosowanie</th></tr></thead>
+            <tbody>
+                <tr><td><code>Box&lt;T&gt;</code></td><td>Heap allocation, single owner</td></tr>
+                <tr><td><code>Rc&lt;T&gt;</code></td><td>Reference counting, single-thread</td></tr>
+                <tr><td><code>Arc&lt;T&gt;</code></td><td>Atomic Rc — multi-thread shared ownership</td></tr>
+                <tr><td><code>RefCell&lt;T&gt;</code></td><td>Interior mutability (runtime borrow check)</td></tr>
+                <tr><td><code>Mutex&lt;T&gt;</code></td><td>Mutex z poison detection (multi-thread)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Structs i enums</h2>
+
+        <pre><code>struct Punkt {
+    x: f64,
+    y: f64,
+}
+
+impl Punkt {
+    fn new(x: f64, y: f64) -&gt; Self {
+        Punkt { x, y }
+    }
+
+    fn dystans_od_zera(&amp;self) -&gt; f64 {
+        (self.x.powi(2) + self.y.powi(2)).sqrt()
+    }
+}
+
+enum Figura {
+    Kwadrat(f64),
+    Prostokat { szerokosc: f64, wysokosc: f64 },
+    Kolo(f64),
+}
+
+impl Figura {
+    fn pole(&amp;self) -&gt; f64 {
+        match self {
+            Figura::Kwadrat(a) =&gt; a * a,
+            Figura::Prostokat { szerokosc, wysokosc } =&gt; szerokosc * wysokosc,
+            Figura::Kolo(r) =&gt; std::f64::consts::PI * r * r,
+        }
+    }
+}</code></pre>
+
+        <h2>Option i Result — error handling</h2>
+
+        <p>Rust nie ma null. Zamiast tego uzywa enums <code>Option&lt;T&gt;</code> i <code>Result&lt;T, E&gt;</code>. Kompilator wymusza obsluge wszystkich wariantow.</p>
+
+        <pre><code>fn znajdz_wiek(imie: &amp;str) -&gt; Option&lt;u32&gt; {
+    match imie {
+        "Anna" =&gt; Some(28),
+        "Marek" =&gt; Some(35),
+        _ =&gt; None,
+    }
+}
+
+fn dziel(a: f64, b: f64) -&gt; Result&lt;f64, String&gt; {
+    if b == 0.0 {
+        Err(String::from("Dzielenie przez zero"))
+    } else {
+        Ok(a / b)
+    }
+}</code></pre>
+
+        <h3>Operator ? — error propagation</h3>
+
+        <pre><code>use std::fs;
+use std::io;
+
+fn wczytaj_konfiguracje() -&gt; Result&lt;String, io::Error&gt; {
+    let zawartosc = fs::read_to_string("config.toml")?;  // ? propaguje blad
+    Ok(zawartosc)
+}</code></pre>
+
+        <h2>Traits — jak interfaces ale lepiej</h2>
+
+        <pre><code>trait Powitanie {
+    fn przywitaj(&amp;self) -&gt; String;
+
+    // metoda domyslna
+    fn glosno(&amp;self) -&gt; String {
+        self.przywitaj().to_uppercase()
+    }
+}
+
+struct Polak { imie: String }
+struct Anglik { name: String }
+
+impl Powitanie for Polak {
+    fn przywitaj(&amp;self) -&gt; String {
+        format!("Czesc, jestem {}", self.imie)
+    }
+}
+
+impl Powitanie for Anglik {
+    fn przywitaj(&amp;self) -&gt; String {
+        format!("Hi, I'm {}", self.name)
+    }
+}</code></pre>
+
+        <h2>Pelny przyklad — kalkulator</h2>
+
+        <pre><code>use std::io::{self, Write};
+
+#[derive(Debug)]
+enum BladKalkulatora {
+    DzielenieprzezZero,
+    NieprawidloweDane(String),
+}
+
+fn parsuj(s: &amp;str) -&gt; Result&lt;f64, BladKalkulatora&gt; {
+    s.trim().parse::&lt;f64&gt;()
+        .map_err(|_| BladKalkulatora::NieprawidloweDane(s.to_string()))
+}
+
+fn oblicz(a: f64, op: char, b: f64) -&gt; Result&lt;f64, BladKalkulatora&gt; {
+    match op {
+        '+' =&gt; Ok(a + b),
+        '-' =&gt; Ok(a - b),
+        '*' =&gt; Ok(a * b),
+        '/' if b == 0.0 =&gt; Err(BladKalkulatora::DzielenieprzezZero),
+        '/' =&gt; Ok(a / b),
+        _ =&gt; Err(BladKalkulatora::NieprawidloweDane(op.to_string())),
+    }
+}
+
+fn main() {
+    let mut wejscie = String::new();
+    print!("Podaj wyrazenie (np. 3 + 4): ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&amp;mut wejscie).unwrap();
+
+    let czesci: Vec&lt;&amp;str&gt; = wejscie.split_whitespace().collect();
+    if czesci.len() != 3 {
+        eprintln!("Format: liczba operator liczba");
+        return;
+    }
+
+    let a = parsuj(czesci[0]).unwrap();
+    let op = czesci[1].chars().next().unwrap();
+    let b = parsuj(czesci[2]).unwrap();
+
+    match oblicz(a, op, b) {
+        Ok(wynik) =&gt; println!("Wynik: {}", wynik),
+        Err(e) =&gt; eprintln!("Blad: {:?}", e),
+    }
+}</code></pre>
+
+        <h2>Modules i crates</h2>
+
+        <p><strong>Crate</strong> = jednostka kompilacji (binary lub library). <strong>Module</strong> = przestrzen nazw wewnatrz crate.</p>
+
+        <pre><code>// src/main.rs
+mod matematyka;          // ladowanie modulu z src/matematyka.rs
+mod uzytkownik {         // inline module
+    pub fn pozdrow() {
+        println!("Czesc!");
+    }
+}
+
+use matematyka::dodaj;   // import
+
+fn main() {
+    let s = dodaj(3, 4);
+    println!("{}", s);
+    uzytkownik::pozdrow();
+}</code></pre>
+
+        <p>Standardowa struktura projektu:</p>
+
+        <pre><code>moj_projekt/
+├── Cargo.toml          # manifest (zaleznosci, metadane)
+├── Cargo.lock          # zablokowane wersje (commit do git!)
+├── src/
+│   ├── main.rs         # entry point binary
+│   ├── lib.rs          # entry point library
+│   └── matematyka.rs   # modul
+├── tests/              # integration tests
+├── benches/            # benchmarki
+├── examples/           # przyklady uzycia
+└── target/             # output kompilacji (NIE commit!)</code></pre>
+
+        <div class="card orange">
+            <h3>Co dalej?</h3>
+            <p>Kolejny dokument porownuje Rust z C# i pomaga zdecydowac, kiedy ktory wybrac. Pozniej omawiamy realne typy aplikacji, frameworki, security i deployment.</p>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="index.html">← Indeks Rust</a>
+            <a href="02-rust-vs-csharp.html">Rust vs C# →</a>
+        </div>
+    </div>
+</body>
+</html>

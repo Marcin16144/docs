@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>React 19 features</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">React.js</a><span class="sep">/</span><span class="title">React 19 features</span></div>
+<div class="container">
+<h1>React 19 &mdash; nowoczesne features</h1>
+<p class="subtitle">Server Components, Server Actions, useOptimistic, use() hook i React Compiler</p>
+
+<h2>Co nowego w React 19?</h2>
+<p>React 19 to najwieksza zmiana paradygmatu od czasu Hookow. Najwazniejsze obszary:</p>
+<ul>
+<li><strong>React Server Components (RSC)</strong> &mdash; komponenty renderowane na serwerze, zero JS u klienta</li>
+<li><strong>Server Actions</strong> &mdash; funkcje serwerowe wywolywane z UI bez API endpointow</li>
+<li><strong>Nowe hooki</strong> &mdash; useFormStatus, useOptimistic, useActionState, use()</li>
+<li><strong>Asset i Document Metadata API</strong> &mdash; standardowy sposob na &lt;title&gt;, &lt;meta&gt;, preload</li>
+<li><strong>ref jako prop</strong> &mdash; koniec z forwardRef</li>
+<li><strong>React Compiler</strong> &mdash; automatyczna memoizacja (stable w 2026)</li>
+</ul>
+
+<h2>React Server Components (RSC)</h2>
+<p><strong>RSC</strong> renderuja sie wylacznie na serwerze. Nie maja state, nie obsluguja eventow, nie sa wysylane do przegladarki jako JS &mdash; tylko ich opis. Dzieki temu bundle JS klienta jest mniejszy, a dane mozna pobierac bezposrednio (DB, fs, secret keys).</p>
+
+<pre><code>// app/page.jsx &mdash; Server Component (default w Next.js App Router)
+import { db } from '@/lib/db';
+
+export default async function Page() {
+  const posts = await db.posts.findMany(); // direct DB access!
+
+  return (
+    &lt;main&gt;
+      &lt;h1&gt;Posty&lt;/h1&gt;
+      {posts.map(p =&gt; &lt;Post key={p.id} post={p} /&gt;)}
+    &lt;/main&gt;
+  );
+}
+
+// app/components/Counter.jsx &mdash; Client Component (event handlers)
+'use client';
+import { useState } from 'react';
+
+export default function Counter() {
+  const [n, setN] = useState(0);
+  return &lt;button onClick={() =&gt; setN(n + 1)}&gt;Klikniecia: {n}&lt;/button&gt;;
+}</code></pre>
+
+<table>
+<thead><tr><th>Aspekt</th><th>Server Component</th><th>Client Component</th></tr></thead>
+<tbody>
+<tr><td>Marker</td><td>brak (default w Next App Router)</td><td><code>'use client'</code> na gorze pliku</td></tr>
+<tr><td>State (useState)</td><td>NIE</td><td>TAK</td></tr>
+<tr><td>Eventy (onClick)</td><td>NIE</td><td>TAK</td></tr>
+<tr><td>Async/await w komponencie</td><td>TAK</td><td>NIE (uzyj use())</td></tr>
+<tr><td>Dostep do DB, fs, env</td><td>TAK</td><td>NIE</td></tr>
+<tr><td>Wysylany JS do klienta</td><td>NIE</td><td>TAK</td></tr>
+</tbody>
+</table>
+
+<h2>Server Actions</h2>
+<p>Funkcje oznaczone <code>'use server'</code> wywolywane z formularzy lub przyciskow w client components. Eliminuja potrzebe pisania API endpointow.</p>
+
+<pre><code>// app/actions.js
+'use server';
+
+import { db } from '@/lib/db';
+import { revalidatePath } from 'next/cache';
+
+export async function createPost(formData) {
+  const title = formData.get('title');
+  const content = formData.get('content');
+  await db.posts.create({ data: { title, content } });
+  revalidatePath('/posts');
+}
+
+// app/posts/new/page.jsx &mdash; Server Component
+import { createPost } from '@/app/actions';
+
+export default function NewPost() {
+  return (
+    &lt;form action={createPost}&gt;
+      &lt;input name="title" required /&gt;
+      &lt;textarea name="content" required /&gt;
+      &lt;button type="submit"&gt;Utworz&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+<h2>useFormStatus</h2>
+<p>Hook do <strong>statusu submitujacego sie formularza</strong>. Uzywany WEWNATRZ &lt;form&gt;.</p>
+
+<pre><code>'use client';
+import { useFormStatus } from 'react-dom';
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    &lt;button type="submit" disabled={pending}&gt;
+      {pending ? 'Wysylanie...' : 'Wyslij'}
+    &lt;/button&gt;
+  );
+}
+
+// W form
+&lt;form action={createPost}&gt;
+  &lt;input name="title" /&gt;
+  &lt;SubmitButton /&gt;
+&lt;/form&gt;</code></pre>
+
+<h2>useActionState</h2>
+<p>Zarzadzanie state wyniku Server Action. Wczesniej znany jako useFormState.</p>
+
+<pre><code>'use client';
+import { useActionState } from 'react';
+import { login } from './actions';
+
+const initial = { error: null, success: false };
+
+export default function LoginForm() {
+  const [state, formAction, isPending] = useActionState(login, initial);
+
+  return (
+    &lt;form action={formAction}&gt;
+      &lt;input name="email" type="email" required /&gt;
+      &lt;input name="password" type="password" required /&gt;
+      {state.error &amp;&amp; &lt;p style={{color:'red'}}&gt;{state.error}&lt;/p&gt;}
+      &lt;button disabled={isPending}&gt;{isPending ? 'Loguje...' : 'Zaloguj'}&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+<h2>useOptimistic</h2>
+<p>Pokazanie <strong>optymistycznego state</strong> przed potwierdzeniem z serwera. Idealne dla like, follow, dodawania komentarzy.</p>
+
+<pre><code>'use client';
+import { useOptimistic } from 'react';
+import { sendMessage } from './actions';
+
+export default function Chat({ messages }) {
+  const [optimisticMessages, addOptimistic] = useOptimistic(
+    messages,
+    (state, newMessage) =&gt; [...state, { ...newMessage, sending: true }]
+  );
+
+  async function formAction(formData) {
+    const text = formData.get('text');
+    addOptimistic({ id: Date.now(), text });
+    await sendMessage(text);
+  }
+
+  return (
+    &lt;&gt;
+      {optimisticMessages.map(m =&gt; (
+        &lt;p key={m.id} style={{ opacity: m.sending ? 0.5 : 1 }}&gt;{m.text}&lt;/p&gt;
+      ))}
+      &lt;form action={formAction}&gt;
+        &lt;input name="text" /&gt;
+        &lt;button&gt;Wyslij&lt;/button&gt;
+      &lt;/form&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+
+<h2>use() hook</h2>
+<p>Specjalny hook ktory <strong>moze byc wywolany warunkowo</strong>. Czyta promise lub context. Z promise + Suspense daje czytelny data fetching.</p>
+
+<pre><code>// Server Component
+import { Suspense } from 'react';
+
+async function fetchUser(id) {
+  const r = await fetch(`/api/users/${id}`);
+  return r.json();
+}
+
+function UserDetails({ userPromise }) {
+  const user = use(userPromise); // czeka na promise
+  return &lt;h2&gt;{user.name}&lt;/h2&gt;;
+}
+
+export default function Page({ params }) {
+  const userPromise = fetchUser(params.id);
+  return (
+    &lt;Suspense fallback={&lt;p&gt;Ladowanie...&lt;/p&gt;}&gt;
+      &lt;UserDetails userPromise={userPromise} /&gt;
+    &lt;/Suspense&gt;
+  );
+}
+
+// use() z Context (jak useContext, ale moze byc warunkowo)
+function Comp({ show }) {
+  if (show) {
+    const ctx = use(MyContext); // OK!
+    return &lt;p&gt;{ctx.value}&lt;/p&gt;;
+  }
+  return null;
+}</code></pre>
+
+<h2>Document Metadata API</h2>
+<p>W kazdym komponencie mozna umiescic <code>&lt;title&gt;</code>, <code>&lt;meta&gt;</code>, <code>&lt;link&gt;</code> &mdash; React przeniesie je do &lt;head&gt;.</p>
+
+<pre><code>function BlogPost({ post }) {
+  return (
+    &lt;article&gt;
+      &lt;title&gt;{post.title} | Moj Blog&lt;/title&gt;
+      &lt;meta name="description" content={post.excerpt} /&gt;
+      &lt;link rel="canonical" href={`https://blog.example.com/${post.slug}`} /&gt;
+      &lt;h1&gt;{post.title}&lt;/h1&gt;
+      ...
+    &lt;/article&gt;
+  );
+}</code></pre>
+
+<h2>Asset Loading API</h2>
+<p>Funkcje <code>preload</code>, <code>preinit</code>, <code>preconnect</code> z react-dom.</p>
+
+<pre><code>import { preload, preinit } from 'react-dom';
+
+function App() {
+  preload('/fonts/inter.woff2', { as: 'font', type: 'font/woff2', crossOrigin: '' });
+  preinit('https://example.com/script.js', { as: 'script' });
+  return ...;
+}</code></pre>
+
+<h2>ref jako prop &mdash; koniec forwardRef</h2>
+<p>W React 19 ref to <strong>zwykly prop</strong>. <code>forwardRef</code> nie jest juz potrzebny.</p>
+
+<pre><code>// Stary kod (React 18)
+const Input = forwardRef(function Input(props, ref) {
+  return &lt;input ref={ref} {...props} /&gt;;
+});
+
+// React 19
+function Input({ ref, ...props }) {
+  return &lt;input ref={ref} {...props} /&gt;;
+}
+
+// Uzycie identyczne
+&lt;Input ref={inputRef} /&gt;</code></pre>
+
+<h2>React Compiler</h2>
+<p><strong>React Compiler</strong> (build tool) automatycznie memoizuje komponenty i wartosci &mdash; eliminuje potrzebe recznego <code>useMemo</code>, <code>useCallback</code>, <code>React.memo</code>. Stable w 2026.</p>
+
+<pre><code># Instalacja (Next.js 15)
+npm i -D babel-plugin-react-compiler
+
+// next.config.js
+module.exports = {
+  experimental: {
+    reactCompiler: true,
+  },
+};</code></pre>
+
+<div class="card">
+<h3>Korzysci z React Compilera</h3>
+<ul>
+<li>Mniej kodu &mdash; usuwasz wszystkie useMemo/useCallback</li>
+<li>Lepsze performance &mdash; kompilator widzi caly graph i memoizuje optymalnie</li>
+<li>Mniej pomylek &mdash; deweloper czesto memoizuje zle (pominiete deps)</li>
+<li>Backward compatible &mdash; stary kod dziala</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="02-hooks.html">&larr; Hooks</a>
+<a href="04-state-management.html">State management &rarr;</a>
+</div>
+</div>
+</body>
+</html>

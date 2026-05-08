@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IIS jako Reverse Proxy</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="05-iis-zaawansowane.html">IIS - zaawansowane</a>
+    <span class="sep">/</span>
+    <span class="title">Reverse Proxy</span>
+</div>
+
+<div class="container">
+<h1>IIS jako Reverse Proxy (ARR)</h1>
+<p class="subtitle">Application Request Routing + URL Rewrite - publikowanie aplikacji backend zza IIS.</p>
+
+<h2>Application Request Routing (ARR)</h2>
+<p>ARR jest oficjalnym rozszerzeniem Microsoftu zamieniajacym IIS w pelnoprawny reverse proxy z load balancing, health checking i cachingiem. Wymaga URL Rewrite Module jako fundamentu.</p>
+
+<h2>Instalacja</h2>
+<pre><code># Wymagania
+# 1. URL Rewrite Module (wczesniej)
+# 2. Application Request Routing 3.0+
+
+# Pobranie z https://www.iis.net/downloads/microsoft/application-request-routing
+# Lub przez Web Platform Installer:
+&amp; "$env:ProgramFiles\Microsoft\Web Platform Installer\WebpiCmd.exe" `
+    /Install /Products:UrlRewrite2,ARRv3_0 /AcceptEula
+
+# Po instalacji w IIS Manager pojawia sie:
+# - Server -&gt; "Application Request Routing Cache"
+# - Server -&gt; "URL Rewrite"
+# - Web Farms (nowy node w lewym panelu)</code></pre>
+
+<h3>Wlaczenie globalnego proxy</h3>
+<pre><code># Wlaczenie reverse proxy na poziomie serwera
+&amp; "$env:windir\system32\inetsrv\appcmd.exe" set config `
+    -section:system.webServer/proxy `
+    /enabled:"True" `
+    /preserveHostHeader:"True" `
+    /reverseRewriteHostInResponseHeaders:"True" `
+    /commit:apphost
+
+# Lub przez IIS Manager:
+# Server -&gt; Application Request Routing Cache -&gt; Server Proxy Settings
+# [x] Enable proxy
+# [x] Preserve client IP in HTTP_X_FORWARDED_FOR
+# [x] Reverse rewrite host in response headers</code></pre>
+
+<h2>Reguly URL Rewrite dla reverse proxy</h2>
+
+<h3>Routing po sciezce - mikroserwisy</h3>
+<p>Typowa architektura: IIS na frontu, kilka backendow obslugujacych rozne sciezki URL.</p>
+<pre><code>&lt;configuration&gt;
+  &lt;system.webServer&gt;
+    &lt;rewrite&gt;
+      &lt;rules&gt;
+
+        &lt;!-- /api/* -&gt; Node.js na 127.0.0.1:3000 --&gt;
+        &lt;rule name="API Proxy" stopProcessing="true"&gt;
+          &lt;match url="^api/(.*)" /&gt;
+          &lt;action type="Rewrite"
+                  url="http://127.0.0.1:3000/api/{R:1}" /&gt;
+          &lt;serverVariables&gt;
+            &lt;set name="HTTP_X_FORWARDED_FOR"   value="{REMOTE_ADDR}" /&gt;
+            &lt;set name="HTTP_X_FORWARDED_PROTO" value="{CACHE_URL:1}" /&gt;
+            &lt;set name="HTTP_X_FORWARDED_HOST"  value="{HTTP_HOST}" /&gt;
+            &lt;set name="HTTP_X_REAL_IP"         value="{REMOTE_ADDR}" /&gt;
+          &lt;/serverVariables&gt;
+        &lt;/rule&gt;
+
+        &lt;!-- /app/* -&gt; .NET Core na 127.0.0.1:5000 --&gt;
+        &lt;rule name="DotNet Proxy" stopProcessing="true"&gt;
+          &lt;match url="^app/(.*)" /&gt;
+          &lt;action type="Rewrite"
+                  url="http://127.0.0.1:5000/{R:1}" /&gt;
+          &lt;serverVariables&gt;
+            &lt;set name="HTTP_X_FORWARDED_FOR"   value="{REMOTE_ADDR}" /&gt;
+            &lt;set name="HTTP_X_FORWARDED_PROTO" value="https" /&gt;
+          &lt;/serverVariables&gt;
+        &lt;/rule&gt;
+
+        &lt;!-- /python/* -&gt; gunicorn na 127.0.0.1:8000 --&gt;
+        &lt;rule name="Python Proxy" stopProcessing="true"&gt;
+          &lt;match url="^python/(.*)" /&gt;
+          &lt;action type="Rewrite"
+                  url="http://127.0.0.1:8000/{R:1}" /&gt;
+        &lt;/rule&gt;
+
+        &lt;!-- Pliki statyczne serwowane przez IIS (nie proxy) --&gt;
+        &lt;rule name="Static" stopProcessing="true"&gt;
+          &lt;match url="^(static|assets|images)/(.*)" /&gt;
+          &lt;action type="None" /&gt;
+        &lt;/rule&gt;
+
+      &lt;/rules&gt;
+
+      &lt;outboundRules&gt;
+        &lt;!-- Przepisanie naglowka Location w odpowiedzi --&gt;
+        &lt;rule name="Rewrite Location Header" preCondition="IsRedirection"&gt;
+          &lt;match serverVariable="RESPONSE_Location"
+                 pattern="^http://127\.0\.0\.1:[0-9]+/(.*)" /&gt;
+          &lt;action type="Rewrite" value="https://{HTTP_HOST}/{R:1}" /&gt;
+        &lt;/rule&gt;
+        &lt;preConditions&gt;
+          &lt;preCondition name="IsRedirection"&gt;
+            &lt;add input="{RESPONSE_STATUS}" pattern="3[0-9]{{2}}" /&gt;
+          &lt;/preCondition&gt;
+        &lt;/preConditions&gt;
+      &lt;/outboundRules&gt;
+    &lt;/rewrite&gt;
+  &lt;/system.webServer&gt;
+&lt;/configuration&gt;</code></pre>
+
+<div class="card">
+<p><strong>X-Forwarded-* headers:</strong> Bez ustawienia tych naglowkow aplikacja backend zobaczy IP IIS (127.0.0.1) zamiast realnego klienta. To samo dotyczy schematu (HTTP/HTTPS) i hosta. Wszystkie nowoczesne frameworki (Express, ASP.NET Core, Flask) wspieraja te naglowki - nalezy je tylko skonfigurowac (np. <code>app.set('trust proxy', true)</code> w Express).</p>
+</div>
+
+<h2>Web Farm - load balancing</h2>
+<p>ARR pozwala zdefiniowac <strong>Web Farm</strong> - grupe backendow, miedzy ktorymi rozdziela ruch wedlug wybranej polityki.</p>
+<pre><code>&lt;webFarms&gt;
+  &lt;webFarm name="MyApp-Backend" enabled="true"&gt;
+    &lt;server address="10.0.1.10" enabled="true"&gt;
+      &lt;applicationRequestRouting weight="100" /&gt;
+    &lt;/server&gt;
+    &lt;server address="10.0.1.11" enabled="true"&gt;
+      &lt;applicationRequestRouting weight="100" /&gt;
+    &lt;/server&gt;
+    &lt;server address="10.0.1.12" enabled="true"&gt;
+      &lt;applicationRequestRouting weight="50" /&gt;  &lt;!-- mniej ruchu --&gt;
+    &lt;/server&gt;
+
+    &lt;applicationRequestRouting&gt;
+      &lt;!-- Round robin / weighted / least requests --&gt;
+      &lt;loadBalancing algorithm="WeightedRoundRobin" /&gt;
+
+      &lt;!-- Sticky sessions na podstawie cookie ARRAffinity --&gt;
+      &lt;affinity useCookie="true"
+                cookieName="ARRAffinity"
+                timeout="00:30:00" /&gt;
+
+      &lt;!-- Health check --&gt;
+      &lt;healthCheck url="http://_Server_/health"
+                   interval="00:00:30"
+                   timeout="00:00:10"
+                   responseMatch="OK" /&gt;
+
+      &lt;protocol&gt;
+        &lt;cache enabled="false" /&gt;
+        &lt;timeout connectionTimeout="00:01:00"
+                  responseHeaderTimeout="00:01:00" /&gt;
+      &lt;/protocol&gt;
+    &lt;/applicationRequestRouting&gt;
+  &lt;/webFarm&gt;
+&lt;/webFarms&gt;</code></pre>
+
+<h3>Algorytmy load balancing</h3>
+<table>
+<tr><th>Algorytm</th><th>Charakterystyka</th></tr>
+<tr><td>Weighted Round Robin</td><td>Sekwencyjne kolo, z wagami per serwer</td></tr>
+<tr><td>Weighted Total Traffic</td><td>Per ilosc wyslanych bajtow</td></tr>
+<tr><td>Least Current Request</td><td>Do serwera z najmniejsza liczba aktywnych requestow</td></tr>
+<tr><td>Least Response Time</td><td>Do najszybszego (na podstawie srednich czasow)</td></tr>
+<tr><td>Server Variable Hash</td><td>Affinity wedlug zmiennej (np. session ID, IP klienta)</td></tr>
+</table>
+
+<h3>Health checks</h3>
+<p>ARR co N sekund sprawdza endpoint na backendzie. Jezeli backend odpowiada bledem (lub timeout) X razy z rzedu, zostaje wyrzucony z farmy. Po pomyslnych Y sprawdzeniach wraca.</p>
+<ul>
+<li>URL: dedykowany endpoint <code>/health</code>, <code>/healthz</code>, <code>/api/v1/ping</code></li>
+<li>Interval: 30 sekund (czesciej = wiecej overheadu, rzadziej = wolne wykrywanie)</li>
+<li>Timeout: 5-10 sekund</li>
+<li>Response match: regex na zawartosc odpowiedzi (np. "OK" lub "healthy")</li>
+<li>Backend powinien sprawdzac swoje zaleznosci (DB, cache, API zewnetrzne) - "deep health check"</li>
+</ul>
+
+<h2>Sticky sessions (affinity)</h2>
+<p>Niektore aplikacje przechowuja state w pamieci procesu (in-memory session). Sticky session zapewnia, ze ten sam klient trafia zawsze do tego samego backendu. ARR wstrzykuje cookie <code>ARRAffinity</code> z ID serwera.</p>
+<div class="card">
+<p><strong>Anty-pattern:</strong> Sticky sessions nie rozwiazuja problemu, tylko go ukrywaja. Lepsza praktyka: stateless aplikacje + zewnetrzny store sesji (Redis, SQL Server, distributed cache). Sticky tylko jako tymczasowy workaround.</p>
+</div>
+
+<h2>SSL termination</h2>
+<p>Standardowo ARR terminuje TLS na froncie i komunikuje sie z backendem przez czysty HTTP w wewnetrznej sieci. To zmniejsza obciazenie CPU backendow i centralizuje zarzadzanie certyfikatami.</p>
+<pre><code>&lt;!-- IIS na froncie: HTTPS na 443, certyfikat zaufany przez przegladarki --&gt;
+&lt;rule name="ToBackend"&gt;
+  &lt;match url=".*" /&gt;
+  &lt;action type="Rewrite" url="http://10.0.1.10/{R:0}" /&gt;
+  &lt;serverVariables&gt;
+    &lt;!-- Backend wie, ze klient byl po HTTPS --&gt;
+    &lt;set name="HTTP_X_FORWARDED_PROTO" value="https" /&gt;
+  &lt;/serverVariables&gt;
+&lt;/rule&gt;</code></pre>
+
+<h3>End-to-end encryption</h3>
+<p>Dla scenariuszy compliance (PCI DSS, HIPAA) wymagane jest TLS od klienta do backendu - bez plain HTTP w sieci wewnetrznej. ARR moze proxy do HTTPS, walidacja certyfikatu konfigurowana per server.</p>
+
+<h2>Use cases</h2>
+
+<h3>Mikroserwisy za jedna domena</h3>
+<pre><code>https://api.contoso.com/users/*    -&gt; users-service:8001
+https://api.contoso.com/orders/*   -&gt; orders-service:8002
+https://api.contoso.com/payments/* -&gt; payments-service:8003
+https://api.contoso.com/static/*   -&gt; serwowane bezposrednio przez IIS</code></pre>
+
+<h3>Legacy + nowoczesna aplikacja w jednej domenie</h3>
+<pre><code>https://app.contoso.com/      -&gt; nowy SPA React (static + API call do /api)
+https://app.contoso.com/api/  -&gt; .NET Core 8 backend
+https://app.contoso.com/admin -&gt; legacy ASP.NET WebForms (ten sam IIS, inny site)</code></pre>
+
+<h3>Cache statycznych odpowiedzi</h3>
+<pre><code>&lt;!-- Cache responses /api/products/* na 5 minut --&gt;
+&lt;applicationRequestRouting&gt;
+  &lt;cache enabled="true"&gt;
+    &lt;cacheControlRules&gt;
+      &lt;add path="/api/products/*"
+           cacheControl="max-age=300, public" /&gt;
+    &lt;/cacheControlRules&gt;
+  &lt;/cache&gt;
+&lt;/applicationRequestRouting&gt;</code></pre>
+
+<h2>Best practices</h2>
+<ul>
+<li>X-Forwarded-* zawsze ustawione - reverse rewrite host headers w ARR Server Settings</li>
+<li>Connection timeout do backendu krotszy niz timeout klienta (zeby blad propagowal sie szybko)</li>
+<li>Health check endpoint na kazdym backendzie - sprawdzajacy zaleznosci</li>
+<li>Logging zawiera URL po rewrite (logRewrittenUrl) dla diagnostyki</li>
+<li>Stateless aplikacje + zewnetrzny session store zamiast sticky sessions</li>
+<li>SSL termination na ARR + opcjonalne re-encrypt do backendu</li>
+<li>Backendy zwiazane do 127.0.0.1 / sieci wewnetrznej, nigdy do publicznego IP</li>
+<li>Failed Request Tracing wlaczone na czas debugowania</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="05-iis-zaawansowane.html">&larr; IIS - zaawansowane</a>
+    <a href="05-02-iis-php-fastcgi.html">PHP via FastCGI &rarr;</a>
+</div>
+</div>
+</body>
+</html>

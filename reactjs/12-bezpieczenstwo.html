@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bezpieczenstwo</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">React.js</a><span class="sep">/</span><span class="title">Bezpieczenstwo</span></div>
+<div class="container">
+<h1>Bezpieczenstwo</h1>
+<p class="subtitle">XSS, CSP, auth, CSRF, secure storage</p>
+
+<h2>XSS (Cross-Site Scripting)</h2>
+<p><strong>XSS</strong> &mdash; atakujacy wstrzykuje skrypt JS do strony. React <strong>automatycznie escapuje</strong> wartosci w JSX, co eliminuje wiekszosc atakow.</p>
+
+<pre><code>// Bezpieczne &mdash; React escapuje
+const userInput = '&lt;script&gt;alert("XSS")&lt;/script&gt;';
+return &lt;div&gt;{userInput}&lt;/div&gt;;
+// Render: &lt;div&gt;&amp;lt;script&amp;gt;alert("XSS")&amp;lt;/script&amp;gt;&lt;/div&gt; &mdash; tekst, nie kod
+
+// NIEBEZPIECZNE &mdash; pomija escape
+return &lt;div dangerouslySetInnerHTML={{ __html: userInput }} /&gt;;
+// Skrypt zostanie wykonany!</code></pre>
+
+<h3>Kiedy musisz uzyc dangerouslySetInnerHTML</h3>
+<p>Czasem (np. markdown, rich text z CMS) potrzebujesz HTML. Wtedy <strong>sanitize</strong> przed wlozeniem.</p>
+
+<pre><code>npm i isomorphic-dompurify
+
+import DOMPurify from 'isomorphic-dompurify';
+
+function Article({ html }) {
+  const clean = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'strong', 'em', 'a', 'ul', 'li', 'h2', 'h3', 'code'],
+    ALLOWED_ATTR: ['href', 'title'],
+  });
+  return &lt;article dangerouslySetInnerHTML={{ __html: clean }} /&gt;;
+}</code></pre>
+
+<h3>Inne zrodla XSS w React</h3>
+<ul>
+<li><code>href={url}</code> z user-controlled URL &mdash; <code>javascript:alert(1)</code> URI dziala. Waliduj!</li>
+<li>SVG w &lt;img src&gt; z user data &mdash; SVG moze zawierac &lt;script&gt;</li>
+<li>Server-side rendering bez escape (manipulacja stringa &mdash; nie rob tego)</li>
+</ul>
+
+<pre><code>// Walidacja URL
+function safeHref(url) {
+  try {
+    const u = new URL(url);
+    if (['http:', 'https:', 'mailto:'].includes(u.protocol)) return url;
+    return '#';
+  } catch {
+    return '#';
+  }
+}
+
+&lt;a href={safeHref(userUrl)}&gt;Link&lt;/a&gt;</code></pre>
+
+<h2>Content Security Policy (CSP)</h2>
+<p><strong>CSP</strong> to header HTTP, ktory mowi przegladarce co moze sie zaladowac. Druga linia obrony przeciw XSS.</p>
+
+<pre><code>// next.config.js
+const cspHeader = `
+  default-src 'self';
+  script-src 'self' 'nonce-${nonce}' 'strict-dynamic';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: https:;
+  font-src 'self';
+  connect-src 'self' https://api.example.com;
+  frame-ancestors 'none';
+  upgrade-insecure-requests;
+`;
+
+module.exports = {
+  async headers() {
+    return [{
+      source: '/(.*)',
+      headers: [
+        { key: 'Content-Security-Policy', value: cspHeader.replace(/\n/g, ' ') },
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        { key: 'Permissions-Policy', value: 'camera=(), microphone=()' },
+      ],
+    }];
+  },
+};</code></pre>
+
+<h2>Strategie autoryzacji</h2>
+
+<h3>JWT vs Session cookies</h3>
+<table>
+<thead><tr><th>Cecha</th><th>JWT (Bearer)</th><th>Session (cookie)</th></tr></thead>
+<tbody>
+<tr><td>Storage klient</td><td>Memory / localStorage (RYZYKO)</td><td>httpOnly cookie</td></tr>
+<tr><td>XSS</td><td>JS moze wykrasc</td><td>Niedostepne dla JS</td></tr>
+<tr><td>CSRF</td><td>Niewrazliwy (Authorization header)</td><td>Wymagana ochrona CSRF</td></tr>
+<tr><td>Skalowalne</td><td>Tak (stateless)</td><td>Wymaga session store</td></tr>
+<tr><td>Revocation</td><td>Trudne (krotki TTL + refresh)</td><td>Latwe (usun session)</td></tr>
+<tr><td>Najlepsze do</td><td>API microservices, mobile</td><td>Klasyczna aplikacja webowa</td></tr>
+</tbody>
+</table>
+
+<h3>BFF Pattern (Backend for Frontend)</h3>
+<p>Przeglad: dla SPA + zewnetrzne API, <strong>BFF</strong> (Next.js / Node) trzyma tokeny i posredniczy. Klient nigdy nie widzi access token. Standard 2026 dla bezpieczenstwa.</p>
+
+<pre><code>// app/api/proxy/route.ts (Next.js)
+import { cookies } from 'next/headers';
+
+export async function GET(req) {
+  const cookieStore = await cookies();
+  const session = cookieStore.get('session')?.value;
+  const tokens = await getTokens(session); // server-side store
+
+  const r = await fetch('https://api.example.com/data', {
+    headers: { Authorization: `Bearer ${tokens.accessToken}` },
+  });
+
+  return Response.json(await r.json());
+}</code></pre>
+
+<h2>NIE uzywaj localStorage dla tokenow</h2>
+<div class="card">
+<h3>Powody</h3>
+<ul>
+<li>Kazdy XSS moze wykrasc token (<code>localStorage.getItem('token')</code>)</li>
+<li>Brak automatic submission &mdash; trzeba reczne dolaczyc do requestu</li>
+<li>Brak SameSite ochrony</li>
+<li>Persystuje na zawsze &mdash; uzytkownik moze zostawic na publicznym kompie</li>
+</ul>
+<p><strong>Wlasciwa droga:</strong> <code>httpOnly</code> + <code>Secure</code> + <code>SameSite=Lax</code> cookie z BFF pattern.</p>
+</div>
+
+<pre><code>// Zly &mdash; localStorage
+localStorage.setItem('access_token', token);
+fetch('/api', { headers: { Authorization: 'Bearer ' + localStorage.getItem('access_token') } });
+
+// Dobry &mdash; httpOnly cookie set przez serwer
+// Server response:
+//   Set-Cookie: session=abc123; HttpOnly; Secure; SameSite=Lax; Path=/
+
+// Klient po prostu fetchuje &mdash; cookie automatycznie
+fetch('/api/data', { credentials: 'include' });</code></pre>
+
+<h2>CSRF (Cross-Site Request Forgery)</h2>
+<p><strong>CSRF</strong> &mdash; atakujaca strona zmusza przegladarke uzytkownika do wyslania requestu do twojej domeny (z auto-cookie).</p>
+
+<h3>Obrona</h3>
+<ul>
+<li><strong>SameSite=Lax</strong> (default w nowoczesnych przegladarkach) &mdash; blokuje cross-site cookies dla niebezpiecznych metod</li>
+<li><strong>CSRF token</strong> &mdash; serwer generuje, klient dolacza w header lub form field</li>
+<li><strong>Double-submit cookie</strong> &mdash; cookie + header z ta sama wartoscia, atakujaca nie moze ustawic header</li>
+<li><strong>Origin/Referer check</strong> serwerowy</li>
+</ul>
+
+<pre><code>// Server &mdash; generuj token CSRF dla sesji
+// W kazdym formularzu (lub fetch) dolaczaj
+
+// Hidden input
+&lt;input type="hidden" name="_csrf" value={csrfToken} /&gt;
+
+// fetch
+fetch('/api/transfer', {
+  method: 'POST',
+  headers: { 'X-CSRF-Token': csrfToken, 'Content-Type': 'application/json' },
+  credentials: 'include',
+  body: JSON.stringify(data),
+});</code></pre>
+
+<h2>Server Actions &mdash; bezpieczenstwo</h2>
+<p>Server Actions (React 19 / Next.js) maja wbudowana ochrone CSRF (Origin check). ALE musisz pamietac:</p>
+
+<pre><code>'use server';
+
+export async function deletePost(formData) {
+  // 1. ZAWSZE sprawdz autoryzacje
+  const session = await getSession();
+  if (!session) throw new Error('Unauthorized');
+
+  // 2. Waliduj input (Zod)
+  const id = z.string().uuid().parse(formData.get('id'));
+
+  // 3. Sprawdz uprawnienia (czy user moze usunac TEN post)
+  const post = await db.posts.find(id);
+  if (post.userId !== session.userId) throw new Error('Forbidden');
+
+  // 4. Wykonaj
+  await db.posts.delete(id);
+  revalidatePath('/posts');
+}</code></pre>
+
+<div class="card">
+<h3>Server Action &mdash; zlote zasady</h3>
+<ul>
+<li><strong>Auth zawsze pierwsza linia</strong> &mdash; nawet jesli przycisk widoczny tylko dla zalogowanych</li>
+<li><strong>Zod / Valibot</strong> &mdash; waliduj kazdy input</li>
+<li><strong>Authorization (RBAC)</strong> &mdash; nie tylko czy zalogowany, ale czy MOZE wykonac te akcje</li>
+<li><strong>Rate limiting</strong> &mdash; np. Upstash Ratelimit dla wywolan</li>
+<li>Zwracaj generyczne bledy &mdash; nie ujawniaj szczegolow infrastruktury</li>
+</ul>
+</div>
+
+<h2>Dependency security</h2>
+<pre><code># Audyt
+npm audit
+npm audit fix
+
+# Snyk &mdash; pelniejsza analiza
+npx snyk test
+
+# Dependabot &mdash; auto PRy z aktualizacjami w GitHubie
+# .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"</code></pre>
+
+<h2>Sekrety i zmienne srodowiskowe</h2>
+<pre><code># .env.local &mdash; NIE commituj
+DATABASE_URL=postgres://...
+JWT_SECRET=...
+
+# .env.example &mdash; commitujesz, bez wartosci
+DATABASE_URL=
+JWT_SECRET=
+
+# .gitignore
+.env*
+!.env.example
+
+# W Next.js
+# NEXT_PUBLIC_* &mdash; widoczne w bundlu klienta (uwaga!)
+# Pozostale &mdash; tylko serwer
+
+NEXT_PUBLIC_API_URL=https://api.example.com    # OK, public
+DATABASE_URL=...                                # OK, server only
+JWT_SECRET=...                                  # OK, server only
+
+# NIE rob:
+NEXT_PUBLIC_JWT_SECRET=...   # KATASTROFA &mdash; trafi do bundle</code></pre>
+
+<h2>OWASP Top 10 dla React</h2>
+<table>
+<thead><tr><th>Zagrozenie</th><th>Obrona w React</th></tr></thead>
+<tbody>
+<tr><td>A01 Broken Access Control</td><td>RBAC w Server Actions, middleware</td></tr>
+<tr><td>A02 Cryptographic Failures</td><td>HTTPS only, secure cookies, JWT signed</td></tr>
+<tr><td>A03 Injection (XSS, SQL)</td><td>JSX escape, dangerouslySetInnerHTML &mdash; sanitize, parameterized queries</td></tr>
+<tr><td>A04 Insecure Design</td><td>Threat modeling, security review</td></tr>
+<tr><td>A05 Misconfiguration</td><td>CSP, security headers, no sourcemaps in prod</td></tr>
+<tr><td>A06 Vulnerable Components</td><td>npm audit, Dependabot, Snyk</td></tr>
+<tr><td>A07 Auth Failures</td><td>BFF pattern, refresh tokens, MFA</td></tr>
+<tr><td>A08 Integrity Failures</td><td>SRI dla CDN, signed packages</td></tr>
+<tr><td>A09 Logging Failures</td><td>Structured logging (server), Sentry</td></tr>
+<tr><td>A10 SSRF</td><td>Whitelist allowed hosts dla server fetch</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Production checklist</h3>
+<ul>
+<li>HTTPS only (HSTS header)</li>
+<li>CSP header skonfigurowany (testuj report-only przed enforce)</li>
+<li>Security headers: X-Frame-Options, X-Content-Type-Options, Referrer-Policy</li>
+<li>Cookies: httpOnly, Secure, SameSite</li>
+<li>Brak tokenow w localStorage</li>
+<li>Zod / Valibot na wejsciu Server Actions / API</li>
+<li>Rate limiting (Upstash, Vercel)</li>
+<li>Dependency scanning w CI (npm audit, Snyk, Dependabot)</li>
+<li>Sentry / error tracking (uwaga na PII w breadcrumbs)</li>
+<li>Brak sourcemaps publicznych (lub tylko do Sentry)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="11-wydajnosc.html">&larr; Wydajnosc</a>
+<a href="index.html">Spis tresci &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hooks</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">React.js</a><span class="sep">/</span><span class="title">Hooks</span></div>
+<div class="container">
+<h1>Hooks</h1>
+<p class="subtitle">useState, useEffect, useMemo, useCallback, useRef i custom hooks</p>
+
+<h2>Czym sa Hooks?</h2>
+<p><strong>Hooks</strong> to funkcje pozwalajace function components uzywac state, lifecycle i innych mozliwosci Reacta. Wprowadzone w 16.8 (2018), zastapily klasy. Obowiazuja <strong>dwie zasady</strong>:</p>
+<ul>
+<li>Wywoluj hooki tylko na <strong>top-level</strong> &mdash; nigdy w if, petlach, zagniezdzonych funkcjach</li>
+<li>Wywoluj je tylko z <strong>function components</strong> lub <strong>custom hooks</strong></li>
+</ul>
+
+<h2>useState</h2>
+<p>Lokalny state komponentu. Zwraca pare <code>[wartosc, setter]</code>.</p>
+
+<pre><code>const [count, setCount] = useState(0);
+const [user, setUser] = useState({ name: '', email: '' });
+const [items, setItems] = useState([]);
+
+// Lazy initial state &mdash; funkcja wywolana TYLKO przy pierwszym renderze
+const [data, setData] = useState(() =&gt; expensiveCalculation());
+
+// Funkcyjna forma settera &mdash; gdy nowa wartosc zalezy od starej
+setCount(prev =&gt; prev + 1);
+setUser(prev =&gt; ({ ...prev, name: 'Jan' }));</code></pre>
+
+<h2>useEffect</h2>
+<p>Side-effects: subskrypcje, fetchowanie, logowanie, manipulacja DOM. Uruchamia sie <strong>po renderze</strong>.</p>
+
+<pre><code>// Po kazdym renderze
+useEffect(() =&gt; { console.log('render'); });
+
+// Tylko raz po montazu (mount)
+useEffect(() =&gt; {
+  console.log('komponent zamontowany');
+}, []);
+
+// Po zmianie zaleznosci
+useEffect(() =&gt; {
+  document.title = `Klikniecia: ${count}`;
+}, [count]);
+
+// Z cleanup &mdash; wykonuje sie przy unmount lub przed kolejnym effectem
+useEffect(() =&gt; {
+  const id = setInterval(() =&gt; tick(), 1000);
+  return () =&gt; clearInterval(id); // cleanup
+}, []);
+
+// Subskrypcja
+useEffect(() =&gt; {
+  const handler = (e) =&gt; setSize({ w: e.target.innerWidth });
+  window.addEventListener('resize', handler);
+  return () =&gt; window.removeEventListener('resize', handler);
+}, []);</code></pre>
+
+<div class="card">
+<h3>Pulapki useEffect</h3>
+<ul>
+<li><strong>Brak dependency array</strong> &rarr; effect po kazdym renderze (zwykle blad)</li>
+<li><strong>Pusty array <code>[]</code></strong> &rarr; tylko mount/unmount &mdash; uwaga na stale closures</li>
+<li><strong>Nie pomijaj</strong> zaleznosci, ktorych uzywasz wewnatrz &mdash; wlacz ESLint plugin react-hooks</li>
+<li>Do data fetchingu w 2026 lepiej uzyj <strong>Tanstack Query</strong> lub Server Components</li>
+</ul>
+</div>
+
+<h2>useContext</h2>
+<p>Wspoldzielenie wartosci miedzy komponentami bez prop drillingu. Tworzysz Context, owijasz drzewo Providerem, a glebiej czytasz wartosc.</p>
+
+<pre><code>// theme-context.jsx
+import { createContext, useContext, useState } from 'react';
+
+const ThemeContext = createContext(null);
+
+export function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState('dark');
+  return (
+    &lt;ThemeContext.Provider value={{ theme, setTheme }}&gt;
+      {children}
+    &lt;/ThemeContext.Provider&gt;
+  );
+}
+
+export const useTheme = () =&gt; {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme musi byc wewnatrz ThemeProvider');
+  return ctx;
+};
+
+// Uzycie
+function Header() {
+  const { theme, setTheme } = useTheme();
+  return &lt;button onClick={() =&gt; setTheme(theme === 'dark' ? 'light' : 'dark')}&gt;Tryb: {theme}&lt;/button&gt;;
+}</code></pre>
+
+<h2>useReducer</h2>
+<p>Alternatywa dla useState gdy logika jest zlozona lub stan jest zagniezdzony. Pattern znany z Reduxa.</p>
+
+<pre><code>function reducer(state, action) {
+  switch (action.type) {
+    case 'add':    return [...state, { id: Date.now(), text: action.text, done: false }];
+    case 'toggle': return state.map(t =&gt; t.id === action.id ? { ...t, done: !t.done } : t);
+    case 'remove': return state.filter(t =&gt; t.id !== action.id);
+    default: throw new Error('Nieznany typ: ' + action.type);
+  }
+}
+
+function TodoList() {
+  const [todos, dispatch] = useReducer(reducer, []);
+  return (
+    &lt;ul&gt;
+      {todos.map(t =&gt; (
+        &lt;li key={t.id} onClick={() =&gt; dispatch({ type: 'toggle', id: t.id })}&gt;
+          {t.text} {t.done &amp;&amp; '(zrobione)'}
+        &lt;/li&gt;
+      ))}
+    &lt;/ul&gt;
+  );
+}</code></pre>
+
+<h2>useMemo i useCallback</h2>
+<p>Memoizacja kosztownych obliczen lub funkcji. <strong>Uwaga:</strong> w React 19 z <strong>React Compilerem</strong> ich potrzeba znika &mdash; kompilator robi to automatycznie.</p>
+
+<pre><code>// useMemo &mdash; memoizuje wartosc
+const sortedItems = useMemo(
+  () =&gt; items.slice().sort((a, b) =&gt; a.price - b.price),
+  [items]
+);
+
+// useCallback &mdash; memoizuje funkcje
+const handleAdd = useCallback((id) =&gt; {
+  setCart(prev =&gt; [...prev, id]);
+}, []);</code></pre>
+
+<div class="card">
+<h3>Kiedy NIE uzywac useMemo/useCallback</h3>
+<ul>
+<li>Dla prostych obliczen &mdash; narzut wiekszy niz korzysc</li>
+<li>Gdy nie ma realnego problemu wydajnosci (zmierz najpierw!)</li>
+<li>W projekcie z React Compilerem &mdash; jest zbedny</li>
+<li>Pamiataj: useMemo to <strong>cache</strong>, ktory tez zajmuje pamiec</li>
+</ul>
+</div>
+
+<h2>useRef</h2>
+<p>Mutowalna wartosc trwajaca przez cykl zycia komponentu, ktora <strong>nie powoduje rerenderu</strong>. Dwa zastosowania: referencja do DOM lub mutowalna wartosc.</p>
+
+<pre><code>// 1. Referencja do DOM
+function FocusInput() {
+  const inputRef = useRef(null);
+  return (
+    &lt;&gt;
+      &lt;input ref={inputRef} /&gt;
+      &lt;button onClick={() =&gt; inputRef.current.focus()}&gt;Focus&lt;/button&gt;
+    &lt;/&gt;
+  );
+}
+
+// 2. Mutowalna wartosc (np. id timera, poprzednia wartosc)
+function Timer() {
+  const intervalRef = useRef(null);
+  const [seconds, setSeconds] = useState(0);
+
+  const start = () =&gt; {
+    intervalRef.current = setInterval(() =&gt; setSeconds(s =&gt; s + 1), 1000);
+  };
+  const stop = () =&gt; clearInterval(intervalRef.current);
+
+  return &lt;&gt;...&lt;/&gt;;
+}</code></pre>
+
+<h2>useTransition i useDeferredValue</h2>
+<p>Concurrent features &mdash; oznaczanie aktualizacji jako <strong>nie-pilne</strong> aby UI pozostal responsywny.</p>
+
+<pre><code>const [isPending, startTransition] = useTransition();
+
+const handleSearch = (q) =&gt; {
+  setQuery(q); // pilne &mdash; aktualizuje input natychmiast
+  startTransition(() =&gt; {
+    setResults(filterBigList(q)); // moze byc opoznione
+  });
+};
+
+return (
+  &lt;&gt;
+    &lt;input value={query} onChange={e =&gt; handleSearch(e.target.value)} /&gt;
+    {isPending ? &lt;Spinner /&gt; : &lt;Results items={results} /&gt;}
+  &lt;/&gt;
+);
+
+// useDeferredValue &mdash; "cien" wartosci, ktora moze sie aktualizowac asynchronicznie
+const deferredQuery = useDeferredValue(query);
+&lt;Results query={deferredQuery} /&gt;</code></pre>
+
+<h2>useId</h2>
+<p>Generuje stabilny unikalny ID, bezpieczny dla SSR. Idealne dla labelek formularzy.</p>
+
+<pre><code>function PasswordField() {
+  const id = useId();
+  return (
+    &lt;&gt;
+      &lt;label htmlFor={id}&gt;Haslo&lt;/label&gt;
+      &lt;input id={id} type="password" /&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+
+<h2>Custom Hooks</h2>
+<p>Funkcja zaczynajaca sie od <code>use</code>, ktora kapsuluje logike z hookow. Reuzywalna miedzy komponentami.</p>
+
+<pre><code>// useDebounce &mdash; opozniona wartosc
+import { useState, useEffect } from 'react';
+
+export function useDebounce(value, delay = 500) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() =&gt; {
+    const id = setTimeout(() =&gt; setDebounced(value), delay);
+    return () =&gt; clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
+// Uzycie
+function Search() {
+  const [q, setQ] = useState('');
+  const debouncedQ = useDebounce(q, 300);
+
+  useEffect(() =&gt; {
+    if (debouncedQ) fetchResults(debouncedQ);
+  }, [debouncedQ]);
+
+  return &lt;input value={q} onChange={e =&gt; setQ(e.target.value)} /&gt;;
+}</code></pre>
+
+<pre><code>// useFetch &mdash; prosty hook do GET (w produkcji uzyj Tanstack Query)
+export function useFetch(url) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() =&gt; {
+    let cancelled = false;
+    setLoading(true);
+    fetch(url)
+      .then(r =&gt; r.json())
+      .then(d =&gt; { if (!cancelled) setData(d); })
+      .catch(e =&gt; { if (!cancelled) setError(e); })
+      .finally(() =&gt; { if (!cancelled) setLoading(false); });
+    return () =&gt; { cancelled = true; };
+  }, [url]);
+
+  return { data, loading, error };
+}</code></pre>
+
+<table>
+<thead><tr><th>Hook</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td>useState</td><td>Lokalny state</td></tr>
+<tr><td>useEffect</td><td>Side effects, subskrypcje, lifecycle</td></tr>
+<tr><td>useContext</td><td>Wspoldzielenie wartosci w drzewie</td></tr>
+<tr><td>useReducer</td><td>Zlozony state, akcje typu Redux</td></tr>
+<tr><td>useMemo</td><td>Memoizacja kosztownych obliczen</td></tr>
+<tr><td>useCallback</td><td>Memoizacja funkcji (props do memo)</td></tr>
+<tr><td>useRef</td><td>DOM ref, mutowalne wartosci bez rerenderu</td></tr>
+<tr><td>useTransition</td><td>Niepilne aktualizacje, concurrent</td></tr>
+<tr><td>useDeferredValue</td><td>Opoznione "echo" wartosci</td></tr>
+<tr><td>useId</td><td>Stabilne unikalne identyfikatory</td></tr>
+</tbody>
+</table>
+
+<div class="nav-bottom">
+<a href="01-podstawy-react.html">&larr; Podstawy React</a>
+<a href="03-react-19-features.html">React 19 features &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>07 — GUI i grafika pluginu</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ec4899;--accent-hover:#f472b6;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--cyan:#22d3ee;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="../index.html">Glowna</a>
+        <span class="sep">/</span>
+        <a href="index.html">VST</a>
+        <span class="sep">/</span>
+        <span class="title">07 — GUI i grafika</span>
+    </div>
+    <div class="container">
+        <h1>GUI i grafika pluginu</h1>
+        <p class="subtitle">Profesjonalny, responsywny interfejs w JUCE — od Component do customowych pokretel.</p>
+
+        <p>GUI to <strong>pierwsza i najwazniejsza rzecz</strong>, ktora widzi klient. Mozesz miec najlepszy DSP na swiecie, ale jesli plugin wyglada na zrobiony w 1998, ludzie go nie kupia. W tym rozdziale: jak budowac profesjonalny, responsywny, retina-ready interfejs w JUCE — od podstaw <code>Component</code> do customowych pokretel i level meterow.</p>
+
+        <h2>Hierarchia GUI w JUCE — Component class</h2>
+        <p>W JUCE wszystko co jest na ekranie dziedziczy z <code>juce::Component</code>. Slidery, przyciski, etykiety, custom widgets — to wszystko <code>Component</code>y. Kazdy ma:</p>
+        <ul>
+            <li><strong>Bounds</strong> (pozycje i rozmiar w parent coords)</li>
+            <li><strong>paint()</strong> metode (rysowanie)</li>
+            <li><strong>resized()</strong> metode (layout dzieci)</li>
+            <li><strong>Listener interfaces</strong> (onClick, onValueChanged, etc.)</li>
+        </ul>
+
+<pre><code>class MyComponent : public juce::Component
+{
+public:
+    void paint(juce::Graphics&amp; g) override
+    {
+        // Tu rysujemy. Wykonuje sie gdy komponent sie repainted.
+        g.fillAll(juce::Colours::darkblue);
+        g.setColour(juce::Colours::white);
+        g.drawText("Hello", getLocalBounds(), juce::Justification::centred);
+    }
+
+    void resized() override
+    {
+        // Tu ukladamy dzieci (children components).
+        // getLocalBounds() = bounds w lokalnych wspolrzednych.
+    }
+};</code></pre>
+
+        <h3>Graphics — rysowanie 2D</h3>
+        <p><code>juce::Graphics&amp;</code> w <code>paint()</code> to context oferujacy:</p>
+<pre><code>void paint(juce::Graphics&amp; g) override
+{
+    auto bounds = getLocalBounds().toFloat();
+
+    // Tlo
+    g.fillAll(juce::Colour(0xff1a1a2e));
+
+    // Wypelniony prostokat
+    g.setColour(juce::Colour(0xff0f3460));
+    g.fillRoundedRectangle(bounds.reduced(10), 8.0f);
+
+    // Obrys (stroke)
+    g.setColour(juce::Colour(0xffe94560));
+    g.drawRoundedRectangle(bounds.reduced(10), 8.0f, 2.0f);
+
+    // Linia
+    g.drawLine(0.0f, bounds.getCentreY(), bounds.getWidth(), bounds.getCentreY(), 1.5f);
+
+    // Okrag
+    g.fillEllipse(bounds.reduced(40));
+
+    // Tekst
+    g.setFont(juce::Font(juce::FontOptions(18.0f).withStyle("Bold")));
+    g.setColour(juce::Colours::white);
+    g.drawText("Plugin", bounds, juce::Justification::centred);
+
+    // Path — dowolny ksztalt
+    juce::Path path;
+    path.startNewSubPath(0, 0);
+    path.lineTo(50, 50);
+    path.cubicTo(60, 60, 70, 30, 100, 50);
+    path.closeSubPath();
+    g.strokePath(path, juce::PathStrokeType(2.0f));
+
+    // Gradient
+    juce::ColourGradient gradient(
+        juce::Colours::pink, 0, 0,
+        juce::Colours::purple, bounds.getWidth(), bounds.getHeight(), false);
+    g.setGradientFill(gradient);
+    g.fillRect(bounds);
+}</code></pre>
+
+        <h2>Resizable plugins</h2>
+        <p>Producenci profesjonalni zadaja mozliwosci resizowania okna pluginu (rozne ekrany, rozne uklady DAW). W JUCE:</p>
+<pre><code>// W konstruktorze AudioProcessorEditor:
+setResizable(true, true);                    // resizable + uzyj resize-corner
+setResizeLimits(400, 300, 1600, 1200);       // min/max rozmiar
+
+// Aspekt ratio (np. 16:10):
+constrainer = std::make_unique&lt;juce::ComponentBoundsConstrainer&gt;();
+constrainer-&gt;setFixedAspectRatio(16.0 / 10.0);
+setConstrainer(constrainer.get());</code></pre>
+
+        <p>W <code>resized()</code> przelicz layout proporcjonalnie:</p>
+<pre><code>void resized() override
+{
+    auto area = getLocalBounds().reduced(10);
+
+    auto headerArea = area.removeFromTop(area.getHeight() / 8);
+    titleLabel.setBounds(headerArea);
+
+    auto knobsArea = area;
+    int knobWidth = knobsArea.getWidth() / 3;
+
+    gainKnob.setBounds(knobsArea.removeFromLeft(knobWidth).reduced(10));
+    panKnob.setBounds(knobsArea.removeFromLeft(knobWidth).reduced(10));
+    mixKnob.setBounds(knobsArea.reduced(10));
+}</code></pre>
+
+        <h2>HiDPI / Retina support</h2>
+        <p>W 2026 wszystkie nowe Maki maja Retina (2x scale), Windows ma 1.25x/1.5x/1.75x/2x scaling. <strong>Twoj plugin MUSI wygladac ostro na kazdym scale.</strong></p>
+
+        <h3>Zlota zasada: uzywaj wektorow, nie bitmap</h3>
+<pre><code>// ZLE: hardcoded bitmap, rozmazuje sie na 2x:
+auto img = juce::ImageCache::getFromMemory(BinaryData::knob_png, BinaryData::knob_pngSize);
+g.drawImage(img, 0, 0, 100, 100, 0, 0, 256, 256);
+
+// DOBRE: rysowanie wektorowe:
+g.drawEllipse(bounds.toFloat(), 2.0f);
+g.fillPath(myPathShape);</code></pre>
+
+        <h3>SVG support</h3>
+        <p>JUCE czyta SVG z <code>juce::Drawable::createFromSVG()</code>:</p>
+<pre><code>const auto svgString = R"(&lt;svg viewBox="0 0 100 100"&gt;
+    &lt;circle cx="50" cy="50" r="40" fill="hotpink"/&gt;
+&lt;/svg&gt;)";
+
+auto xml = juce::XmlDocument::parse(svgString);
+auto drawable = juce::Drawable::createFromSVG(*xml);
+
+// W paint():
+drawable-&gt;drawWithin(g, getLocalBounds().toFloat(),
+    juce::RectanglePlacement::centred, 1.0f);</code></pre>
+
+        <h3>Auto-scaling factor</h3>
+<pre><code>// JUCE robi auto, ale jesli musisz manualnie:
+auto scale = juce::Desktop::getInstance().getDisplays()
+                .getPrimaryDisplay()-&gt;scale;
+// scale = 2.0 na Retina, 1.5 na Win 150% scaling, etc.</code></pre>
+
+        <h2>Custom LookAndFeel — branded look</h2>
+        <p><code>LookAndFeel</code> to klasa zmieniajaca wyglad wszystkich standardowych komponentow (slidery, przyciski). Definiujesz raz — wszystko wyglada spojnie.</p>
+<pre><code>class MyLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    MyLookAndFeel()
+    {
+        setColour(juce::Slider::thumbColourId, juce::Colour(0xffec4899));
+        setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xffec4899));
+        setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff334155));
+        setColour(juce::Slider::textBoxOutlineColourId, juce::Colour(0));
+        setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xff1e293b));
+        setColour(juce::Slider::textBoxTextColourId, juce::Colour(0xffe2e8f0));
+    }
+
+    void drawRotarySlider(juce::Graphics&amp; g, int x, int y, int width, int height,
+                          float sliderPosProportional, float rotaryStartAngle,
+                          float rotaryEndAngle, juce::Slider&amp; slider) override
+    {
+        auto radius = juce::jmin(width / 2, height / 2) - 8.0f;
+        auto centreX = x + width * 0.5f;
+        auto centreY = y + height * 0.5f;
+        auto angle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
+
+        // Tlo knob
+        g.setColour(juce::Colour(0xff334155));
+        g.fillEllipse(centreX - radius, centreY - radius, radius * 2, radius * 2);
+
+        // Luk wskazujacy wartosc
+        juce::Path arc;
+        arc.addCentredArc(centreX, centreY, radius - 4, radius - 4, 0,
+                          rotaryStartAngle, angle, true);
+        g.setColour(juce::Colour(0xffec4899));
+        g.strokePath(arc, juce::PathStrokeType(4.0f, juce::PathStrokeType::curved,
+                                                juce::PathStrokeType::rounded));
+
+        // Wskaznik
+        juce::Path pointer;
+        pointer.addRectangle(-2, -radius + 4, 4, radius * 0.5f);
+        pointer.applyTransform(juce::AffineTransform::rotation(angle).translated(centreX, centreY));
+        g.setColour(juce::Colour(0xfff472b6));
+        g.fillPath(pointer);
+    }
+};</code></pre>
+
+        <p>Aplikujesz w editorze:</p>
+<pre><code>// W AudioProcessorEditor konstruktor:
+setLookAndFeel(&amp;customLookAndFeel);
+
+// W destruktorze (KRYTYCZNE):
+~MyEditor() override { setLookAndFeel(nullptr); }</code></pre>
+        <p>Jesli zapomnisz <code>setLookAndFeel(nullptr)</code> — crashy przy zamykaniu pluginu (dangling pointer).</p>
+
+        <h2>OpenGL acceleration</h2>
+        <p>Dla skomplikowanych UI (oscylloskop, spectrogram, animacje) — software rendering CPU moze wyciagac 5-10% CPU. OpenGL przenosi to na GPU (~0.5-1% CPU).</p>
+<pre><code>class MyEditor : public juce::AudioProcessorEditor
+{
+public:
+    MyEditor(MyProcessor&amp; p) : AudioProcessorEditor(&amp;p)
+    {
+        // Zaczepia OpenGL context do okna
+        openGLContext.attachTo(*getTopLevelComponent());
+        openGLContext.setContinuousRepainting(false);  // tylko gdy potrzeba
+    }
+
+    ~MyEditor() override
+    {
+        openGLContext.detach();
+    }
+
+private:
+    juce::OpenGLContext openGLContext;
+};</code></pre>
+
+        <div class="card">
+            <p><strong>Uwagi:</strong></p>
+            <ul>
+                <li>Na macOS OpenGL jest <strong>deprecated</strong> (Apple chce Metal). JUCE 7+ ma backend Metal tez, ale OpenGL nadal dziala.</li>
+                <li>Niektore stare DAW (np. Pro Tools w pre-2022 wersjach) krzacza sie z OpenGL — testuj.</li>
+                <li>Wlaczaj OpenGL <strong>tylko jesli faktycznie potrzeba</strong> (skomplikowana wizualizacja, animacje 60fps). Dla statycznych GUI — szkoda zachodu.</li>
+            </ul>
+        </div>
+
+        <h2>Komponenty UI — rotary knob, slider, button, combo box</h2>
+        <p>JUCE ma komplet standardowych:</p>
+<pre><code>// Rotary knob
+juce::Slider gainKnob;
+gainKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+gainKnob.setRange(-60.0, 12.0, 0.1);
+gainKnob.setValue(0.0);
+gainKnob.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+gainKnob.setTextValueSuffix(" dB");
+addAndMakeVisible(gainKnob);
+
+// Linear slider (vertical)
+juce::Slider volumeSlider;
+volumeSlider.setSliderStyle(juce::Slider::LinearVertical);
+volumeSlider.setRange(0.0, 1.0);
+addAndMakeVisible(volumeSlider);
+
+// Toggle button (on/off)
+juce::ToggleButton bypassButton;
+bypassButton.setButtonText("Bypass");
+bypassButton.onClick = [this]() {
+    bool isOn = bypassButton.getToggleState();
+    // ...
+};
+addAndMakeVisible(bypassButton);
+
+// Combo box (dropdown)
+juce::ComboBox modeBox;
+modeBox.addItem("Soft", 1);
+modeBox.addItem("Medium", 2);
+modeBox.addItem("Hard", 3);
+modeBox.setSelectedId(1);
+modeBox.onChange = [this]() {
+    int selected = modeBox.getSelectedId();
+    // ...
+};
+addAndMakeVisible(modeBox);
+
+// Text input
+juce::TextEditor nameInput;
+nameInput.setMultiLine(false);
+nameInput.setText("Preset 1");
+addAndMakeVisible(nameInput);</code></pre>
+
+        <h2>Attachments — laczenie z parametrami APVTS</h2>
+        <p><code>AudioProcessorValueTreeState::Attachment</code> automatycznie synchronizuje GUI z parametrami:</p>
+<pre><code>class MyEditor : public juce::AudioProcessorEditor
+{
+private:
+    juce::Slider gainSlider;
+    juce::ToggleButton bypassButton;
+    juce::ComboBox modeBox;
+
+    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
+    using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+
+    std::unique_ptr&lt;SliderAttachment&gt; gainAttachment;
+    std::unique_ptr&lt;ButtonAttachment&gt; bypassAttachment;
+    std::unique_ptr&lt;ComboBoxAttachment&gt; modeAttachment;
+
+public:
+    MyEditor(MyProcessor&amp; p) : AudioProcessorEditor(&amp;p)
+    {
+        addAndMakeVisible(gainSlider);
+        addAndMakeVisible(bypassButton);
+        addAndMakeVisible(modeBox);
+        modeBox.addItem("Soft", 1);
+        modeBox.addItem("Hard", 2);
+
+        gainAttachment = std::make_unique&lt;SliderAttachment&gt;(p.parameters, "gain", gainSlider);
+        bypassAttachment = std::make_unique&lt;ButtonAttachment&gt;(p.parameters, "bypass", bypassButton);
+        modeAttachment = std::make_unique&lt;ComboBoxAttachment&gt;(p.parameters, "mode", modeBox);
+    }
+};</code></pre>
+        <p>To wszystko — host automation, undo/redo, save/load presets — wszystko dziala "za darmo".</p>
+
+        <h2>Custom rotary knob — pelny przyklad</h2>
+<pre><code>class CustomRotaryKnob : public juce::Slider
+{
+public:
+    CustomRotaryKnob()
+    {
+        setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+        setColour(juce::Slider::textBoxOutlineColourId, juce::Colour(0));
+    }
+
+    void paint(juce::Graphics&amp; g) override
+    {
+        auto bounds = getLocalBounds().reduced(8);
+        auto knobArea = bounds.removeFromTop(bounds.getHeight() - 24).toFloat();
+        auto centre = knobArea.getCentre();
+        auto radius = juce::jmin(knobArea.getWidth(), knobArea.getHeight()) * 0.5f - 4.0f;
+
+        // Wartosc 0..1
+        const float value = (float)valueToProportionOfLength(getValue());
+        const float startAngle = juce::MathConstants&lt;float&gt;::pi * 1.25f;   // 225 deg
+        const float endAngle   = juce::MathConstants&lt;float&gt;::pi * 2.75f;   // 495 deg
+        const float angle = startAngle + value * (endAngle - startAngle);
+
+        // Tlo knob (ciemny okrag)
+        g.setColour(juce::Colour(0xff1e293b));
+        g.fillEllipse(centre.x - radius, centre.y - radius, radius * 2, radius * 2);
+
+        // Outline
+        g.setColour(juce::Colour(0xff334155));
+        g.drawEllipse(centre.x - radius, centre.y - radius, radius * 2, radius * 2, 2.0f);
+
+        // Luk wskazujacy wartosc (gradient pink-purple)
+        juce::Path arc;
+        arc.addCentredArc(centre.x, centre.y, radius - 6, radius - 6, 0,
+                          startAngle, angle, true);
+        juce::ColourGradient grad(
+            juce::Colour(0xffec4899), centre.x - radius, centre.y,
+            juce::Colour(0xffa78bfa), centre.x + radius, centre.y, false);
+        g.setGradientFill(grad);
+        g.strokePath(arc, juce::PathStrokeType(4.0f,
+            juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+        // Wskaznik (kreska)
+        juce::Path pointer;
+        pointer.startNewSubPath(centre.x, centre.y - radius * 0.4f);
+        pointer.lineTo(centre.x, centre.y - radius * 0.85f);
+        pointer.applyTransform(juce::AffineTransform::rotation(
+            angle - juce::MathConstants&lt;float&gt;::halfPi, centre.x, centre.y));
+        g.setColour(juce::Colour(0xfff472b6));
+        g.strokePath(pointer, juce::PathStrokeType(3.0f, juce::PathStrokeType::curved,
+                                                    juce::PathStrokeType::rounded));
+    }
+
+    void mouseDoubleClick(const juce::MouseEvent&amp;) override
+    {
+        // Double-click = reset do default
+        setValue(getDoubleClickReturnValue());
+    }
+};</code></pre>
+
+        <h2>Level meter — animowany VU</h2>
+<pre><code>class LevelMeter : public juce::Component, private juce::Timer
+{
+public:
+    LevelMeter() { startTimerHz(30); }   // 30 FPS update
+
+    void setLevel(float newLevel) noexcept
+    {
+        // Zewnetrzny processor wywoluje to z processBlock (atomic store)
+        targetLevel.store(newLevel);
+    }
+
+    void paint(juce::Graphics&amp; g) override
+    {
+        auto bounds = getLocalBounds().toFloat();
+        const float lvl = currentLevel;   // juz smoothed
+
+        // Tlo
+        g.setColour(juce::Colour(0xff0d1117));
+        g.fillRoundedRectangle(bounds, 4.0f);
+
+        // Slupek (gradient: zielony -&gt; zolty -&gt; czerwony)
+        auto fillHeight = bounds.getHeight() * juce::jlimit(0.0f, 1.0f, lvl);
+        auto fillBounds = bounds.removeFromBottom(fillHeight);
+
+        juce::ColourGradient grad(
+            juce::Colour(0xffef4444), 0, bounds.getY(),                // czerwony gora
+            juce::Colour(0xff4ade80), 0, bounds.getBottom(), false);    // zielony dol
+        grad.addColour(0.7, juce::Colour(0xfff59e0b));                  // zolty srodek
+        g.setGradientFill(grad);
+        g.fillRoundedRectangle(fillBounds, 4.0f);
+
+        // Peak hold (kreska na top)
+        if (peakLevel &gt; 0.01f)
+        {
+            float peakY = bounds.getBottom() - bounds.getHeight() * peakLevel;
+            g.setColour(juce::Colours::white);
+            g.fillRect(0.0f, peakY - 1.0f, bounds.getWidth(), 2.0f);
+        }
+    }
+
+private:
+    void timerCallback() override
+    {
+        // Smoothing — eksponencjalny decay
+        const float target = targetLevel.load();
+        currentLevel = currentLevel * 0.7f + target * 0.3f;
+
+        // Peak hold (slow decay)
+        if (target &gt; peakLevel)
+            peakLevel = target;
+        else
+            peakLevel *= 0.99f;
+
+        repaint();
+    }
+
+    std::atomic&lt;float&gt; targetLevel { 0.0f };
+    float currentLevel { 0.0f };
+    float peakLevel { 0.0f };
+};</code></pre>
+
+        <p>W processorze:</p>
+<pre><code>// W processBlock, na koncu:
+const float rms = buffer.getRMSLevel(0, 0, buffer.getNumSamples());
+levelForGUI.store(rms);   // MyProcessor ma std::atomic&lt;float&gt; levelForGUI</code></pre>
+
+        <p>W editorze (z timer):</p>
+<pre><code>void timerCallback() override
+{
+    leftMeter.setLevel(processorRef.levelForGUI.load());
+    repaint();
+}</code></pre>
+
+        <h2>Animacja i timery</h2>
+        <p>Kazdy <code>Component</code> moze byc <code>Timer</code>. <code>startTimerHz(30)</code> = 30 callbacks/sec.</p>
+<pre><code>class MyAnimatedComp : public juce::Component, private juce::Timer
+{
+public:
+    MyAnimatedComp() { startTimerHz(60); }
+
+    void timerCallback() override
+    {
+        phase += 0.01f;
+        if (phase &gt; juce::MathConstants&lt;float&gt;::twoPi)
+            phase = 0;
+        repaint();
+    }
+
+    void paint(juce::Graphics&amp; g) override
+    {
+        const float radius = 30 + 10 * std::sin(phase);
+        g.fillEllipse(getWidth()/2 - radius, getHeight()/2 - radius,
+                      radius*2, radius*2);
+    }
+
+private:
+    float phase = 0.0f;
+};</code></pre>
+        <p><strong>Performance tip:</strong> nie ustawiaj 120 Hz timer dla kazdego komponentu. Jeden timer w editorze, repaint() tylko widoczne komponenty.</p>
+
+        <h2>Drawing waveforms, spectrums, EQ curves</h2>
+
+        <h3>Waveform (z bufora audio)</h3>
+<pre><code>class WaveformDisplay : public juce::Component, private juce::Timer
+{
+public:
+    WaveformDisplay() { startTimerHz(30); }
+
+    void pushSample(float sample) noexcept
+    {
+        buffer[writeIndex] = sample;
+        writeIndex = (writeIndex + 1) % bufferSize;
+    }
+
+    void paint(juce::Graphics&amp; g) override
+    {
+        g.setColour(juce::Colour(0xff0d1117));
+        g.fillAll();
+
+        g.setColour(juce::Colour(0xffec4899));
+        juce::Path waveform;
+        const float midY = getHeight() * 0.5f;
+        const float scaleY = midY * 0.95f;
+
+        waveform.startNewSubPath(0, midY);
+        for (int x = 0; x &lt; getWidth(); ++x)
+        {
+            int idx = (writeIndex + x * bufferSize / getWidth()) % bufferSize;
+            float y = midY - buffer[idx] * scaleY;
+            waveform.lineTo((float)x, y);
+        }
+        g.strokePath(waveform, juce::PathStrokeType(1.5f));
+    }
+
+private:
+    void timerCallback() override { repaint(); }
+
+    static constexpr int bufferSize = 512;
+    std::array&lt;float, bufferSize&gt; buffer { };
+    int writeIndex = 0;
+};</code></pre>
+
+        <h3>EQ curve</h3>
+        <p>Dla EQ pluginu — rysuj response filtru:</p>
+<pre><code>void paintEQCurve(juce::Graphics&amp; g)
+{
+    auto bounds = getLocalBounds().toFloat();
+    juce::Path curve;
+
+    const int numPoints = (int)bounds.getWidth();
+    for (int i = 0; i &lt; numPoints; ++i)
+    {
+        // Frekwencja log-skala 20 Hz - 20 kHz
+        float freq = 20.0f * std::pow(1000.0f, (float)i / numPoints);
+
+        // Magnitude z filtru
+        float magDb = filter.getMagnitudeForFrequency(freq, sampleRate);
+        magDb = juce::jlimit(-24.0f, 24.0f, juce::Decibels::gainToDecibels(magDb));
+
+        float y = juce::jmap(magDb, -24.0f, 24.0f, bounds.getHeight(), 0.0f);
+
+        if (i == 0) curve.startNewSubPath((float)i, y);
+        else curve.lineTo((float)i, y);
+    }
+
+    g.setColour(juce::Colour(0xffec4899));
+    g.strokePath(curve, juce::PathStrokeType(2.0f));
+}</code></pre>
+
+        <h2>Custom slider behavior</h2>
+<pre><code>// Drag w trybie fine-tune (Shift = 10x precyzyjniej)
+class FineSlider : public juce::Slider
+{
+public:
+    void mouseDrag(const juce::MouseEvent&amp; e) override
+    {
+        if (e.mods.isShiftDown())
+        {
+            // Skopiowane zachowanie ale z 10x mniejsza czuloscia
+            auto modified = e.withNewPosition(
+                e.getPosition() / 10 + e.getMouseDownPosition() * 9 / 10);
+            juce::Slider::mouseDrag(modified);
+        }
+        else
+            juce::Slider::mouseDrag(e);
+    }
+
+    void mouseDoubleClick(const juce::MouseEvent&amp;) override
+    {
+        setValue(getDoubleClickReturnValue());
+    }
+};</code></pre>
+
+        <h2>MIDI Learn implementation</h2>
+<pre><code>class MidiLearnSlider : public juce::Slider, public juce::MidiInputCallback
+{
+public:
+    void startLearning() { learning = true; }
+
+    void handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage&amp; msg) override
+    {
+        if (!learning || !msg.isController())
+            return;
+
+        learnedCC = msg.getControllerNumber();
+        learnedChannel = msg.getChannel();
+        learning = false;
+    }
+
+    // W timerCallback() albo na MIDI received w processorze:
+    void mapMidiCC(int cc, int channel, float value)
+    {
+        if (cc == learnedCC &amp;&amp; channel == learnedChannel)
+        {
+            const float min = (float)getMinimum();
+            const float max = (float)getMaximum();
+            setValue(min + value * (max - min));
+        }
+    }
+
+private:
+    bool learning = false;
+    int learnedCC = -1;
+    int learnedChannel = -1;
+};</code></pre>
+        <p>W processorze: w <code>processBlock</code> iterujesz <code>MidiBuffer</code> i wywolujesz mapping na kazdym slider ktory ma uczony CC.</p>
+
+        <h2>Trendy UI 2026</h2>
+        <table>
+            <thead><tr><th>Trend</th><th>Opis</th><th>Przyklady producentow</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Flat / Modern dark</strong></td><td>Ciemne tlo, akcenty kolorystyczne, bez 3D</td><td>FabFilter, Soundtoys</td></tr>
+                <tr><td><strong>Skeuomorphic premium</strong></td><td>Realistyczne pokretla, lampy, igly VU</td><td>Waves, IK Multimedia, Universal Audio</td></tr>
+                <tr><td><strong>Neumorphism (lekko)</strong></td><td>Soft shadows, embossed elements</td><td>Niektore nowe boutique</td></tr>
+                <tr><td><strong>Brutalist</strong></td><td>Duze fonty, kontrast, geometrycznie</td><td>u-he Diva, Bitwig</td></tr>
+                <tr><td><strong>Bento layouts</strong></td><td>Sekcje pogrupowane w bloki</td><td>iZotope Ozone 11, FL Studio</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Trend wiodacy 2026:</strong> dark mode by default, akcent kolorystyczny per kategoria pluginu (EQ = niebieski, comp = pomaranczowy, reverb = fiolet), duzo whitespace, czyste typo.</p>
+
+        <h2>Performance — nie repainta za duzo</h2>
+<pre><code>// ZLE: 60 FPS repaint calego okna nawet gdy nic sie nie dzieje
+startTimerHz(60);
+void timerCallback() { repaint(); }
+
+// LEPIEJ: repaint tylko zmienionego komponentu
+levelMeter.repaint();   // tylko meter, nie cale okno
+
+// JESZCZE LEPIEJ: tylko gdy faktycznie wartosc sie zmienila
+void timerCallback()
+{
+    auto newLevel = processor.getLevel();
+    if (std::abs(newLevel - lastLevel) &gt; 0.001f)
+    {
+        levelMeter.setLevel(newLevel);
+        lastLevel = newLevel;
+    }
+}</code></pre>
+        <p><strong>Regula:</strong> GUI w pluginie powinno zuzywac &lt; 1% CPU. Jesli jestes &gt; 5% — cos zle.</p>
+
+        <h2>Web-based GUI alternative — Choc + WebView</h2>
+        <div class="card">
+            <p>Niektorzy nowoczesni developerzy ida <strong>alternatywna droga</strong> — GUI w HTML/CSS/JS. Plugin laduje WebView i komunikuje sie z DSP przez bridge.</p>
+            <p><strong>Plusy:</strong></p>
+            <ul>
+                <li>Designerzy znaja HTML/CSS lepiej niz JUCE Graphics</li>
+                <li>React, Vue, web components do reuzytku</li>
+                <li>Latwa zmiana stylowania (CSS!)</li>
+            </ul>
+            <p><strong>Minusy:</strong></p>
+            <ul>
+                <li>Wiekszy plugin (Chromium ~150 MB)</li>
+                <li>Wolniejsze (web stack overhead)</li>
+                <li>Bridge native &lt;-&gt; web ma latencje</li>
+            </ul>
+            <p><strong>Choc</strong> (Cmajor company, juce-compatible) i <strong>JUCE WebView</strong> w wersji 8.0+ to opcje. Niektore nowe pluginy (Output, Cradle, Splice wlasne) tak dzialaja.</p>
+        </div>
+
+        <h2>BinaryData — wbudowane assety</h2>
+        <p>JUCE ma narzedzie <strong>BinaryBuilder</strong> (z Projucer albo <code>juce_add_binary_data</code>) ktore pakuje obrazki/SVG/fonty do executable jako binary blobs.</p>
+<pre><code>juce_add_binary_data(MyPluginAssets
+    SOURCES
+        Resources/logo.svg
+        Resources/background.png
+        Resources/Inter-Bold.ttf
+)
+
+target_link_libraries(MyPlugin PRIVATE MyPluginAssets)</code></pre>
+
+        <p>W kodzie:</p>
+<pre><code>auto logoSvg = juce::Drawable::createFromImageData(
+    BinaryData::logo_svg, BinaryData::logo_svgSize);
+
+auto interFont = juce::Typeface::createSystemTypefaceFor(
+    BinaryData::InterBold_ttf, BinaryData::InterBold_ttfSize);
+g.setFont(juce::Font(juce::FontOptions(interFont).withHeight(16.0f)));</code></pre>
+
+        <h2>Co dalej</h2>
+        <p>Majac kompetencje GUI — slidery, knoby, level metery, custom LookAndFeel, animacje — mozesz zbudowac profesjonalnie wygladajacy plugin. Nastepne kroki:</p>
+        <ul>
+            <li><strong>Zaawansowane DSP</strong> (rozdzial 8) — convolution reverb, FFT, oversampling, multi-band</li>
+            <li><strong>Dystrybucja i instalator</strong> (rozdzial 9) — Inno Setup, Packages, anti-piracy</li>
+            <li><strong>Marketing</strong> (rozdzial 10) — Plugin Boutique, KVR, wlasna strona</li>
+        </ul>
+
+        <div class="card">
+            <h3>Wazne zrodla GUI inspiracji:</h3>
+            <ul>
+                <li><code>juce.com/learn/tutorials</code> (sekcja Graphics)</li>
+                <li>Dribbble.com — "audio plugin UI"</li>
+                <li>Studia komercyjnych pluginow (FabFilter, Soundtoys, Output) — ale nie kopiuj 1:1</li>
+                <li>Reddit <code>/r/AudioPluginDev</code> — community feedback na GUI design</li>
+            </ul>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="06-cross-platform-build.html">&larr; 06 — Cross-platform build</a>
+            <a href="08-zaawansowane-dsp.html">08 — Zaawansowane DSP &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

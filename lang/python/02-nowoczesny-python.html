@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nowoczesny Python</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#facc15;--accent-hover:#fde047;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">Python</a>
+    <span class="sep">/</span>
+    <span class="title">Nowoczesny Python</span>
+</div>
+
+<div class="container">
+<h1>Nowoczesny Python (3.13/3.14)</h1>
+<p class="subtitle">Free-threaded mode (no GIL!), JIT compiler, pattern matching, structural typing, taskgroups, dataclasses with slots.</p>
+
+<h2>Free-threaded Python (PEP 703) - bez GIL!</h2>
+<p>Python 3.13 wprowadza <strong>opcjonalny tryb bez GIL</strong> (Global Interpreter Lock). Po raz pierwszy w 30-letniej historii Pythona thread-y moga sie naprawde wykonywac rownolegle (CPU-bound).</p>
+
+<pre><code># Instalacja free-threaded buildu
+# Linux/macOS:
+uv python install 3.13t           # 't' = threaded
+uv venv --python 3.13t
+
+# Lub recznie z python.org - "free-threaded build"
+
+# Sprawdzenie GIL
+import sys
+print(sys._is_gil_enabled())   # False na free-threaded build
+
+# CPU-bound kod teraz dziala rownolegle
+import threading
+import time
+
+def cpu_intensive(n):
+    s = 0
+    for i in range(n):
+        s += i * i
+    return s
+
+threads = []
+start = time.time()
+for _ in range(8):
+    t = threading.Thread(target=cpu_intensive, args=(10_000_000,))
+    threads.append(t)
+    t.start()
+for t in threads:
+    t.join()
+print(f"Czas: {time.time() - start:.2f}s")
+
+# Bez GIL: szybsze ~ 8x na 8-rdzeniowym CPU</code></pre>
+
+<div class="card">
+<p><strong>Ostrzezenie:</strong> Free-threaded mode w 3.13 jest <strong>experimental</strong>. Wiele paczek C-extensions wymaga adaptacji. Stabilne API spodziewane w 3.14/3.15. Single-threaded perf moze byc nieco gorsze (~5%).</p>
+</div>
+
+<h2>JIT compiler (PEP 744)</h2>
+<p>Python 3.13 dostaje wbudowany experimentalny JIT compiler oparty na "copy-and-patch" technologii (krotki, lekki).</p>
+
+<pre><code># Wlaczenie JIT (compile-time flag)
+./configure --enable-experimental-jit
+make
+
+# Albo dla wybranych dystrybucji - flag PYTHON_JIT=1
+
+# Stan: ~5% szybciej w benchmarkach 3.13. W 3.14/3.15 spodziewane wieksze gainy.</code></pre>
+
+<h2>Pattern matching (3.10+)</h2>
+<pre><code># Match/case - zaawansowane wzorce
+def opisz_punkt(punkt):
+    match punkt:
+        case (0, 0):
+            return "Punkt zerowy"
+        case (0, y):
+            return f"Na osi Y, y={y}"
+        case (x, 0):
+            return f"Na osi X, x={x}"
+        case (x, y) if x == y:
+            return f"Na przekatnej, ({x}, {y})"
+        case (x, y):
+            return f"Punkt ({x}, {y})"
+        case _:
+            return "Nie punkt"
+
+# Class patterns
+@dataclass
+class Krag:
+    promien: float
+
+@dataclass
+class Kwadrat:
+    bok: float
+
+def pole(figura):
+    match figura:
+        case Krag(promien=r):
+            return 3.14 * r ** 2
+        case Kwadrat(bok=b):
+            return b * b
+        case _:
+            raise ValueError("Nieznana figura")
+
+# Sequence patterns
+match komenda.split():
+    case ["go", direction]:
+        ruszaj_w(direction)
+    case ["go", *directions]:
+        for d in directions:
+            ruszaj_w(d)
+    case ["pickup", item, "from", location]:
+        podnies(item, location)</code></pre>
+
+<h2>Type hints - zaawansowane</h2>
+
+<h3>TypeAlias (3.10+) i type statement (3.12+)</h3>
+<pre><code>from typing import TypeAlias
+
+# Stary styl (3.10+)
+UserId: TypeAlias = int
+
+# Nowy styl (3.12+) - wbudowany 'type' statement
+type UserId = int
+type ConnectionMap = dict[str, list[Connection]]
+
+# Generic type alias
+type Container[T] = list[T] | tuple[T, ...]</code></pre>
+
+<h3>ParamSpec (3.10+)</h3>
+<pre><code>from typing import ParamSpec, TypeVar
+from collections.abc import Callable
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+def loguj(fn: Callable[P, R]) -&gt; Callable[P, R]:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -&gt; R:
+        print(f"Wywolanie {fn.__name__}")
+        return fn(*args, **kwargs)
+    return wrapper
+
+@loguj
+def dodaj(a: int, b: int) -&gt; int:
+    return a + b</code></pre>
+
+<h3>Generic syntax (PEP 695, 3.12+)</h3>
+<pre><code># Stary styl
+from typing import TypeVar, Generic
+
+T = TypeVar("T")
+class Stack(Generic[T]):
+    def push(self, item: T) -&gt; None: ...
+    def pop(self) -&gt; T: ...
+
+# Nowy styl (3.12+)
+class Stack[T]:
+    def push(self, item: T) -&gt; None: ...
+    def pop(self) -&gt; T: ...
+
+def first[T](items: list[T]) -&gt; T:
+    return items[0]</code></pre>
+
+<h3>Structural typing (Protocol)</h3>
+<pre><code>from typing import Protocol
+
+class Drawable(Protocol):
+    def draw(self) -&gt; None: ...
+
+class Krag:           # nie dziedziczy z Drawable!
+    def draw(self) -&gt; None:
+        print("Rysuje krag")
+
+class Kwadrat:        # tez bez dziedziczenia
+    def draw(self) -&gt; None:
+        print("Rysuje kwadrat")
+
+def render(obj: Drawable) -&gt; None:    # struktur. typing
+    obj.draw()
+
+render(Krag())        # OK - Krag ma draw()
+render(Kwadrat())     # OK</code></pre>
+
+<h2>Dataclasses z slots</h2>
+<pre><code>from dataclasses import dataclass
+
+# slots=True - znacznie mniejsze zuzycie pamieci, szybszy dostep do atrybutow
+@dataclass(slots=True, frozen=True)
+class Point:
+    x: float
+    y: float
+
+p = Point(1.0, 2.0)
+# p.z = 3.0   # AttributeError - nie ma dynamicznych atr.
+
+# Porownanie pamieci:
+# Bez slots: ~280 bytes
+# Ze slots:  ~80 bytes
+# Az 70% mniej pamieci dla typowego DTO!
+
+# kw_only - tylko keyword arguments
+@dataclass(kw_only=True, slots=True)
+class User:
+    name: str
+    email: str
+    age: int = 0
+
+u = User(name="Anna", email="a@b.pl")
+# User("Anna", "a@b.pl")  # Error - kw_only</code></pre>
+
+<h2>tomllib (3.11+) - parsowanie TOML</h2>
+<pre><code>import tomllib
+
+# Czytanie pyproject.toml (z stdlib!)
+with open("pyproject.toml", "rb") as f:
+    data = tomllib.load(f)
+
+print(data["project"]["name"])
+print(data["project"]["dependencies"])
+
+# Pisanie - nie ma w stdlib (uzyj tomli-w lub tomlkit)
+import tomli_w
+with open("config.toml", "wb") as f:
+    tomli_w.dump({"key": "value"}, f)</code></pre>
+
+<h2>TaskGroups (asyncio, 3.11+)</h2>
+<pre><code>import asyncio
+
+async def pobierz(url: str) -&gt; str:
+    await asyncio.sleep(1)
+    return f"data from {url}"
+
+async def main():
+    # Stary styl - latwo zapomniec o handle errors
+    results = await asyncio.gather(
+        pobierz("a.pl"),
+        pobierz("b.pl"),
+    )
+
+    # Nowy styl - TaskGroup (3.11+)
+    async with asyncio.TaskGroup() as tg:
+        t1 = tg.create_task(pobierz("a.pl"))
+        t2 = tg.create_task(pobierz("b.pl"))
+    # Po wyjsciu z bloku wszystkie taski sa wykonane
+    # Jesli ktorys rzucil exception - wszystkie inne sa anulowane
+    # Wszystkie exceptions sa zebrane w ExceptionGroup
+
+    print(t1.result(), t2.result())
+
+asyncio.run(main())</code></pre>
+
+<h2>ExceptionGroup (3.11+)</h2>
+<pre><code>def proces():
+    raise ExceptionGroup("multiple errors", [
+        ValueError("bad value"),
+        TypeError("bad type"),
+        OSError("io error"),
+    ])
+
+try:
+    proces()
+except* ValueError as eg:
+    print(f"Caught {len(eg.exceptions)} ValueError(s)")
+except* (TypeError, OSError) as eg:
+    print(f"Caught {len(eg.exceptions)} I/O errors")</code></pre>
+
+<h2>Walrus operator := (3.8+)</h2>
+<pre><code># Assignment expression - przypisanie i uzycie w jednym
+if (n := len(items)) &gt; 10:
+    print(f"Lista ma {n} elementow")
+
+# Pomocne w petlach
+while (line := f.readline()):
+    process(line)
+
+# I w comprehensions
+filtered = [y for x in data if (y := process(x)) is not None]</code></pre>
+
+<h2>Generic Self type (3.11+)</h2>
+<pre><code>from typing import Self
+
+class Builder:
+    def with_name(self, name: str) -&gt; Self:
+        self.name = name
+        return self
+
+    def with_age(self, age: int) -&gt; Self:
+        self.age = age
+        return self
+
+# Subclasses dziedzicza poprawne typy
+class UserBuilder(Builder):
+    def with_email(self, email: str) -&gt; Self:
+        self.email = email
+        return self
+
+# Mozemy chainowac
+ub = UserBuilder().with_name("Anna").with_age(30).with_email("a@b.pl")
+# Type checker wie ze 'ub' to UserBuilder, nie Builder</code></pre>
+
+<h2>Override decorator (3.12+)</h2>
+<pre><code>from typing import override
+
+class Base:
+    def metoda(self) -&gt; None: ...
+
+class Pochodna(Base):
+    @override                     # weryfikuje ze nadpisuje istniejaca metode
+    def metoda(self) -&gt; None: ...
+
+    @override                     # &lt;-- error! brak metody w bazie
+    def inna_metoda(self) -&gt; None: ...</code></pre>
+
+<h2>PEP 8 - co sie zmienilo</h2>
+<table>
+<thead><tr><th>Stare</th><th>Nowe (3.10+)</th></tr></thead>
+<tbody>
+<tr><td><code>List[int]</code></td><td><code>list[int]</code></td></tr>
+<tr><td><code>Dict[str, int]</code></td><td><code>dict[str, int]</code></td></tr>
+<tr><td><code>Tuple[int, str]</code></td><td><code>tuple[int, str]</code></td></tr>
+<tr><td><code>Optional[X]</code></td><td><code>X | None</code></td></tr>
+<tr><td><code>Union[A, B]</code></td><td><code>A | B</code></td></tr>
+<tr><td><code>TypeVar</code></td><td><code>def fn[T]()</code> (3.12+)</td></tr>
+</tbody></table>
+
+<div class="card">
+<h3>Migracja: stary &rarr; nowoczesny Python</h3>
+<ul>
+<li>typing.List[X] &rarr; <strong>list[X]</strong></li>
+<li>Optional[X] &rarr; <strong>X | None</strong></li>
+<li>asyncio.gather &rarr; <strong>TaskGroup</strong></li>
+<li>setup.py &rarr; <strong>pyproject.toml</strong></li>
+<li>pip + venv + virtualenv &rarr; <strong>uv</strong></li>
+<li>black + flake8 + isort &rarr; <strong>ruff</strong></li>
+<li>requirements.txt &rarr; <strong>pyproject.toml + uv.lock</strong></li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="01-podstawy-python.html">&larr; Podstawy Python</a>
+<a href="03-frameworki-i-ekosystem.html">Frameworki &rarr;</a>
+</div>
+</div>
+</body>
+</html>

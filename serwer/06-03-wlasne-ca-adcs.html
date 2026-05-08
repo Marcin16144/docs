@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wlasne CA - ADCS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="06-certyfikaty-ssl-tls.html">Certyfikaty SSL/TLS</a>
+    <span class="sep">/</span>
+    <span class="title">Wlasne CA - ADCS</span>
+</div>
+
+<div class="container">
+<h1>Wlasne CA - Active Directory Certificate Services</h1>
+<p class="subtitle">Wlasne PKI w organizacji - ADCS, certificate templates, auto-enrollment i revocation.</p>
+
+<h2>Po co wlasne CA</h2>
+<p>Publiczne CA (Let's Encrypt, DigiCert) wydaja certyfikaty tylko dla domen publicznych. <strong>ADCS (Active Directory Certificate Services)</strong> jest implementacja PKI od Microsoftu pozwalajaca wystawiac certyfikaty dla zasobow wewnetrznych.</p>
+
+<h3>Typowe zastosowania</h3>
+<table>
+<tr><th>Zastosowanie</th><th>Opis</th></tr>
+<tr><td>Wewnetrzne HTTPS</td><td>Aplikacje intranet bez publicznej domeny</td></tr>
+<tr><td>Domain Controllers</td><td>LDAPS (LDAP over TLS) - wymagane dla nowoczesnych aplikacji</td></tr>
+<tr><td>Smart card / Windows Hello for Business</td><td>Uwierzytelnianie certyfikatami zamiast hasla</td></tr>
+<tr><td>S/MIME</td><td>Email signing i encryption</td></tr>
+<tr><td>Code signing</td><td>Podpisywanie wlasnego oprogramowania, skryptow PowerShell</td></tr>
+<tr><td>VPN klient/serwer</td><td>EAP-TLS dla VPN</td></tr>
+<tr><td>WiFi 802.1x</td><td>Logowanie do WiFi przez certyfikaty</td></tr>
+<tr><td>RADIUS/NPS</td><td>Server certificate dla RADIUS</td></tr>
+<tr><td>IPSec</td><td>Mutual auth IPSec</td></tr>
+</table>
+
+<h2>Typy CA w ADCS</h2>
+<table>
+<tr><th>Typ</th><th>Charakterystyka</th><th>Use case</th></tr>
+<tr><td>Enterprise Root CA</td><td>Zintegrowany z AD, automatyczne deploy do klientow przez GPO</td><td>Maly biznes, lab, prosta hierarchia</td></tr>
+<tr><td>Standalone Root CA</td><td>Niezalezne, offline (nie czlonek domeny)</td><td>Najwyzszy poziom hierarchii - ROOT offline</td></tr>
+<tr><td>Enterprise Subordinate CA</td><td>Wystawia certyfikaty z autoryzacja Root</td><td>Issuing CA - codzienne wystawianie</td></tr>
+<tr><td>Standalone Subordinate CA</td><td>Subordinate offline (rzadko)</td><td>Policy CA w bardzo zlozonych hierarchiach</td></tr>
+</table>
+
+<div class="card">
+<p><strong>Best practice w produkcji:</strong> <strong>Two-tier hierarchy</strong> - Standalone Offline Root CA + Enterprise Issuing CA. Root jest fizycznie odlaczony (offline) - jego klucz prywatny nigdy nie opuszcza chronionego serwera. Issuing CA on-line wystawia codzienne certyfikaty.</p>
+</div>
+
+<h2>Instalacja Enterprise Root CA</h2>
+<pre><code># 1. Instalacja roli ADCS
+Install-WindowsFeature -Name AD-Certificate `
+                       -IncludeManagementTools
+
+# 2. Instalacja roli services dodatkowych
+Install-WindowsFeature -Name ADCS-Cert-Authority,ADCS-Web-Enrollment `
+                       -IncludeManagementTools
+
+# 3. Konfiguracja CA
+Install-AdcsCertificationAuthority `
+    -CAType EnterpriseRootCA `
+    -CACommonName "Contoso-RootCA" `
+    -CADistinguishedNameSuffix "DC=contoso,DC=local" `
+    -KeyLength 4096 `
+    -HashAlgorithmName SHA256 `
+    -ValidityPeriod Years `
+    -ValidityPeriodUnits 10 `
+    -DatabaseDirectory "C:\Windows\system32\CertLog" `
+    -LogDirectory "C:\Windows\system32\CertLog" `
+    -Force
+
+# 4. Web Enrollment (interfejs https://server/certsrv)
+Install-AdcsWebEnrollment -Force</code></pre>
+
+<h2>Certificate Templates</h2>
+<p>Templates definiuja typ wystawianych certyfikatow - cel (auth, encryption, signing), waznosc, rozmiar klucza, podmioty uprawnione. Konsola: <code>certtmpl.msc</code>.</p>
+
+<h3>Wbudowane templates</h3>
+<table>
+<tr><th>Template</th><th>Cel</th></tr>
+<tr><td>Computer</td><td>Authentication komputera w domenie</td></tr>
+<tr><td>Web Server</td><td>SSL/TLS dla IIS</td></tr>
+<tr><td>User</td><td>Smart card logon, EFS</td></tr>
+<tr><td>Domain Controller Authentication</td><td>LDAPS, Kerberos KDC</td></tr>
+<tr><td>Smartcard Logon</td><td>Smart card uwierzytelnianie</td></tr>
+<tr><td>Code Signing</td><td>Podpisywanie kodu</td></tr>
+<tr><td>EFS</td><td>Encryption File System</td></tr>
+</table>
+
+<h3>Tworzenie nowego template (kopia)</h3>
+<pre><code># 1. certtmpl.msc -&gt; Web Server -&gt; Duplicate Template
+# 2. Compatibility tab:
+#    - Certification Authority:    Windows Server 2016
+#    - Certificate recipient:       Windows 10/Server 2016
+# 3. General tab:
+#    - Template display name:       "Contoso Web Server"
+#    - Validity period:             2 years
+#    - Renewal period:              6 weeks
+# 4. Request Handling tab:
+#    - Allow private key to be exported (zaleznie od potrzeby)
+# 5. Cryptography tab:
+#    - Algorithm:                   RSA
+#    - Minimum key size:            2048
+#    - Hash:                        SHA256
+# 6. Subject Name tab:
+#    - Build from this AD info / Supply in request
+# 7. Extensions tab:
+#    - Application Policies:        Server Authentication
+# 8. Security tab:
+#    - Authenticated Users:         Read
+#    - Domain Computers:            Read, Enroll, Autoenroll
+# 9. Wlaczenie templatu w certsrv.msc -&gt; Certificate Templates -&gt; New -&gt; Issue</code></pre>
+
+<h2>Auto-enrollment przez GPO</h2>
+<p>Auto-enrollment automatycznie wydaje i odnawia certyfikaty domenowych komputerow/uzytkownikow bez interakcji uzytkownika.</p>
+<pre><code># GPO konfiguracja:
+# Computer Configuration -&gt; Policies -&gt; Windows Settings
+#   -&gt; Security Settings -&gt; Public Key Policies
+#       -&gt; Certificate Services Client - Auto-Enrollment
+#          [x] Enroll certificates automatically
+#          [x] Renew expired certificates
+#          [x] Update certificates that use templates
+
+# Dla uzytkownikow:
+# User Configuration -&gt; Policies -&gt; ... -&gt; Certificate Services Client - Auto-Enrollment
+
+# Wymuszenie auto-enrollment na konkretnym hoscie
+gpupdate /force
+certutil -pulse  # wymusza ponowna analize templates
+
+# Sprawdzenie wystawionych certyfikatow
+Get-ChildItem Cert:\LocalMachine\My
+Get-ChildItem Cert:\CurrentUser\My</code></pre>
+
+<h2>Manualne wydanie certyfikatu (CSR)</h2>
+<pre><code># 1. Generacja CSR z PowerShell
+$inf = @"
+[Version]
+Signature="`$Windows NT`$"
+
+[NewRequest]
+Subject = "CN=app.contoso.local, O=Contoso, OU=IT, L=Warsaw, S=PL, C=PL"
+KeySpec = 1
+KeyLength = 4096
+Exportable = TRUE
+MachineKeySet = TRUE
+SMIME = FALSE
+PrivateKeyArchive = FALSE
+UserProtected = FALSE
+UseExistingKeySet = FALSE
+ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
+ProviderType = 12
+RequestType = PKCS10
+KeyUsage = 0xa0
+
+[EnhancedKeyUsageExtension]
+OID=1.3.6.1.5.5.7.3.1 ; Server Authentication
+
+[Extensions]
+2.5.29.17 = "{text}"
+_continue_ = "DNS=app.contoso.local&amp;"
+_continue_ = "DNS=www.contoso.local&amp;"
+_continue_ = "IP=10.0.1.50"
+"@
+
+$inf | Out-File -Encoding ASCII C:\temp\req.inf
+certreq -new C:\temp\req.inf C:\temp\req.csr
+
+# 2. Submit CSR do CA
+certreq -submit -config "ca-server.contoso.local\Contoso-RootCA" `
+        -attrib "CertificateTemplate:WebServer" `
+        C:\temp\req.csr C:\temp\cert.cer
+
+# 3. Akceptacja (instalacja w Personal store)
+certreq -accept C:\temp\cert.cer
+
+# 4. Eksport do PFX
+$cert = Get-ChildItem Cert:\LocalMachine\My |
+    Where-Object { $_.Subject -like "*app.contoso.local*" }
+$pwd = ConvertTo-SecureString "Pass!" -AsPlainText -Force
+Export-PfxCertificate -Cert $cert -FilePath "C:\export\cert.pfx" -Password $pwd</code></pre>
+
+<h2>Revocation - CRL i OCSP</h2>
+<p>Gdy certyfikat zostaje skompromitowany lub przestaje byc potrzebny, mozna go uniewaznic. Klienci sprawdzaja status przez Certificate Revocation List (CRL) lub Online Certificate Status Protocol (OCSP).</p>
+
+<h3>CRL (Certificate Revocation List)</h3>
+<pre><code># Konfiguracja punktow CRL Distribution Point (CDP)
+# certsrv.msc -&gt; Properties -&gt; Extensions tab -&gt; Select extension: CRL Distribution Point
+# Dodanie URL np. http://pki.contoso.com/CertEnroll/&lt;CaName&gt;&lt;CRLNameSuffix&gt;.crl
+
+# Manualne wystawienie nowej CRL
+certutil -CRL
+
+# Ogladanie CRL
+certutil -dump C:\Windows\system32\CertSrv\CertEnroll\*.crl
+
+# Czas zycia CRL: domyslnie 7 dni - dla srodowisk produkcyjnych zmienic na 1-2 dni
+# Delta CRL: czas zycia 1 dzien - tylko nowe revokacje od ostatniej Base CRL
+
+# Revoke certyfikatu
+certutil -revoke "&lt;serial number&gt;" "Reason"
+# Reasons: 0=Unspecified, 1=KeyCompromise, 2=CACompromise, 3=AffiliationChanged,
+#          4=Superseded, 5=CessationOfOperation, 6=CertificateHold</code></pre>
+
+<h3>Online Responder (OCSP)</h3>
+<p>Online Responder publikuje status certyfikatow przez HTTP - klient pyta o pojedynczy certyfikat, dostaje podpisana odpowiedz "Good", "Revoked", "Unknown". Bardziej efektywne niz pobieranie pelnej CRL.</p>
+<pre><code># Instalacja Online Responder
+Install-WindowsFeature ADCS-Online-Cert -IncludeManagementTools
+Install-AdcsOnlineResponder -Force
+
+# Konfiguracja wymagana w certsrv:
+# 1. Wystawienie certyfikatu OCSP Response Signing dla serwera Online Responder
+# 2. AIA extension w wystawianych certyfikatach -&gt;
+#    URL OCSP: http://pki.contoso.com/ocsp
+
+# Verifikacja statusu OCSP konkretnego certyfikatu
+certutil -url "C:\path\to\cert.cer"</code></pre>
+
+<h2>Two-tier hierarchy - production setup</h2>
+<ul>
+<li><strong>Standalone Root CA (offline)</strong>:
+    <ul>
+        <li>Workgroup, nie czlonek domeny</li>
+        <li>Po instalacji wylaczyc serwer, wlaczac tylko dla wystawienia subordinate / nowej CRL</li>
+        <li>Klucz min. RSA 4096 bit, SHA256</li>
+        <li>Waznosc: 10-20 lat</li>
+        <li>CRL publishing: rocznie (Root CA wystawia rzadko)</li>
+        <li>Backup klucza prywatnego na HSM lub Smart Card</li>
+    </ul>
+</li>
+<li><strong>Enterprise Issuing CA (online)</strong>:
+    <ul>
+        <li>Czlonek domeny AD - integracja</li>
+        <li>Subordinate od Root - certyfikat wystawiony przez Root</li>
+        <li>Klucz RSA 2048-4096</li>
+        <li>Waznosc: 5-10 lat (krotsze niz Root)</li>
+        <li>CRL publishing: 1-7 dni</li>
+        <li>Auto-enrollment dla domeny przez GPO</li>
+    </ul>
+</li>
+</ul>
+
+<h2>Distrybucja Root CA na klientow</h2>
+<pre><code># Enterprise CA - automatycznie przez AD (NTAuth store, Trusted Root Cert Authorities)
+# Standalone Root - trzeba recznie pushnac przez GPO
+
+# Eksport Root cert (bez klucza prywatnego)
+$root = Get-ChildItem Cert:\LocalMachine\Root |
+    Where-Object { $_.Subject -like "*Contoso-RootCA*" }
+Export-Certificate -Cert $root -FilePath "C:\export\contoso-root.cer"
+
+# Push przez GPO:
+# Computer Configuration -&gt; Policies -&gt; Windows Settings -&gt; Security
+#   -&gt; Public Key Policies -&gt; Trusted Root Certification Authorities
+#      -&gt; Import: contoso-root.cer
+
+# Lub manualnie:
+Import-Certificate -FilePath "C:\export\contoso-root.cer" `
+                   -CertStoreLocation Cert:\LocalMachine\Root</code></pre>
+
+<h2>Best practices</h2>
+<ul>
+<li>Two-tier hierarchy: offline Root + online Issuing</li>
+<li>Klucz Root chroniony przez HSM lub Smart Card</li>
+<li>SHA256 minimum (NIE SHA1, MD5)</li>
+<li>Klucze RSA min. 2048 bit, najlepiej 4096 dla CA</li>
+<li>Validity period: Root 10-20 lat, Issuing 5-10 lat, leaf 1-2 lata</li>
+<li>CRL publishing 1-7 dni dla Issuing CA</li>
+<li>OCSP Responder dla wydajnego sprawdzania revocation</li>
+<li>Audyt loggingu CA (Event ID 4886, 4888 - request, issued)</li>
+<li>Backup CA database (certsrv.mdb) i klucza prywatnego (po HSM)</li>
+<li>Disaster recovery: dokumentacja procedury restore CA</li>
+<li>Monitoring waznosci subordinate (alarm 90 dni przed)</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="06-02-konfiguracja-tls.html">&larr; Konfiguracja TLS</a>
+    <a href="06-certyfikaty-ssl-tls.html">Certyfikaty SSL/TLS &rarr;</a>
+</div>
+</div>
+</body>
+</html>

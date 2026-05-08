@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment Blazor</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">WWW</a><span class="sep">/</span><a href="index.html">Blazor</a><span class="sep">/</span><span class="title">Deployment</span></div>
+<div class="container">
+<h1>Deployment Blazor</h1>
+<p class="subtitle">IIS, Azure App Service, Docker, Static Web Apps, Kubernetes, AOT</p>
+
+<h2>Modele i ich deployment</h2>
+<table>
+<thead><tr><th>Model</th><th>Wymaga</th><th>Mozliwy hosting</th></tr></thead>
+<tbody>
+<tr><td>Blazor Server</td><td>.NET runtime + persistent connection</td><td>IIS, Kestrel, Azure App Service, Docker</td></tr>
+<tr><td>Blazor WebAssembly</td><td>Statyczne pliki (HTML, JS, WASM, dll)</td><td>Azure SWA, Netlify, Vercel, S3+CloudFront, GitHub Pages</td></tr>
+<tr><td>Blazor United</td><td>.NET runtime (server side rendering)</td><td>Jak Blazor Server</td></tr>
+<tr><td>Blazor Hybrid</td><td>Native packaging</td><td>App Stores, MSIX, dmg, apk</td></tr>
+</tbody>
+</table>
+
+<h2>Publikowanie projektu</h2>
+<pre><code># Standardowy publish
+dotnet publish -c Release -o ./publish
+
+# Self-contained (zawiera runtime, ~70 MB)
+dotnet publish -c Release -r win-x64 --self-contained true
+
+# Single-file
+dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-contained true
+
+# Trimmed (mniejsze pliki, eksperymentalne)
+dotnet publish -c Release -p:PublishTrimmed=true</code></pre>
+
+<h2>IIS hosting (Windows)</h2>
+<p>IIS wymaga ASP.NET Core Hosting Bundle dla danej wersji .NET. Po jego instalacji konfigurujesz application pool i site.</p>
+
+<h3>Web.config (auto-generowany)</h3>
+<pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;configuration&gt;
+  &lt;location path="." inheritInChildApplications="false"&gt;
+    &lt;system.webServer&gt;
+      &lt;handlers&gt;
+        &lt;add name="aspNetCore" path="*" verb="*"
+             modules="AspNetCoreModuleV2" resourceType="Unspecified" /&gt;
+      &lt;/handlers&gt;
+      &lt;aspNetCore processPath=".\MyApp.exe"
+                  arguments=""
+                  stdoutLogEnabled="false"
+                  hostingModel="inprocess" /&gt;
+    &lt;/system.webServer&gt;
+  &lt;/location&gt;
+&lt;/configuration&gt;</code></pre>
+
+<h3>WebSocket dla Blazor Server</h3>
+<p>IIS musi miec wlaczona role <strong>WebSocket Protocol</strong>. W IIS Manager: Server Roles -&gt; Web Server -&gt; Application Development -&gt; WebSocket Protocol.</p>
+
+<h2>Azure App Service</h2>
+<p>Najprostszy hosting dla Blazor Server.</p>
+<pre><code># Azure CLI
+az webapp up --runtime "DOTNETCORE:9.0" --sku B1 --name my-blazor-app
+
+# Lub z Visual Studio: Publish -&gt; Azure App Service</code></pre>
+
+<h3>Konfiguracja WebSocket</h3>
+<pre><code>az webapp config set --name my-blazor-app --web-sockets-enabled true
+az webapp config set --name my-blazor-app --always-on true</code></pre>
+
+<h2>Azure Static Web Apps (Blazor WASM)</h2>
+<p>Idealne dla Blazor WASM &mdash; darmowy plan, integracja z GitHub Actions.</p>
+<pre><code># .github/workflows/azure-swa.yml
+- uses: Azure/static-web-apps-deploy@v1
+  with:
+    azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+    repo_token: ${{ secrets.GITHUB_TOKEN }}
+    action: "upload"
+    app_location: "/MyBlazorWasm"
+    output_location: "wwwroot"</code></pre>
+
+<h2>Docker (multi-stage)</h2>
+
+<h3>Blazor Server / United Dockerfile</h3>
+<pre><code>FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY . .
+RUN dotnet restore
+RUN dotnet publish MyApp.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "MyApp.dll"]</code></pre>
+
+<pre><code>docker build -t my-blazor-app .
+docker run -p 8080:8080 my-blazor-app</code></pre>
+
+<h3>Blazor WASM Dockerfile (z nginx)</h3>
+<pre><code>FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY . .
+RUN dotnet publish MyWasmApp.csproj -c Release -o /app
+
+FROM nginx:alpine
+COPY --from=build /app/wwwroot /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/nginx.conf
+EXPOSE 80</code></pre>
+
+<h2>Kubernetes z Helm</h2>
+<pre><code># values.yaml
+replicaCount: 3
+image:
+  repository: registry.example.com/my-blazor-app
+  tag: "1.0.0"
+service:
+  type: ClusterIP
+  port: 80
+ingress:
+  enabled: true
+  hosts:
+    - host: app.example.com
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m</code></pre>
+
+<pre><code>helm install my-app ./chart -f values.yaml
+helm upgrade my-app ./chart --set image.tag=1.1.0</code></pre>
+
+<h3>Sticky sessions dla Blazor Server</h3>
+<p>Blazor Server wymaga <strong>sticky sessions</strong> &mdash; uzytkownik musi trafiac na ten sam pod. W K8s ustaw:</p>
+<pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: my-app
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+spec:
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800</code></pre>
+
+<h2>AOT compilation</h2>
+<p>Ahead-Of-Time compilation generuje natywny kod &mdash; szybszy start, lepszy throughput, mniejszy obraz Docker. Dla Blazor WASM wlasciwie wymagany w produkcji (5x mniejszy bundle).</p>
+<pre><code>&lt;PropertyGroup&gt;
+  &lt;RunAOTCompilation&gt;true&lt;/RunAOTCompilation&gt;
+  &lt;PublishTrimmed&gt;true&lt;/PublishTrimmed&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+<h3>AOT dla Blazor Server (.NET 9+)</h3>
+<pre><code>&lt;PropertyGroup&gt;
+  &lt;PublishAot&gt;true&lt;/PublishAot&gt;
+  &lt;StripSymbols&gt;true&lt;/StripSymbols&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+<p>Wymaga zgodnych zaleznosci. Niektore biblioteki (np. EF Core z lazy proxies) nie wspieraja AOT &mdash; zweryfikuj.</p>
+
+<h2>Prerendering (Blazor United)</h2>
+<p>W .NET 8/9 Blazor United domyslnie renderuje strony serwerowo (HTML), a interaktywnosc dochodzi po hydracji. To poprawia LCP i SEO.</p>
+<pre><code>// Komponent decyduje:
+&lt;Counter @rendermode="@(new InteractiveServerRenderMode(prerender: true))" /&gt;</code></pre>
+
+<h2>Compression i caching</h2>
+<p>Dla Blazor WASM bardzo wazna jest kompresja Brotli/Gzip oraz dluzsze cache headers.</p>
+<pre><code># nginx
+location ~* \.(dll|wasm|js|css)$ {
+    expires 365d;
+    add_header Cache-Control "public, immutable";
+    gzip on;
+    gzip_types application/wasm application/dll;
+}</code></pre>
+<pre><code># Azure Static Web Apps staticwebapp.config.json
+{
+  "globalHeaders": {
+    "Cache-Control": "public, max-age=31536000, immutable"
+  }
+}</code></pre>
+
+<h2>Health checks</h2>
+<pre><code>builder.Services.AddHealthChecks()
+    .AddDbContextCheck&lt;AppDbContext&gt;()
+    .AddRedis(redisConnectionString);
+
+app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check =&gt; check.Tags.Contains("ready")
+});</code></pre>
+
+<h2>Logging i monitoring</h2>
+<ul>
+<li><strong>Serilog</strong> + sink do Seq, Elastic, Loki</li>
+<li><strong>Application Insights</strong> &mdash; integracja Microsoft</li>
+<li><strong>OpenTelemetry</strong> &mdash; standard 2026, traces+metrics+logs</li>
+<li><strong>Datadog</strong> APM</li>
+<li><strong>Honeycomb</strong> dla observability</li>
+</ul>
+
+<div class="card">
+<h3>Checklist deployment</h3>
+<ul>
+<li>HTTPS only (HSTS)</li>
+<li>Compression (Brotli/Gzip)</li>
+<li>Health checks endpoint</li>
+<li>Structured logging</li>
+<li>Backup database przed migracja</li>
+<li>Blue-green / canary deployment</li>
+<li>Sekrety w KeyVault / parameter store, nie w appsettings</li>
+<li>Rate limiting na public endpointach</li>
+<li>CSP header</li>
+<li>WebSocket support potwierdzony (dla Blazor Server)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="07-komponenty-biblioteki.html">&larr; Biblioteki komponentow</a>
+<a href="blazor-united/index.html">Blazor United &rarr;</a>
+</div>
+</div>
+</body>
+</html>

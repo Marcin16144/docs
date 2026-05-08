@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PHP w IIS via FastCGI</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="05-iis-zaawansowane.html">IIS - zaawansowane</a>
+    <span class="sep">/</span>
+    <span class="title">PHP via FastCGI</span>
+</div>
+
+<div class="container">
+<h1>PHP w IIS via FastCGI</h1>
+<p class="subtitle">Hosting PHP w IIS - instalacja, konfiguracja FastCGI, OPcache i tuning produkcyjny.</p>
+
+<h2>Architektura</h2>
+<p>PHP w IIS dziala przez modul <strong>FastCgiModule</strong>. Kazdy request <code>*.php</code> trafia do procesu <code>php-cgi.exe</code> uruchomionego osobno od w3wp.exe. FastCGI utrzymuje pulu instancji php-cgi (warm), recyclujac je co X requestow.</p>
+<table>
+<tr><th>Wersja PHP</th><th>Build</th><th>Cel</th></tr>
+<tr><td>NTS (Non-Thread Safe) x64</td><td>Zalecany dla IIS</td><td>FastCGI uzywa pojedynczego watku per proces - NTS jest szybszy</td></tr>
+<tr><td>TS (Thread Safe)</td><td>Apache mod_php</td><td>NIE uzywac w IIS</td></tr>
+<tr><td>VC15 / VS16 / VS17</td><td>Microsoft Visual C++ Runtime</td><td>Wymagany VC++ Redistributable odpowiedniej wersji</td></tr>
+</table>
+
+<h2>Instalacja CGI w IIS</h2>
+<pre><code># 1. Wlaczenie CGI feature
+Install-WindowsFeature -Name Web-CGI
+
+# 2. Pobranie PHP z windows.php.net (NTS x64)
+$phpVer = "8.3.13"
+$url = "https://windows.php.net/downloads/releases/php-$phpVer-nts-Win32-vs16-x64.zip"
+Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\php.zip"
+
+Expand-Archive "$env:TEMP\php.zip" -DestinationPath "C:\PHP" -Force
+
+# 3. Kopia php.ini
+Copy-Item "C:\PHP\php.ini-production" "C:\PHP\php.ini"
+
+# 4. Sprawdzenie
+&amp; "C:\PHP\php.exe" -v
+&amp; "C:\PHP\php.exe" -m  # lista zaladowanych modulow</code></pre>
+
+<h2>Rejestracja PHP w FastCGI</h2>
+<pre><code># Rejestracja aplikacji FastCGI
+&amp; "$env:windir\system32\inetsrv\appcmd.exe" set config `
+    -section:system.webServer/fastCgi `
+    /+"[fullPath='C:\PHP\php-cgi.exe']" /commit:apphost
+
+# Mapowanie *.php do handlera FastCGI
+&amp; "$env:windir\system32\inetsrv\appcmd.exe" set config `
+    -section:system.webServer/handlers `
+    /+"[name='PHP_via_FastCGI', `
+        path='*.php', `
+        verb='*', `
+        modules='FastCgiModule', `
+        scriptProcessor='C:\PHP\php-cgi.exe', `
+        resourceType='Either', `
+        requireAccess='Script']" /commit:apphost
+
+# Dodanie index.php do listy default documents
+&amp; "$env:windir\system32\inetsrv\appcmd.exe" set config `
+    -section:system.webServer/defaultDocument `
+    /+"files.[value='index.php']" /commit:apphost
+
+# Restart IIS
+iisreset</code></pre>
+
+<h2>PHP Manager for IIS</h2>
+<p>PHP Manager to narzedzie GUI rozszerzajace IIS Manager o panel do zarzadzania PHP. Pozwala podgladac aktywne wersje, zmieniac ustawienia php.ini, sprawdzac konfiguracje.</p>
+<ul>
+<li>Multiple PHP versions - obsluga roznych wersji per witryna</li>
+<li>php.ini editor z walidacja</li>
+<li>Diagnostic - wykrycie typowych problemow konfiguracyjnych</li>
+<li>Pobieranie z github.com/phpmanager/phpmanager</li>
+</ul>
+
+<h2>Tuning FastCGI</h2>
+<pre><code># Konfiguracja parametrow FastCGI
+&amp; "$env:windir\system32\inetsrv\appcmd.exe" set config `
+    -section:system.webServer/fastCgi `
+    /[fullPath='C:\PHP\php-cgi.exe'].instanceMaxRequests:10000 `
+    /[fullPath='C:\PHP\php-cgi.exe'].maxInstances:0 `
+    /[fullPath='C:\PHP\php-cgi.exe'].idleTimeout:300 `
+    /[fullPath='C:\PHP\php-cgi.exe'].activityTimeout:30 `
+    /[fullPath='C:\PHP\php-cgi.exe'].requestTimeout:90 `
+    /[fullPath='C:\PHP\php-cgi.exe'].queueLength:1000 `
+    /commit:apphost</code></pre>
+
+<table>
+<tr><th>Parametr</th><th>Default</th><th>Zalecane (produkcja)</th><th>Opis</th></tr>
+<tr><td>instanceMaxRequests</td><td>200</td><td>10000</td><td>Recycling procesu po N requestach (chroni przed memory leakami)</td></tr>
+<tr><td>maxInstances</td><td>4</td><td>0 (auto)</td><td>0 = automatyczne skalowanie wg obciazenia</td></tr>
+<tr><td>idleTimeout</td><td>300</td><td>300</td><td>Sek. nieaktywnosci przed terminacja procesu</td></tr>
+<tr><td>activityTimeout</td><td>30</td><td>30-60</td><td>Maks. czas oczekiwania na odpowiedz od PHP</td></tr>
+<tr><td>requestTimeout</td><td>90</td><td>90-300</td><td>Maks. czas obslugi requestu</td></tr>
+<tr><td>queueLength</td><td>1000</td><td>1000</td><td>Bufor kolejki requestow gdy wszystkie procesy zajete</td></tr>
+<tr><td>rapidFailsPerMinute</td><td>10</td><td>10</td><td>Po N porazkach FastCGI wylacza application pool</td></tr>
+</table>
+
+<h2>Tuning php.ini</h2>
+<pre><code>; Ogolna wydajnosc
+memory_limit = 256M               ; Limit pamieci per request (zwykle 128M-512M)
+max_execution_time = 60           ; Sek. maks. dla requestu
+max_input_time = 60               ; Sek. maks. parsowania danych
+post_max_size = 32M               ; Maks. POST request size
+upload_max_filesize = 32M         ; Maks. plik upload (musi byc &lt;= post_max_size)
+max_file_uploads = 20             ; Liczba plikow w jednym uploadzie
+
+; Sesje
+session.save_handler = files
+session.save_path = "C:\inetpub\temp\PHP-Sessions"
+session.gc_maxlifetime = 1440     ; Sek. waznosci sesji
+session.cookie_httponly = 1
+session.cookie_secure = 1         ; Tylko HTTPS
+session.cookie_samesite = "Lax"
+session.use_strict_mode = 1
+
+; Timezone
+date.timezone = "Europe/Warsaw"
+
+; Bezpieczenstwo
+expose_php = Off                  ; Ukrycie X-Powered-By PHP
+allow_url_fopen = Off             ; Wylaczenie HTTP fopen (RCE prevention)
+allow_url_include = Off           ; Wylaczenie include z URL (zawsze!)
+display_errors = Off              ; Brak bledow do klienta
+log_errors = On
+error_log = "C:\inetpub\logs\PHP\error.log"
+
+; OPcache - krytyczny dla wydajnosci
+opcache.enable = 1
+opcache.enable_cli = 0
+opcache.memory_consumption = 256  ; MB
+opcache.interned_strings_buffer = 16  ; MB
+opcache.max_accelerated_files = 20000
+opcache.revalidate_freq = 60      ; Co ile sek. sprawdzac mtime plikow
+opcache.fast_shutdown = 1
+opcache.validate_timestamps = 1   ; W produkcji = 0 + reset przy deploy
+opcache.save_comments = 1         ; Wymagane dla niektorych frameworkow (Doctrine)</code></pre>
+
+<h2>OPcache - dramatic performance</h2>
+<p>OPcache cache'uje skompilowane bytecode PHP w pamieci - bez niego kazdy request odswieza plik z dysku i kompiluje. Z OPcache aplikacja moze byc <strong>5-10x szybsza</strong>.</p>
+
+<div class="card">
+<p><strong>Produkcja:</strong> Ustaw <code>opcache.validate_timestamps = 0</code> i czysc cache po deployu (np. <code>opcache_reset()</code> via dedykowany endpoint, lub restart pool). Bez sprawdzania timestamps PHP omija sprawdzenie mtime - ogromne przyspieszenie ale wymaga manualnego resetu po updaecie kodu.</p>
+</div>
+
+<pre><code>&lt;?php
+// status_opcache.php - diagnostyka
+$status = opcache_get_status();
+echo "Memory used:    " . round($status['memory_usage']['used_memory'] / 1024 / 1024, 2) . " MB\n";
+echo "Memory free:    " . round($status['memory_usage']['free_memory'] / 1024 / 1024, 2) . " MB\n";
+echo "Hits:           " . $status['opcache_statistics']['hits'] . "\n";
+echo "Misses:         " . $status['opcache_statistics']['misses'] . "\n";
+echo "Hit ratio:      " . round($status['opcache_statistics']['opcache_hit_rate'], 2) . "%\n";
+echo "Cached scripts: " . $status['opcache_statistics']['num_cached_scripts'] . "\n";
+
+// Reset (po deployu)
+// opcache_reset();</code></pre>
+
+<h2>WinCache (Microsoft Cache Extension)</h2>
+<p>WinCache to rozszerzenie Microsoftu dla PHP cachujace dane w pamieci wspoldzielonej (file system cache, user objects, sesje). Komplementarne do OPcache.</p>
+<ul>
+<li>File cache - eliminuje stat() na popularnych plikach</li>
+<li>Session cache - sesje w pamieci zamiast plikow</li>
+<li>User cache - API podobne do APCu</li>
+<li>Pobranie z github.com/microsoft/wincache</li>
+</ul>
+
+<h2>web.config - typowa aplikacja PHP</h2>
+<pre><code>&lt;configuration&gt;
+  &lt;system.webServer&gt;
+    &lt;defaultDocument&gt;
+      &lt;files&gt;
+        &lt;clear /&gt;
+        &lt;add value="index.php" /&gt;
+        &lt;add value="index.html" /&gt;
+      &lt;/files&gt;
+    &lt;/defaultDocument&gt;
+
+    &lt;rewrite&gt;
+      &lt;rules&gt;
+        &lt;!-- Pretty URLs - kierowanie wszystkiego do index.php (Laravel/Symfony pattern) --&gt;
+        &lt;rule name="Pretty URLs"&gt;
+          &lt;match url="^(.*)$" /&gt;
+          &lt;conditions&gt;
+            &lt;add input="{REQUEST_FILENAME}" matchType="IsFile"      negate="true" /&gt;
+            &lt;add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" /&gt;
+          &lt;/conditions&gt;
+          &lt;action type="Rewrite" url="index.php?{R:1}" /&gt;
+        &lt;/rule&gt;
+      &lt;/rules&gt;
+    &lt;/rewrite&gt;
+
+    &lt;security&gt;
+      &lt;requestFiltering&gt;
+        &lt;hiddenSegments&gt;
+          &lt;add segment=".env" /&gt;
+          &lt;add segment="vendor" /&gt;
+          &lt;add segment="storage" /&gt;
+        &lt;/hiddenSegments&gt;
+      &lt;/requestFiltering&gt;
+    &lt;/security&gt;
+
+    &lt;httpProtocol&gt;
+      &lt;customHeaders&gt;
+        &lt;remove name="X-Powered-By" /&gt;
+        &lt;add name="X-Content-Type-Options" value="nosniff" /&gt;
+        &lt;add name="X-Frame-Options" value="SAMEORIGIN" /&gt;
+      &lt;/customHeaders&gt;
+    &lt;/httpProtocol&gt;
+  &lt;/system.webServer&gt;
+&lt;/configuration&gt;</code></pre>
+
+<h2>Typowe problemy i rozwiazania</h2>
+<table>
+<tr><th>Problem</th><th>Przyczyna</th><th>Rozwiazanie</th></tr>
+<tr><td>HTTP 500 - "FastCGI process exited unexpectedly"</td><td>Brakuje VC++ Redistributable</td><td>Zainstalowac VC++ 2015-2022 x64</td></tr>
+<tr><td>HTTP 504 - timeout</td><td>activityTimeout / requestTimeout za niski</td><td>Zwiekszyc lub zoptymalizowac PHP code</td></tr>
+<tr><td>Sciezka do php.ini nieznana</td><td>Brak zmiennej PHPRC</td><td>Ustawic PHPRC=C:\PHP w environmentVariables FastCGI</td></tr>
+<tr><td>"Maximum execution time exceeded"</td><td>max_execution_time za niski</td><td>Zwiekszyc lub zoptymalizowac wolne queries</td></tr>
+<tr><td>Sesje sa puste / losowo gubione</td><td>session.save_path niedostepny dla AppPool identity</td><td>icacls grant na folder sesji</td></tr>
+<tr><td>OPcache "Cannot allocate memory"</td><td>opcache.memory_consumption za maly</td><td>Zwiekszyc, zwykle 128-512 MB</td></tr>
+<tr><td>"Headers already sent"</td><td>Output przed session_start / header()</td><td>output_buffering = On lub poprawic kod</td></tr>
+</table>
+
+<h2>Best practices produkcja</h2>
+<ul>
+<li>Tylko NTS x64 build PHP</li>
+<li>Dedykowany App Pool z "No Managed Code" + ApplicationPoolIdentity</li>
+<li>OPcache wlaczony, validate_timestamps=0 + reset po deployu</li>
+<li>display_errors=Off, log_errors=On do dedykowanego logu</li>
+<li>expose_php=Off, X-Powered-By usuniety</li>
+<li>open_basedir restrykcja per witryna (chroni przed path traversal)</li>
+<li>Folder sesji niedostepny przez HTTP (przeniesc poza wwwroot)</li>
+<li>Regularna aktualizacja PHP - kazdy minor brings security fixes</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="05-01-iis-reverse-proxy.html">&larr; Reverse Proxy</a>
+    <a href="05-iis-zaawansowane.html">IIS - zaawansowane &rarr;</a>
+</div>
+</div>
+</body>
+</html>

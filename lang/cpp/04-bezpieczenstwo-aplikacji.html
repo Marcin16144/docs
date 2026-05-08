@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bezpieczenstwo aplikacji C++</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">C++</a>
+    <span class="sep">/</span>
+    <span class="title">Bezpieczenstwo aplikacji</span>
+</div>
+
+<div class="container">
+<h1>Bezpieczenstwo aplikacji C++</h1>
+<p class="subtitle">Memory safety, RAII, smart pointers, std::span, sanitizers, CFI, hardening flags, MISRA C++.</p>
+
+<h2>Memory safety - dlaczego C++ jest zagrozeniem</h2>
+<p>Statystyki Microsoftu i Google: <strong>~70% wszystkich CVE</strong> w przegladarkach, jadrach systemow operacyjnych i aplikacjach C/C++ to bledy memory safety. Wiekszosc ich wynika z:</p>
+
+<ul>
+<li><strong>Use-after-free</strong> &mdash; uzycie wskaznika po zwolnieniu pamieci</li>
+<li><strong>Buffer overflow</strong> &mdash; zapis poza tablica/buforem</li>
+<li><strong>Double-free</strong> &mdash; dwukrotne zwolnienie tej samej pamieci</li>
+<li><strong>Out-of-bounds read/write</strong> &mdash; dostep poza granicami</li>
+<li><strong>Wild/dangling pointers</strong> &mdash; wskazniki do usunietej pamieci</li>
+<li><strong>Uninitialized reads</strong> &mdash; odczyt niezainicjalizowanej pamieci</li>
+<li><strong>Type confusion</strong> &mdash; reinterpret_cast bledne</li>
+</ul>
+
+<h2>RAII - zlota zasada</h2>
+<p>RAII jest jednym z najwazniejszych mechanizmow obrony przed memory bugs. <strong>Kazdy zasob</strong> (memory, file, mutex, socket) ma swojego "wlasciciela" - obiekt RAII zarzadza jego zyciem.</p>
+
+<pre><code>// ZLE - reczny memory management
+void process() {
+    auto* buffer = new char[1024];
+    if (errorCondition()) {
+        return;     // LEAK!
+    }
+    // ... uzycie
+    delete[] buffer;
+}
+
+// DOBRZE - RAII
+void process() {
+    std::vector&lt;char&gt; buffer(1024);
+    if (errorCondition()) {
+        return;     // OK - vector destruktor zwolni pamiec
+    }
+}</code></pre>
+
+<h2>Smart pointers - zamiast new/delete</h2>
+
+<table>
+<thead><tr><th>Smart pointer</th><th>Semantyka</th><th>Kiedy uzyc</th></tr></thead>
+<tbody>
+<tr><td><code>std::unique_ptr&lt;T&gt;</code></td><td>Wylaczna wlasnosc</td><td>Domyslny wybor &mdash; jeden wlasciciel</td></tr>
+<tr><td><code>std::shared_ptr&lt;T&gt;</code></td><td>Wspoldzielona (refcount)</td><td>Wielu wlascicieli, czas zycia niejasny</td></tr>
+<tr><td><code>std::weak_ptr&lt;T&gt;</code></td><td>Bez wlasnosci, observer</td><td>Przerywanie cykli refcount</td></tr>
+</tbody></table>
+
+<pre><code>// unique_ptr - z make_unique (C++14+)
+auto sock = std::make_unique&lt;Socket&gt;("localhost", 8080);
+sock-&gt;send("data");
+// Automatyczne zamkniecie na koncu zakresu
+
+// Move semantics - przekazywanie wlasnosci
+auto inny = std::move(sock);  // sock teraz pusty
+assert(sock == nullptr);
+
+// shared_ptr - dla DAG, drzew
+auto root = std::make_shared&lt;Node&gt;();
+auto child = root-&gt;addChild();
+// Refcount automatyczny
+
+// weak_ptr - parent &lt;-&gt; child cycle
+class Node {
+    std::weak_ptr&lt;Node&gt; parent;     // weak - zapobiega cyklom
+    std::vector&lt;std::shared_ptr&lt;Node&gt;&gt; children;
+};</code></pre>
+
+<h2>std::span - bezpieczne widoki na bufory (C++20)</h2>
+<p>span eliminuje "passing pointer + size" antywzorzec.</p>
+
+<pre><code>#include &lt;span&gt;
+
+// ZLE - latwo o blad
+void process(int* data, size_t size);
+
+// DOBRZE - std::span
+void process(std::span&lt;int&gt; data) {
+    for (auto&amp; x : data) {  // safe iteration
+        x *= 2;
+    }
+    auto pierwszy = data.front();
+    auto ostatni = data.back();
+    auto kawalek = data.subspan(0, 10);  // bezpieczne wycieczki
+}
+
+// Wywolanie
+std::vector&lt;int&gt; v = {1, 2, 3, 4, 5};
+process(v);                              // OK
+int arr[] = {1, 2, 3};
+process(arr);                            // OK
+process(std::span(v).subspan(1, 3));     // OK</code></pre>
+
+<h2>Bounds-checked access</h2>
+<pre><code>std::vector&lt;int&gt; v = {1, 2, 3};
+
+// Niebezpieczne - undefined behavior dla nieprawidlowego indeksu
+int x = v[10];
+
+// Bezpieczne - rzuca std::out_of_range
+int y = v.at(10);
+
+// C++26 - hardening
+// std::array, std::vector, std::span - opcjonalne bounds-checks
+// libc++/libstdc++ maja flagi:
+// -D_LIBCPP_ENABLE_HARDENED_MODE
+// -D_GLIBCXX_DEBUG</code></pre>
+
+<h2>Hardening flags - kompilacja</h2>
+<p>Flagi kompilatora znaczaco redukuja powierzchnie ataku:</p>
+
+<pre><code># GCC/Clang - production hardening
+-D_FORTIFY_SOURCE=3            # Runtime checks str/mem fns (FORTIFY_SOURCE=3 GCC 12+)
+-fstack-protector-strong       # Stack canaries
+-fstack-clash-protection        # Stack overflow detection
+-fcf-protection=full            # Control Flow Integrity (Intel CET)
+-D_GLIBCXX_ASSERTIONS           # libstdc++ assertions
+-Wformat -Wformat-security      # printf format strings
+-Wl,-z,relro,-z,now             # Read-only relocations
+-Wl,-z,noexecstack              # No exec on stack
+-fPIE -pie                      # Position Independent Executable
+-fsanitize=cfi                  # Control Flow Integrity (Clang)
+
+# CMake przyklad
+target_compile_options(myapp PRIVATE
+    -D_FORTIFY_SOURCE=3
+    -fstack-protector-strong
+    -fcf-protection=full
+    -Wformat=2
+    -Wformat-security
+)
+target_link_options(myapp PRIVATE
+    -Wl,-z,relro,-z,now,-z,noexecstack
+)</code></pre>
+
+<h2>CFI - Control Flow Integrity</h2>
+<p>CFI to ochrona przed ROP/JOP atakami &mdash; weryfikuje, ze kazdy indirect call/jump idzie do legitnego celu. Clang ma najlepsze CFI w open-source.</p>
+
+<pre><code>// LLVM CFI
+clang++ -flto -fvisibility=hidden \
+        -fsanitize=cfi \
+        -fsanitize-trap=cfi \
+        main.cpp
+
+// Wymaga LTO (Link Time Optimization) i hidden visibility</code></pre>
+
+<h2>Sanitizers w runtime testach</h2>
+
+<pre><code># Use-after-free demo
+#include &lt;cstring&gt;
+int main() {
+    char* buf = new char[10];
+    delete[] buf;
+    std::strcpy(buf, "AAAA");   // UAF!
+    return 0;
+}
+
+# Kompilacja z ASan
+clang++ -fsanitize=address -g main.cpp
+./a.out
+
+# Output:
+# ==12345==ERROR: AddressSanitizer: heap-use-after-free
+#   READ of size 1 at 0x60200000eff0
+#   ...
+
+# UBSan - integer overflow, null deref
+clang++ -fsanitize=undefined main.cpp
+
+# TSan - data races
+clang++ -fsanitize=thread main.cpp</code></pre>
+
+<h2>Static analysis - kompilator</h2>
+
+<pre><code># GCC -fanalyzer
+g++ -fanalyzer -Wall -Wextra main.cpp
+
+# Wykrywa: NULL deref, double-free, leak, infinite loop
+
+# Clang static analyzer
+clang++ --analyze main.cpp
+# Lub w VS: scan-build make
+
+# clang-tidy - dziesiatki check'ow
+clang-tidy main.cpp -checks='-*,clang-analyzer-*,bugprone-*,cert-*'</code></pre>
+
+<h2>MISRA C++</h2>
+<p>MISRA C++ to standard kodowania dla bezpiecznych systemow embedded (automotive, lotnictwo). Zakazuje wielu konstrukcji uznanych za ryzykowne.</p>
+
+<table>
+<thead><tr><th>Reguła</th><th>Opis</th></tr></thead>
+<tbody>
+<tr><td>Rule 5-0-3</td><td>Zakaz konwersji unsigned/signed</td></tr>
+<tr><td>Rule 6-2-1</td><td>Wymagane braces dla if/else/for/while</td></tr>
+<tr><td>Rule 8-4-2</td><td>Argumenty funkcji muszą mieć nazwy</td></tr>
+<tr><td>Rule 18-4-1</td><td>Zakaz dynamic memory (new/malloc)</td></tr>
+<tr><td>Rule 5-2-9</td><td>Zakaz reinterpret_cast</td></tr>
+</tbody></table>
+
+<p><strong>Narzedzia:</strong> Polyspace, Klocwork, PVS-Studio, Coverity &mdash; komercyjne narzedzia do enforcement MISRA.</p>
+
+<h2>Konkretne wzorce</h2>
+
+<h3>Integer overflow</h3>
+<pre><code>// ZLE - mozliwy overflow
+int a, b;
+int sum = a + b;
+
+// DOBRZE - sprawdz przed
+if (b &gt; std::numeric_limits&lt;int&gt;::max() - a) {
+    throw std::overflow_error("overflow");
+}
+int sum = a + b;
+
+// LEPSZE - C++26 std::add_sat (saturated)
+auto sum = std::add_sat(a, b);
+
+// Built-ins (GCC/Clang)
+int sum;
+if (__builtin_add_overflow(a, b, &amp;sum)) {
+    // overflow!
+}</code></pre>
+
+<h3>String handling - bezpieczne</h3>
+<pre><code>// ZLE - C-style
+char buf[100];
+strcpy(buf, source);            // moze przekroczyc
+sprintf(buf, "%s", source);     // moze przekroczyc
+gets(buf);                       // BARDZO ZLE - DEPRECATED
+
+// DOBRZE - C++
+std::string buf = source;
+std::string formatted = std::format("{}", source);
+std::string line;
+std::getline(std::cin, line);
+
+// Jesli C string konieczny:
+strncpy_s(buf, sizeof(buf), source, _TRUNCATE);  // Windows
+strlcpy(buf, source, sizeof(buf));                // BSD/Linux</code></pre>
+
+<h2>Fuzz testing</h2>
+<pre><code>// libFuzzer - wbudowane w Clang
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
+    if (size &lt; 4) return 0;
+    // Test target function
+    parseProtocol(data, size);
+    return 0;
+}
+
+// Kompilacja
+clang++ -fsanitize=fuzzer,address -g fuzz_target.cpp
+./a.out -max_total_time=300</code></pre>
+
+<div class="card">
+<h3>Memory safety checklist</h3>
+<ul>
+<li>Uzywaj smart pointers, nie new/delete recznie</li>
+<li>RAII dla wszystkich zasobow</li>
+<li>std::vector / std::string / std::array zamiast surowych tablic</li>
+<li>std::span zamiast pointer+size</li>
+<li>.at() lub bounds-checked indexing</li>
+<li>Hardening flags w produkcji</li>
+<li>ASan + UBSan w CI debug</li>
+<li>Fuzz testing dla parsers/network code</li>
+<li>clang-tidy + clang-analyzer w pre-commit</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="03-frameworki-i-ekosystem.html">&larr; Frameworki</a>
+<a href="05-ochrona-kodu-przed-kradzieza.html">Ochrona kodu &rarr;</a>
+</div>
+</div>
+</body>
+</html>

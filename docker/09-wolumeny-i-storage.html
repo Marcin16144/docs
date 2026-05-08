@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wolumeny i storage</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Docker</a><span class="sep">/</span><span class="title">Wolumeny i storage</span></div>
+<div class="container">
+<h1>Wolumeny i storage</h1>
+<p class="subtitle">Bind mounts, named volumes, tmpfs, drivery i backupy</p>
+
+<h2>Trzy typy mountow</h2>
+<table>
+<thead><tr><th>Typ</th><th>Zarzadzane przez</th><th>Lokalizacja</th><th>Use case</th></tr></thead>
+<tbody>
+<tr><td>Bind mount</td><td>Ty</td><td>Dowolna na hoscie</td><td>Dev (kod), config files</td></tr>
+<tr><td>Named volume</td><td>Docker</td><td>/var/lib/docker/volumes/</td><td>Produkcja, dane</td></tr>
+<tr><td>tmpfs</td><td>RAM</td><td>Pamiec hosta</td><td>Sekrety, cache, scratch</td></tr>
+</tbody>
+</table>
+
+<h2>Bind mounts</h2>
+<p>Mapuje konkretna sciezke hosta do kontenera. Idealne dla dev (kod), config, socketow.</p>
+
+<pre><code># Skladnia -v
+docker run -v /host/absolute/path:/container/path nginx
+docker run -v $(pwd):/app node:20
+
+# Read-only
+docker run -v $(pwd)/config:/etc/app:ro myapp
+
+# Skladnia --mount (bardziej explicit, polecane)
+docker run --mount type=bind,source=$(pwd),target=/app,readonly nginx
+
+# Compose
+services:
+  api:
+    volumes:
+      - ./src:/app/src                    # bind, RW
+      - ./config:/etc/app:ro              # bind, RO
+      - /var/run/docker.sock:/var/run/docker.sock  # socket</code></pre>
+
+<h2>Named volumes</h2>
+<p>Wolumen zarzadzany przez Dockera. Trwaly miedzy uruchomieniami kontenerow, latwy do backupu, lepsza wydajnosc na Mac/Win.</p>
+
+<pre><code># Tworzenie
+docker volume create mydata
+
+# Uzycie
+docker run -v mydata:/var/data postgres
+docker run --mount type=volume,source=mydata,target=/var/data postgres
+
+# Inspekcja
+docker volume ls
+docker volume inspect mydata
+# Mountpoint: /var/lib/docker/volumes/mydata/_data
+
+# Compose &mdash; auto tworzony
+services:
+  db:
+    image: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:               # Docker tworzy projekt_db-data</code></pre>
+
+<h3>Anonymous volumes</h3>
+<pre><code># Wolumen bez nazwy &mdash; przy uzyciu Dockerfile VOLUME albo run -v /path
+VOLUME /data            # w Dockerfile
+docker run -v /data myapp   # tworzy anonymous volume
+
+# Pulapka: kazde uruchomienie tworzy nowy &mdash; sieroty po --rm
+docker volume ls -q --filter dangling=true
+docker volume prune</code></pre>
+
+<h2>tmpfs &mdash; tylko RAM</h2>
+<p>Mount w pamieci hosta, znika gdy kontener stop. Idealne dla sekretow, scratch.</p>
+
+<pre><code>docker run --tmpfs /tmp:size=100m alpine
+docker run --mount type=tmpfs,destination=/tmp,tmpfs-size=100m alpine
+
+# Compose
+services:
+  app:
+    tmpfs:
+      - /tmp:size=100m
+      - /run:size=10m</code></pre>
+
+<h2>Volume drivers</h2>
+<p>Domyslny driver to <code>local</code> (lokalny FS hosta). Mozna uzywac plugins dla NFS, CIFS, S3, RBD.</p>
+
+<h3>NFS</h3>
+<pre><code>docker volume create --driver local \
+  --opt type=nfs \
+  --opt o=addr=10.0.0.1,nfsvers=4,rw \
+  --opt device=:/exports/data \
+  shared-nfs
+
+docker run -v shared-nfs:/data alpine ls /data</code></pre>
+
+<h3>CIFS / SMB</h3>
+<pre><code>docker volume create --driver local \
+  --opt type=cifs \
+  --opt o=username=user,password=pass,uid=1000,gid=1000 \
+  --opt device=//server/share \
+  shared-smb</code></pre>
+
+<h3>Plugins (Docker plugin install)</h3>
+<pre><code># Plugin S3 (rclone)
+docker plugin install rclone/docker-volume-rclone
+
+# Vieux/sshfs
+docker plugin install vieux/sshfs
+
+# REX-Ray (multi-cloud)
+docker plugin install rexray/ebs</code></pre>
+
+<h2>Backup wolumenow</h2>
+<p>Najpopularniejsza technika &mdash; "sidecar container" z tar.</p>
+
+<pre><code># Backup
+docker run --rm \
+  -v mydata:/data:ro \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/mydata-$(date +%F).tar.gz -C /data .
+
+# Restore
+docker run --rm \
+  -v mydata:/data \
+  -v $(pwd):/backup \
+  alpine tar xzf /backup/mydata-2026-05-07.tar.gz -C /data
+
+# Postgres &mdash; preferuj pg_dump zamiast tar plikow live'owych
+docker exec -t postgres-db pg_dumpall -U user &gt; backup.sql
+cat backup.sql | docker exec -i postgres-db psql -U user
+
+# Z compose
+docker compose run --rm db pg_dump -U user app &gt; backup.sql</code></pre>
+
+<h3>Volume migration miedzy hostami</h3>
+<pre><code># Na zrodlowym hoscie &mdash; backup
+docker run --rm -v mydata:/data -v $(pwd):/b alpine tar czf /b/v.tar.gz -C /data .
+
+# Skopiuj plik do nowego hosta
+scp v.tar.gz newhost:~/
+
+# Na nowym hoscie &mdash; restore
+docker volume create mydata
+docker run --rm -v mydata:/data -v $(pwd):/b alpine tar xzf /b/v.tar.gz -C /data</code></pre>
+
+<h2>Wydajnosc per platforma</h2>
+<div class="card">
+<h3>Mac &amp; Windows &mdash; bind mounts SA WOLNE</h3>
+<p>Dlaczego: kontenery dzialaja w VM Linux, a bind mount musi przekazywac IO przez most VM&lt;-&gt;host. Praktyczna konsekwencja:</p>
+<ul>
+<li><code>node_modules</code> w bind mount: 10-100x wolniejsze niz natywnie</li>
+<li>Hot reload moze laggowac</li>
+<li>Aplikacje IO-heavy (scaffolding, kompilacja) bardzo cierpia</li>
+</ul>
+<p><strong>Rozwiazania:</strong></p>
+<ul>
+<li>Uzywaj <strong>named volumes</strong> dla node_modules:</li>
+</ul>
+<pre><code>volumes:
+  - .:/app
+  - /app/node_modules     # named volume (anonymous)
+  - /app/.next</code></pre>
+<ul>
+<li>Mac: VirtioFS (Docker Desktop) lub OrbStack &mdash; sa znacznie szybsze</li>
+<li>Mac: Mutagen sync (alternatywa &mdash; sync poza Dockerem)</li>
+<li>Windows: WSL2 + projekt w <code>/home/...</code> (NIE w <code>/mnt/c/</code>)</li>
+</ul>
+</div>
+
+<h3>Linux &mdash; bind mounts natywne</h3>
+<p>Na Linuxie bind mount to tylko <code>mount --bind</code> &mdash; brak narzutu. Mozesz korzystac wszedzie. Named volumes maja <strong>identyczna</strong> wydajnosc.</p>
+
+<h2>Permissions &mdash; klasyczne pulapki</h2>
+<pre><code># Problem: kontener pisze jako root, hosting widzi pliki "owned by root"
+docker run -v $(pwd):/app node:20 npm install
+ls -la node_modules
+# drwxr-xr-x 1 root root ...   &lt;- ZLE
+
+# Rozwiazanie: uzytkownik
+docker run -v $(pwd):/app -u $(id -u):$(id -g) node:20 npm install
+
+# Compose
+services:
+  api:
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - .:/app
+
+# Lub Dockerfile &mdash; createuser i USER
+# I pamietaj o COPY --chown</code></pre>
+
+<h2>SELinux na RHEL/Fedora</h2>
+<p>Z SELinux musisz oznaczyc bind mount &mdash; <code>:Z</code> lub <code>:z</code></p>
+<pre><code>docker run -v $(pwd):/data:Z fedora        # private
+docker run -v /shared:/data:z fedora        # shared</code></pre>
+
+<h2>Wzorce</h2>
+
+<h3>Volumes-from &mdash; backup container</h3>
+<pre><code>docker run --rm \
+  --volumes-from mycontainer \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/full.tar.gz /var/data /etc</code></pre>
+
+<h3>Init container z volume</h3>
+<pre><code>services:
+  init:
+    image: alpine
+    command: sh -c "wget -O /shared/data.json http://api/seed"
+    volumes:
+      - shared:/shared
+
+  app:
+    image: myapp
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    volumes:
+      - shared:/data:ro
+
+volumes:
+  shared:</code></pre>
+
+<h2>Storage &mdash; konserwacja</h2>
+<pre><code># Sprawdz co zajmuje miejsce
+docker system df
+docker system df -v          # szczegolowe per object
+
+# Lista wolumenow nieuzywanych
+docker volume ls --filter dangling=true
+
+# Cleanup &mdash; UWAGA, USUWA DANE
+docker volume prune
+docker volume prune -a       # rowniez te z labels
+
+# Selektywnie
+docker volume rm old-test-data</code></pre>
+
+<h2>Porownanie storage</h2>
+<table>
+<thead><tr><th>Cecha</th><th>Bind mount</th><th>Named volume</th><th>tmpfs</th></tr></thead>
+<tbody>
+<tr><td>Zarzadzanie</td><td>Recznie</td><td>Docker CLI</td><td>Automatyczne</td></tr>
+<tr><td>Trwaly</td><td>Tak</td><td>Tak</td><td>NIE (RAM)</td></tr>
+<tr><td>Performance Linux</td><td>Native</td><td>Native</td><td>Najszybszy</td></tr>
+<tr><td>Performance Mac/Win</td><td>WOLNY</td><td>Szybki (VM-internal)</td><td>Najszybszy</td></tr>
+<tr><td>Backup</td><td>Standardowe FS</td><td>tar przez sidecar</td><td>Brak</td></tr>
+<tr><td>Multi-host</td><td>NIE (lokalna sciezka)</td><td>Tak (z driverem NFS/CIFS)</td><td>NIE</td></tr>
+<tr><td>Use case</td><td>Dev (kod, config)</td><td>Dane produkcyjne</td><td>Sekrety, /tmp</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Best practices</h3>
+<ul>
+<li><strong>Dev kod</strong> &rarr; bind mount</li>
+<li><strong>Produkcja, baza danych, dane uzytkownika</strong> &rarr; named volume</li>
+<li><strong>Mac/Win &mdash; node_modules itp.</strong> &rarr; named volume w bind</li>
+<li><strong>Sekrety, /tmp, scratch</strong> &rarr; tmpfs</li>
+<li><strong>Backupy</strong> &mdash; cron z tar przez sidecar; dla DB &mdash; native dump (pg_dump)</li>
+<li><strong>Permissions</strong> &mdash; <code>USER</code> w Dockerfile + <code>--chown</code> w COPY</li>
+<li><strong>SELinux</strong> &mdash; pamietaj o <code>:Z</code></li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="08-siec-docker.html">&larr; Siec Docker</a>
+<a href="10-bezpieczenstwo-docker.html">Bezpieczenstwo &rarr;</a>
+</div>
+</div>
+</body>
+</html>

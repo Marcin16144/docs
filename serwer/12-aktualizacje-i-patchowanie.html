@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aktualizacje i patchowanie</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">Aktualizacje i patchowanie</span>
+</div>
+
+<div class="container">
+<h1>Aktualizacje i patchowanie</h1>
+<p class="subtitle">Strategie patch managementu - od WSUS po Hot Patching w Windows Server 2025.</p>
+
+<h2>Patch Tuesday i cykl wydan</h2>
+<p>Microsoft publikuje aktualizacje bezpieczenstwa w drugi wtorek miesiaca (<strong>Patch Tuesday</strong>) - zwykle ok. 18-19 UTC. Dodatkowe aktualizacje out-of-band (OOB) sa rzadkie i dotycza krytycznych podatnosci.</p>
+<table>
+<tr><th>Typ aktualizacji</th><th>Czestotliwosc</th><th>Charakterystyka</th></tr>
+<tr><td>Security Update (B release)</td><td>Drugi wtorek miesiaca</td><td>Lacze poprawki bezpieczenstwa + jakosci</td></tr>
+<tr><td>Cumulative Update (C/D)</td><td>Trzeci/czwarty tydzien</td><td>Preview - opcjonalne, do testowania</td></tr>
+<tr><td>Out-of-band (OOB)</td><td>Ad-hoc</td><td>Pilne CVE, np. wormable</td></tr>
+<tr><td>Servicing Stack Update (SSU)</td><td>Wraz z LCU</td><td>Poprawki samego mechanizmu update</td></tr>
+<tr><td>.NET Framework Update</td><td>Patch Tuesday</td><td>Osobno od OS</td></tr>
+</table>
+
+<h2>Windows Update for Business (WUfB)</h2>
+<p>WUfB pozwala kontrolowac timing aktualizacji bez wlasnej infrastruktury - serwery dalej pobieraja z Microsoft Update, ale z opoznieniem konfigurowalnym przez GPO/Intune.</p>
+<pre><code># Konfiguracja WUfB przez PowerShell (rejestr)
+$key = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+
+# Defer Quality Updates (security) o 7 dni
+Set-ItemProperty -Path $key -Name "DeferQualityUpdates" -Value 1 -Type DWord
+Set-ItemProperty -Path $key -Name "DeferQualityUpdatesPeriodInDays" -Value 7 -Type DWord
+
+# Defer Feature Updates o 30 dni
+Set-ItemProperty -Path $key -Name "DeferFeatureUpdates" -Value 1 -Type DWord
+Set-ItemProperty -Path $key -Name "DeferFeatureUpdatesPeriodInDays" -Value 30 -Type DWord
+
+# Pause na 35 dni (max)
+Set-ItemProperty -Path $key -Name "PauseQualityUpdatesStartTime" `
+                 -Value (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ") -Type String</code></pre>
+
+<h2>WSUS - Windows Server Update Services</h2>
+<p>WSUS jest tradycyjnym rozwiazaniem on-premises - serwer pobiera aktualizacje z Microsoft Update, a klienci wewnetrzni pobieraja z WSUS-a. Pozwala oszczedzac pasmo i zatwierdzac patche manualnie.</p>
+
+<div class="card">
+<p><strong>Status WSUS:</strong> W <strong>Windows Server 2025 WSUS jest deprecated</strong> (oznaczony jako "feature in maintenance"). Microsoft rekomenduje migracje do Microsoft Intune lub Microsoft Endpoint Configuration Manager + cloud attach.</p>
+</div>
+
+<pre><code># Instalacja WSUS (mimo deprecation, wciaz wspierane)
+Install-WindowsFeature -Name UpdateServices `
+                       -IncludeManagementTools
+
+# Post-install dla content path
+&amp; "C:\Program Files\Update Services\Tools\WsusUtil.exe" `
+    postinstall CONTENT_DIR=D:\WSUS
+
+# Synchronizacja z Microsoft Update (initial)
+$wsus = Get-WsusServer
+$sub  = $wsus.GetSubscription()
+$sub.StartSynchronization()
+
+# Konfiguracja klientow przez GPO
+# Computer Configuration -&gt; Administrative Templates
+#   -&gt; Windows Components -&gt; Windows Update
+#       -&gt; Specify intranet Microsoft update service location:
+#          http://wsus.contoso.local:8530</code></pre>
+
+<h2>Microsoft Endpoint Configuration Manager (MECM/SCCM)</h2>
+<p>MECM (kiedys SCCM) jest enterprise platforma do zarzadzania aktualizacjami, oprogramowaniem, konfiguracja i deploymentem OS. Wspiera setki tysiecy hostow w jednej infrastrukturze.</p>
+<ul>
+<li>Software Update Point (SUP) - integracja z WSUS</li>
+<li>Update groups - organizacja patchy w kolekcje</li>
+<li>Maintenance windows - okna serwisowe per kolekcja</li>
+<li>Compliance reporting - raporty zgodnosci</li>
+<li>Co-management - integracja z Intune (cloud attach)</li>
+</ul>
+
+<h2>Microsoft Intune (cloud-based)</h2>
+<p>Intune (cze Microsoft 365 / Endpoint Manager) to chmurowa platforma MDM/MAM. Oferuje rownoleznie zarzadzanie aktualizacjami przez <strong>Update Rings</strong>, <strong>Driver Update Profiles</strong> i <strong>Quality Update Profiles</strong>.</p>
+<table>
+<tr><th>Profil</th><th>Cel</th></tr>
+<tr><td>Update Ring</td><td>Polityka deferral i restart dla grupy urzadzen</td></tr>
+<tr><td>Feature Update Profile</td><td>Wymuszenie konkretnej wersji Windows (np. 24H2)</td></tr>
+<tr><td>Quality Update Profile</td><td>Wymuszenie konkretnego LCU (mass deployment)</td></tr>
+<tr><td>Driver Update Profile</td><td>Akceptacja sterownikow Windows Update</td></tr>
+<tr><td>Expedite Quality Update</td><td>Pilny deployment poza standardowym ringiem</td></tr>
+</table>
+
+<h2>Hot Patching - Windows Server 2025</h2>
+<div class="card">
+<p><strong>Game changer:</strong> Windows Server 2025 (Datacenter: Azure Edition) wspiera <strong>Hot Patching</strong> - aktualizacje krytyczne instalowane <strong>bez restartu</strong>! Funkcja wczesniej dostepna tylko w Azure, teraz dostepna szerzej.</p>
+</div>
+
+<h3>Jak dziala Hot Patch</h3>
+<ul>
+<li>Patche kernel/binary loadowane do pamieci procesu w czasie pracy systemu</li>
+<li>Co 3 miesiace baseline reboot (cumulative cold patch)</li>
+<li>Pomiedzy baselineami 2 miesiace hot patches (bez restartu)</li>
+<li>Wymaga: WS 2025 Datacenter: Azure Edition lub Windows Server 2025 Hot Patching service</li>
+<li>Wlaczenie: Azure Update Manager + Hot Patch enrollment</li>
+</ul>
+<pre><code># Sprawdzenie aktualnego stanu Hot Patch
+Get-WindowsCapability -Online | Where-Object Name -like "*HotPatch*"
+
+# Status Azure Edition
+$os = Get-ComputerInfo
+$os.OsName  # "Windows Server 2025 Datacenter: Azure Edition"
+
+# Wlaczenie hot patching przez Azure Update Manager (preferowane)
+# Azure Portal -&gt; Update Manager -&gt; Maintenance Configuration
+# -&gt; Reboot setting: Never reboot
+# -&gt; Patch type: Hotpatch</code></pre>
+
+<h2>Strategia patchingu - test/pilot/production</h2>
+<p>Bezposrednie wdrozenie patchy na produkcji to ryzyko. Standardowy proces ringi:</p>
+<table>
+<tr><th>Ring</th><th>Skala</th><th>Cel</th><th>Timing</th></tr>
+<tr><td>Insider/Preview</td><td>1-3 maszyny dev/test</td><td>Wczesna detekcja problemow z C/D releases</td><td>D-7</td></tr>
+<tr><td>Pilot</td><td>5-10% maszyn (dev, IT)</td><td>Walidacja kompatybilnosci aplikacji</td><td>D+1 (Patch Tuesday)</td></tr>
+<tr><td>Production - Wave 1</td><td>30% (low-criticality)</td><td>Stopniowy roll-out</td><td>D+7</td></tr>
+<tr><td>Production - Wave 2</td><td>40% (mid-criticality)</td><td>Po pozytywnej Wave 1</td><td>D+14</td></tr>
+<tr><td>Production - Wave 3</td><td>30% (mission-critical)</td><td>Krytyczne serwery na koniec</td><td>D+21</td></tr>
+</table>
+
+<h2>Maintenance windows</h2>
+<p>Okna serwisowe powinny byc:</p>
+<ul>
+<li>Zaplanowane i komunikowane min. 7 dni wczesniej</li>
+<li>W godzinach najmniejszego obciazenia (zwykle nocne, weekendy)</li>
+<li>Ograniczone czasowo (max 4-6h, potem rollback)</li>
+<li>Z assigned operatorem (kto pilnuje)</li>
+<li>Z planem rollback (snapshot, backup pre-patch)</li>
+<li>Dla klastrow - rolling update (jeden node po drugim)</li>
+</ul>
+
+<h2>PSWindowsUpdate</h2>
+<pre><code># Modul PowerShell dla Windows Update
+Install-Module PSWindowsUpdate -Force -AllowClobber
+Import-Module PSWindowsUpdate
+
+# Lista oczekujacych aktualizacji
+Get-WindowsUpdate
+
+# Lista aktualizacji z konkretnej kategorii
+Get-WindowsUpdate -Category 'Security Updates'
+
+# Instalacja wszystkich
+Install-WindowsUpdate -AcceptAll -AutoReboot
+
+# Instalacja konkretnej KB
+Install-WindowsUpdate -KBArticleID KB5001234 -AcceptAll
+
+# Historia patchy
+Get-WUHistory | Select Date, Title, Result | Format-Table -AutoSize
+
+# Odinstalowanie KB
+Remove-WindowsUpdate -KBArticleID KB5001234 -NoRestart</code></pre>
+
+<h2>Patch validation post-install</h2>
+<ul>
+<li>Sprawdzenie zainstalowanej wersji: <code>winver</code> lub <code>systeminfo</code></li>
+<li>Lista zainstalowanych KB: <code>wmic qfe list</code> lub <code>Get-HotFix</code></li>
+<li>Walidacja: ping, RDP, kluczowe uslugi (IIS, SQL), API health endpoints</li>
+<li>Sprawdzenie Event Viewer (System log) na bledy bootu/uslug</li>
+<li>Zewnetrzny monitoring (Pingdom, Nagios, Datadog) musi raportowac OK</li>
+</ul>
+
+<h2>Compliance i raportowanie</h2>
+<table>
+<tr><th>Norma</th><th>Wymaganie</th></tr>
+<tr><td>PCI DSS 6.2</td><td>Patche krytyczne w 30 dni</td></tr>
+<tr><td>NIS2 (UE)</td><td>Patche bezpieczenstwa "bez nieuzasadnionego opoznienia"</td></tr>
+<tr><td>HIPAA / SOX</td><td>Dokumentowany proces, raporty zgodnosci</td></tr>
+<tr><td>ISO 27001 A.12.6</td><td>Vulnerability management process, monitoring</td></tr>
+</table>
+
+<h2>Best practices</h2>
+<ul>
+<li>Test patchy w srodowisku staging zanim trafia na produkcje</li>
+<li>Snapshot/backup przed zaaplikowaniem patcha (zwlaszcza na DC, SQL)</li>
+<li>Klastry: rolling update, nigdy wszystkie nody jednoczesnie</li>
+<li>Monitoring po patchu: 24-48h obserwacji (niektore problemy ujawniaja sie pozniej)</li>
+<li>Subskrypcja na MSRC (Microsoft Security Response Center) i CVE feeds</li>
+<li>Inwentaryzacja - kazdy serwer w CMDB/ITSM, znana wersja OS, role, ostatni patch</li>
+<li>Automatyczna detekcja "drift" - serwery bez patcha wiekszego niz X dni</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="11-backup-i-recovery.html">&larr; Backup i recovery</a>
+    <a href="index.html">Powrot do indeksu &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment Blazor Server</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Server</a><span class="sep">/</span><span class="title">Deployment</span></div>
+<div class="container">
+<h1>Deployment Blazor Server</h1>
+<p class="subtitle">IIS, Kestrel + Nginx, Azure App Service, Docker, sticky sessions, WebSocket</p>
+
+<h2>Wymagania</h2>
+<p>Blazor Server wymaga zywego serwera, ktory:</p>
+<ul>
+<li>Hostuje runtime .NET (in-process w IIS lub samodzielnie Kestrel)</li>
+<li>Obsluguje WebSocket (lub fallback long-polling, ale wolny)</li>
+<li>Pozwala na <strong>sticky sessions</strong> jesli skalujesz horyzontalnie</li>
+<li>Trzyma stabilne polaczenia (timeout LB &gt; 1 minuta)</li>
+</ul>
+
+<h2>IIS hosting (Windows Server)</h2>
+
+<h3>Wymagania</h3>
+<ul>
+<li>Windows Server 2019+</li>
+<li>IIS 10+ z rola "WebSocket Protocol"</li>
+<li>ASP.NET Core Hosting Bundle dla danej wersji .NET</li>
+</ul>
+
+<h3>Publish i deploy</h3>
+<pre><code># Publish
+dotnet publish -c Release -o ./publish -r win-x64 --no-self-contained
+
+# Skopiuj do C:\inetpub\wwwroot\myapp
+# Stworz Application Pool: No Managed Code
+# Powiaz site z app pool</code></pre>
+
+<h3>web.config</h3>
+<pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;configuration&gt;
+  &lt;system.webServer&gt;
+    &lt;handlers&gt;
+      &lt;add name="aspNetCore" path="*" verb="*"
+           modules="AspNetCoreModuleV2" resourceType="Unspecified" /&gt;
+    &lt;/handlers&gt;
+    &lt;aspNetCore processPath=".\MyApp.exe"
+                arguments=""
+                stdoutLogEnabled="false"
+                hostingModel="inprocess" /&gt;
+    &lt;webSocket enabled="true" /&gt;
+  &lt;/system.webServer&gt;
+&lt;/configuration&gt;</code></pre>
+
+<h2>Kestrel + Nginx (Linux)</h2>
+
+<h3>Setup Linux</h3>
+<pre><code># Ubuntu 22.04+
+wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+sudo apt update
+sudo apt install -y aspnetcore-runtime-9.0</code></pre>
+
+<h3>systemd service</h3>
+<pre><code># /etc/systemd/system/myapp.service
+[Unit]
+Description=My Blazor App
+After=network.target
+
+[Service]
+WorkingDirectory=/var/www/myapp
+ExecStart=/usr/bin/dotnet /var/www/myapp/MyApp.dll
+Restart=always
+User=www-data
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://localhost:5000
+
+[Install]
+WantedBy=multi-user.target</code></pre>
+<pre><code>sudo systemctl enable myapp
+sudo systemctl start myapp
+sudo systemctl status myapp</code></pre>
+
+<h3>Nginx reverse proxy</h3>
+<pre><code># /etc/nginx/sites-available/myapp
+server {
+    listen 443 ssl http2;
+    server_name app.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/app.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/app.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Timeouts dla SignalR
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_connect_timeout 75s;
+
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}</code></pre>
+
+<h2>Azure App Service</h2>
+
+<h3>Deploy via CLI</h3>
+<pre><code>az webapp up \
+  --runtime "DOTNETCORE:9.0" \
+  --sku S1 \
+  --name my-blazor-app \
+  --resource-group my-rg</code></pre>
+
+<h3>Konfiguracja WebSocket</h3>
+<pre><code>az webapp config set \
+  --name my-blazor-app \
+  --resource-group my-rg \
+  --web-sockets-enabled true \
+  --always-on true</code></pre>
+
+<h3>Sticky sessions (ARRAffinity)</h3>
+<p>Domyslnie wlaczone. Mozesz sprawdzic w Azure Portal -&gt; Configuration -&gt; General settings -&gt; ARR Affinity = ON.</p>
+
+<h2>Docker multi-stage</h2>
+<pre><code>FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY ["MyApp/MyApp.csproj", "MyApp/"]
+RUN dotnet restore "MyApp/MyApp.csproj"
+COPY . .
+WORKDIR "/src/MyApp"
+RUN dotnet publish "MyApp.csproj" -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://+:8080
+ENTRYPOINT ["dotnet", "MyApp.dll"]</code></pre>
+
+<pre><code>docker build -t my-blazor-app .
+docker run -d -p 8080:8080 \
+  -e ASPNETCORE_ENVIRONMENT=Production \
+  --name myapp \
+  my-blazor-app</code></pre>
+
+<h2>Kubernetes z sticky sessions</h2>
+<pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: blazor-app
+spec:
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  selector:
+    app: blazor-app
+  ports:
+    - port: 80
+      targetPort: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blazor-app
+  annotations:
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "BLAZOR_AFFINITY"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: blazor-app
+                port:
+                  number: 80</code></pre>
+
+<h2>Azure SignalR Service integration</h2>
+<p>Dla skalowania powyzej kilkuset uzytkownikow.</p>
+<pre><code>// Program.cs
+builder.Services.AddSignalR()
+    .AddAzureSignalR(builder.Configuration.GetConnectionString("AzureSignalR"));
+
+// appsettings.json
+{
+  "ConnectionStrings": {
+    "AzureSignalR": "Endpoint=https://...;AccessKey=...;Version=1.0"
+  }
+}</code></pre>
+
+<h2>Health checks</h2>
+<pre><code>builder.Services.AddHealthChecks()
+    .AddDbContextCheck&lt;AppDbContext&gt;()
+    .AddRedis(redisConnectionString, tags: new[] { "ready" })
+    .AddCheck("self", () =&gt; HealthCheckResult.Healthy(), tags: new[] { "live" });
+
+app.MapHealthChecks("/health/live", new() {
+    Predicate = check =&gt; check.Tags.Contains("live")
+});
+
+app.MapHealthChecks("/health/ready", new() {
+    Predicate = check =&gt; check.Tags.Contains("ready")
+});</code></pre>
+
+<h2>Logging w produkcji</h2>
+<pre><code>builder.Host.UseSerilog((ctx, lc) =&gt; lc
+    .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .WriteTo.Seq("http://seq.example.com")
+    .WriteTo.Console());</code></pre>
+
+<h2>Environment configs</h2>
+<pre><code>// appsettings.json (default)
+// appsettings.Development.json
+// appsettings.Staging.json
+// appsettings.Production.json
+
+// W Azure: Application Settings (env variables) override
+
+ASPNETCORE_ENVIRONMENT=Production
+ConnectionStrings__Default=Server=...
+Logging__LogLevel__Default=Warning</code></pre>
+
+<h2>Pre-deployment checklist</h2>
+<ul>
+<li>HTTPS dziala (cert valid, not expired)</li>
+<li>WebSocket przepuszczany przez LB / firewall</li>
+<li>Sticky sessions wlaczone</li>
+<li>Sekrety w Key Vault, NIE w appsettings.json</li>
+<li>Health endpoints zwracaja 200</li>
+<li>Logging strukturalny dziala (sprawdz w Seq/AppInsights)</li>
+<li>Backup database przed migracja</li>
+<li>Smoke testy po deploy</li>
+<li>Rollback plan</li>
+<li>Monitoring uruchomione (memory, CPU, latency, errors)</li>
+</ul>
+
+<h2>CI/CD pipeline (GitHub Actions)</h2>
+<pre><code>name: Deploy Blazor
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0'
+      - run: dotnet restore
+      - run: dotnet build -c Release --no-restore
+      - run: dotnet test --no-build
+      - run: dotnet publish -c Release -o ./publish
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: my-blazor-app
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+          package: ./publish</code></pre>
+
+<div class="card">
+<h3>Najczestsze pulapki</h3>
+<ul>
+<li>WebSocket nie dziala (HTTP 400 Bad Request) &mdash; LB nie ma upgrade headers</li>
+<li>Blazor Server na klastrze BEZ sticky sessions &mdash; reconnect issues, "circuit not found"</li>
+<li>Long polling fallback uzywany &mdash; wolne, debug w devtools</li>
+<li>Reconnect timeout zbyt krotki &mdash; uzytkownicy traca prace przy slabej sieci</li>
+<li>Brak HSTS &mdash; man-in-the-middle podsluchuje SignalR</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="05-wydajnosc.html">&larr; Wydajnosc</a>
+<a href="index.html">Powrot do Blazor Server &rarr;</a>
+</div>
+</div>
+</body>
+</html>

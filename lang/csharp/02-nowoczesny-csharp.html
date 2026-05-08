@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nowoczesny C#</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">C#</a>
+    <span class="sep">/</span>
+    <span class="title">Nowoczesny C#</span>
+</div>
+
+<div class="container">
+<h1>Nowoczesny C# (9-13)</h1>
+<p class="subtitle">Records, primary constructors, pattern matching, raw strings, collection expressions, source generators, required members.</p>
+
+<h2>Records (C# 9+)</h2>
+<p>Records to immutable types z value-based equality &mdash; idealne dla DTO, value objects, message types.</p>
+
+<pre><code>// Pozycyjny record - jeden wiersz
+public record Person(string Name, int Age);
+
+// Z dodatkowymi cialami
+public record User(string Email, string Name)
+{
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+
+    public string Display() =&gt; $"{Name} &lt;{Email}&gt;";
+}
+
+// Value equality (struktural)
+var u1 = new Person("Anna", 30);
+var u2 = new Person("Anna", 30);
+Console.WriteLine(u1 == u2);  // True (records!)
+
+// Klasy: u1 == u2 byloby False (reference equality)
+
+// Non-destructive mutation - 'with'
+var u3 = u1 with { Age = 31 };
+
+// Record struct (C# 10+) - value type
+public record struct Point(double X, double Y);
+
+// Inheritance
+public record Animal(string Name);
+public record Dog(string Name, string Breed) : Animal(Name);</code></pre>
+
+<h2>Primary constructors (C# 12+)</h2>
+<p>Wczesniej tylko records mialy primary constructors. C# 12 dodaje je do klas i strukt.</p>
+
+<pre><code>// Stary styl
+public class UserService
+{
+    private readonly IRepository _repo;
+    private readonly ILogger _logger;
+
+    public UserService(IRepository repo, ILogger logger)
+    {
+        _repo = repo;
+        _logger = logger;
+    }
+}
+
+// Nowy styl (C# 12)
+public class UserService(IRepository repo, ILogger logger)
+{
+    public async Task&lt;User?&gt; FindAsync(int id)
+    {
+        logger.LogInformation("Finding user {Id}", id);
+        return await repo.FindAsync&lt;User&gt;(id);
+    }
+}</code></pre>
+
+<h2>Init-only setters (C# 9)</h2>
+<pre><code>public class Config
+{
+    public string ConnectionString { get; init; } = "";
+    public int Timeout { get; init; } = 30;
+}
+
+var config = new Config
+{
+    ConnectionString = "Server=localhost",
+    Timeout = 60
+};
+
+// config.Timeout = 90;  // Error - init only</code></pre>
+
+<h2>Pattern matching</h2>
+<p>C# 9-12 znacznie rozszerzaja pattern matching - jeden z najbardziej wyrazistych systemow w mainstreamowych jezykach.</p>
+
+<pre><code>// Type pattern + property pattern
+object obj = new Person("Anna", 30);
+if (obj is Person { Age: &gt; 18 } p)
+{
+    Console.WriteLine($"{p.Name} jest dorosly");
+}
+
+// Switch expression
+public static decimal CalculateDiscount(Customer c) =&gt; c switch
+{
+    { Type: CustomerType.Vip, YearsActive: &gt;= 5 } =&gt; 0.20m,
+    { Type: CustomerType.Vip } =&gt; 0.15m,
+    { OrdersCount: &gt; 100 } =&gt; 0.10m,
+    { OrdersCount: &gt; 10 } =&gt; 0.05m,
+    _ =&gt; 0m
+};
+
+// List patterns (C# 11)
+int[] numbers = [1, 2, 3, 4, 5];
+var first = numbers switch
+{
+    [] =&gt; "pusta",
+    [var x] =&gt; $"jeden: {x}",
+    [var x, var y] =&gt; $"dwa: {x}, {y}",
+    [var first, .., var last] =&gt; $"pierwszy {first}, ostatni {last}",
+};
+
+// Tuple pattern
+public string GetQuadrant(int x, int y) =&gt; (x, y) switch
+{
+    (&gt; 0, &gt; 0) =&gt; "I",
+    (&lt; 0, &gt; 0) =&gt; "II",
+    (&lt; 0, &lt; 0) =&gt; "III",
+    (&gt; 0, &lt; 0) =&gt; "IV",
+    _ =&gt; "On axis"
+};</code></pre>
+
+<h2>Raw string literals (C# 11)</h2>
+<p>Stringi bez escape - idealne dla JSON, XML, regex, SQL.</p>
+
+<pre><code>// Stary sposob (escape pieklo)
+string json = "{\"name\":\"Anna\",\"age\":30}";
+
+// Raw string (C# 11)
+string json = """
+    {
+        "name": "Anna",
+        "age": 30
+    }
+    """;
+
+// Z interpolacja - $$
+string name = "Anna";
+string json = $$"""
+    { "name": "{{name}}" }
+    """;
+// Liczba $ = liczba { dla interpolacji</code></pre>
+
+<h2>File-scoped namespace (C# 10)</h2>
+<pre><code>// Stary styl (1 poziom wciecia mniej)
+namespace App.Models
+{
+    public class User { }
+}
+
+// Nowy styl (cala plik w namespace)
+namespace App.Models;
+
+public class User { }</code></pre>
+
+<h2>Top-level programs (C# 9)</h2>
+<pre><code>// Program.cs - bez Main()
+using System.Net.Http;
+
+var client = new HttpClient();
+var response = await client.GetAsync("https://example.com");
+var content = await response.Content.ReadAsStringAsync();
+
+Console.WriteLine($"Length: {content.Length}");
+
+// Argumenty CLI dostepne jako 'args'
+foreach (var arg in args)
+{
+    Console.WriteLine(arg);
+}</code></pre>
+
+<h2>Source generators</h2>
+<p>Source generators to pluginy kompilatora generujace kod w runtime kompilacji - bez refleksji, zero-cost abstrakcje.</p>
+
+<pre><code>// Przyklad: System.Text.Json source-generated serializer
+[JsonSerializable(typeof(User))]
+[JsonSerializable(typeof(List&lt;User&gt;))]
+public partial class JsonContext : JsonSerializerContext
+{
+}
+
+// Uzycie - bez refleksji, AOT-friendly
+var user = new User { Name = "Anna" };
+string json = JsonSerializer.Serialize(user, JsonContext.Default.User);
+
+// Inne popularne source generators:
+// - Refit (HTTP clients z interface)
+// - MediatR.SourceGenerators
+// - LoggerMessage attribute
+// - Regex source-generated</code></pre>
+
+<h2>Required members (C# 11)</h2>
+<pre><code>public class User
+{
+    public required string Email { get; init; }
+    public required string Name { get; init; }
+    public int Age { get; init; }
+}
+
+// Kompilator wymusza inicjalizacje 'required'
+var u = new User
+{
+    Email = "a@b.pl",
+    Name = "Anna"
+    // Age - opcjonalne
+};
+
+// Bez Email/Name -&gt; CS9035 error</code></pre>
+
+<h2>Collection expressions (C# 12)</h2>
+<pre><code>// Stary styl
+int[] numbers = new int[] { 1, 2, 3 };
+List&lt;string&gt; names = new List&lt;string&gt; { "Anna", "Bob" };
+
+// Nowy styl - jednolita skladnia
+int[] numbers = [1, 2, 3];
+List&lt;string&gt; names = ["Anna", "Bob"];
+Span&lt;int&gt; span = [1, 2, 3];
+
+// Spread operator
+int[] a = [1, 2, 3];
+int[] b = [4, 5, 6];
+int[] combined = [..a, ..b, 7, 8];   // [1,2,3,4,5,6,7,8]</code></pre>
+
+<h2>Async/await - nowoczesny styl</h2>
+<pre><code>public async Task&lt;User&gt; GetUserAsync(int id, CancellationToken ct = default)
+{
+    // ConfigureAwait(false) w bibliotekach
+    var data = await _http.GetAsync($"/users/{id}", ct).ConfigureAwait(false);
+    return await data.Content.ReadFromJsonAsync&lt;User&gt;(ct).ConfigureAwait(false)
+        ?? throw new InvalidOperationException();
+}
+
+// IAsyncEnumerable&lt;T&gt; - async streams (C# 8+)
+public async IAsyncEnumerable&lt;User&gt; StreamUsersAsync(
+    [EnumeratorCancellation] CancellationToken ct = default)
+{
+    await foreach (var batch in FetchBatchesAsync(ct))
+    {
+        foreach (var user in batch)
+        {
+            yield return user;
+        }
+    }
+}
+
+// Konsumpcja
+await foreach (var user in StreamUsersAsync())
+{
+    Console.WriteLine(user.Name);
+}</code></pre>
+
+<h2>Nullable reference types</h2>
+<pre><code>// W .csproj: &lt;Nullable&gt;enable&lt;/Nullable&gt;
+
+string nieNullowalne = "abc";
+string? nullowalne = null;
+
+// Kompilator wymusi sprawdzenie
+if (nullowalne is not null)
+{
+    Console.WriteLine(nullowalne.Length);  // OK, narrowing
+}
+
+// Null-conditional / null-coalescing
+int? len = nullowalne?.Length;
+string text = nullowalne ?? "default";
+
+// null-forgiving (kiedy wiesz lepiej niz kompilator)
+string forced = nullowalne!.ToUpper();</code></pre>
+
+<div class="card">
+<h3>C# 13 (.NET 9) - nowosci 2024</h3>
+<ul>
+<li><strong>Params collections</strong> &mdash; <code>params Span&lt;int&gt;</code>, <code>params ReadOnlySpan&lt;int&gt;</code></li>
+<li><strong>New lock object</strong> &mdash; <code>System.Threading.Lock</code> (lepsza wydajnosc)</li>
+<li><strong>Implicit index access</strong> &mdash; <code>arr[^1]</code> w obiektach init</li>
+<li><strong>Partial properties</strong> &mdash; uzytkowe dla source generators</li>
+<li><strong>Field keyword</strong> &mdash; preview, dostep do auto-property field</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="01-podstawy-csharp.html">&larr; Podstawy C#</a>
+<a href="03-frameworki-i-ekosystem.html">Frameworki &rarr;</a>
+</div>
+</div>
+</body>
+</html>

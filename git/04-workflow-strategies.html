@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git - strategie pracy</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f87171;--accent-hover:#fca5a5;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Git</a><span class="sep">/</span><span class="title">Strategie pracy</span></div>
+<div class="container">
+<h1>Strategie pracy z Gitem</h1>
+<p class="subtitle">GitFlow, GitHub Flow, GitLab Flow, Trunk-based, Conventional Commits, SemVer</p>
+
+<h2>Po co strategia branchowania?</h2>
+<p>W zespolach pracujacych nad wspolnym repozytorium potrzebne sa jasne reguly: ktore branche maja zmiany, jak sa wprowadzane, kiedy releasujemy. Strategia eliminuje chaos i pozwala na powtarzalne procesy. Wybor zalezy od skali zespolu, czestotliwosci wydan i kultury organizacji.</p>
+
+<h2>GitFlow</h2>
+<p><strong>GitFlow</strong> opisany przez Vincenta Driessena w 2010 roku to klasyczny model dla projektow z dlugim cyklem wydawniczym. Wykorzystuje pieć typow galezi.</p>
+
+<table>
+<tr><th>Galaz</th><th>Cel</th><th>Cykl zycia</th></tr>
+<tr><td><code>master</code> / <code>main</code></td><td>Tylko produkcyjny kod, kazdy commit ma tag wersji</td><td>Wieczna</td></tr>
+<tr><td><code>develop</code></td><td>Integracja nowych funkcjonalnosci - nastepne wydanie</td><td>Wieczna</td></tr>
+<tr><td><code>feature/*</code></td><td>Nowa funkcjonalnosc</td><td>Krotka, mergowana do develop</td></tr>
+<tr><td><code>release/*</code></td><td>Przygotowanie wydania (tylko bug fixy)</td><td>Krotka, do main + develop</td></tr>
+<tr><td><code>hotfix/*</code></td><td>Pilna naprawa produkcji</td><td>Krotka, z main do main + develop</td></tr>
+</table>
+
+<h3>Workflow w GitFlow</h3>
+<pre><code># Inicjalizacja (jednorazowo)
+git switch main
+git switch -c develop
+git push -u origin develop
+
+# Nowa funkcjonalnosc - z develop
+git switch develop
+git pull
+git switch -c feature/user-profile
+
+# Praca, commity
+git add .
+git commit -m "feat: dodaj edycje profilu"
+
+# Push i PR do develop
+git push -u origin feature/user-profile
+# Stworz PR feature/user-profile -> develop
+
+# Po merge - usun feature branch
+git branch -d feature/user-profile
+
+# Przygotowanie wydania
+git switch develop
+git switch -c release/v1.5.0
+# Tutaj tylko: bug fixy, aktualizacja CHANGELOG, version bump
+# Nie dodawaj nowych feature'ow!
+
+# Finalizacja release
+git switch main
+git merge --no-ff release/v1.5.0
+git tag -a v1.5.0 -m "Release 1.5.0"
+git switch develop
+git merge --no-ff release/v1.5.0
+git branch -d release/v1.5.0
+git push origin main develop --tags
+
+# Hotfix - pilna naprawa
+git switch main
+git switch -c hotfix/v1.5.1-security
+# Naprawa
+git commit -m "fix: critical security patch"
+git switch main
+git merge --no-ff hotfix/v1.5.1-security
+git tag -a v1.5.1 -m "Hotfix 1.5.1"
+git switch develop
+git merge --no-ff hotfix/v1.5.1-security
+git branch -d hotfix/v1.5.1-security</code></pre>
+
+<div class="card">
+<strong>GitFlow - kiedy stosowac:</strong>
+<ul>
+<li>Klasyczne wydania wersji oprogramowania (np. desktopowe aplikacje)</li>
+<li>Wymagane wsparcie wielu wersji jednoczesnie</li>
+<li>Dlugie cykle releasowe (kilka tygodni do miesiecy)</li>
+<li>Zespoly z dedykowanymi rolami (developer, release manager)</li>
+</ul>
+<strong>Wady:</strong>
+<ul>
+<li>Skomplikowany - duzo galezi do ogarniecia</li>
+<li>Wolny proces - nie nadaje sie dla CI/CD i czestych deploymentow</li>
+<li>Czeste konflikty miedzy develop a release</li>
+<li>Nie pasuje do nowoczesnych SaaS / mikroserwisow</li>
+</ul>
+</div>
+
+<h2>GitHub Flow</h2>
+<p><strong>GitHub Flow</strong> to prosty, lekki model stworzony przez GitHub. Tylko jedna glowna galaz (<code>main</code>) i feature branche. Idealny dla aplikacji webowych z ciaglym deploymentem.</p>
+
+<h3>Reguly GitHub Flow</h3>
+<ol>
+<li>Wszystko na <code>main</code> jest gotowe do deploy</li>
+<li>Stworz galaz z opisowa nazwa</li>
+<li>Commituj regularnie i pushuj na remote</li>
+<li>Otworz PR jak tylko jestes gotowy do dyskusji</li>
+<li>Merge dopiero po review i przejsciu CI</li>
+<li>Deployuj natychmiast po merge</li>
+</ol>
+
+<pre><code># Workflow GitHub Flow
+git switch main
+git pull
+
+# Feature branch
+git switch -c add-search-feature
+
+# Praca, commit, push
+git commit -m "feat: implement search"
+git push -u origin add-search-feature
+
+# Po review i merge - deployment automatyczny przez CI/CD
+# Galaz usunieta automatycznie
+
+# Aktualizacja main
+git switch main
+git pull
+git branch -d add-search-feature</code></pre>
+
+<h2>GitLab Flow</h2>
+<p><strong>GitLab Flow</strong> rozszerza GitHub Flow o galezie srodowiskowe. Dodaje branche dla kazdego srodowiska (staging, production), co umozliwia kontrole nad tym co zostaje wdrozone gdzie.</p>
+
+<pre><code># Galezie:
+# main          - rozwoj
+# pre-production - testowe srodowisko
+# production    - produkcja
+
+# Workflow:
+# 1. Feature -> main (PR + review)
+# 2. main automatycznie deployowany na dev
+# 3. Manualnie merguj main -> pre-production (deploy na staging)
+# 4. Po testach merguj pre-production -> production (deploy na prod)
+
+# Promocja kodu zawsze "w gore" - nigdy z powrotem
+git switch pre-production
+git merge main
+git push
+
+# Po testach
+git switch production
+git merge pre-production
+git tag v1.5.0
+git push --follow-tags
+
+# Hotfix - bezposrednio z production
+git switch production
+git switch -c hotfix/critical
+# Fix
+# Cherry-pick / merge do main, pre-production i production</code></pre>
+
+<h2>Trunk-Based Development</h2>
+<p><strong>Trunk-Based Development</strong> to model najszybciej rosnacy w popularnosci. Wszyscy developerzy commituja do jednej glownej galezi (trunk/main). Feature branche istnieja krotko (1-2 dni max). Niedokonczone funkcje sa ukrywane pod feature flags.</p>
+
+<h3>Filozofia</h3>
+<ul>
+<li>Krotkie galezie (max 2 dni zycia)</li>
+<li>Czeste integracje z trunk (wiele razy dziennie)</li>
+<li>Feature flags dla niegotowych funkcji</li>
+<li>Continuous Integration (CI) niezbedne</li>
+<li>Wymagana automatyzacja testow</li>
+<li>Release branche tworzone z trunk tylko dla stabilizacji</li>
+</ul>
+
+<pre><code># Krotka galaz - po jednym dniu mergowana
+git switch main
+git pull
+git switch -c quick-fix
+
+# Praca - max kilka commitow
+git commit -m "fix: button alignment"
+
+# Push, PR, code review, merge - wszystko tego samego dnia
+git push -u origin quick-fix
+
+# Niegotowa funkcjonalnosc - pod feature flag
+if (featureFlags.newCheckout) {
+    return &lt;NewCheckout /&gt;;
+} else {
+    return &lt;OldCheckout /&gt;;
+}
+
+# Release branch tylko dla stabilizacji wersji
+git switch main
+git switch -c release/v2.0
+# Tylko bug fixy, brak nowych funkcji
+# Po wydaniu - branch usuwany lub trzymany dla wsparcia</code></pre>
+
+<div class="card">
+<strong>Trunk-based - kiedy stosowac:</strong>
+<ul>
+<li>Aplikacje SaaS z continuous deployment</li>
+<li>Mikroserwisy</li>
+<li>Doswiadczone zespoly z silnym CI/CD</li>
+<li>Kultura code review i feature flags</li>
+</ul>
+<strong>Wymagania:</strong>
+<ul>
+<li>Wysokie pokrycie testami automatycznymi</li>
+<li>System feature flags (np. LaunchDarkly, Unleash, Flagsmith)</li>
+<li>Szybki pipeline CI/CD (< 15 minut)</li>
+<li>Branch protection (no direct push, required reviews)</li>
+</ul>
+</div>
+
+<h2>Conventional Commits</h2>
+<p><strong>Conventional Commits</strong> to specyfikacja standaryzujaca wiadomosci commitow. Pozwala automatycznie generowac CHANGELOG, okreslac wersje, integrowac z narzedziami CI/CD.</p>
+
+<h3>Format</h3>
+<pre><code>&lt;type&gt;(&lt;scope&gt;): &lt;subject&gt;
+
+&lt;body&gt;
+
+&lt;footer&gt;</code></pre>
+
+<table>
+<tr><th>Type</th><th>Znaczenie</th><th>SemVer impact</th></tr>
+<tr><td><code>feat</code></td><td>Nowa funkcjonalnosc</td><td>MINOR</td></tr>
+<tr><td><code>fix</code></td><td>Naprawa buga</td><td>PATCH</td></tr>
+<tr><td><code>docs</code></td><td>Tylko dokumentacja</td><td>none</td></tr>
+<tr><td><code>style</code></td><td>Formatowanie, brak logiki</td><td>none</td></tr>
+<tr><td><code>refactor</code></td><td>Refaktor bez zmian funkcjonalnosci</td><td>none</td></tr>
+<tr><td><code>perf</code></td><td>Optymalizacja wydajnosci</td><td>PATCH</td></tr>
+<tr><td><code>test</code></td><td>Dodawanie/zmiana testow</td><td>none</td></tr>
+<tr><td><code>build</code></td><td>System buildu, zaleznosci</td><td>none</td></tr>
+<tr><td><code>ci</code></td><td>Konfiguracja CI/CD</td><td>none</td></tr>
+<tr><td><code>chore</code></td><td>Inne zadania</td><td>none</td></tr>
+<tr><td><code>revert</code></td><td>Cofniecie commita</td><td>varies</td></tr>
+</table>
+
+<h3>Przyklady</h3>
+<pre><code># Prosta funkcjonalnosc
+feat: dodaj logowanie przez Google OAuth
+
+# Z zakresem (scope)
+feat(auth): dodaj logowanie przez Google OAuth
+
+# Naprawa buga
+fix(api): rozwiaz null pointer w endpoint /users
+
+# Breaking change - dwa sposoby:
+# 1. Wykrzyknik po typie
+feat!: usun deprecated endpoint /api/v1
+
+# 2. Footer BREAKING CHANGE
+feat(api): zmien strukture odpowiedzi /users
+
+BREAKING CHANGE: pole 'name' zostalo zastapione przez 'firstName' i 'lastName'.
+Klienci musza zaktualizowac kod parsujacy odpowiedz.
+
+# Pelny przyklad
+feat(payments): integracja z Stripe
+
+Dodaje obsluge platnosci kartami przez Stripe Elements.
+Wspierane sa karty Visa, Mastercard, Amex.
+Implementuje 3D Secure dla transakcji powyzej 500 PLN.
+
+Closes #234
+Refs #189</code></pre>
+
+<h3>Narzedzia wymuszajace standard</h3>
+<pre><code># commitlint - lint commit messages
+npm install --save-dev @commitlint/cli @commitlint/config-conventional
+
+# .commitlintrc.json
+{
+  "extends": ["@commitlint/config-conventional"]
+}
+
+# Husky - hook git
+npm install --save-dev husky
+npx husky init
+echo 'npx --no -- commitlint --edit $1' > .husky/commit-msg
+
+# Commitizen - interaktywny prompt
+npm install --save-dev commitizen
+npx commitizen init cz-conventional-changelog --save-dev --save-exact
+
+# Uzycie
+git cz   # zamiast git commit</code></pre>
+
+<h2>Semantic Versioning (SemVer)</h2>
+<p><strong>SemVer</strong> to standardowy schemat numerowania wersji: <code>MAJOR.MINOR.PATCH</code> (np. 2.5.3).</p>
+
+<table>
+<tr><th>Cyfra</th><th>Zwiekszamy gdy</th><th>Przyklad</th></tr>
+<tr><td><strong>MAJOR</strong></td><td>Breaking changes (niekompatybilne API)</td><td>1.5.3 -> 2.0.0</td></tr>
+<tr><td><strong>MINOR</strong></td><td>Nowe funkcje (kompatybilne wstecz)</td><td>1.5.3 -> 1.6.0</td></tr>
+<tr><td><strong>PATCH</strong></td><td>Bug fixy (kompatybilne wstecz)</td><td>1.5.3 -> 1.5.4</td></tr>
+</table>
+
+<h3>Pre-release i metadata</h3>
+<pre><code># Pre-release
+1.0.0-alpha
+1.0.0-alpha.1
+1.0.0-beta
+1.0.0-rc.1
+
+# Build metadata
+1.0.0+20260507
+1.0.0-beta+exp.sha.5114f85
+
+# W praktyce
+git tag -a v1.5.0-beta.1 -m "Beta 1 of 1.5.0"
+git tag -a v1.5.0-rc.1 -m "RC 1"
+git tag -a v1.5.0 -m "Stable 1.5.0"</code></pre>
+
+<h3>Automatyzacja - semantic-release</h3>
+<pre><code># Na podstawie Conventional Commits automatycznie:
+# - okresla nowa wersje (analizuje typy commitow)
+# - tworzy CHANGELOG.md
+# - tagi w gitcie
+# - GitHub Release
+# - publikuje na npm
+
+# Instalacja
+npm install --save-dev semantic-release
+
+# .releaserc.json
+{
+  "branches": ["main"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/changelog",
+    "@semantic-release/npm",
+    "@semantic-release/github",
+    "@semantic-release/git"
+  ]
+}
+
+# CI/CD wywoluje
+npx semantic-release</code></pre>
+
+<h2>Porownanie strategii - jak wybrac?</h2>
+
+<table>
+<tr><th>Kryterium</th><th>GitFlow</th><th>GitHub Flow</th><th>GitLab Flow</th><th>Trunk-Based</th></tr>
+<tr><td>Liczba galezi</td><td>5+</td><td>2 (main + feature)</td><td>3-4</td><td>1-2</td></tr>
+<tr><td>Czestotliwosc wydan</td><td>Tygodnie/miesiace</td><td>Codziennie</td><td>Codziennie</td><td>Wiele razy dziennie</td></tr>
+<tr><td>Zycie galezi</td><td>Dni-tygodnie</td><td>Godziny-dni</td><td>Godziny-dni</td><td>Godziny</td></tr>
+<tr><td>CI/CD</td><td>Opcjonalne</td><td>Wymagane</td><td>Wymagane</td><td>Krytyczne</td></tr>
+<tr><td>Feature flags</td><td>Niepotrzebne</td><td>Pomocne</td><td>Pomocne</td><td>Wymagane</td></tr>
+<tr><td>Latwosc nauki</td><td>Trudne</td><td>Latwe</td><td>Srednie</td><td>Wymaga dyscypliny</td></tr>
+<tr><td>Wsparcie wielu wersji</td><td>Tak</td><td>Trudne</td><td>Mozliwe</td><td>Trudne</td></tr>
+<tr><td>Idealne dla</td><td>Wersjonowane software</td><td>Web SaaS</td><td>SaaS z env</td><td>Mikroserwisy</td></tr>
+</table>
+
+<div class="card">
+<strong>Praktyczne rekomendacje:</strong>
+<ul>
+<li><strong>Mala aplikacja webowa, jeden deploy</strong> - GitHub Flow</li>
+<li><strong>SaaS z testowym srodowiskiem</strong> - GitLab Flow</li>
+<li><strong>Mikroserwisy, doswiadczony zespol</strong> - Trunk-Based</li>
+<li><strong>Komercyjne oprogramowanie z wieloma wersjami</strong> - GitFlow</li>
+<li><strong>Open source library</strong> - GitHub Flow + SemVer + semantic-release</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="03-zdalne-repozytoria.html">&larr; Zdalne repozytoria</a>
+<a href="05-zaawansowane.html">Zaawansowane &rarr;</a>
+</div>
+</div>
+</body>
+</html>

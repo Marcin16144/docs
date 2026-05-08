@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reverse proxy - architektura</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="09-publikowanie-uslug.html">Publikowanie uslug</a>
+    <span class="sep">/</span>
+    <span class="title">Architektura reverse proxy</span>
+</div>
+
+<div class="container">
+<h1>Architektura reverse proxy dla uslug publicznych</h1>
+<p class="subtitle">DMZ, two-firewall pattern, SSL termination i izolacja backendu - kompletny design.</p>
+
+<h2>Po co reverse proxy</h2>
+<p>Bezposrednie wystawienie serwera aplikacyjnego do Internetu jest bardzo niebezpieczne. <strong>Reverse proxy w warstwie publicznej</strong> chroni backend, terminuje TLS, filtruje ruch i dystrybuuje obciazenie.</p>
+
+<table>
+<tr><th>Funkcja</th><th>Dlaczego wazne</th></tr>
+<tr><td>Ukrycie topologii</td><td>Klient nie widzi adresow IP backendu - utrudnione skanowanie</td></tr>
+<tr><td>SSL termination</td><td>Centralne zarzadzanie certyfikatami, obciazenie CPU TLS na proxy</td></tr>
+<tr><td>WAF</td><td>Filtrowanie SQL injection, XSS, RCE przed dotarciem do aplikacji</td></tr>
+<tr><td>Load balancing</td><td>Rozdzielenie ruchu miedzy wiele instancji backendu</td></tr>
+<tr><td>Caching</td><td>Cachowanie odpowiedzi statycznych - oszczedzenie backendu</td></tr>
+<tr><td>Rate limiting</td><td>Ochrona L7 przed DDoS i scraperami</td></tr>
+<tr><td>Compression</td><td>Gzip/Brotli responses - oszczednosc transferu</td></tr>
+<tr><td>Header manipulation</td><td>X-Frame-Options, CSP, HSTS dodawane centralnie</td></tr>
+<tr><td>Path-based routing</td><td>Rozdzielenie /api -&gt; backend1, /app -&gt; backend2</td></tr>
+</table>
+
+<h2>Two-firewall DMZ pattern</h2>
+<p>Klasyczny i wciaz aktualny wzorzec. Dwa firewalle (najlepiej od roznych producentow) tworza miedzy soba <strong>strefe zdemilitaryzowana (DMZ)</strong>. Reverse proxy znajduje sie w DMZ.</p>
+
+<div class="card">
+<p><strong>Architektura:</strong></p>
+<pre style="background:transparent;border:none;padding:0;margin:8px 0"><code>           Internet
+              |
+              v
+     +----------------+
+     | External       |  Firewall #1 (perimeter, idealnie inny producent)
+     | Firewall (FW1) |  - tylko 80/443 in -&gt; DMZ
+     +-------+--------+
+             |
+             v
+     +----------------------------+
+     |          DMZ                |
+     |   - Reverse proxy (IIS+ARR  |  Strefa zdemilitaryzowana
+     |     lub Nginx)              |  - hosty publicznie dostepne
+     |   - WAF (opcjonalnie)       |  - brak ruchu inicjowanego do LAN
+     |   - Public DNS              |
+     |   - Mail relay              |
+     +-------+--------------------+
+             |
+             v
+     +----------------+
+     | Internal       |  Firewall #2 (segment internal)
+     | Firewall (FW2) |  - tylko proxy -&gt; konkretne porty backendu
+     +-------+--------+
+             |
+             v
+     +----------------------------+
+     |   Internal LAN              |
+     |   - App servers             |  Backend - chroniony
+     |   - Database                |  - brak ekspozycji do Internetu
+     |   - AD / file servers       |
+     +-----------------------------+</code></pre>
+</div>
+
+<h3>Reguly firewallowe</h3>
+<table>
+<tr><th>Firewall</th><th>Direction</th><th>Source</th><th>Destination</th><th>Port</th><th>Akcja</th></tr>
+<tr><td>FW1 (External)</td><td>Inbound</td><td>Any</td><td>DMZ-Proxy</td><td>80, 443</td><td>Allow</td></tr>
+<tr><td>FW1 (External)</td><td>Inbound</td><td>Any</td><td>Any</td><td>Any</td><td>Deny (default)</td></tr>
+<tr><td>FW1 (External)</td><td>Outbound</td><td>DMZ</td><td>Internet</td><td>53, 80, 443 (limited)</td><td>Allow (updates, OCSP)</td></tr>
+<tr><td>FW2 (Internal)</td><td>Inbound</td><td>DMZ-Proxy</td><td>Backend-App</td><td>8080 (specific)</td><td>Allow</td></tr>
+<tr><td>FW2 (Internal)</td><td>Inbound</td><td>DMZ</td><td>LAN</td><td>Any</td><td>Deny (default)</td></tr>
+<tr><td>FW2 (Internal)</td><td>Outbound</td><td>LAN</td><td>DMZ</td><td>Any</td><td>Deny (chyba ze inicjowane z LAN)</td></tr>
+</table>
+
+<div class="card">
+<p><strong>Zlota zasada:</strong> Z DMZ <strong>nigdy</strong> nie powinno byc inicjowanego ruchu do LAN. Backend serwery laczy sie z DMZ proxy tylko w odpowiedzi na requesty (sesje juz nawiazane). Po kompromitacji proxy atakujacy nie ma jak dostac sie do LAN.</p>
+</div>
+
+<h2>Implementacja DMZ proxy - opcje</h2>
+
+<h3>IIS + ARR (Application Request Routing)</h3>
+<p>Microsoft stack - dobre dla srodowisk juz uzywajacych Windows Server.</p>
+<ul>
+<li>Wbudowane w Windows, dobrze zintegrowane z AD</li>
+<li>URL Rewrite + ARR daje pelne mozliwosci reverse proxy</li>
+<li>Web Farms z load balancing i health checks</li>
+<li>Zarzadzanie przez IIS Manager (GUI) lub PowerShell</li>
+</ul>
+
+<h3>Nginx</h3>
+<p>Najpopularniejszy reverse proxy w swiecie open source. Dziala tez na Windows ale natywnie na Linux.</p>
+<ul>
+<li>Bardzo wysoka wydajnosc (event-driven, asynchroniczny)</li>
+<li>Bogata ekosfera modulow (Lua, OpenResty)</li>
+<li>Konfiguracja w plikach .conf - infrastrukturalne jako kod</li>
+<li>Free + komercyjny Nginx Plus z dodatkowymi funkcjami</li>
+</ul>
+<pre><code># Przyklad konfiguracji Nginx jako reverse proxy
+server {
+    listen 443 ssl http2;
+    server_name app.contoso.com;
+
+    ssl_certificate     /etc/ssl/certs/contoso.crt;
+    ssl_certificate_key /etc/ssl/private/contoso.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+
+    location /api/ {
+        proxy_pass         http://10.10.1.10:8080;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://10.10.1.20:80;
+    }
+}</code></pre>
+
+<h3>HAProxy</h3>
+<p>Klasyk load balancingu, popularny w wysokoprzepustowych srodowiskach. Lepszy dla TCP/L4 niz Nginx, w L7 porownywalny.</p>
+
+<h3>Cloudflare / Azure Front Door / AWS CloudFront</h3>
+<p>Cloud-based reverse proxy + CDN + WAF - eliminuje koniecznosc utrzymywania wlasnego DMZ proxy. Najnowoczesniejsze podejscie dla wielu organizacji.</p>
+
+<h2>SSL termination</h2>
+<p>Trzy wzorce obsługi TLS w reverse proxy:</p>
+
+<table>
+<tr><th>Wzorzec</th><th>Opis</th><th>Plusy</th><th>Minusy</th></tr>
+<tr><td>SSL Termination</td><td>TLS terminowane na proxy, plain HTTP do backendu</td><td>Mniejsze obciazenie backendu, latwe debugowanie</td><td>Plain HTTP w sieci wewnetrznej (compliance ryzyko)</td></tr>
+<tr><td>SSL Re-encryption</td><td>TLS terminowane na proxy + nowe TLS do backendu</td><td>End-to-end encryption, mozliwa inspekcja</td><td>Dodatkowy CPU, dwa certyfikaty</td></tr>
+<tr><td>SSL Passthrough</td><td>TLS przechodzi przez proxy bez deszyfrowania (TCP relay)</td><td>True E2E, brak modyfikacji</td><td>Brak L7 features (WAF, headers, caching)</td></tr>
+</table>
+
+<div class="card">
+<p><strong>Rekomendacja:</strong> Dla wiekszosci aplikacji - <strong>SSL Termination</strong>. Dla compliance (PCI DSS, HIPAA) - <strong>SSL Re-encryption</strong>. SSL Passthrough tylko gdy aplikacja wymaga end-to-end (np. mTLS, custom protocols).</p>
+</div>
+
+<h2>X-Forwarded-* headers</h2>
+<p>Kluczowe naglowki przekazujace informacje o orginalnym kliencie:</p>
+<table>
+<tr><th>Header</th><th>Co zawiera</th><th>Przyklad</th></tr>
+<tr><td>X-Forwarded-For</td><td>Lancuch IP klienta + posrednikow</td><td>203.0.113.5, 198.51.100.1</td></tr>
+<tr><td>X-Forwarded-Proto</td><td>Schemat orginalny (http/https)</td><td>https</td></tr>
+<tr><td>X-Forwarded-Host</td><td>Orginalny Host header</td><td>app.contoso.com</td></tr>
+<tr><td>X-Real-IP</td><td>IP najblizszego klienta (single value)</td><td>203.0.113.5</td></tr>
+<tr><td>Forwarded (RFC 7239)</td><td>Standardowy zamiast X-* prefixed</td><td>for=203.0.113.5;proto=https</td></tr>
+</table>
+
+<div class="card">
+<p><strong>Konfiguracja backendu:</strong> Aplikacja musi <strong>jawnie ufac</strong> X-Forwarded-* headers. W przeciwnym razie atakujacy moze podszywac sie pod inny IP. Frameworki:
+<br/>- Express: <code>app.set('trust proxy', '127.0.0.1')</code>
+<br/>- ASP.NET Core: <code>app.UseForwardedHeaders()</code> z whitelist proxy IPs
+<br/>- Flask: <code>ProxyFix(app.wsgi_app, x_for=1, x_proto=1)</code>
+<br/>- IIS: ServerVariables w URL Rewrite</p>
+</div>
+
+<h2>Bezpieczenstwo zarzadzania</h2>
+<ul>
+<li><strong>Mgmt VLAN</strong> - dedykowana siec do zarzadzania DMZ proxy (RDP, SSH, monitoring)</li>
+<li><strong>Bastion host / Jump server</strong> - obowiazkowe wejscie przez bastion, NIE bezposrednio</li>
+<li><strong>IP whitelist</strong> - tylko adresy IP adminow moga sie laczyc do mgmt portow</li>
+<li><strong>MFA</strong> - drugi czynnik dla logowania (Smart Card, FIDO2, TOTP)</li>
+<li><strong>Logging mgmt sessions</strong> - PowerShell transcription, sudo logi, RDP session recording</li>
+<li><strong>JIT access</strong> - Azure Bastion, AWS SSM Session Manager (no SSH/RDP exposed)</li>
+</ul>
+
+<h2>Multi-region / High Availability</h2>
+<table>
+<tr><th>Wzorzec</th><th>Opis</th></tr>
+<tr><td>Active-Passive (single region)</td><td>2 proxy + VRRP/keepalived/Failover Cluster - automatyczne przelaczenie</td></tr>
+<tr><td>Active-Active (single region)</td><td>2+ proxy za load balancerem (ELB, ALB, AKS Ingress)</td></tr>
+<tr><td>Active-Active (multi-region)</td><td>Geographic routing przez Azure Traffic Manager / AWS Route53 / CloudFront</td></tr>
+<tr><td>Anycast (CDN)</td><td>Cloudflare / Akamai - jednolity adres IP rozproszony globalnie</td></tr>
+</table>
+
+<h2>Logging i monitoring</h2>
+<ul>
+<li>Access logs proxy zawieraja: czas, IP klienta, request, response code, czas, User-Agent</li>
+<li>Wysylac do centralnego SIEM (logi proxy = pierwsza linia detekcji)</li>
+<li>Health check endpoints - dedicated /health na backendzie</li>
+<li>Synthetic monitoring - co 30s test z roznych regionow (np. UptimeRobot, Pingdom, Datadog Synthetics)</li>
+<li>Alarmy: response time > X, error rate > Y%, traffic spike</li>
+<li>Dashboard z metrics: requests/sec, latency, error rate, backend status</li>
+</ul>
+
+<h2>Antywzorce</h2>
+<table>
+<tr><th>Antywzorzec</th><th>Problem</th></tr>
+<tr><td>Reverse proxy w wewnetrznej sieci, brak DMZ</td><td>Brak izolacji - kompromitacja proxy = LAN compromise</td></tr>
+<tr><td>Aplikacja backend bezposrednio po IP w Internecie</td><td>Brak ochrony, latwy do skanowania</td></tr>
+<tr><td>Self-signed cert na DMZ (publiczny)</td><td>Klienci dostaja warning, atak MITM mozliwy</td></tr>
+<tr><td>Mgmt RDP z Internetu (3389 open)</td><td>Brute force / RDP exploits (BlueKeep)</td></tr>
+<tr><td>Brak X-Forwarded-* lub backend ufa wszystkim</td><td>IP spoofing - logi pokazuja IP proxy zamiast klienta</td></tr>
+<tr><td>Wszystkie aplikacje w jednej puli/serwerze</td><td>Crash jednej = padaja pozostale</td></tr>
+<tr><td>Backend ma routing default gateway przez Internet</td><td>Compromise -&gt; backend moze egress do C2</td></tr>
+</table>
+
+<h2>Best practices</h2>
+<ul>
+<li>Two-firewall DMZ z reverse proxy w warstwie publicznej</li>
+<li>Firewall #1 i #2 od roznych producentow (defense in depth)</li>
+<li>SSL termination na proxy + opcjonalne re-encryption do backendu</li>
+<li>X-Forwarded-* zawsze ustawiane, backend ufa tylko proxy IP</li>
+<li>WAF przed lub na proxy (mod_security, Cloudflare, Azure App Gateway WAF)</li>
+<li>Mgmt VLAN + bastion host + MFA</li>
+<li>Health checks z deep checks zaleznosci backendu</li>
+<li>Logging do SIEM, alarmy na anomalie</li>
+<li>HA: minimum 2 proxy active-passive lub active-active</li>
+<li>Regularne testy DR (przelaczenie do drugiego site)</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="09-publikowanie-uslug.html">&larr; Publikowanie uslug</a>
+    <a href="09-02-waf-i-anti-ddos.html">WAF i anti-DDoS &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git - branching i merging</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f87171;--accent-hover:#fca5a5;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Git</a><span class="sep">/</span><span class="title">Branching i merging</span></div>
+<div class="container">
+<h1>Branching i merging w Git</h1>
+<p class="subtitle">Galezie, scalanie, rebase, cherry-pick, stash, konflikty</p>
+
+<h2>Czym jest galaz w Gitcie?</h2>
+<p>Galaz (branch) w Gitcie to po prostu <strong>wskaznik na konkretny commit</strong>. To nie jest kopia plikow ani osobny katalog. Tworzenie galezi w Gitcie jest bardzo tanie (tworzy sie tylko 41-bajtowy plik z hashem). Glowna galaz to zazwyczaj <code>main</code> (dawniej <code>master</code>).</p>
+
+<div class="card">
+<strong>Dlaczego galezie sa tak istotne?</strong>
+<ul>
+<li>Pozwalaja pracowac nad funkcjonalnosciami w izolacji</li>
+<li>Umozliwiaja code review przed mergem</li>
+<li>Pozwalaja na rownolegla prace wielu osob</li>
+<li>Wspomagaja CI/CD - testy uruchamiane per branch</li>
+</ul>
+</div>
+
+<h2>Tworzenie i przelaczanie galezi</h2>
+<p>Git oferuje dwa sposoby na zarzadzanie galeziami: starsze polecenie <code>checkout</code> (uniwersalne) oraz nowsze <code>switch</code> i <code>restore</code> (od Git 2.23, bardziej intuicyjne).</p>
+
+<pre><code># Lista lokalnych galezi (gwiazdka oznacza biezaca)
+git branch
+
+# Lista wszystkich galezi (lokalne + zdalne)
+git branch -a
+
+# Lista zdalnych
+git branch -r
+
+# Lista z ostatnim commitem
+git branch -v
+
+# Tworzenie nowej galezi (bez przelaczenia)
+git branch feature-login
+
+# Tworzenie z konkretnego commita
+git branch feature-fix abc1234
+
+# Przelaczenie (stary sposob)
+git checkout feature-login
+
+# Tworzenie + przelaczenie (stary sposob)
+git checkout -b feature-login
+
+# NOWY skladniowo (zalecany od Git 2.23)
+git switch feature-login
+git switch -c feature-login        # tworzy + przelacza
+git switch -c feature-fix main     # tworzy z main
+
+# Powrot do poprzedniej galezi
+git switch -
+
+# Przelaczenie na zdalna galaz (pobranie z origin)
+git switch feature-from-colleague</code></pre>
+
+<h2>Cykl zycia galezi</h2>
+<pre><code># 1. Pobierz aktualny main
+git switch main
+git pull
+
+# 2. Stworz galaz feature
+git switch -c feature/login-form
+
+# 3. Pracuj, commituj
+echo "kod" > login.js
+git add login.js
+git commit -m "feat: add login form"
+
+# 4. Wypchnij galaz na remote
+git push -u origin feature/login-form
+# -u ustawia tracking - nastepnie wystarczy 'git push'
+
+# 5. Stworz Pull Request / Merge Request w GitHub/GitLab
+
+# 6. Po review i merge - usun galaz
+git switch main
+git pull
+git branch -d feature/login-form           # bezpieczne (sprawdza merge)
+git branch -D feature/login-form           # FORCE delete
+
+# 7. Usun zdalna galaz
+git push origin --delete feature/login-form
+
+# 8. Wyczysc nieaktualne refs zdalnych
+git fetch --prune</code></pre>
+
+<h2>Zmiana nazwy galezi</h2>
+<pre><code># Zmien nazwe biezacej galezi
+git branch -m new-name
+
+# Zmien nazwe konkretnej galezi
+git branch -m old-name new-name
+
+# Aktualizacja remote po zmianie nazwy
+git push origin -u new-name
+git push origin --delete old-name</code></pre>
+
+<h2>Merge - scalanie galezi</h2>
+<p>Merge laczy zmiany z jednej galezi do drugiej. Git oferuje rozne strategie scalania w zaleznosci od historii commitow.</p>
+
+<h3>Fast-forward merge</h3>
+<p>Gdy galaz docelowa nie ma nowych commitow, ktorych nie ma w galezi zrodlowej, Git po prostu przesuwa wskaznik. Brak commitu merge.</p>
+
+<pre><code>git switch main
+git merge feature/login-form
+
+# Wynik (przed i po):
+# Przed: main -> A -> B
+#                 \-> C -> D (feature)
+#
+# Po:    main -> A -> B -> C -> D</code></pre>
+
+<h3>3-way merge</h3>
+<p>Gdy obie galezie maja nowe commity od momentu rozejscia, Git tworzy nowy "merge commit" z dwoma rodzicami.</p>
+
+<pre><code>git switch main
+git merge feature/login-form
+
+# Wynik:
+# Przed: main -> A -> B -> E -> F
+#                 \-> C -> D (feature)
+#
+# Po:    main -> A -> B -> E -> F -> M (merge commit)
+#                 \-> C -> D ----/</code></pre>
+
+<h3>Wymuszenie merge commita (--no-ff)</h3>
+<pre><code># Zawsze tworz merge commit (zachowuje historie galezi)
+git merge --no-ff feature/login-form
+
+# Przydatne w GitFlow - widac jasno gdzie sie zaczyna i konczy feature</code></pre>
+
+<h3>Squash merge</h3>
+<p>Polacz wszystkie commity z galezi w jeden, dodaj go do glownej galezi. GitHub i GitLab oferuja to jako opcje przy mergowaniu PR.</p>
+
+<pre><code># Lokalnie
+git switch main
+git merge --squash feature/login-form
+git commit -m "feat: implement login form"
+
+# 10 commitow z feature staje sie 1 commitem na main
+# Galaz feature pozostaje nienaruszona</code></pre>
+
+<h2>Rebase</h2>
+<p><strong>Rebase</strong> to alternatywa dla merge - zamiast tworzyc merge commit, "przenosi" commity z jednej galezi na koniec drugiej. Tworzy liniowa, czysta historie. Ale zmienia hashe commitow - wiec NIGDY nie rebasuj wypchnietych commitow na shared branch.</p>
+
+<pre><code># Klasyczny use case - update feature z main
+git switch feature/login-form
+git fetch origin
+git rebase origin/main
+
+# Lub krocej z pull
+git pull --rebase origin main
+
+# Wynik:
+# Przed: A -> B -> C -> D (main)
+#         \-> E -> F (feature)
+#
+# Po rebase: A -> B -> C -> D (main)
+#                          \-> E' -> F' (feature)
+#
+# Uwaga: E i F maja nowe hashe (E' i F')</code></pre>
+
+<h3>Rebase interaktywny</h3>
+<p>Pozwala edytowac historie commitow przed wypchnieciem - laczyc, dzielic, zmieniac wiadomosci.</p>
+
+<pre><code># Rebase ostatnich 4 commitow
+git rebase -i HEAD~4
+
+# Otwiera edytor:
+# pick abc1234 feat: add login form
+# pick def5678 fix: typo
+# pick ghi9012 fix: another typo
+# pick jkl3456 feat: add validation
+
+# Komendy:
+# pick   - uzyj commit jak jest
+# reword - uzyj commit, zmien wiadomosc
+# edit   - uzyj commit, zatrzymaj na edycje
+# squash - polacz z poprzednim, edytuj wiadomosc
+# fixup  - jak squash, ale bez wiadomosci
+# drop   - usun commit
+
+# Po edycji - zapisz i zamknij. Git wykona operacje.</code></pre>
+
+<h3>Rozwiazywanie konfliktow przy rebase</h3>
+<pre><code># Podczas rebase moze sie pojawic konflikt
+git rebase main
+# CONFLICT (content): Merge conflict in src/app.js
+
+# Rozwiaz konflikt w pliku
+vim src/app.js
+
+# Zaznacz jako rozwiazany
+git add src/app.js
+
+# Kontynuuj rebase
+git rebase --continue
+
+# Albo pomin obecny commit
+git rebase --skip
+
+# Albo przerwij i wroc do stanu przed rebase
+git rebase --abort</code></pre>
+
+<h2>Rebase vs Merge - kiedy ktore?</h2>
+
+<table>
+<tr><th>Aspekt</th><th>Merge</th><th>Rebase</th></tr>
+<tr><td>Historia</td><td>Niesliniowa, zachowuje kontekst</td><td>Liniowa, czysta</td></tr>
+<tr><td>Hashe commitow</td><td>Niezmienione</td><td>Zmienione (nowe hashe)</td></tr>
+<tr><td>Merge commit</td><td>Dodaje (chyba ze ff)</td><td>Brak</td></tr>
+<tr><td>Konflikty</td><td>Rozwiazujesz raz</td><td>Mozliwe wielokrotnie (per commit)</td></tr>
+<tr><td>Bezpieczenstwo</td><td>Bezpieczne na shared branch</td><td>NIEBEZPIECZNE jesli wypchniete</td></tr>
+<tr><td>Idealne dla</td><td>Integracja feature do main</td><td>Update feature z main</td></tr>
+</table>
+
+<div class="card">
+<strong>Zlota zasada Gita:</strong>
+<p>Nigdy nie rebasuj galezi, ktora juz zostala udostepniona innym (wypchnieta i ktoś inny moze na niej pracować). Rebasing przepisuje historie - co dla wspoldzielonej galezi prowadzi do chaosu.</p>
+</div>
+
+<h2>Cherry-pick</h2>
+<p>Cherry-pick pozwala wziac konkretny commit z jednej galezi i zaaplikowac go do innej. Przydatne np. przy hotfixach lub portowaniu poprawek.</p>
+
+<pre><code># Pojedynczy commit
+git switch main
+git cherry-pick abc1234
+
+# Wiele commitow
+git cherry-pick abc1234 def5678 ghi9012
+
+# Zakres (bez abc1234, do ghi9012 wlacznie)
+git cherry-pick abc1234..ghi9012
+
+# Zakres z abc1234 wlacznie
+git cherry-pick abc1234^..ghi9012
+
+# Bez automatycznego commitu (tylko zmiany w stage)
+git cherry-pick --no-commit abc1234
+# Mozesz teraz edytowac przed commitowaniem
+git commit
+
+# Z konfliktami - jak przy rebase
+git cherry-pick --continue
+git cherry-pick --abort
+git cherry-pick --skip</code></pre>
+
+<h2>Stash - tymczasowe schowki</h2>
+<p>Stash zapisuje niezatwierdzone zmiany w "skrytce" i czysci robocze drzewo. Przydatne gdy musisz szybko przelaczyc galaz bez commitowania niedokonczonej pracy.</p>
+
+<pre><code># Schowaj zmiany (zarowno staged jak i unstaged)
+git stash
+git stash push -m "WIP: praca nad walidacja"
+
+# Z untracked plikami
+git stash -u
+git stash --include-untracked
+
+# Tylko konkretny plik
+git stash push -m "tylko style" src/styles.css
+
+# Lista skrytek
+git stash list
+# stash@{0}: WIP on main: ...
+# stash@{1}: WIP on feature: ...
+
+# Pokaz zawartosc skrytki
+git stash show
+git stash show -p stash@{1}        # pelny diff
+
+# Przywroc i usun ze stack (LIFO)
+git stash pop
+
+# Przywroc, ale zostaw w stack
+git stash apply
+git stash apply stash@{2}
+
+# Usun ze stack
+git stash drop stash@{0}
+
+# Usun wszystkie
+git stash clear
+
+# Stworz galaz ze stash (przydatne gdy zmiany sa duze)
+git stash branch feature/wip-work stash@{0}</code></pre>
+
+<h2>Konflikty - rozwiazywanie</h2>
+<p>Konflikty pojawiaja sie gdy dwa commity zmieniaja te sama linie. Git oznacza miejsca konfliktow specjalnymi markerami w pliku.</p>
+
+<pre><code>// src/app.js po konflikcie
+function calculatePrice(item) {
+&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+    return item.price * 1.23;  // 23% VAT
+=======
+    return item.price * 1.08;  // 8% VAT
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/eu-tax
+}</code></pre>
+
+<p>Markery wyjasnione:</p>
+<ul>
+<li><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code> - poczatek wersji z biezacej galezi</li>
+<li><code>=======</code> - separator</li>
+<li><code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; branch-name</code> - koniec wersji z dolaczanej galezi</li>
+</ul>
+
+<pre><code># Po edycji pliku - usuwasz markery i zostawiasz wlasciwa wersje
+function calculatePrice(item, country) {
+    const rate = country === 'PL' ? 1.23 : 1.08;
+    return item.price * rate;
+}
+
+# Zaznacz jako rozwiazany
+git add src/app.js
+
+# Kontynuuj merge/rebase
+git commit                  # przy merge
+git rebase --continue       # przy rebase
+
+# Lub przerwij wszystko
+git merge --abort
+git rebase --abort
+
+# Sprawdzenie ktore pliki maja konflikty
+git status
+
+# Diff z ich/nasza wersja
+git diff --ours src/app.js
+git diff --theirs src/app.js</code></pre>
+
+<h2>git mergetool - graficzne rozwiazywanie</h2>
+<pre><code># Konfiguracja narzedzia
+git config --global merge.tool vscode
+git config --global mergetool.vscode.cmd 'code --wait $MERGED'
+
+# Albo meld (Linux)
+git config --global merge.tool meld
+
+# Uruchomienie
+git mergetool
+
+# Po rozwiazaniu git tworzy backup .orig - mozna usunac
+git config --global mergetool.keepBackup false</code></pre>
+
+<h2>Strategie nazewnictwa galezi</h2>
+<table>
+<tr><th>Prefix</th><th>Cel</th><th>Przyklad</th></tr>
+<tr><td>feature/</td><td>Nowa funkcjonalnosc</td><td>feature/user-authentication</td></tr>
+<tr><td>fix/</td><td>Naprawa buga</td><td>fix/login-redirect-loop</td></tr>
+<tr><td>hotfix/</td><td>Pilna naprawa produkcyjna</td><td>hotfix/security-patch-cve-2026-1234</td></tr>
+<tr><td>release/</td><td>Przygotowanie wydania</td><td>release/v2.5.0</td></tr>
+<tr><td>chore/</td><td>Zadania utrzymaniowe</td><td>chore/update-dependencies</td></tr>
+<tr><td>docs/</td><td>Tylko dokumentacja</td><td>docs/api-reference</td></tr>
+<tr><td>refactor/</td><td>Przebudowa kodu</td><td>refactor/extract-payment-service</td></tr>
+</table>
+
+<div class="card">
+<strong>Praktyczne wskazowki:</strong>
+<ul>
+<li>Jedna galaz = jeden cel (jeden feature, jeden bug fix)</li>
+<li>Krotkie zycie galezi - merguj jak najszybciej</li>
+<li>Regularnie aktualizuj feature branch z main (rebase lub merge)</li>
+<li>Squash drobnych commitow przed pushem (czystsza historia)</li>
+<li>Usuwaj galezie po merge (zarowno lokalnie jak i zdalnie)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="01-podstawy-i-komendy.html">&larr; Podstawy i komendy</a>
+<a href="03-zdalne-repozytoria.html">Zdalne repozytoria &rarr;</a>
+</div>
+</div>
+</body>
+</html>

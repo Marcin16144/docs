@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blazor United</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><span class="title">Blazor United</span></div>
+<div class="container">
+<h1>Blazor United (.NET 8/9)</h1>
+<p class="subtitle">Mix render modes per komponent &mdash; SSR + Server + WASM w jednej aplikacji</p>
+
+<h2>Co to jest Blazor United?</h2>
+<p>Blazor United to <strong>nazwa potoczna</strong> nowej zunifikowanej architektury Blazor wprowadzonej w .NET 8 (2023) i rozszerzonej w .NET 9 (2024). Pozwala mieszac modele renderowania w obrebie jednej aplikacji <strong>per komponent</strong>. To rewolucja &mdash; wczesniej musiales wybrac Server albo WASM, teraz mozesz mixowac.</p>
+
+<h2>4 render modes</h2>
+<table>
+<thead><tr><th>Mode</th><th>Co to</th><th>Kiedy</th></tr></thead>
+<tbody>
+<tr><td>Static SSR</td><td>HTML wygenerowany na serwerze, brak interaktywnosci</td><td>Strony glowne, blog, marketing, SEO-critical</td></tr>
+<tr><td>InteractiveServer</td><td>SignalR connection, kazda interakcja round-trip</td><td>Forms, panele admin, real-time UIs</td></tr>
+<tr><td>InteractiveWebAssembly</td><td>C# w przegladarce via WASM, autonomiczny</td><td>Heavy interactive UIs, offline support</td></tr>
+<tr><td>InteractiveAuto</td><td>Server na pierwszy load, potem WASM po pobraniu</td><td>Best of both: szybki LCP + autonomy</td></tr>
+</tbody>
+</table>
+
+<h2>Default w .NET 9</h2>
+<p>Gdy uruchamiasz <code>dotnet new blazor</code> w .NET 9, dostajesz aplikacje <strong>Blazor United</strong> &mdash; wszystkie 4 modele dostepne, mozesz wybrac per komponent. To zastapilo dotychczasowe szablony <code>blazorserver</code> i <code>blazorwasm</code>.</p>
+
+<h2>Podstawowy setup</h2>
+<pre><code>dotnet new blazor -o MyApp -ai
+# -ai = include WebAssembly + Server interactive components
+
+cd MyApp
+dotnet run</code></pre>
+
+<h3>Program.cs</h3>
+<pre><code>var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents()
+    .AddInteractiveWebAssemblyComponents();
+
+var app = builder.Build();
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseAntiforgery();
+
+app.MapRazorComponents&lt;App&gt;()
+    .AddInteractiveServerRenderMode()
+    .AddInteractiveWebAssemblyRenderMode()
+    .AddAdditionalAssemblies(typeof(MyApp.Client._Imports).Assembly);
+
+app.Run();</code></pre>
+
+<h2>Wybor render mode per komponent</h2>
+
+<h3>Globalnie dla aplikacji</h3>
+<pre><code>&lt;!-- App.razor --&gt;
+&lt;Routes @rendermode="@InteractiveServer" /&gt;</code></pre>
+
+<h3>Per komponent</h3>
+<pre><code>&lt;!-- Konkretny komponent renderowany na serwerze --&gt;
+&lt;Counter @rendermode="@InteractiveServer" /&gt;
+
+&lt;!-- WebAssembly --&gt;
+&lt;Editor @rendermode="@InteractiveWebAssembly" /&gt;
+
+&lt;!-- Auto: Server + later WASM --&gt;
+&lt;Map @rendermode="@InteractiveAuto" /&gt;</code></pre>
+
+<h3>W komponencie (top of file)</h3>
+<pre><code>@page "/dashboard"
+@rendermode InteractiveServer
+
+&lt;h1&gt;Dashboard&lt;/h1&gt;</code></pre>
+
+<h2>Static SSR &mdash; podstawa</h2>
+<p>Domyslnie strona jest renderowana <strong>statycznie</strong> &mdash; HTML idzie do klienta, JS nie jest pobierany dla interaktywnosci. To bardzo szybkie (jak Razor Pages), ale komponenty sa "martwe" &mdash; @onclick nic nie robi.</p>
+<pre><code>@page "/blog"
+
+&lt;h1&gt;Blog&lt;/h1&gt;
+@foreach (var post in posts)
+{
+    &lt;article&gt;
+        &lt;h2&gt;@post.Title&lt;/h2&gt;
+        &lt;p&gt;@post.Excerpt&lt;/p&gt;
+    &lt;/article&gt;
+}
+
+@code {
+    private List&lt;Post&gt; posts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        posts = await PostService.GetAllAsync();
+    }
+}</code></pre>
+
+<h2>Mixowanie w jednej stronie</h2>
+<p>Mozna miec strone glowna SSR z wyspami interaktywnosci.</p>
+<pre><code>@page "/"
+
+&lt;h1&gt;Sklep&lt;/h1&gt;
+
+&lt;!-- Statyczny katalog produktow --&gt;
+&lt;ProductCatalog Products="@products" /&gt;
+
+&lt;!-- Interaktywny koszyk (Server) --&gt;
+&lt;CartWidget @rendermode="@InteractiveServer" /&gt;
+
+&lt;!-- Interaktywne live-search (WASM) --&gt;
+&lt;SearchBox @rendermode="@InteractiveWebAssembly" /&gt;</code></pre>
+
+<h2>Forms w SSR</h2>
+<p>W static SSR dziala enhanced form &mdash; submit POST przez fetch i podmiana wynikowego HTML bez full reload.</p>
+<pre><code>&lt;EditForm Model="@model" method="post" OnValidSubmit="HandleSubmit" FormName="contactForm"&gt;
+    &lt;DataAnnotationsValidator /&gt;
+    &lt;InputText @bind-Value="model.Email" /&gt;
+    &lt;button type="submit"&gt;Wyslij&lt;/button&gt;
+&lt;/EditForm&gt;
+
+@code {
+    [SupplyParameterFromForm]
+    public ContactModel Model { get; set; } = new();
+
+    private async Task HandleSubmit() { /* ... */ }
+}</code></pre>
+
+<h2>Streaming rendering</h2>
+<p>Mozesz oznaczyc strone jako <code>@attribute [StreamRendering]</code> &mdash; HTML pojdzie kawalkami, "Loading..." zastapione faktyczna trescia gdy bedzie gotowa. Dziala bez WASM.</p>
+<pre><code>@page "/heavy-data"
+@attribute [StreamRendering]
+
+&lt;h1&gt;Raport&lt;/h1&gt;
+@if (data == null)
+{
+    &lt;p&gt;Ladowanie danych...&lt;/p&gt;
+}
+else
+{
+    &lt;DataTable Data="@data" /&gt;
+}
+
+@code {
+    private List&lt;Record&gt;? data;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(2000); // long query
+        data = await Reports.GenerateAsync();
+    }
+}</code></pre>
+
+<h2>Persistent state z prerendering</h2>
+<p>Czesty problem: prerender ladowal dane, potem WASM ladowal je ponownie. Rozwiazanie: <code>PersistentComponentState</code>.</p>
+<pre><code>@inject PersistentComponentState ApplicationState
+
+@code {
+    private List&lt;Product&gt;? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!ApplicationState.TryTakeFromJson&lt;List&lt;Product&gt;&gt;("products", out products))
+            products = await Api.GetAllAsync();
+
+        ApplicationState.RegisterOnPersisting(() =&gt;
+        {
+            ApplicationState.PersistAsJson("products", products);
+            return Task.CompletedTask;
+        });
+    }
+}</code></pre>
+
+<h2>InteractiveAuto &mdash; szczegolnie ciekawy</h2>
+<p>Pierwsze odwiedziny: komponent renderuje sie przez Server (szybko, brak czekania na WASM bundle). W tle pobierane sa pliki WASM. Kolejne odwiedziny: komponent dziala w WASM, brak round-tripow.</p>
+<pre><code>&lt;Counter @rendermode="@InteractiveAuto" /&gt;</code></pre>
+
+<h2>Architektura projektu</h2>
+<pre><code>MyApp/
+  Components/
+    App.razor          # Root komponent
+    Routes.razor       # Routing
+    Layout/
+      MainLayout.razor
+    Pages/
+      Home.razor       # Static SSR
+      Counter.razor    # @rendermode InteractiveServer
+  Program.cs           # Server-side setup
+
+MyApp.Client/          # Oddzielny projekt dla WASM-able components
+  Pages/
+    Editor.razor       # @rendermode InteractiveWebAssembly
+  _Imports.razor
+  Program.cs           # Client-side setup</code></pre>
+
+<h2>Rozwiazanie pytan biznesowych</h2>
+<table>
+<thead><tr><th>Wyzwanie</th><th>Mode</th></tr></thead>
+<tbody>
+<tr><td>SEO landing page</td><td>Static SSR</td></tr>
+<tr><td>Admin dashboard</td><td>InteractiveServer</td></tr>
+<tr><td>Edytor offline-friendly</td><td>InteractiveWebAssembly</td></tr>
+<tr><td>Strona produktu z koszykiem</td><td>SSR + InteractiveServer dla koszyka</td></tr>
+<tr><td>Mobile-friendly aplikacja</td><td>InteractiveAuto</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Werdykt</h3>
+<p>W .NET 9 Blazor United jest <strong>defaultem</strong>. Nie wybierajesz juz "czysty Server" lub "czysty WASM" &mdash; wybierajesz <em>per komponent</em>. To radykalnie podnioslo elastycznosc Blazor i pozwala na hybrydowe architektury bez kompromisow.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="../08-deployment.html">&larr; Deployment</a>
+<a href="../index.html">Powrot do Blazor &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bezpieczenstwo aplikacji Python</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#facc15;--accent-hover:#fde047;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">Python</a>
+    <span class="sep">/</span>
+    <span class="title">Bezpieczenstwo aplikacji</span>
+</div>
+
+<div class="container">
+<h1>Bezpieczenstwo aplikacji Python</h1>
+<p class="subtitle">OWASP, deserialization, supply chain (PyPI), bandit, pip-audit, secrets management, eval/exec dangers.</p>
+
+<h2>OWASP Top 10 dla Python</h2>
+<table>
+<thead><tr><th>Zagrozenie</th><th>Python-specyficzne</th></tr></thead>
+<tbody>
+<tr><td>SQL Injection</td><td>String concat w SQL, unsafe ORM .raw()</td></tr>
+<tr><td>XSS</td><td>Brak auto-escape w Jinja2 (autoescape=False)</td></tr>
+<tr><td>Insecure Deserialization</td><td>pickle.loads na user input!</td></tr>
+<tr><td>Command Injection</td><td>subprocess.run(shell=True), os.system</td></tr>
+<tr><td>Code Injection</td><td>eval(), exec() na user data</td></tr>
+<tr><td>Path Traversal</td><td>open() z user-supplied path</td></tr>
+<tr><td>Vulnerable Components</td><td>Stare paczki w requirements.txt</td></tr>
+<tr><td>YAML attack</td><td>yaml.load() (bez Safe loadera)</td></tr>
+</tbody></table>
+
+<h2>Deserialization attacks - pickle</h2>
+<p><strong>pickle</strong> to najwiekszy security footgun w Pythonie. Pickle.loads() na danych z internetu = <strong>RCE</strong>.</p>
+
+<pre><code># NIGDY na user input
+import pickle
+import os
+
+# Atakujacy moze stworzyc malicious pickle
+class Exploit:
+    def __reduce__(self):
+        return (os.system, ('rm -rf /',))
+
+malicious = pickle.dumps(Exploit())
+pickle.loads(malicious)   # uruchamia rm -rf!
+
+# DOBRZE - JSON dla untrusted data
+import json
+data = json.loads(user_input)
+
+# Inne bezpieczne formaty
+import msgpack
+data = msgpack.unpackb(bytes_input, raw=False)
+
+# Cap'n Proto, MessagePack, Protocol Buffers - wszystkie bezpieczne</code></pre>
+
+<h2>YAML - safe_load</h2>
+<pre><code>import yaml
+
+# ZLE - yaml.load wykonuje arbitrary code
+data = yaml.load(user_input)   # niebezpieczne
+
+# DOBRZE - safe_load (od PyYAML 6.0 jest default)
+data = yaml.safe_load(user_input)
+
+# Lub uzyj Loader=SafeLoader explicit
+data = yaml.load(user_input, Loader=yaml.SafeLoader)</code></pre>
+
+<h2>SQL Injection</h2>
+<pre><code># ZLE - string concat
+import sqlite3
+conn = sqlite3.connect("app.db")
+cur = conn.cursor()
+
+name = input("Imie: ")
+cur.execute(f"SELECT * FROM users WHERE name = '{name}'")  # SQLi!
+
+# DOBRZE - parametry
+cur.execute("SELECT * FROM users WHERE name = ?", (name,))
+
+# psycopg / postgres
+cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+
+# SQLAlchemy ORM - automatyczna parametryzacja
+session.scalars(select(User).where(User.name == name)).all()
+
+# SQLAlchemy text() - z parametrami
+session.execute(
+    text("SELECT * FROM users WHERE name = :name"),
+    {"name": name}
+)
+
+# Django ORM - automatyczne
+User.objects.filter(name=name)</code></pre>
+
+<h2>Command Injection</h2>
+<pre><code>import subprocess
+import shlex
+
+# ZLE - shell=True z user input
+filename = input("Plik: ")
+subprocess.run(f"cat {filename}", shell=True)   # injection!
+
+# DOBRZE - lista argumentow, shell=False (default)
+subprocess.run(["cat", filename])
+
+# Jesli musisz shell - shlex.quote
+subprocess.run(f"cat {shlex.quote(filename)}", shell=True)
+
+# os.system jest jeszcze gorsze
+os.system(f"cat {filename}")   # NIGDY z user input</code></pre>
+
+<h2>eval() i exec() - unikaj</h2>
+<pre><code># NIGDY z user input
+expression = input("Wyrazenie: ")
+result = eval(expression)   # RCE jesli user wpisze __import__('os').system(...)
+
+# DOBRZE - dla matematycznych wyrazen
+import ast
+import operator
+
+OPS = {
+    ast.Add: operator.add, ast.Sub: operator.sub,
+    ast.Mult: operator.mul, ast.Div: operator.truediv,
+}
+
+def safe_eval(expr):
+    tree = ast.parse(expr, mode='eval')
+    return _eval(tree.body)
+
+def _eval(node):
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.BinOp):
+        return OPS[type(node.op)](_eval(node.left), _eval(node.right))
+    raise ValueError("Niedozwolony")
+
+# Lub z biblioteki: simpleeval, asteval</code></pre>
+
+<h2>Path Traversal</h2>
+<pre><code>import os
+from pathlib import Path
+
+# ZLE
+filename = request.args.get("file")
+content = open(f"/var/uploads/{filename}").read()
+# atakujacy: ../../etc/passwd
+
+# DOBRZE - kanonizacja + sprawdzenie prefix
+base = Path("/var/uploads").resolve()
+target = (base / filename).resolve()
+
+# Sprawdz czy jest pod base
+if not target.is_relative_to(base):     # 3.9+
+    raise ValueError("Path traversal!")
+
+content = target.read_text()</code></pre>
+
+<h2>Supply chain - PyPI typosquatting</h2>
+<p>Atakujacy publikuja paczki o nazwach podobnych do popularnych (requets, urlib3, beautifusoup4) i zawieraja malicious code.</p>
+
+<pre><code># ZLE - prosta literowka
+pip install reqests      # ZLE - to typosquat
+pip install requests     # OK
+
+# Inne typowe typosquaty:
+# - python-dateutil vs dateutil
+# - django-admin vs Django (small caps difference)
+# - tensorflow vs tensoflow
+
+# Obrona:
+# 1. Skopiuj nazwy z oficjalnej dokumentacji, nie wpisuj recznie
+# 2. Uzyj uv/pip z hash verification
+# 3. Pin wersje w lock file</code></pre>
+
+<h3>Hash pinning</h3>
+<pre><code># requirements.txt z hash
+requests==2.31.0 \
+    --hash=sha256:58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f
+
+# pip install
+pip install -r requirements.txt --require-hashes
+
+# uv lock - automatycznie generuje hash dla wszystkich</code></pre>
+
+<h2>pip-audit - skanowanie podatnosci</h2>
+<pre><code># Instalacja
+uv add --dev pip-audit
+
+# Skanowanie srodowiska
+pip-audit
+
+# Skanowanie requirements
+pip-audit -r requirements.txt
+
+# JSON output dla CI
+pip-audit --format json --output audit.json
+
+# Failed gdy znaleziono problemy
+pip-audit --desc
+
+# W GitHub Actions
+- name: pip-audit
+  run: uv run pip-audit</code></pre>
+
+<h2>Snyk / Dependabot</h2>
+<pre><code># GitHub Dependabot - .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+# Snyk - SaaS skanowanie
+snyk auth
+snyk test --file=pyproject.toml
+snyk monitor</code></pre>
+
+<h2>bandit - statyczna analiza bezpieczenstwa</h2>
+<pre><code># Instalacja
+uv add --dev bandit
+
+# Uruchomienie
+bandit -r src/
+
+# Konfiguracja - pyproject.toml
+[tool.bandit]
+exclude_dirs = ["tests", "venv"]
+skips = ["B101"]   # assert_used (false-positive w testach)
+
+# Wykrywa:
+# - hardcoded passwords/keys
+# - shell=True bez sanitization
+# - pickle.loads
+# - eval/exec
+# - md5/sha1 dla hasel
+# - insecure SSL config
+# - SQL string formatting
+
+# Ruff tez ma security checks
+[tool.ruff.lint]
+select = ["S"]   # bandit equivalent</code></pre>
+
+<h2>semgrep - SAST</h2>
+<pre><code># Semgrep - bardziej zaawansowane regulki
+pip install semgrep
+
+# Uruchomienie z built-in regulkami
+semgrep --config=auto
+
+# Konkretne regulki
+semgrep --config=p/python
+semgrep --config=p/security-audit
+semgrep --config=p/owasp-top-ten
+
+# Custom rules
+# semgrep --config=./rules/</code></pre>
+
+<h2>Secrets management</h2>
+
+<h3>python-decouple / pydantic-settings</h3>
+<pre><code># pydantic-settings (rekomendowane)
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
+
+    database_url: str
+    secret_key: str = Field(min_length=32)
+    debug: bool = False
+    api_keys: list[str] = []
+
+settings = Settings()
+print(settings.database_url)</code></pre>
+
+<h3>.env i .gitignore</h3>
+<pre><code># .env (NIE w repo!)
+DATABASE_URL=postgresql://user:pass@localhost/db
+SECRET_KEY=supersecret-min-32-chars-please
+
+# .gitignore - obowiazkowo
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# .env.example (w repo - bez wartosci)
+DATABASE_URL=postgresql://user:pass@localhost/db
+SECRET_KEY=
+DEBUG=False</code></pre>
+
+<h2>Hashing hasel - Argon2 / bcrypt</h2>
+<pre><code># Argon2 (rekomendowane 2026)
+from argon2 import PasswordHasher
+
+ph = PasswordHasher(
+    time_cost=4,
+    memory_cost=65536,    # 64 MB
+    parallelism=2,
+)
+
+hash = ph.hash("user_password")
+
+try:
+    ph.verify(hash, "user_password")
+    if ph.check_needs_rehash(hash):
+        new_hash = ph.hash("user_password")
+except VerifyMismatchError:
+    print("Bledne haslo")
+
+# bcrypt (alternatywa)
+import bcrypt
+
+hash = bcrypt.hashpw(b"password", bcrypt.gensalt(rounds=12))
+if bcrypt.checkpw(b"password", hash):
+    print("OK")
+
+# NIGDY: md5, sha1, sha256 dla hasel</code></pre>
+
+<h2>JWT - bezpieczne uzycie</h2>
+<pre><code>import jwt
+from datetime import datetime, timedelta
+
+SECRET = "supersecret-min-32-chars"
+
+# Tworzenie
+def create_token(user_id: int) -&gt; str:
+    payload = {
+        "sub": str(user_id),
+        "iat": datetime.utcnow(),
+        "exp": datetime.utcnow() + timedelta(hours=1),
+    }
+    return jwt.encode(payload, SECRET, algorithm="HS256")
+
+# Weryfikacja - ZAWSZE z algorithms
+def verify_token(token: str) -&gt; dict:
+    return jwt.decode(
+        token,
+        SECRET,
+        algorithms=["HS256"],   # WYMOG! bez tego algorithm confusion attack
+    )
+
+# Najlepiej - asymetryczne (RS256, ES256)
+# klucz publiczny do walidacji, prywatny do podpisu</code></pre>
+
+<h2>CSRF / CORS</h2>
+<pre><code># FastAPI - CORS
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://example.com"],   # NIE ['*'] z credentials!
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
+
+# Django CSRF jest domyslnie wlaczony</code></pre>
+
+<div class="card">
+<h3>Security checklist Python</h3>
+<ul>
+<li>NIGDY pickle.loads na user input</li>
+<li>SQL: zawsze parametryzacja</li>
+<li>subprocess: shell=False (default)</li>
+<li>Hashowanie: Argon2 / bcrypt</li>
+<li>JWT z eksplicytnym algorithm</li>
+<li>pip-audit + Dependabot w CI</li>
+<li>bandit / ruff S w pre-commit</li>
+<li>Secrets w env vars, nie w kodzie</li>
+<li>HTTPS only + HSTS w produkcji</li>
+<li>Pin wersje + hash w requirements</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="03-frameworki-i-ekosystem.html">&larr; Frameworki</a>
+<a href="05-ochrona-kodu-przed-kradzieza.html">Ochrona kodu &rarr;</a>
+</div>
+</div>
+</body>
+</html>

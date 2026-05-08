@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Active Directory</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">Active Directory</span>
+</div>
+
+<div class="container">
+<h1>Active Directory Domain Services</h1>
+<p class="subtitle">Centralny katalog tozsamosci, uwierzytelniania i autoryzacji w srodowisku Windows.</p>
+
+<h2>Architektura AD - struktura logiczna</h2>
+<p>AD opiera sie na hierarchii: las (forest) zawiera domeny, domeny zawieraja jednostki organizacyjne (OU), a OU zawieraja obiekty (uzytkownicy, komputery, grupy). Repliki wezlow nazywane sa kontrolerami domeny (Domain Controllers, DC).</p>
+<table>
+<tr><th>Element</th><th>Opis</th><th>Przyklad</th></tr>
+<tr><td>Forest</td><td>Najwyzsza granica bezpieczenstwa, wspolny schemat i Global Catalog</td><td>contoso.local</td></tr>
+<tr><td>Domain</td><td>Granica administracyjna i replikacji, zbior obiektow</td><td>europe.contoso.local</td></tr>
+<tr><td>OU (Organizational Unit)</td><td>Kontener do delegacji uprawnien i przypiecia GPO</td><td>OU=Sales,OU=Users</td></tr>
+<tr><td>Site</td><td>Reprezentacja fizycznej lokalizacji (subnet), kontroluje replikacje</td><td>Warszawa, Krakow</td></tr>
+<tr><td>Domain Controller</td><td>Serwer trzymajacy kopie bazy NTDS.dit</td><td>DC01.contoso.local</td></tr>
+</table>
+
+<h2>Promocja serwera do Domain Controller</h2>
+<p>Proces tworzenia pierwszego DC w nowym lesie wymaga instalacji roli AD DS i wywolania <code>Install-ADDSForest</code>. Serwer staje sie DC + serwerem DNS dla domeny.</p>
+<pre><code># 1. Instalacja roli AD DS + narzedzi
+Install-WindowsFeature -Name AD-Domain-Services `
+                       -IncludeManagementTools
+
+# 2. Promocja na pierwszy DC nowego lasu
+$pwd = ConvertTo-SecureString "P@ssw0rd-DSRM!" -AsPlainText -Force
+Install-ADDSForest `
+    -DomainName "contoso.local" `
+    -DomainNetbiosName "CONTOSO" `
+    -ForestMode "WinThreshold" `
+    -DomainMode "WinThreshold" `
+    -InstallDns:$true `
+    -DatabasePath  "C:\Windows\NTDS" `
+    -SysvolPath    "C:\Windows\SYSVOL" `
+    -LogPath       "C:\Windows\NTDS" `
+    -SafeModeAdministratorPassword $pwd `
+    -Force:$true
+
+# Po restarcie weryfikacja stanu
+Get-ADDomain
+Get-ADForest
+dcdiag /v</code></pre>
+
+<div class="card">
+<p><strong>DSRM password:</strong> Haslo Directory Services Restore Mode jest niezbedne do bootu w trybie ratunkowym. Trzymac w sejfie - bez niego odtworzenie z backupu bazy NTDS jest niemozliwe.</p>
+</div>
+
+<h2>DNS - krytyczna zaleznosc</h2>
+<p>Active Directory wymaga DNS - klienci szukaja kontrolerow domeny przez rekordy SRV (<code>_ldap._tcp.dc._msdcs.contoso.local</code>). Bez dzialajacego DNS klienci nie znajda DC i logowanie zawodzi.</p>
+<ul>
+<li>Strefa DNS dla domeny powinna byc <strong>AD-Integrated</strong> (replikuje sie razem z AD, nie osobnym mechanizmem)</li>
+<li>Klienci AD musza miec ustawiony DNS na DC, nie na publicznych serwerach (8.8.8.8, 1.1.1.1)</li>
+<li>Forwardery DNS w DC ustawia sie na zewnetrzne resolvery dla rozwiazywania internetu</li>
+</ul>
+
+<h2>Group Policy - centralna konfiguracja</h2>
+<p>Group Policy Objects (GPO) pozwalaja administratorom centralnie konfigurowac ustawienia komputerow i uzytkownikow. GPO sa linkowane do site, domeny lub OU. Kolejnosc stosowania: Local -> Site -> Domain -> OU (LSDOU).</p>
+<pre><code># Otwarcie konsoli zarzadzania GPO
+gpmc.msc
+
+# Edytor lokalnego GPO
+gpedit.msc
+
+# Wymuszenie aktualizacji polityki na kliencie
+gpupdate /force
+
+# Sprawdzenie zastosowanych polityk
+gpresult /h C:\report.html
+
+# Tworzenie nowego GPO przez PowerShell
+New-GPO -Name "BlokujUSB-PC" -Comment "Blokada nosnikow USB"
+New-GPLink -Name "BlokujUSB-PC" -Target "OU=Workstations,DC=contoso,DC=local"</code></pre>
+
+<h3>Typowe ustawienia GPO</h3>
+<table>
+<tr><th>Polityka</th><th>Sciezka</th><th>Cel</th></tr>
+<tr><td>Account Lockout</td><td>Computer Configuration -> Policies -> Windows Settings -> Security</td><td>Blokada konta po nieudanych logowaniach</td></tr>
+<tr><td>Password Policy</td><td>j.w.</td><td>Wymuszenie dlugosci, zlozonosci, historii hasel</td></tr>
+<tr><td>Software Restriction / AppLocker</td><td>Computer Configuration -> Policies -> Windows Settings -> Application Control</td><td>Whitelisting aplikacji</td></tr>
+<tr><td>Windows Update</td><td>Computer Configuration -> Administrative Templates -> Windows Components</td><td>Konfiguracja WSUS, harmonogramu</td></tr>
+<tr><td>Drive Mapping (Group Policy Preferences)</td><td>User Configuration -> Preferences -> Drive Maps</td><td>Mapowanie zasobow sieciowych</td></tr>
+</table>
+
+<h2>Zarzadzanie obiektami AD przez PowerShell</h2>
+<pre><code># Modul ActiveDirectory (RSAT lub na DC)
+Import-Module ActiveDirectory
+
+# Tworzenie OU
+New-ADOrganizationalUnit -Name "Sales" -Path "DC=contoso,DC=local" `
+                        -ProtectedFromAccidentalDeletion $true
+
+# Nowy uzytkownik
+$pwd = ConvertTo-SecureString "Welcome2025!" -AsPlainText -Force
+New-ADUser -Name "Jan Kowalski" `
+           -SamAccountName "jkowalski" `
+           -UserPrincipalName "jkowalski@contoso.local" `
+           -Path "OU=Sales,DC=contoso,DC=local" `
+           -AccountPassword $pwd `
+           -Enabled $true `
+           -ChangePasswordAtLogon $true
+
+# Wyszukiwanie uzytkownikow
+Get-ADUser -Filter 'Department -eq "Sales"' -Properties Department,Manager
+Get-ADUser -Identity jkowalski -Properties *
+
+# Tworzenie i czlonkostwo grup
+New-ADGroup -Name "GG-Sales-FileShare" -GroupScope Global -GroupCategory Security `
+            -Path "OU=Groups,DC=contoso,DC=local"
+Add-ADGroupMember -Identity "GG-Sales-FileShare" -Members jkowalski
+
+# Bulk import z CSV
+Import-Csv users.csv | ForEach-Object {
+    New-ADUser -Name $_.Name -SamAccountName $_.Sam -Enabled $true `
+               -AccountPassword (ConvertTo-SecureString $_.Pass -AsPlainText -Force)
+}</code></pre>
+
+<h2>Protokoly uwierzytelniania</h2>
+<table>
+<tr><th>Protokol</th><th>Charakterystyka</th><th>Status</th></tr>
+<tr><td>Kerberos v5</td><td>Domyslny w AD, ticket-based, mutual auth, brak hasel w ruchu</td><td>Zalecany - aktywnie uzywany</td></tr>
+<tr><td>NTLM (NTLMv2)</td><td>Challenge/response, fallback gdy Kerberos nie dziala (np. logowanie po IP)</td><td>Legacy - do wyeliminowania (Pass-the-Hash, Relay attacks)</td></tr>
+<tr><td>NTLMv1 / LM</td><td>Stare, slabe, lamliwe</td><td>WYLACZONE w secure baseline</td></tr>
+<tr><td>LDAP / LDAPS</td><td>Zapytania do katalogu (port 389/636)</td><td>LDAPS (nad TLS) zalecany dla wszystkich aplikacji</td></tr>
+</table>
+
+<h2>Replikacja - KCC i topologia</h2>
+<p>Knowledge Consistency Checker (KCC) automatycznie buduje topologie replikacji miedzy DC w obrebie sitea (intra-site, co 15s) i miedzy sitami (inter-site, wg harmonogramu). Replikacja w AD jest multi-master - kazdy DC moze przyjmowac zmiany.</p>
+<pre><code># Diagnostyka replikacji
+repadmin /showrepl
+repadmin /replsummary
+repadmin /syncall /AdeP
+
+# Wymuszenie replikacji
+repadmin /replicate DC02 DC01 "DC=contoso,DC=local"
+
+# Sprawdzenie kondycji DC
+dcdiag /v /c /e</code></pre>
+
+<h2>Best practices i model warstw (tier model)</h2>
+<div class="card">
+<p>Microsoft promuje <strong>Enterprise Access Model</strong> rozdzielajacy konta na warstwy by uniemozliwic ruch lateralny:</p>
+<ul>
+<li><strong>Tier 0</strong> - DC, ADCS, kontroler PKI - tylko konta dedykowane, nigdy nie loguja sie na nizszych poziomach</li>
+<li><strong>Tier 1</strong> - serwery aplikacyjne, baz danych, plikow</li>
+<li><strong>Tier 2</strong> - stacje robocze, helpdesk</li>
+</ul>
+</div>
+<ul>
+<li>Nie uzywac konta Domain Admin do codziennych zadan - oddzielne konto admina</li>
+<li>Wlaczyc Protected Users group dla VIP (uniemozliwia cache hasel)</li>
+<li>Wdrozyc LAPS (Local Administrator Password Solution) - unikalne hasla local admin</li>
+<li>Audit krytycznych grup (Domain Admins, Enterprise Admins, Schema Admins)</li>
+<li>Backup System State DC co najmniej dziennie</li>
+<li>Monitorowac zdarzenia 4624 (logon), 4768/4769 (Kerberos), 4625 (failed logon)</li>
+<li>Wyeliminowac NTLM gdzie tylko mozliwe, monitorowac uzycie</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="02-instalacja-i-konfiguracja.html">&larr; Instalacja</a>
+    <a href="04-iis-podstawy.html">IIS - podstawy &rarr;</a>
+</div>
+</div>
+</body>
+</html>

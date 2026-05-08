@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frameworki i ekosystem .NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">C#</a>
+    <span class="sep">/</span>
+    <span class="title">Frameworki i ekosystem</span>
+</div>
+
+<div class="container">
+<h1>Frameworki i ekosystem .NET</h1>
+<p class="subtitle">ASP.NET Core, Blazor, MAUI, EF Core, Minimal APIs, gRPC, SignalR, NuGet, MSBuild.</p>
+
+<h2>ASP.NET Core - web framework</h2>
+<p>ASP.NET Core to nowoczesny, cross-platform framework do aplikacji webowych. Zawiera MVC, Razor Pages, Web API, Blazor i SignalR.</p>
+
+<h3>Minimal APIs (.NET 6+)</h3>
+<p>Minimalna ilosc kodu do uruchomienia API. Idealny dla mikroserwisow.</p>
+
+<pre><code># Tworzenie
+dotnet new webapi -minimal -o MyApi
+cd MyApi
+dotnet run</code></pre>
+
+<pre><code>// Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext&lt;AppDb&gt;(opt =&gt;
+    opt.UseSqlite("Data Source=app.db"));
+
+var app = builder.Build();
+
+// GET endpoint
+app.MapGet("/users/{id:int}", async (int id, AppDb db) =&gt;
+    await db.Users.FindAsync(id) is User u
+        ? Results.Ok(u)
+        : Results.NotFound());
+
+// POST endpoint
+app.MapPost("/users", async (User u, AppDb db) =&gt;
+{
+    db.Users.Add(u);
+    await db.SaveChangesAsync();
+    return Results.Created($"/users/{u.Id}", u);
+});
+
+app.Run();</code></pre>
+
+<h3>Klasyczne kontrolery (MVC / Web API)</h3>
+<pre><code>[ApiController]
+[Route("api/[controller]")]
+public class UsersController(IUserService service) : ControllerBase
+{
+    [HttpGet("{id:int}")]
+    public async Task&lt;ActionResult&lt;User&gt;&gt; GetById(int id, CancellationToken ct)
+    {
+        var user = await service.FindAsync(id, ct);
+        return user is null ? NotFound() : Ok(user);
+    }
+
+    [HttpPost]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task&lt;IActionResult&gt; Create(CreateUserDto dto)
+    {
+        var user = await service.CreateAsync(dto);
+        return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+    }
+}</code></pre>
+
+<h2>Blazor</h2>
+<p>Framework do interaktywnych UI w C# zamiast JavaScript. Wiecej informacji w sekcji <a href="../../www/blazor/index.html">www/blazor</a>.</p>
+
+<table>
+<thead><tr><th>Tryb renderowania</th><th>Charakterystyka</th><th>Najlepszy do</th></tr></thead>
+<tbody>
+<tr><td>Server</td><td>SignalR, server-side</td><td>Wewnetrzne aplikacje, fast time-to-interactive</td></tr>
+<tr><td>WebAssembly</td><td>WASM client-side</td><td>Offline, PWA, low latency</td></tr>
+<tr><td>SSR (.NET 8+)</td><td>Server pre-render</td><td>SEO, fast first paint</td></tr>
+<tr><td>Auto (.NET 8+)</td><td>SSR &rarr; Server &rarr; WASM</td><td>Best of both worlds</td></tr>
+</tbody></table>
+
+<h2>.NET MAUI</h2>
+<p><strong>Multi-platform App UI</strong> &mdash; nastepca Xamarin.Forms. Jeden kod &rarr; iOS, Android, macOS, Windows.</p>
+
+<pre><code># Wymaga workload
+dotnet workload install maui
+
+# Tworzenie projektu
+dotnet new maui -o MyApp
+
+# Kompilacja
+dotnet build -t:Run -f net9.0-android
+dotnet build -t:Run -f net9.0-ios
+dotnet build -t:Run -f net9.0-windows10.0.19041.0</code></pre>
+
+<h2>Entity Framework Core</h2>
+<p>EF Core to ORM dla .NET. Code-first, migracje, LINQ to SQL, change tracking.</p>
+
+<pre><code>// Model
+public class User
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = "";
+    public List&lt;Order&gt; Orders { get; set; } = [];
+}
+
+public class Order
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
+    public decimal Total { get; set; }
+}
+
+// DbContext
+public class AppDb(DbContextOptions&lt;AppDb&gt; opt) : DbContext(opt)
+{
+    public DbSet&lt;User&gt; Users =&gt; Set&lt;User&gt;();
+    public DbSet&lt;Order&gt; Orders =&gt; Set&lt;Order&gt;();
+}
+
+// Konfiguracja w Program.cs
+builder.Services.AddDbContext&lt;AppDb&gt;(opt =&gt;
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Migracje
+// dotnet ef migrations add InitialCreate
+// dotnet ef database update
+
+// Zapytania - LINQ
+var users = await db.Users
+    .Where(u =&gt; u.Email.EndsWith("@example.com"))
+    .Include(u =&gt; u.Orders)
+    .OrderByDescending(u =&gt; u.Orders.Count)
+    .Take(10)
+    .AsNoTracking()
+    .ToListAsync();
+
+// Compiled queries (wydajnosc)
+private static readonly Func&lt;AppDb, int, Task&lt;User?&gt;&gt; GetUserById =
+    EF.CompileAsyncQuery((AppDb db, int id) =&gt;
+        db.Users.FirstOrDefault(u =&gt; u.Id == id));</code></pre>
+
+<h2>gRPC w .NET</h2>
+<p>gRPC to high-performance RPC framework od Google. .NET ma pierwszorzedne wsparcie.</p>
+
+<pre><code>// proto/greet.proto
+syntax = "proto3";
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloReply);
+}
+message HelloRequest { string name = 1; }
+message HelloReply { string message = 1; }</code></pre>
+
+<pre><code>// Server
+public class GreeterService : Greeter.GreeterBase
+{
+    public override Task&lt;HelloReply&gt; SayHello(
+        HelloRequest request, ServerCallContext context)
+    {
+        return Task.FromResult(new HelloReply
+        {
+            Message = $"Hello {request.Name}"
+        });
+    }
+}
+
+// Client
+using var channel = GrpcChannel.ForAddress("https://localhost:5001");
+var client = new Greeter.GreeterClient(channel);
+var reply = await client.SayHelloAsync(new HelloRequest { Name = "Anna" });</code></pre>
+
+<h2>SignalR - real-time communication</h2>
+<pre><code>// Hub
+public class ChatHub : Hub
+{
+    public async Task SendMessage(string user, string message)
+    {
+        await Clients.All.SendAsync("ReceiveMessage", user, message);
+    }
+}
+
+// Konfiguracja
+builder.Services.AddSignalR();
+app.MapHub&lt;ChatHub&gt;("/chat");
+
+// JavaScript client
+const conn = new signalR.HubConnectionBuilder()
+    .withUrl("/chat")
+    .build();
+conn.on("ReceiveMessage", (user, msg) =&gt; console.log(user, msg));
+await conn.start();
+await conn.invoke("SendMessage", "Anna", "Hello!");</code></pre>
+
+<h2>NuGet - package manager</h2>
+<pre><code># Dodanie paczki
+dotnet add package Microsoft.EntityFrameworkCore --version 9.0.0
+dotnet add package Serilog.AspNetCore
+
+# Restore
+dotnet restore
+
+# Lock files (.NET 6+)
+dotnet add package X --use-lock-file
+# packages.lock.json - zatwierdz w repo
+
+# Lokalne paczki
+dotnet pack -c Release
+dotnet nuget push bin/Release/MyLib.1.0.0.nupkg --source nuget.org --api-key XXX</code></pre>
+
+<h2>MSBuild i Directory.Packages.props</h2>
+<p>Centralne zarzadzanie wersjami paczek (Central Package Management - .NET 7+):</p>
+
+<pre><code>&lt;!-- Directory.Packages.props - w katalogu solution --&gt;
+&lt;Project&gt;
+  &lt;PropertyGroup&gt;
+    &lt;ManagePackageVersionsCentrally&gt;true&lt;/ManagePackageVersionsCentrally&gt;
+  &lt;/PropertyGroup&gt;
+  &lt;ItemGroup&gt;
+    &lt;PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.0" /&gt;
+    &lt;PackageVersion Include="Serilog" Version="4.0.0" /&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Project&gt;
+
+&lt;!-- W projekcie .csproj - bez Version --&gt;
+&lt;PackageReference Include="Microsoft.EntityFrameworkCore" /&gt;</code></pre>
+
+<h2>Visual Studio 2025 vs Rider vs VS Code</h2>
+<table>
+<thead><tr><th>IDE</th><th>Producent</th><th>Cena</th><th>Najlepsze do</th></tr></thead>
+<tbody>
+<tr><td>Visual Studio 2025</td><td>Microsoft</td><td>Community free / Pro</td><td>Windows, full .NET ecosystem</td></tr>
+<tr><td>JetBrains Rider</td><td>JetBrains</td><td>Subscription</td><td>Cross-platform, refaktoring</td></tr>
+<tr><td>VS Code + C# Dev Kit</td><td>Microsoft</td><td>Free</td><td>Lekki, cross-platform</td></tr>
+<tr><td>Visual Studio for Mac</td><td>Microsoft</td><td>EOL 2024</td><td>(juz nie uzywane)</td></tr>
+</tbody></table>
+
+<div class="card">
+<h3>Popularne biblioteki .NET 2026</h3>
+<ul>
+<li><strong>Serilog</strong> &mdash; structured logging</li>
+<li><strong>FluentValidation</strong> &mdash; walidacja</li>
+<li><strong>MediatR</strong> &mdash; CQRS, in-process messaging</li>
+<li><strong>Polly</strong> &mdash; resilience patterns (retry, circuit breaker)</li>
+<li><strong>Mapster / AutoMapper</strong> &mdash; mapowanie DTO</li>
+<li><strong>Refit</strong> &mdash; HTTP client z interfejsu</li>
+<li><strong>FastEndpoints</strong> &mdash; alternatywa dla MVC</li>
+<li><strong>Dapper</strong> &mdash; lekki micro-ORM</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="02-nowoczesny-csharp.html">&larr; Nowoczesny C#</a>
+<a href="04-bezpieczenstwo-aplikacji.html">Bezpieczenstwo &rarr;</a>
+</div>
+</div>
+</body>
+</html>

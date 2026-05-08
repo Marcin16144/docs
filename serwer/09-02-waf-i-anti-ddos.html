@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAF i anti-DDoS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="09-publikowanie-uslug.html">Publikowanie uslug</a>
+    <span class="sep">/</span>
+    <span class="title">WAF i anti-DDoS</span>
+</div>
+
+<div class="container">
+<h1>WAF i ochrona przed DDoS</h1>
+<p class="subtitle">Web Application Firewall, OWASP CRS i strategie ochrony przed atakami volumetricznymi i L7.</p>
+
+<h2>Web Application Firewall (WAF)</h2>
+<p>WAF analizuje ruch HTTP/HTTPS na warstwie L7 (aplikacyjnej) i blokuje zlosliwe requesty zanim trafia do aplikacji. Dziala na zasadzie regul (signatures), heurystyk (anomaly detection) lub ML-based.</p>
+
+<h3>Kategorie WAF</h3>
+<table>
+<tr><th>Typ</th><th>Charakterystyka</th><th>Przyklady</th></tr>
+<tr><td>Cloud (managed)</td><td>SaaS, brak infrastruktury, latwy onboarding (DNS change)</td><td>Cloudflare, Azure FD WAF, AWS WAF</td></tr>
+<tr><td>Cloud (Azure/AWS native)</td><td>Integracja z VNet/VPC, granularne reguly</td><td>Azure Application Gateway WAF, AWS WAF v2</td></tr>
+<tr><td>On-premise hardware</td><td>Appliance fizyczny, najwieksza kontrola</td><td>F5 BIG-IP ASM, Imperva, Barracuda</td></tr>
+<tr><td>Software (self-hosted)</td><td>Open source, instalowane przez team</td><td>ModSecurity, NAXSI, Coraza</td></tr>
+<tr><td>Embedded (IIS module)</td><td>W IIS bezposrednio</td><td>Microsoft URL Scan, IIS Dynamic IP Restrictions</td></tr>
+</table>
+
+<h2>OWASP Core Rule Set (CRS)</h2>
+<p>OWASP CRS to standardowy ruleset open source dla WAF. Zaprojektowany dla ModSecurity, ale wsperany przez wiele platform (Coraza, Cloudflare, Azure App Gateway WAF).</p>
+
+<h3>Kategorie regul</h3>
+<table>
+<tr><th>Kategoria</th><th>Plik</th><th>Co wykrywa</th></tr>
+<tr><td>SQL Injection</td><td>REQUEST-942-APPLICATION-ATTACK-SQLI</td><td>UNION SELECT, OR 1=1, ' OR ', injection patterns</td></tr>
+<tr><td>XSS</td><td>REQUEST-941-APPLICATION-ATTACK-XSS</td><td>&lt;script&gt;, javascript:, on*= handlers, eval()</td></tr>
+<tr><td>RCE</td><td>REQUEST-932-APPLICATION-ATTACK-RCE</td><td>cmd= , exec, /bin/sh, powershell, system()</td></tr>
+<tr><td>Local File Inclusion</td><td>REQUEST-930-APPLICATION-ATTACK-LFI</td><td>../, etc/passwd, win.ini, encoded path traversal</td></tr>
+<tr><td>Remote File Inclusion</td><td>REQUEST-931-APPLICATION-ATTACK-RFI</td><td>http:// w parametrach include</td></tr>
+<tr><td>PHP Injection</td><td>REQUEST-933-APPLICATION-ATTACK-PHP</td><td>&lt;?php, eval, base64_decode</td></tr>
+<tr><td>Java attacks</td><td>REQUEST-944-APPLICATION-ATTACK-JAVA</td><td>Log4Shell (jndi:ldap, $${}), Spring4Shell</td></tr>
+<tr><td>NodeJS injection</td><td>REQUEST-934-APPLICATION-ATTACK-NODEJS</td><td>NodeJS-specific patterns</td></tr>
+<tr><td>Generic attacks</td><td>REQUEST-921, REQUEST-920</td><td>Protocol enforcement, anomalie HTTP</td></tr>
+<tr><td>Bot detection</td><td>REQUEST-913-SCANNER-DETECTION</td><td>nmap, sqlmap, nikto, scanners</td></tr>
+</table>
+
+<h3>Tryby pracy WAF</h3>
+<table>
+<tr><th>Tryb</th><th>Opis</th><th>Zastosowanie</th></tr>
+<tr><td>Detection / Audit</td><td>Loguje matche, nie blokuje</td><td>Tuning - eliminacja false positives przed wlaczeniem blocking</td></tr>
+<tr><td>Prevention / Block</td><td>Blokuje match (HTTP 403)</td><td>Produkcja po tuningu</td></tr>
+<tr><td>Challenge</td><td>JavaScript challenge / CAPTCHA dla podejrzanych</td><td>Mitygacja botow bez calkowitego blokowania</td></tr>
+</table>
+
+<div class="card">
+<p><strong>Antywzorzec:</strong> Wlaczenie WAF od razu w trybie blocking bez tuningu. Wynik: false positives blokuja legitnych uzytkownikow. <strong>Zawsze zaczynac od Detection mode</strong> przez 2-4 tygodnie, analizowac logi, dostraja reguly, dopiero potem wlaczyc Prevention.</p>
+</div>
+
+<h2>Cloudflare</h2>
+<p>Najpopularniejszy cloud WAF + CDN + DDoS protection. Free tier oferuje juz solidna ochrone, plany platne dodaja zaawansowane funkcje.</p>
+
+<h3>Tier i ceny</h3>
+<table>
+<tr><th>Plan</th><th>Cena</th><th>WAF</th><th>DDoS</th><th>Inne</th></tr>
+<tr><td>Free</td><td>0 USD</td><td>Managed Rules (basic)</td><td>Unlimited L3/4</td><td>Universal SSL, basic analytics</td></tr>
+<tr><td>Pro</td><td>20 USD/mc</td><td>+ Cloudflare Managed Rules</td><td>+ Advanced Rate limiting</td><td>WAF custom rules (limited)</td></tr>
+<tr><td>Business</td><td>200 USD/mc</td><td>+ Custom rules unlimited, exposed credentials</td><td>+ DDoS reports</td><td>100% uptime SLA</td></tr>
+<tr><td>Enterprise</td><td>negotiate</td><td>+ Bot Management ML, Page Shield</td><td>+ Magic Transit</td><td>Dedicated support, advanced certs</td></tr>
+</table>
+
+<h3>Onboarding Cloudflare</h3>
+<ul>
+<li>Rejestracja domeny w Cloudflare</li>
+<li>Zmiana NS rekordow w rejestrarze na Cloudflare nameservers</li>
+<li>Cloudflare automatycznie wykrywa rekordy A/AAAA i ustawia <strong>proxied</strong> (orange cloud)</li>
+<li>Ruch klientow trafia do Cloudflare, ktory robi reverse proxy do origin</li>
+<li>Konfiguracja: SSL/TLS Mode = Full Strict (cert na origin musi byc valid)</li>
+<li>WAF Rules: Cloudflare Managed Rules + OWASP Core Rule Set</li>
+</ul>
+
+<h2>Azure Application Gateway WAF</h2>
+<p>Microsoft cloud-native WAF integrowany z Azure VNet. Wspiera OWASP CRS 3.2 i 4.0 oraz Microsoft Threat Intelligence rules.</p>
+<table>
+<tr><th>Tier</th><th>Cechy</th></tr>
+<tr><td>WAF v2 (current)</td><td>Auto-scaling, zone redundancy, custom rules, geo filtering, bot manager</td></tr>
+<tr><td>WAF v1 (legacy)</td><td>Limited scale, deprecated</td></tr>
+</table>
+<pre><code># Tworzenie WAF policy w Azure CLI
+az network application-gateway waf-policy create `
+    --name MyWafPolicy `
+    --resource-group MyRG `
+    --type OWASP `
+    --version 3.2
+
+# Custom rule - blokowanie konkretnego User-Agenta
+az network application-gateway waf-policy custom-rule create `
+    --policy-name MyWafPolicy --resource-group MyRG `
+    --name BlockBadBot `
+    --priority 100 `
+    --rule-type MatchRule `
+    --action Block
+
+az network application-gateway waf-policy custom-rule match-condition add `
+    --policy-name MyWafPolicy --resource-group MyRG `
+    --name BlockBadBot `
+    --match-variables RequestHeaders.User-Agent `
+    --operator Contains `
+    --values "BadBot/1.0"</code></pre>
+
+<h2>AWS WAF</h2>
+<p>Integruje sie z CloudFront, Application Load Balancer (ALB), API Gateway, AppSync. Pricing per WebACL + per million requests.</p>
+<ul>
+<li>Managed rule groups: AWS Managed Rules (Core, Anonymous IP List, SQLi, Linux/Windows attacks)</li>
+<li>Marketplace rules: Imperva, F5, Cyberark</li>
+<li>Custom rules: rate limiting, geo blocking, IP whitelist/blacklist</li>
+<li>WCU (Web ACL Capacity Units) - kazda regula ma koszt WCU, max 1500 per WebACL</li>
+</ul>
+
+<h2>F5 BIG-IP / Imperva (enterprise on-prem)</h2>
+<ul>
+<li>F5 ASM (Application Security Manager) - dojrzaly enterprise WAF</li>
+<li>Imperva (dawniej SecureSphere) - cloud + on-prem</li>
+<li>Hardware appliances + virtual editions</li>
+<li>ML-based bot detection, advanced behavioral analysis</li>
+<li>Wysokie koszty - typowo dla enterprise/banking/medical</li>
+</ul>
+
+<h2>Atak DDoS - rodzaje</h2>
+
+<h3>Volumetric (L3/L4)</h3>
+<p>Ataki przepelniajace pasmo i zasoby sieciowe, mierzone w Gbps lub Mpps (packets per second).</p>
+<table>
+<tr><th>Atak</th><th>Mechanizm</th><th>Mitygacja</th></tr>
+<tr><td>UDP flood</td><td>Masa pakietow UDP do losowych portow</td><td>Filtracja na CDN/scrubbing center</td></tr>
+<tr><td>SYN flood</td><td>Half-open TCP connections, wyczerpanie kolejki</td><td>SYN cookies, rate limiting</td></tr>
+<tr><td>ICMP flood</td><td>Ping flood</td><td>Blokowanie ICMP echo na perimeter</td></tr>
+<tr><td>NTP/DNS amplification</td><td>Spoofed source IP, amplifier reflektuje na ofiare</td><td>BCP38 ingress filtering, rate limit zrodel</td></tr>
+<tr><td>Memcached amplification</td><td>50000x amplification ratio (rekordowo)</td><td>Closed amplifier services, ISP filtering</td></tr>
+</table>
+
+<h3>Protocol (L4)</h3>
+<table>
+<tr><th>Atak</th><th>Mechanizm</th></tr>
+<tr><td>TCP RST flood</td><td>Wymuszenie zerwania sesji</td></tr>
+<tr><td>Smurf attack</td><td>ICMP broadcast amplification</td></tr>
+<tr><td>Ping of Death</td><td>Malformed ICMP, oversize packet</td></tr>
+</table>
+
+<h3>Application (L7)</h3>
+<p>Ataki na warstwe aplikacyjna - mniejsze pasmo, ale wykorzystuje slabosci aplikacji.</p>
+<table>
+<tr><th>Atak</th><th>Mechanizm</th><th>Mitygacja</th></tr>
+<tr><td>HTTP flood</td><td>Tysiace legalnych requestow GET/POST</td><td>Rate limiting per IP, CAPTCHA, fingerprinting</td></tr>
+<tr><td>Slowloris</td><td>Trzymanie wielu polaczen powoli, exhaustion connection limit</td><td>Connection timeout, mod_reqtimeout, Cloudflare</td></tr>
+<tr><td>Slow POST (R-U-Dead-Yet)</td><td>POST z bardzo wolnym body</td><td>Limit czasu wysylki body</td></tr>
+<tr><td>SSL/TLS handshake flood</td><td>Wymuszenie expensive TLS handshakes</td><td>SSL termination na CDN</td></tr>
+<tr><td>RegEx DoS (ReDoS)</td><td>Zlosliwe inputy powodujace exponential regex</td><td>Bezpieczne regex w aplikacji, timeout</td></tr>
+</table>
+
+<h2>Anti-DDoS - opcje</h2>
+
+<h3>Cloudflare DDoS Protection</h3>
+<ul>
+<li>Free tier: <strong>nieograniczona</strong> ochrona L3/4 (network DDoS)</li>
+<li>Anycast network 300+ POPs - rozproszenie ataku</li>
+<li>L7 mitigation: bot detection, JavaScript challenge, captcha</li>
+<li>"I'm Under Attack Mode" - JS challenge dla wszystkich klientow</li>
+<li>Magic Transit (Enterprise) - ochrona on-prem przez tunel</li>
+</ul>
+
+<h3>Azure DDoS Protection</h3>
+<table>
+<tr><th>Tier</th><th>Cena</th><th>Charakterystyka</th></tr>
+<tr><td>Network Protection (Basic)</td><td>Free, automatyczne</td><td>Ochrona infrastruktury Azure (zawsze aktywne)</td></tr>
+<tr><td>IP Protection</td><td>~200 zl/IP/mc</td><td>Per public IP, dedykowana ochrona zasobow</td></tr>
+<tr><td>Network Protection (Standard)</td><td>~12000 zl/mc + 100 IPs</td><td>Cala VNet, ML-based detection, telemetria, raporty post-attack, wsparcie SOC</td></tr>
+</table>
+<ul>
+<li>Adaptive tuning - profile ruchu nauczane automatycznie</li>
+<li>L3-L7 mitigation</li>
+<li>Cost protection - rachunek za scaling pod atakiem refundowany</li>
+</ul>
+
+<h3>AWS Shield</h3>
+<ul>
+<li><strong>Shield Standard</strong> - free, automatyczne dla wszystkich AWS</li>
+<li><strong>Shield Advanced</strong> - 3000 USD/mc + advanced features (24/7 SOC, cost protection, advanced reporting)</li>
+</ul>
+
+<h3>Hardware appliances</h3>
+<ul>
+<li>Arbor Sightline / NETSCOUT - klasa carrier-grade</li>
+<li>Radware DefensePro</li>
+<li>Stosowane przez ISP, big enterprise, bardzo duze rozmiary</li>
+</ul>
+
+<h2>Rate limiting w IIS</h2>
+<p>Wbudowane mozliwosci IIS dla L7 ochrony:</p>
+<pre><code>&lt;system.webServer&gt;
+  &lt;security&gt;
+    &lt;dynamicIpSecurity enableLoggingOnlyMode="false"&gt;
+      &lt;denyByConcurrentRequests
+        enabled="true" maxConcurrentRequests="20" /&gt;
+      &lt;denyByRequestRate
+        enabled="true"
+        maxRequests="50"
+        requestIntervalInMilliseconds="1000" /&gt;
+      &lt;!-- Whitelist (np. monitoring) --&gt;
+      &lt;ipSecurity&gt;
+        &lt;add ipAddress="10.0.0.0" subnetMask="255.0.0.0" allowed="true" /&gt;
+      &lt;/ipSecurity&gt;
+    &lt;/dynamicIpSecurity&gt;
+
+    &lt;requestFiltering&gt;
+      &lt;requestLimits maxAllowedContentLength="10485760"
+                      maxUrl="4096"
+                      maxQueryString="2048" /&gt;
+    &lt;/requestFiltering&gt;
+  &lt;/security&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h2>Multi-layer defense</h2>
+<div class="card">
+<p>Bezpieczenstwo to <strong>wiele warstw</strong>. Pojedynczy WAF nie wystarczy.</p>
+<ol>
+<li><strong>CDN/Cloud WAF</strong> (Cloudflare, Azure FD) - L3/4/7 DDoS, edge filtering, bot management</li>
+<li><strong>Reverse proxy</strong> (IIS+ARR, Nginx) w DMZ - SSL termination, dodatkowe rate limiting</li>
+<li><strong>Application WAF</strong> (ModSecurity, IIS modules) - aplikacyjne reguly</li>
+<li><strong>Aplikacja</strong> - input validation, parametrized queries, output encoding (last line of defense)</li>
+<li><strong>Database firewall</strong> (np. Imperva DAM) - L4 DB activity monitoring</li>
+</ol>
+</div>
+
+<h2>Best practices</h2>
+<ul>
+<li>WAF z OWASP CRS jako baseline</li>
+<li>Tuning w Detection mode minimum 2 tygodnie przed Block mode</li>
+<li>Bot management dla zapytan API (rate limit, JWT, signed requests)</li>
+<li>DDoS Standard tier dla zasobow krytycznych biznesowo</li>
+<li>"I'm Under Attack" jako pull-the-cord opcja w Cloudflare</li>
+<li>Geo-blocking regionow nieobslugiwanych biznesowo</li>
+<li>WAF logs do SIEM - korelacja z innymi zdarzeniami</li>
+<li>Regular WAF rule reviews i aktualizacje (CRS 4.x co rok)</li>
+<li>DDoS playbook + tabletop exercises</li>
+<li>Kontakt 24/7 do dostawcy WAF/DDoS protection</li>
+<li>Defense in depth - wiele warstw, nie poleganie na pojedynczym rozwiazaniu</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="09-01-reverse-proxy-architektura.html">&larr; Architektura reverse proxy</a>
+    <a href="09-publikowanie-uslug.html">Publikowanie uslug &rarr;</a>
+</div>
+</div>
+</body>
+</html>

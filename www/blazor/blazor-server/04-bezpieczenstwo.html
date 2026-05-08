@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bezpieczenstwo Blazor Server</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Server</a><span class="sep">/</span><span class="title">Bezpieczenstwo</span></div>
+<div class="container">
+<h1>Bezpieczenstwo Blazor Server</h1>
+<p class="subtitle">HTTPS, anti-forgery, CSP, rate limiting, DoS protection, sekrety</p>
+
+<h2>HTTPS only &mdash; podstawa</h2>
+<p>Blazor Server uzywa WebSocket (lub long-polling fallback). Bez HTTPS, dane w SignalR ida w czystej formie &mdash; przejmujesz cale UI uzytkownika.</p>
+<pre><code>// Program.cs
+app.UseHttpsRedirection();
+app.UseHsts(); // Strict-Transport-Security header
+
+// HSTS option
+builder.Services.AddHsts(options =&gt;
+{
+    options.Preload = true;
+    options.IncludeSubDomains = true;
+    options.MaxAge = TimeSpan.FromDays(365);
+});</code></pre>
+
+<h2>Anti-forgery tokens</h2>
+<p>Blazor Server domyslnie zabezpieczone CSRF dla form posts. Wystarczy <code>app.UseAntiforgery()</code>.</p>
+<pre><code>// Program.cs
+app.UseAntiforgery();
+
+// EditForm automatycznie dodaje token
+&lt;EditForm Model="@model" method="post" OnValidSubmit="Submit"&gt;
+    ...
+&lt;/EditForm&gt;</code></pre>
+
+<h3>Manualnie dla custom form</h3>
+<pre><code>@inject AntiforgeryStateProvider Anti
+
+&lt;form method="post"&gt;
+    &lt;AntiforgeryToken /&gt;
+    &lt;input name="email" /&gt;
+    &lt;button&gt;Wyslij&lt;/button&gt;
+&lt;/form&gt;</code></pre>
+
+<h2>Content Security Policy (CSP)</h2>
+<p>CSP chroni przed XSS &mdash; ogranicza skad mozna ladowac zasoby (skrypty, style, fonty).</p>
+<pre><code>app.Use(async (context, next) =&gt;
+{
+    context.Response.Headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        "script-src 'self' 'wasm-unsafe-eval'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "connect-src 'self' wss:; " +
+        "frame-ancestors 'none'; " +
+        "form-action 'self'";
+    await next();
+});</code></pre>
+<p>Blazor Server wymaga niestety <code>'unsafe-inline'</code> dla CSS i niektorych scripts &mdash; przyszle wersje pracuja nad tym.</p>
+
+<h2>Inne security headers</h2>
+<pre><code>context.Response.Headers["X-Frame-Options"] = "DENY";
+context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+context.Response.Headers["Permissions-Policy"] = "geolocation=(), camera=()";</code></pre>
+
+<h2>Cookies</h2>
+<pre><code>builder.Services.ConfigureApplicationCookie(opts =&gt;
+{
+    opts.Cookie.HttpOnly = true;        // Brak JS access
+    opts.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    opts.Cookie.SameSite = SameSiteMode.Strict;
+    opts.ExpireTimeSpan = TimeSpan.FromHours(8);
+    opts.SlidingExpiration = true;
+});</code></pre>
+
+<h2>Rate limiting</h2>
+<p>Od .NET 7 wbudowany middleware rate-limiting.</p>
+<pre><code>builder.Services.AddRateLimiter(opts =&gt;
+{
+    opts.AddPolicy("api", context =&gt;
+        RateLimitPartition.GetTokenBucketLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ =&gt; new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = 100,
+                ReplenishmentPeriod = TimeSpan.FromMinutes(1),
+                TokensPerPeriod = 100,
+                AutoReplenishment = true
+            }));
+
+    opts.AddPolicy("login", context =&gt;
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ =&gt; new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+
+    opts.RejectionStatusCode = 429;
+});
+
+app.UseRateLimiter();
+app.MapPost("/login", LoginHandler).RequireRateLimiting("login");</code></pre>
+
+<h2>DoS protection &mdash; circuit limit</h2>
+<p>Atakujacy moze otwierac wiele circuits aby zalac pamiec serwera. Dlatego ogranicz max disconnected circuits:</p>
+<pre><code>builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents()
+    .AddCircuitOptions(opts =&gt;
+    {
+        opts.DisconnectedCircuitMaxRetained = 100;
+        opts.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(3);
+        opts.MaxBufferedUnacknowledgedRenderBatches = 10;
+    });</code></pre>
+
+<h3>SignalR limit message size</h3>
+<pre><code>builder.Services.AddRazorComponents()
+    .AddHubOptions(opts =&gt;
+    {
+        opts.MaximumReceiveMessageSize = 32 * 1024; // 32 KB max
+    });</code></pre>
+
+<h2>Walidacja po stronie serwera</h2>
+<p>Klient moze wyslac dowolne wartosci. <strong>Zawsze waliduj na serwerze</strong>:</p>
+<pre><code>private async Task SubmitOrder(Order order)
+{
+    if (order.Quantity &lt;= 0 || order.Quantity &gt; 1000)
+        throw new ArgumentException("Invalid quantity");
+
+    if (!await IsUserAllowed(currentUser, order.ProductId))
+        throw new UnauthorizedAccessException();
+
+    await orderService.SubmitAsync(order);
+}</code></pre>
+
+<h2>Authorization</h2>
+
+<h3>Per komponent</h3>
+<pre><code>@page "/admin"
+@attribute [Authorize(Roles = "Admin")]</code></pre>
+
+<h3>Per akcja</h3>
+<pre><code>private async Task DeleteUser(int userId)
+{
+    var authState = await AuthState.GetAuthenticationStateAsync();
+    if (!authState.User.IsInRole("Admin"))
+        return;
+
+    await userService.DeleteAsync(userId);
+}</code></pre>
+
+<h3>Resource-based authorization</h3>
+<pre><code>@inject IAuthorizationService Auth
+
+private async Task EditDocument(Document doc)
+{
+    var result = await Auth.AuthorizeAsync(User, doc, "EditDocumentPolicy");
+    if (!result.Succeeded) return;
+
+    // edit
+}</code></pre>
+
+<h2>Logout i session expiration</h2>
+<pre><code>@inject SignInManager&lt;AppUser&gt; SignIn
+@inject NavigationManager Nav
+
+private async Task Logout()
+{
+    await SignIn.SignOutAsync();
+    Nav.NavigateTo("/", forceLoad: true);
+}</code></pre>
+
+<p>Idle timeout zalecany ~30 minut dla biznesowych aplikacji, krotszy dla bankowych.</p>
+
+<h2>Sekrety &mdash; gdzie nie trzymac</h2>
+<ul>
+<li><strong>NIE</strong> w kodzie zrodlowym</li>
+<li><strong>NIE</strong> w appsettings.json commitowanych do gita</li>
+<li><strong>NIE</strong> w environment variables na local dev (uzywaj user-secrets)</li>
+</ul>
+
+<h3>Dev: User Secrets</h3>
+<pre><code>dotnet user-secrets init
+dotnet user-secrets set "Db:ConnectionString" "Server=...;Password=..."</code></pre>
+
+<h3>Prod: Azure Key Vault / AWS Secrets Manager</h3>
+<pre><code>builder.Configuration.AddAzureKeyVault(
+    new Uri($"https://{vaultName}.vault.azure.net/"),
+    new DefaultAzureCredential());</code></pre>
+
+<h2>Logging i audyt</h2>
+<pre><code>// Loguj wazne akcje
+public async Task DeleteUser(int userId)
+{
+    logger.LogWarning("User {Admin} deleted user {UserId}",
+        currentUser.UserName, userId);
+
+    await userService.DeleteAsync(userId);
+}</code></pre>
+
+<p>Najlepsze praktyki:</p>
+<ul>
+<li>Strukturalne logowanie (Serilog + JSON sink)</li>
+<li>Persistowane logi (Seq, Loki, Datadog)</li>
+<li>Audit log dla logowania, zmian uprawnien, dostepu do sensitive data</li>
+<li>Nie loguj PII (haslo, PESEL, krew)</li>
+</ul>
+
+<h2>Common attacks i obrona</h2>
+<table>
+<thead><tr><th>Atak</th><th>Obrona</th></tr></thead>
+<tbody>
+<tr><td>XSS</td><td>Razor auto-encoding, CSP, unikaj <code>MarkupString</code></td></tr>
+<tr><td>CSRF</td><td>Anti-forgery tokens, SameSite cookies</td></tr>
+<tr><td>SQL Injection</td><td>EF Core / parameterized queries, NIE sklejaj SQL</td></tr>
+<tr><td>Brute force</td><td>Rate limiting na login, lockout, CAPTCHA</td></tr>
+<tr><td>Session hijack</td><td>HttpOnly + Secure cookies, regenerate session ID</td></tr>
+<tr><td>DoS</td><td>Circuit limits, rate limiter, CDN/Cloudflare</td></tr>
+<tr><td>Info leakage</td><td>DetailedErrors=false, custom error pages</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Security checklist</h3>
+<ul>
+<li>HTTPS only + HSTS</li>
+<li>CSP + security headers</li>
+<li>Anti-forgery tokens</li>
+<li>Rate limiting (login, API endpoints)</li>
+<li>Sekrety w Key Vault, NIGDY w repo</li>
+<li>Server-side validation kazdego inputu</li>
+<li>[Authorize] na chronionych komponentach</li>
+<li>Audit log akcji wrazliwych</li>
+<li>Aktualizacja .NET runtime do najnowszej patch version</li>
+<li>Dependency scan (Snyk, GitHub Dependabot)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="03-state-i-skala.html">&larr; State i skala</a>
+<a href="05-wydajnosc.html">Wydajnosc &rarr;</a>
+</div>
+</div>
+</body>
+</html>

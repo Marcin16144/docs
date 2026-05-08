@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04 — Frameworki i ekosystem Rust</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ce422b;--accent-hover:#e85d2f;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-left:4px solid var(--green)}.card.red{border-left:4px solid var(--red)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.purple{border-left:4px solid var(--purple)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+        .pill{display:inline-block;font-size:.7rem;padding:2px 8px;border-radius:4px;font-weight:600;margin-left:6px;background:rgba(74,222,128,.15);color:var(--green)}.pill.hot{background:rgba(248,113,113,.15);color:var(--red)}.pill.new{background:rgba(96,165,250,.15);color:var(--blue)}
+    </style>
+</head>
+<body>
+    <div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">Jezyki</a><span class="sep">/</span><a href="index.html">Rust</a><span class="sep">/</span><span class="title">Frameworki i ekosystem</span></div>
+    <div class="container">
+        <h1>Frameworki i ekosystem Rust</h1>
+        <p class="subtitle">Mapa popularnych bibliotek Rust w 2026 roku — co wybrac do web, async, baz, gier, GUI, embedded i WASM.</p>
+
+        <h2>Web frameworki</h2>
+
+        <p>Web ekosystem w Rust dojrzal i ma kilka stabilnych opcji. W 2026 dominuje <strong>Axum</strong>, ktory wygral wojne z Actix i Rocket dzieki ekosystem fit z Tokio i prostocie.</p>
+
+        <table>
+            <thead><tr><th>Framework</th><th>Status 2026</th><th>Charakterystyka</th><th>Kiedy wybrac</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Axum</strong> <span class="pill hot">#1</span></td><td>Bardzo popularny</td><td>Tokio-native, type-safe routing, extractor pattern</td><td>Domyslny wybor, mikrousluwgi, REST API</td></tr>
+                <tr><td><strong>Actix-web</strong></td><td>Dojrzaly, mature</td><td>Najszybszy benchmark, actor model w tle</td><td>Wysokie obciazenia, legacy projekty</td></tr>
+                <tr><td><strong>Rocket</strong></td><td>Stabilny ale wolniej rozwijany</td><td>Najbardziej ergonomiczny API (atrybuty)</td><td>Solo dev, rapid prototyping</td></tr>
+                <tr><td><strong>Loco</strong> <span class="pill new">new</span></td><td>Rosnace zainteresowanie</td><td>Rails-like, batteries-included</td><td>Pelne aplikacje (DB, jobs, mailer)</td></tr>
+                <tr><td><strong>Poem</strong></td><td>Niche</td><td>OpenAPI generation z anotacji</td><td>API-first projekty</td></tr>
+                <tr><td><strong>Salvo</strong></td><td>Niche</td><td>Tower-compatible, modulowy</td><td>Projekty wymagajace fine-grained control</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Axum — Hello World</h3>
+
+        <pre><code>use axum::{routing::get, Router, Json};
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct Powitanie {
+    wiadomosc: String,
+}
+
+async fn hello() -&gt; Json&lt;Powitanie&gt; {
+    Json(Powitanie {
+        wiadomosc: "Witaj w Axum!".to_string(),
+    })
+}
+
+#[tokio::main]
+async fn main() {
+    let app = Router::new()
+        .route("/", get(hello))
+        .route("/zdrowie", get(|| async { "OK" }));
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+        .await.unwrap();
+    println!("Serwer na http://0.0.0.0:3000");
+    axum::serve(listener, app).await.unwrap();
+}</code></pre>
+
+        <h2>Async runtime — Tokio dominuje</h2>
+
+        <p><strong>Tokio</strong> stal sie de facto standardem dla async w Rust. Praktycznie cala wspolczesna ekosystem (Axum, reqwest, sqlx, tonic) buduje na nim.</p>
+
+        <table>
+            <thead><tr><th>Runtime</th><th>Pozycja</th><th>Cechy</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Tokio</strong></td><td>De facto standard</td><td>Multi-threaded scheduler, IO uring support, work-stealing</td></tr>
+                <tr><td><strong>async-std</strong></td><td>Alternatywa, mniej popularna</td><td>API zblizone do std::, "comfortable" feel</td></tr>
+                <tr><td><strong>smol</strong></td><td>Lightweight</td><td>Minimalny footprint, dla embedded i CLI</td></tr>
+                <tr><td><strong>monoio</strong></td><td>Niche, ByteDance</td><td>Single-threaded io_uring (najszybszy w benchmarkach FS)</td></tr>
+                <tr><td><strong>embassy</strong></td><td>Embedded</td><td>no_std async runtime dla mikrokontrolerow</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Serializacja — Serde to monopol</h2>
+
+        <p><strong>Serde</strong> jest uniwersalnym frameworkiem serializacji. Praktycznie kazda biblioteka i format buduje na nim. Wspiera JSON, YAML, TOML, MessagePack, BSON, CBOR i dziesiatki innych.</p>
+
+        <pre><code>use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Uzytkownik {
+    id: u64,
+    imie: String,
+    email: String,
+    aktywny: bool,
+}
+
+let u = Uzytkownik {
+    id: 1, imie: "Anna".into(),
+    email: "anna@i4n.pl".into(), aktywny: true
+};
+
+let json = serde_json::to_string(&amp;u).unwrap();
+let toml = toml::to_string(&amp;u).unwrap();
+let z_powrotem: Uzytkownik = serde_json::from_str(&amp;json).unwrap();</code></pre>
+
+        <h2>HTTP client</h2>
+
+        <ul>
+            <li><strong>reqwest</strong> — najpopularniejszy, high-level (tokio + rustls/native-tls)</li>
+            <li><strong>hyper</strong> — low-level, bazowy budulec dla wielu bibliotek</li>
+            <li><strong>ureq</strong> — synchroniczny, bez async (idealne dla CLI)</li>
+            <li><strong>isahc</strong> — bazujacy na curl, niche</li>
+        </ul>
+
+        <h2>Bazy danych</h2>
+
+        <table>
+            <thead><tr><th>Biblioteka</th><th>Typ</th><th>Charakterystyka</th></tr></thead>
+            <tbody>
+                <tr><td><strong>sqlx</strong></td><td>Async SQL toolkit</td><td>Compile-time check zapytan SQL przy buildzie!</td></tr>
+                <tr><td><strong>SeaORM</strong></td><td>Async ORM</td><td>Active Record style, code generator z DB</td></tr>
+                <tr><td><strong>Diesel</strong></td><td>Sync ORM (z async branch)</td><td>Najstarszy, najbardziej type-safe</td></tr>
+                <tr><td><strong>tokio-postgres</strong></td><td>Driver low-level</td><td>Bezposrednio dla Postgres</td></tr>
+                <tr><td><strong>rusqlite</strong></td><td>SQLite wrapper</td><td>Synchroniczny, bardzo szybki</td></tr>
+                <tr><td><strong>redis-rs</strong></td><td>Redis client</td><td>Async + sync, cluster support</td></tr>
+                <tr><td><strong>mongodb</strong></td><td>Oficjalny driver MongoDB</td><td>Async-first</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Game engines</h2>
+
+        <p>Rust w gamedev jeszcze nie wygral z C++/Unity, ale jest wyrazne momentum. <strong>Bevy</strong> przekrocznyl 35k gwiazdek na GitHub i ma aktywna spolecznosc.</p>
+
+        <ul>
+            <li><strong>Bevy</strong> — najpopularniejszy, ECS-based, data-driven, modular</li>
+            <li><strong>Fyrox</strong> — pelny silnik z editor (3D, animacje, physics)</li>
+            <li><strong>Macroquad</strong> — prosty, idealny dla 2D i game jamow</li>
+            <li><strong>Ggez</strong> — inspirowany LOVE2D</li>
+            <li><strong>RG3D</strong> — silnik pelny 3D (rebrandowany do Fyrox)</li>
+        </ul>
+
+        <h3>Bevy — Hello World</h3>
+
+        <pre><code>use bevy::prelude::*;
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, setup)
+        .add_systems(Update, ruszaj_kamera)
+        .run();
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d::default());
+    commands.spawn((
+        Sprite::from_color(Color::srgb(0.8, 0.3, 0.2), Vec2::new(100.0, 100.0)),
+        Transform::default(),
+    ));
+}
+
+fn ruszaj_kamera(time: Res&lt;Time&gt;, mut q: Query&lt;&amp;mut Transform, With&lt;Camera2d&gt;&gt;) {
+    for mut t in q.iter_mut() {
+        t.translation.x += 10.0 * time.delta_secs();
+    }
+}</code></pre>
+
+        <h2>Desktop GUI</h2>
+
+        <table>
+            <thead><tr><th>Framework</th><th>Architektura</th><th>Status</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Tauri 2</strong></td><td>Native shell + WebView (HTML/JS frontend)</td><td>Najpopularniejszy Electron alternative</td></tr>
+                <tr><td><strong>Slint</strong></td><td>Wlasny markup .slint, optimized for embedded</td><td>Komercyjne, ale free dla GPL</td></tr>
+                <tr><td><strong>egui</strong></td><td>Immediate mode GUI</td><td>Bardzo szybki dev cycle, idealne dla narzedzi</td></tr>
+                <tr><td><strong>Iced</strong></td><td>Elm-inspired, retained mode</td><td>Pure Rust, cross-platform</td></tr>
+                <tr><td><strong>Dioxus</strong></td><td>React-like z Virtual DOM</td><td>Web + desktop + mobile + TUI</td></tr>
+                <tr><td><strong>gtk-rs</strong></td><td>Bindings GTK</td><td>Linux-first, zaawansowane GUI</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Embedded — Rust dominuje wsrod nowoczesnych jezykow</h2>
+
+        <p>Rust ma jeden z najlepszych ekosystemow embedded wsrod jezykow systemowych nowej generacji. <strong>embassy</strong> przyspieszyl adopcje async w mikrokontrolerach.</p>
+
+        <ul>
+            <li><strong>embassy</strong> — modern async no_std runtime, doskonale wsparcie dla nRF, STM32, ESP32, RP2040</li>
+            <li><strong>embedded-hal</strong> — hardware abstraction layer (uniwersalny interfejs do peripheriow)</li>
+            <li><strong>RTIC</strong> — Real-Time Interrupt-driven Concurrency framework</li>
+            <li><strong>esp-rs</strong> — oficjalne wsparcie Rust dla Espressif (ESP32-C3, S3, P4)</li>
+            <li><strong>defmt</strong> — efficient logging dla embedded (deferred formatting)</li>
+            <li><strong>probe-rs</strong> — flashing i debugging tool, alternatywa dla OpenOCD</li>
+        </ul>
+
+        <h2>WASM — Rust to Tier 1</h2>
+
+        <p>Rust generuje najmniejsze i najszybsze WASM bundles wsrod jezykow general-purpose.</p>
+
+        <ul>
+            <li><strong>wasm-bindgen</strong> — most miedzy Rust a JS</li>
+            <li><strong>wasm-pack</strong> — narzedzie buildujace</li>
+            <li><strong>Yew</strong> — React-like framework w Rust</li>
+            <li><strong>Leptos</strong> — fine-grained reactivity (jak SolidJS)</li>
+            <li><strong>Dioxus</strong> — cross-platform (wspomniany w GUI)</li>
+            <li><strong>Trunk</strong> — dev server i bundler dla SPA</li>
+        </ul>
+
+        <h2>Machine Learning</h2>
+
+        <ul>
+            <li><strong>candle</strong> — Hugging Face ML framework w Rust (alternatywa dla PyTorch w produkcji)</li>
+            <li><strong>tch-rs</strong> — bindings PyTorch C++ (libtorch)</li>
+            <li><strong>burn</strong> — pure Rust deep learning, multiple backends (CPU, CUDA, Metal, WGPU)</li>
+            <li><strong>linfa</strong> — classical ML (jak scikit-learn)</li>
+            <li><strong>ort</strong> — ONNX Runtime bindings (najpopularniejsze dla inference)</li>
+            <li><strong>tokenizers</strong> — Hugging Face tokenizers (uzywane przez Pythona, ale to Rust)</li>
+        </ul>
+
+        <h2>CLI tools</h2>
+
+        <table>
+            <thead><tr><th>Crate</th><th>Cel</th></tr></thead>
+            <tbody>
+                <tr><td><strong>clap</strong></td><td>Gold standard parsingu argumentow (derive macros)</td></tr>
+                <tr><td><strong>indicatif</strong></td><td>Progress bars i spinnery</td></tr>
+                <tr><td><strong>dialoguer</strong></td><td>Interaktywne prompty (input, select, confirm)</td></tr>
+                <tr><td><strong>ratatui</strong></td><td>Terminal UI library (TUI), nastepca tui-rs</td></tr>
+                <tr><td><strong>console</strong></td><td>Terminal helpers (kolory, terminale)</td></tr>
+                <tr><td><strong>colored</strong></td><td>Prosty kolorowy output</td></tr>
+                <tr><td><strong>anyhow / thiserror</strong></td><td>Error handling (anyhow dla apps, thiserror dla libs)</td></tr>
+            </tbody>
+        </table>
+
+        <h3>clap — Hello World</h3>
+
+        <pre><code>use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(version, about = "Moje narzedzie CLI")]
+struct Args {
+    /// Nazwa do powitania
+    #[arg(short, long, default_value = "swiat")]
+    nazwa: String,
+
+    /// Liczba powtorzen
+    #[arg(short, long, default_value_t = 1)]
+    powtorzenia: u8,
+}
+
+fn main() {
+    let args = Args::parse();
+    for _ in 0..args.powtorzenia {
+        println!("Witaj, {}!", args.nazwa);
+    }
+}</code></pre>
+
+        <h2>Testing</h2>
+
+        <p>Rust ma <strong>built-in test framework</strong> — wystarczy <code>#[test]</code> nad funkcja. Brak zaleznosci od JUnit / xUnit / pytest.</p>
+
+        <ul>
+            <li><strong>cargo test</strong> — wbudowany runner (unit + integration + doctests)</li>
+            <li><strong>criterion</strong> — statistical benchmarking framework</li>
+            <li><strong>proptest / quickcheck</strong> — property-based testing (Hypothesis-style)</li>
+            <li><strong>mockall</strong> — generowanie mockow dla traitow</li>
+            <li><strong>insta</strong> — snapshot testing</li>
+            <li><strong>cargo-nextest</strong> — szybszy alternatywny test runner</li>
+            <li><strong>cargo-llvm-cov</strong> — code coverage przez LLVM</li>
+        </ul>
+
+        <h2>gRPC i GraphQL</h2>
+
+        <ul>
+            <li><strong>tonic</strong> — gRPC implementation (oficjalnie wspierany przez tokio team)</li>
+            <li><strong>prost</strong> — Protocol Buffers w Rust (uzywany przez tonic)</li>
+            <li><strong>async-graphql</strong> — najpopularniejsza biblioteka GraphQL (server)</li>
+            <li><strong>juniper</strong> — starsza alternatywa GraphQL</li>
+            <li><strong>graphql-client</strong> — typed GraphQL client (codegen ze schemas)</li>
+        </ul>
+
+        <h2>Inne wazne crates 2026</h2>
+
+        <ul>
+            <li><strong>tracing</strong> — structured logging i instrumentation (zastapil log)</li>
+            <li><strong>thiserror</strong> + <strong>anyhow</strong> — must-have dla error handling</li>
+            <li><strong>chrono / time</strong> — daty i czasy</li>
+            <li><strong>uuid</strong> — UUID v4/v7 generation</li>
+            <li><strong>rayon</strong> — data parallelism (parallel iterators)</li>
+            <li><strong>crossbeam</strong> — concurrent data structures</li>
+            <li><strong>once_cell / lazy_static</strong> — global static initialization</li>
+            <li><strong>bytes</strong> — efficient byte buffers (uzywany przez Tokio)</li>
+        </ul>
+
+        <div class="card orange">
+            <h3>Praktyczna rada</h3>
+            <p>Sprawdzaj <strong>blessed.rs</strong> i <strong>lib.rs</strong> — community-curated listy najlepszych bibliotek w danej kategorii. Crates.io pokazuje surowe metryki, ale blessed.rs daje opinie ekspertow.</p>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="03-typy-aplikacji.html">← Typy aplikacji</a>
+            <a href="05-bezpieczenstwo-aplikacji.html">Bezpieczenstwo aplikacji →</a>
+        </div>
+    </div>
+</body>
+</html>

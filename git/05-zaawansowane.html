@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git - zaawansowane techniki</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f87171;--accent-hover:#fca5a5;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Git</a><span class="sep">/</span><span class="title">Zaawansowane</span></div>
+<div class="container">
+<h1>Zaawansowane techniki Git</h1>
+<p class="subtitle">Interactive rebase, reflog, bisect, worktree, submodules, sparse-checkout, LFS, hooks</p>
+
+<h2>Interactive rebase - przepisywanie historii</h2>
+<p><strong>git rebase -i</strong> to potezne narzedzie do edycji historii commitow. Pozwala laczyc, dzielic, zmieniac kolejnosc i edytowac commity. Standardowy use case to czyszczenie historii feature branch przed mergem.</p>
+
+<pre><code># Edycja ostatnich 5 commitow
+git rebase -i HEAD~5
+
+# Otwiera edytor:
+pick abc1234 feat: add login form
+pick def5678 fix: typo in login
+pick ghi9012 fix: another typo
+pick jkl3456 fix: yet another typo
+pick mno7890 feat: add validation
+
+# Komendy dostepne:
+# pick   - uzyj commit jak jest
+# reword - uzyj, zmien wiadomosc
+# edit   - uzyj, zatrzymaj na edycje (split, amend)
+# squash - polacz z poprzednim, edytuj wiadomosc obu
+# fixup  - jak squash, ale wiadomosc fixupa odrzucona
+# drop   - usun commit
+# exec   - wykonaj komende powloki
+# break  - zatrzymaj sie tutaj
+
+# Po edycji - typowe sprzatanie:
+pick abc1234 feat: add login form
+fixup def5678 fix: typo in login
+fixup ghi9012 fix: another typo
+fixup jkl3456 fix: yet another typo
+reword mno7890 feat: add login validation</code></pre>
+
+<h3>Squash - laczenie commitow</h3>
+<pre><code># Przyklad - chcemy z 5 commitow zrobic 2
+
+git rebase -i HEAD~5
+
+# Edytor:
+pick abc1234 feat: add login form
+squash def5678 fix: typo in login
+squash ghi9012 fix: another typo
+pick jkl3456 feat: add validation
+squash mno7890 fix: validation edge case
+
+# Po zapisie - Git otworzy drugi edytor z polaczonymi wiadomosciami:
+# Edit message for the first commit:
+feat: add login form
+fix: typo in login
+fix: another typo
+
+# Zostaw wlasciwa wiadomosc, np:
+feat: add complete login form
+
+# Powtorka dla drugiego squasha
+feat: add validation</code></pre>
+
+<h3>Edit - splitting commita</h3>
+<pre><code># Stary commit zawiera za duzo zmian, chcemy go podzielic
+git rebase -i HEAD~3
+
+pick abc1234 feat: add login form
+edit def5678 feat: add EVERYTHING (auth + ui + api)   # zbyt duzy
+pick ghi9012 fix: typo
+
+# Git zatrzyma sie na commit def5678
+# Reset do stanu sprzed commita
+git reset HEAD^
+
+# Teraz pliki sa unstaged - mozemy commitowac stopniowo
+git add src/auth/
+git commit -m "feat: add authentication backend"
+
+git add src/ui/
+git commit -m "feat: add login UI"
+
+git add src/api/
+git commit -m "feat: add API endpoints"
+
+# Kontynuuj rebase
+git rebase --continue</code></pre>
+
+<h3>Autosquash - elegancki workflow</h3>
+<pre><code># Zamiast pamiętac ktory commit poprawiamy, mozna oznaczyc commit jako fixup
+
+# Wlacz autosquash domyslnie
+git config --global rebase.autosquash true
+
+# Workflow - ostatni commit ma blad
+git commit -m "feat: add user list"
+
+# Znajdujesz blad, naprawiasz
+echo "fix" > file.js
+
+# Commit z fixup wskazujacym hash do poprawienia
+git commit --fixup=abc1234
+
+# Albo jeszcze lepiej - z hashem skroconym
+git add .
+git commit --fixup=HEAD~2
+
+# Pozniej, przed PR, automatyczny rebase
+git rebase -i --autosquash HEAD~10
+# fixup commity sa AUTOMATYCZNIE wstawione w odpowiednie miejsca</code></pre>
+
+<h2>git reflog - bezpiecznik na bledy</h2>
+<p><strong>reflog</strong> (reference log) to lokalna historia wszystkich zmian HEAD. Pokazuje wszystko co kiedykolwiek robiles - nawet usuniete commity. Jest twoim ratunkiem przy katastrofalnych pomylkach.</p>
+
+<pre><code># Pokaz historie HEAD
+git reflog
+
+# Przyklad wyjscia:
+# abc1234 HEAD@{0}: reset: moving to HEAD~3
+# def5678 HEAD@{1}: commit: feat: important feature
+# ghi9012 HEAD@{2}: pull: Fast-forward
+# jkl3456 HEAD@{3}: checkout: moving from main to feature
+
+# Reflog konkretnej galezi
+git reflog show feature/login
+
+# UWAGA: reflog jest LOKALNY - nie udostepnia sie z push'em
+# Domyslnie wpisy wygasaja po 90 dniach</code></pre>
+
+<h3>Recovery scenariuszy</h3>
+<pre><code># SCENARIUSZ 1: Niechcaco zrobiles git reset --hard
+git reset --hard abc1234       # ups!
+
+git reflog
+# def5678 HEAD@{1}: commit: feat: important feature
+# abc1234 HEAD@{0}: reset: moving to HEAD~3
+
+git reset --hard def5678       # przywrocone!
+
+# SCENARIUSZ 2: Usunieta galaz
+git branch -D feature/important   # ups!
+
+git reflog
+# Znajdz ostatni commit z tej galezi
+# abc1234 HEAD@{5}: commit: WIP on feature/important
+
+git checkout -b feature/important abc1234
+
+# SCENARIUSZ 3: Niechcaco zrobiles rebase i sa konflikty/blędy
+git rebase main      # poszlo zle
+git rebase --abort   # wraca do stanu przed rebase
+
+# Lub jak juz po rebase:
+git reflog
+# Znajdz wpis "rebase: " - ten ostatni przed nim to stan przed
+git reset --hard HEAD@{8}</code></pre>
+
+<h2>git bisect - znajdowanie bugow</h2>
+<p><strong>bisect</strong> uzywa wyszukiwania binarnego do znalezienia commita, ktory wprowadzil blad. Przy 1000 commitach znajdziesz winowajce w 10 krokach.</p>
+
+<pre><code># Zaczynamy bisect
+git bisect start
+
+# Oznaczamy biezacy commit jako zly (bug obecny)
+git bisect bad
+
+# Oznaczamy stary commit jako dobry (wszystko dzialalo)
+git bisect good v1.0.0
+# lub konkretny hash
+git bisect good abc1234
+
+# Git automatycznie checkout commit w polowie
+# Testujemy aplikacje
+
+# Jesli bug obecny:
+git bisect bad
+
+# Jesli OK:
+git bisect good
+
+# Jesli commit nie da sie przetestowac (np. nie kompiluje):
+git bisect skip
+
+# Powtarzaj az Git wyswietli "first bad commit":
+# abc1234 is the first bad commit
+# commit abc1234
+# Author: ...
+# Date:   ...
+#     feat: refactor payment service
+
+# Sprzatanie po skonczeniu
+git bisect reset</code></pre>
+
+<h3>Automatyczny bisect ze skryptem</h3>
+<pre><code># Skrypt zwraca exit code:
+# 0       - dobry commit
+# 1-127   - zly commit (poza 125)
+# 125     - skip
+# 128+    - przerwij bisect
+
+# Plik test-bug.sh:
+#!/bin/bash
+npm test -- --grep "specific test"
+
+# Uruchom bisect z automatyzacja
+git bisect start HEAD v1.0.0
+git bisect run ./test-bug.sh
+
+# Git sam wykona kroki i znajdzie bad commit</code></pre>
+
+<h2>git worktree - wiele galezi w roznych katalogach</h2>
+<p><strong>worktree</strong> pozwala miec wiele galezi wycheckoutowanych w roznych katalogach jednoczesnie. Idealne gdy chcesz rownolegle pracowac nad feature i hotfixem bez stashowania.</p>
+
+<pre><code># Lista istniejacych worktrees
+git worktree list
+
+# Stworz nowy worktree dla istniejacej galezi
+git worktree add ../projekt-hotfix hotfix/critical
+
+# Stworz nowy worktree z nowa galezia
+git worktree add -b feature/login ../projekt-login
+
+# Z konkretnego commita
+git worktree add ../projekt-old v1.0.0
+
+# Praca:
+cd ../projekt-hotfix
+# Edytuj, commituj, pushuj
+git push
+
+cd ../projekt-login
+# Pracuj w izolacji - to jest osobny katalog z osobnym working tree
+
+# Po skonczeniu - usun worktree
+git worktree remove ../projekt-hotfix
+
+# Wymus jesli sa niezacommitowane zmiany
+git worktree remove --force ../projekt-hotfix
+
+# Sprzatanie nieaktualnych referencji (po manual delete katalogu)
+git worktree prune</code></pre>
+
+<div class="card">
+<strong>Worktree use cases:</strong>
+<ul>
+<li>Pilny hotfix bez przerywania pracy nad feature</li>
+<li>Testowanie dwoch wersji aplikacji obok siebie</li>
+<li>Code review PR bez stashowania wlasnych zmian</li>
+<li>Build i deploy starej wersji bez ruszania biezacej</li>
+</ul>
+</div>
+
+<h2>Submodules - repo w repo</h2>
+<p><strong>Submodule</strong> to sposob na zaglebienie jednego repozytorium git wewnatrz drugiego. Glowne repo trzyma referencje do konkretnego commita w submodule. Uzywane gdy musisz zalezec od konkretnej wersji innego repo.</p>
+
+<pre><code># Dodanie submodule
+git submodule add https://github.com/user/library.git libs/library
+
+# Po dodaniu w main repo pojawia sie:
+# - .gitmodules (konfiguracja)
+# - libs/library/ (zaglebione repo, ale to wskaznik do commita)
+
+git status
+# new file:   .gitmodules
+# new file:   libs/library
+
+git commit -m "Add library submodule"
+
+# Klonowanie repo z submodulami
+git clone --recurse-submodules https://github.com/user/main-repo.git
+
+# Lub jesli juz sklonowales bez --recurse:
+git submodule init
+git submodule update
+
+# Krocej - od Git 2.13:
+git submodule update --init --recursive
+
+# Aktualizacja submodulow do najnowszej wersji
+cd libs/library
+git pull origin main
+cd ../..
+git add libs/library
+git commit -m "Update library submodule"
+
+# Aktualizacja wszystkich submodulow w jednej komendzie
+git submodule update --remote --merge
+
+# Status submodulow
+git submodule status
+
+# Wykonanie komendy w kazdym submodule
+git submodule foreach 'git checkout main'</code></pre>
+
+<h2>Sparse-checkout - czesciowe klonowanie</h2>
+<p>W ogromnych monorepo czesto nie potrzebujesz wszystkich plikow. <strong>Sparse-checkout</strong> pozwala wycheckoutowac tylko wybrane katalogi.</p>
+
+<pre><code># Inicjalizacja sparse-checkout (Git 2.25+)
+git clone --no-checkout https://github.com/big/monorepo.git
+cd monorepo
+
+# Wlaczenie sparse-checkout (cone mode - prostszy)
+git sparse-checkout init --cone
+
+# Wybor katalogow
+git sparse-checkout set apps/web libs/shared
+
+# Sprawdzenie konfiguracji
+git sparse-checkout list
+
+# Checkout
+git checkout main
+
+# W working tree masz tylko apps/web i libs/shared
+# Pozostale katalogi nie zajmuja miejsca
+
+# Dodanie kolejnego katalogu
+git sparse-checkout add libs/utils
+
+# Wylaczenie
+git sparse-checkout disable</code></pre>
+
+<h3>Partial clone - jeszcze efektywniej</h3>
+<pre><code># Klon bez blobow (tylko historia commitow)
+git clone --filter=blob:none https://github.com/big/repo.git
+
+# Bloby pobierane sa on-demand przy checkout
+
+# Albo bez plikow > 100MB
+git clone --filter=blob:limit=100m https://github.com/big/repo.git
+
+# Treeless - jeszcze mniej (tylko commit objects)
+git clone --filter=tree:0 https://github.com/big/repo.git
+
+# Polaczenie z sparse-checkout daje minimalny working set</code></pre>
+
+<h2>Git LFS - duze pliki</h2>
+<p><strong>Git LFS</strong> (Large File Storage) zastepuje duze pliki binarne wskaznikami. Same pliki sa hostowane na osobnym serwerze. Niezbedne dla repo z grafika, modelami ML, video.</p>
+
+<pre><code># Instalacja
+sudo apt install git-lfs
+
+# Inicjalizacja w repo (jednorazowo)
+git lfs install
+
+# Trackowanie typow plikow
+git lfs track "*.psd"
+git lfs track "*.zip"
+git lfs track "*.mp4"
+git lfs track "models/*.bin"
+
+# Tworzy/aktualizuje .gitattributes
+git add .gitattributes
+git commit -m "Configure Git LFS"
+
+# Standardowy workflow - LFS dziala transparentnie
+git add design.psd
+git commit -m "Add design"
+git push
+
+# Lista plikow LFS
+git lfs ls-files
+
+# Sprawdzenie statusu
+git lfs status
+
+# Migracja istniejacych plikow do LFS (UWAGA - zmienia historie!)
+git lfs migrate import --include="*.zip"
+
+# Limity LFS:
+# GitHub: 1GB free, max 2GB per file
+# GitLab: 10GB free
+# Bitbucket: 1GB free</code></pre>
+
+<h2>Git hooks</h2>
+<p><strong>Hooks</strong> to skrypty wywolywane automatycznie przy roznych zdarzeniach Git. Sa w katalogu <code>.git/hooks/</code> - przyklady z koncowka <code>.sample</code>. Aby aktywowac, usun rozszerzenie i nadaj uprawnienia wykonywania.</p>
+
+<table>
+<tr><th>Hook</th><th>Kiedy</th><th>Typowe uzycie</th></tr>
+<tr><td><code>pre-commit</code></td><td>Przed wykonaniem commita</td><td>Lint, formatowanie, testy</td></tr>
+<tr><td><code>commit-msg</code></td><td>Po wpisaniu commit message</td><td>Walidacja Conventional Commits</td></tr>
+<tr><td><code>pre-push</code></td><td>Przed pushem</td><td>Pelne testy, build</td></tr>
+<tr><td><code>post-commit</code></td><td>Po commicie</td><td>Powiadomienia, statystyki</td></tr>
+<tr><td><code>pre-rebase</code></td><td>Przed rebasem</td><td>Ostrzezenie przed niebezpiecznym rebase</td></tr>
+<tr><td><code>post-merge</code></td><td>Po merge</td><td>Auto-instalacja zaleznosci</td></tr>
+</table>
+
+<h3>Przyklad pre-commit</h3>
+<pre><code>#!/bin/bash
+# .git/hooks/pre-commit
+
+# Lint Pythona
+files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$')
+if [ -n "$files" ]; then
+    echo "Running flake8..."
+    flake8 $files || exit 1
+
+    echo "Running black..."
+    black --check $files || {
+        echo "Run 'black .' to fix formatting"
+        exit 1
+    }
+fi
+
+# Lint JavaScript
+files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|ts|jsx|tsx)$')
+if [ -n "$files" ]; then
+    npx eslint $files || exit 1
+fi
+
+# Sprawdz brak debuggerow
+if git diff --cached | grep -E '(debugger|console\.log|binding\.pry)'; then
+    echo "Found debug statements in commit!"
+    exit 1
+fi
+
+exit 0</code></pre>
+
+<h3>Husky - hooks dla projektow Node.js</h3>
+<pre><code># Instalacja
+npm install --save-dev husky lint-staged
+
+# Inicjalizacja
+npx husky init
+
+# package.json
+{
+  "scripts": {
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{css,scss,md}": [
+      "prettier --write"
+    ]
+  }
+}
+
+# .husky/pre-commit
+npx lint-staged
+
+# .husky/commit-msg
+npx --no -- commitlint --edit $1
+
+# .husky/pre-push
+npm test</code></pre>
+
+<h3>Pre-commit framework (uniwersalny)</h3>
+<pre><code># Instalacja
+pip install pre-commit
+# lub: brew install pre-commit
+
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: detect-private-key
+
+  - repo: https://github.com/psf/black
+    rev: 24.1.0
+    hooks:
+      - id: black
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+
+# Instalacja hookow
+pre-commit install
+pre-commit install --hook-type commit-msg
+
+# Uruchomienie recznie
+pre-commit run --all-files</code></pre>
+
+<div class="card">
+<strong>Inne zaawansowane techniki:</strong>
+<ul>
+<li><code>git blame</code> - kto zmienil dana linie i kiedy</li>
+<li><code>git log -S "kod"</code> - znajdz commit dodajacy/usuwajacy konkretny tekst</li>
+<li><code>git filter-branch</code> / <code>git filter-repo</code> - masowa edycja historii</li>
+<li><code>git replace</code> - zastapienie commita bez przepisywania historii</li>
+<li><code>git notes</code> - dodawanie metadanych do commitow bez modyfikacji</li>
+<li><code>git archive</code> - eksport zawartosci jako tarball/zip</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="04-workflow-strategies.html">&larr; Strategie pracy</a>
+<a href="06-narzedzia-i-platformy.html">Narzedzia i platformy &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uwierzytelnianie Blazor</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">WWW</a><span class="sep">/</span><a href="index.html">Blazor</a><span class="sep">/</span><span class="title">Uwierzytelnianie</span></div>
+<div class="container">
+<h1>Uwierzytelnianie Blazor</h1>
+<p class="subtitle">ASP.NET Core Identity, JWT, AuthenticationStateProvider, AuthorizeView, OAuth/OIDC</p>
+
+<h2>Architektura uwierzytelniania</h2>
+<p>Blazor uzywa <strong>AuthenticationStateProvider</strong> jako abstrakcji nad zrodlem informacji o aktualnym uzytkowniku. Konkretne implementacje roznia sie zaleznie od trybu (Server, WASM, Hybrid).</p>
+
+<h2>ASP.NET Core Identity</h2>
+<p>Najczestsza opcja dla Blazor Server. Identity zarzadza: rejestracja, logowanie, hasla, role, claims, 2FA, email confirmation, password reset.</p>
+
+<pre><code>// Program.cs
+builder.Services.AddDbContext&lt;AppDbContext&gt;(opts =&gt;
+    opts.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+
+builder.Services.AddIdentity&lt;AppUser, IdentityRole&gt;(opts =&gt;
+{
+    opts.Password.RequiredLength = 8;
+    opts.Password.RequireDigit = true;
+    opts.User.RequireUniqueEmail = true;
+})
+.AddEntityFrameworkStores&lt;AppDbContext&gt;()
+.AddDefaultTokenProviders();
+
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped&lt;AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider&gt;();</code></pre>
+
+<h2>JWT validation (Blazor WASM + API)</h2>
+<p>Dla aplikacji WASM wybierasz oddzielny API (np. ASP.NET Core minimal API) i przesylasz JWT. WASM przechowuje token (najlepiej w cookie httpOnly) i dodaje do naglowka.</p>
+
+<pre><code>// API: Program.cs
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opts =&gt;
+    {
+        opts.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = config["Jwt:Issuer"],
+            ValidAudience = config["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(config["Jwt:Key"]!))
+        };
+    });
+
+builder.Services.AddAuthorization();</code></pre>
+
+<h2>AuthorizeView</h2>
+<p>Komponent renderujacy rozne tresci dla zalogowanych i niezalogowanych.</p>
+<pre><code>&lt;AuthorizeView&gt;
+    &lt;Authorized&gt;
+        &lt;p&gt;Witaj @context.User.Identity?.Name!&lt;/p&gt;
+        &lt;a href="/profile"&gt;Mojprofil&lt;/a&gt;
+    &lt;/Authorized&gt;
+    &lt;NotAuthorized&gt;
+        &lt;a href="/login"&gt;Zaloguj sie&lt;/a&gt;
+    &lt;/NotAuthorized&gt;
+    &lt;Authorizing&gt;
+        &lt;p&gt;Trwa weryfikacja...&lt;/p&gt;
+    &lt;/Authorizing&gt;
+&lt;/AuthorizeView&gt;</code></pre>
+
+<h3>Z rolami</h3>
+<pre><code>&lt;AuthorizeView Roles="Admin,Manager"&gt;
+    &lt;Authorized&gt;
+        &lt;a href="/admin/dashboard"&gt;Admin panel&lt;/a&gt;
+    &lt;/Authorized&gt;
+&lt;/AuthorizeView&gt;</code></pre>
+
+<h3>Z policy</h3>
+<pre><code>&lt;AuthorizeView Policy="MinimumAge18"&gt;
+    &lt;Authorized&gt;
+        &lt;p&gt;Tresc dla doroslych&lt;/p&gt;
+    &lt;/Authorized&gt;
+&lt;/AuthorizeView&gt;</code></pre>
+
+<h2>[Authorize] na komponencie</h2>
+<pre><code>@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+
+&lt;h1&gt;Lista uzytkownikow&lt;/h1&gt;</code></pre>
+
+<h2>Role-based vs policy-based</h2>
+
+<h3>Role-based (proste)</h3>
+<pre><code>// Setup
+options.AddPolicy("RequireAdmin", policy =&gt;
+    policy.RequireRole("Admin"));
+
+// Uzycie
+[Authorize(Roles = "Admin,Manager")]
+public class AdminPage { }</code></pre>
+
+<h3>Policy-based (elastyczne)</h3>
+<pre><code>// Custom requirement
+public class MinAgeRequirement(int minAge) : IAuthorizationRequirement
+{
+    public int MinAge { get; } = minAge;
+}
+
+public class MinAgeHandler : AuthorizationHandler&lt;MinAgeRequirement&gt;
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context, MinAgeRequirement req)
+    {
+        var dobClaim = context.User.FindFirst(c =&gt; c.Type == "DateOfBirth");
+        if (dobClaim != null &amp;&amp; DateTime.Parse(dobClaim.Value) &lt; DateTime.Now.AddYears(-req.MinAge))
+            context.Succeed(req);
+        return Task.CompletedTask;
+    }
+}
+
+// Setup
+builder.Services.AddAuthorization(opts =&gt;
+{
+    opts.AddPolicy("MinimumAge18", p =&gt; p.Requirements.Add(new MinAgeRequirement(18)));
+});
+builder.Services.AddSingleton&lt;IAuthorizationHandler, MinAgeHandler&gt;();</code></pre>
+
+<h2>OAuth / OIDC integration</h2>
+
+<h3>Microsoft.Identity.Web (Azure AD)</h3>
+<pre><code>builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
+
+// appsettings.json
+{
+  "AzureAd": {
+    "Instance": "https://login.microsoftonline.com/",
+    "TenantId": "...",
+    "ClientId": "...",
+    "CallbackPath": "/signin-oidc"
+  }
+}</code></pre>
+
+<h3>Auth0</h3>
+<pre><code>builder.Services.AddAuth0WebAppAuthentication(opts =&gt;
+{
+    opts.Domain = config["Auth0:Domain"]!;
+    opts.ClientId = config["Auth0:ClientId"]!;
+});</code></pre>
+
+<h3>Google / GitHub</h3>
+<pre><code>builder.Services.AddAuthentication()
+    .AddGoogle(opts =&gt;
+    {
+        opts.ClientId = config["Google:ClientId"]!;
+        opts.ClientSecret = config["Google:ClientSecret"]!;
+    })
+    .AddGitHub(opts =&gt; { /* ... */ });</code></pre>
+
+<h2>Custom AuthenticationStateProvider</h2>
+<p>Dla niestandardowych systemow (legacy, custom JWT) tworzysz wlasny provider.</p>
+<pre><code>public class CustomAuthStateProvider : AuthenticationStateProvider
+{
+    private readonly ILocalStorageService localStorage;
+    private readonly HttpClient http;
+
+    public override async Task&lt;AuthenticationState&gt; GetAuthenticationStateAsync()
+    {
+        var token = await localStorage.GetItemAsync&lt;string&gt;("authToken");
+
+        if (string.IsNullOrEmpty(token))
+            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+
+        var identity = new ClaimsIdentity(ParseClaimsFromJwt(token), "jwt");
+        http.DefaultRequestHeaders.Authorization = new("Bearer", token);
+
+        return new AuthenticationState(new ClaimsPrincipal(identity));
+    }
+
+    public void NotifyUserAuthentication(string token)
+    {
+        // ...
+        NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+    }
+
+    private static IEnumerable&lt;Claim&gt; ParseClaimsFromJwt(string jwt)
+    {
+        var payload = jwt.Split('.')[1];
+        var bytes = Convert.FromBase64String(payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '='));
+        var json = Encoding.UTF8.GetString(bytes);
+        var claims = JsonSerializer.Deserialize&lt;Dictionary&lt;string, object&gt;&gt;(json)!;
+        return claims.Select(kv =&gt; new Claim(kv.Key, kv.Value.ToString() ?? ""));
+    }
+}</code></pre>
+
+<h2>Logout</h2>
+<pre><code>@inject NavigationManager Nav
+@inject SignInManager&lt;AppUser&gt; SignIn
+
+&lt;button @onclick="Logout"&gt;Wyloguj&lt;/button&gt;
+
+@code {
+    private async Task Logout()
+    {
+        await SignIn.SignOutAsync();
+        Nav.NavigateTo("/", forceLoad: true);
+    }
+}</code></pre>
+
+<h2>2FA i email confirmation</h2>
+<p>ASP.NET Core Identity zawiera scaffold dla 2FA, email confirmation, password reset, external logins. Generujesz UI:</p>
+<pre><code>dotnet aspnet-codegenerator identity --files "Account.Manage.TwoFactorAuthentication"</code></pre>
+
+<div class="card">
+<h3>Best practices</h3>
+<ul>
+<li>JWT &mdash; przechowywanie w <strong>httpOnly cookie</strong>, nie w localStorage (XSS risk)</li>
+<li>Dla SPA Blazor WASM uzywaj BFF pattern (Backend-For-Frontend) &mdash; auth na serwerze, krotkie tokeny</li>
+<li>Refresh token rotation &mdash; krotki access + dlugotrwaly refresh</li>
+<li>HSTS, secure cookies, CSP &mdash; podstawowy hardening</li>
+<li>Rate limiting na endpointach login/register</li>
+<li>Audit log: kazdy login, zmiana hasla, zmiana email</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="04-formy-i-walidacja.html">&larr; Formy i walidacja</a>
+<a href="06-interop-z-js.html">JS Interop &rarr;</a>
+</div>
+</div>
+</body>
+</html>

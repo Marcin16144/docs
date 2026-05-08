@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IIS - zaawansowane</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">IIS - zaawansowane</span>
+</div>
+
+<div class="container">
+<h1>IIS - zaawansowane scenariusze</h1>
+<p class="subtitle">URL Rewrite, Application Request Routing, hosting aplikacji nowoczesnych - kompletny zestaw rozszerzen.</p>
+
+<h2>URL Rewrite Module</h2>
+<p>URL Rewrite jest najwazniejszym rozszerzeniem IIS. Pozwala na manipulacje adresami URL przy uzyciu reguly regex - przekierowania, rewrite, blokady, kanonizacja, reverse proxy. Po instalacji modul widoczny w IIS Manager pod pozycja URL Rewrite na poziomie strony.</p>
+<pre><code>&lt;!-- web.config: wymuszenie HTTPS --&gt;
+&lt;rewrite&gt;
+  &lt;rules&gt;
+    &lt;rule name="HTTPS Redirect" stopProcessing="true"&gt;
+      &lt;match url=".*" /&gt;
+      &lt;conditions&gt;
+        &lt;add input="{HTTPS}" pattern="^OFF$" /&gt;
+      &lt;/conditions&gt;
+      &lt;action type="Redirect" url="https://{HTTP_HOST}/{R:0}"
+              redirectType="Permanent" /&gt;
+    &lt;/rule&gt;
+  &lt;/rules&gt;
+&lt;/rewrite&gt;</code></pre>
+
+<h3>Typy regul URL Rewrite</h3>
+<table>
+<tr><th>Action type</th><th>Zastosowanie</th><th>Status HTTP</th></tr>
+<tr><td>Rewrite</td><td>Wewnetrzna zmiana sciezki (uzytkownik nie widzi)</td><td>200 (transparentne)</td></tr>
+<tr><td>Redirect (Permanent)</td><td>Przekierowanie 301 - SEO friendly</td><td>301</td></tr>
+<tr><td>Redirect (Found)</td><td>Tymczasowe przekierowanie</td><td>302</td></tr>
+<tr><td>Redirect (See Other)</td><td>Po POST -&gt; GET</td><td>303</td></tr>
+<tr><td>Custom Response</td><td>Wlasna odpowiedz HTTP (np. 403, 410)</td><td>kod uzytkownika</td></tr>
+<tr><td>Abort Request</td><td>Natychmiastowe zerwanie polaczenia</td><td>brak</td></tr>
+</table>
+
+<h3>Conditions i back-references</h3>
+<p>Conditions pozwalaja sprawdzac dodatkowe warunki przed wykonaniem akcji - naglowki, parametry serwera, properties pliku. Back-references {R:N} odwoluja sie do grup regex z match, {C:N} z conditions.</p>
+<pre><code>&lt;rule name="Block Old Browsers"&gt;
+  &lt;match url=".*" /&gt;
+  &lt;conditions logicalGrouping="MatchAny"&gt;
+    &lt;add input="{HTTP_USER_AGENT}" pattern="MSIE [1-9]\." /&gt;
+    &lt;add input="{HTTP_USER_AGENT}" pattern="Trident/[1-6]" /&gt;
+  &lt;/conditions&gt;
+  &lt;action type="CustomResponse" statusCode="426"
+          statusReason="Upgrade Required"
+          statusDescription="Prosimy o aktualizacje przegladarki" /&gt;
+&lt;/rule&gt;</code></pre>
+
+<h2>Application Request Routing (ARR)</h2>
+<p>ARR to rozszerzenie firmy Microsoft zamieniajace IIS w pelnoprawny <strong>reverse proxy</strong> i load balancer. ARR + URL Rewrite to standard dla publikowania aplikacji backend (Node.js, Python, .NET Core, Java) zza IIS.</p>
+<pre><code># Instalacja przez Web Platform Installer lub bezposrednio
+# https://www.iis.net/downloads/microsoft/application-request-routing
+
+# Wlaczenie reverse proxy globalnie:
+# IIS Manager -> Server -> Application Request Routing Cache
+# -> Server Proxy Settings -> Enable Proxy</code></pre>
+
+<h3>Reverse proxy do backendu Node.js</h3>
+<pre><code>&lt;!-- web.config: routing /api/ do Node na 127.0.0.1:3000 --&gt;
+&lt;configuration&gt;
+  &lt;system.webServer&gt;
+    &lt;rewrite&gt;
+      &lt;rules&gt;
+        &lt;rule name="API Reverse Proxy" stopProcessing="true"&gt;
+          &lt;match url="^api/(.*)" /&gt;
+          &lt;action type="Rewrite"
+                  url="http://127.0.0.1:3000/{R:1}"
+                  logRewrittenUrl="true" /&gt;
+          &lt;serverVariables&gt;
+            &lt;set name="HTTP_X_FORWARDED_FOR" value="{REMOTE_ADDR}" /&gt;
+            &lt;set name="HTTP_X_FORWARDED_PROTO" value="{CACHE_URL:1}" /&gt;
+            &lt;set name="HTTP_X_REAL_IP" value="{REMOTE_ADDR}" /&gt;
+          &lt;/serverVariables&gt;
+        &lt;/rule&gt;
+      &lt;/rules&gt;
+    &lt;/rewrite&gt;
+  &lt;/system.webServer&gt;
+&lt;/configuration&gt;</code></pre>
+
+<div class="card">
+<p><strong>HTTP_X_FORWARDED_*:</strong> Bez ustawienia tych naglowkow aplikacja backend zobaczy IP IIS-a (127.0.0.1) zamiast realnego klienta. W ARR -&gt; Server Proxy Settings nalezy wlaczyc <em>Reverse rewrite host in response headers</em> dla poprawnej obslugi przekierowan z backendu.</p>
+</div>
+
+<h2>FastCGI dla PHP</h2>
+<p>PHP w IIS uruchamiany jest przez FastCGI Module. Microsoft rekomenduje NTS (Non-Thread Safe) buildy 64-bit z windows.php.net. PHP Manager for IIS dostarcza GUI do konfiguracji.</p>
+<pre><code># Instalacja CGI feature
+Install-WindowsFeature -Name Web-CGI
+
+# Rejestracja PHP w FastCGI
+appcmd.exe set config /section:system.webServer/fastCgi `
+  /+"[fullPath='C:\PHP\php-cgi.exe']"
+
+# Mapowanie rozszerzenia .php do handlera
+appcmd.exe set config /section:system.webServer/handlers `
+  /+"[name='PHP_via_FastCGI',path='*.php',verb='*',
+       modules='FastCgiModule',scriptProcessor='C:\PHP\php-cgi.exe',
+       resourceType='File']"</code></pre>
+
+<h3>Tuning FastCGI dla PHP</h3>
+<table>
+<tr><th>Parametr</th><th>Wartosc rekomendowana</th><th>Opis</th></tr>
+<tr><td>instanceMaxRequests</td><td>10000</td><td>Liczba requestow przed restartem procesu PHP</td></tr>
+<tr><td>maxInstances</td><td>0 (auto)</td><td>0 oznacza dynamiczne skalowanie</td></tr>
+<tr><td>idleTimeout</td><td>300</td><td>Sekund nieaktywnosci przed zamknieciem</td></tr>
+<tr><td>activityTimeout</td><td>30</td><td>Maks. czas czekania na odpowiedz PHP</td></tr>
+<tr><td>requestTimeout</td><td>90</td><td>Maks. czas obslugi pojedynczego requestu</td></tr>
+</table>
+
+<h2>ASP.NET Core hosting</h2>
+<p>ASP.NET Core moze byc hostowany w IIS przez <code>aspNetCoreModuleV2</code>. Modul wspiera dwa modele: in-process (szybszy, w-procesie w3wp) i out-of-process (proxy do osobnego procesu Kestrel).</p>
+<pre><code>&lt;!-- web.config aplikacji ASP.NET Core --&gt;
+&lt;configuration&gt;
+  &lt;system.webServer&gt;
+    &lt;handlers&gt;
+      &lt;add name="aspNetCore" path="*" verb="*"
+           modules="AspNetCoreModuleV2" resourceType="Unspecified" /&gt;
+    &lt;/handlers&gt;
+    &lt;aspNetCore processPath="dotnet"
+                arguments=".\MyApp.dll"
+                stdoutLogEnabled="false"
+                stdoutLogFile=".\logs\stdout"
+                hostingModel="inprocess" /&gt;
+  &lt;/system.webServer&gt;
+&lt;/configuration&gt;</code></pre>
+
+<table>
+<tr><th>Tryb</th><th>Wydajnosc</th><th>Zalety</th><th>Wady</th></tr>
+<tr><td>in-process</td><td>~5-15% szybszy</td><td>Aplikacja w procesie w3wp.exe, mniej hopow</td><td>Crash w aplikacji = recycling pool</td></tr>
+<tr><td>out-of-process</td><td>Wolniejszy</td><td>Izolacja procesow, mozliwosc Kestrel features</td><td>Dodatkowy hop HTTP</td></tr>
+</table>
+
+<h2>Wildcard Application Pools</h2>
+<p>Przy hostingu masowym (shared hosting) opcjonalne jest tworzenie osobnego App Pool dla kazdej witryny. Wildcard application pool wykorzystuje jeden pool dla wielu witryn z izolacja przez identity.</p>
+<pre><code># Hot scenario: setting 1 pool per site za pomoca PowerShell
+Import-Module WebAdministration
+Get-ChildItem IIS:\Sites | ForEach-Object {
+    $poolName = "AppPool-$($_.Name)"
+    if (-not (Test-Path "IIS:\AppPools\$poolName")) {
+        New-WebAppPool -Name $poolName
+        Set-ItemProperty "IIS:\AppPools\$poolName" `
+                         -Name "managedRuntimeVersion" -Value "v4.0"
+    }
+    Set-ItemProperty "IIS:\Sites\$($_.Name)" `
+                     -Name "applicationPool" -Value $poolName
+}</code></pre>
+
+<h2>Application Initialization</h2>
+<p>Application Initialization Module rozwiazuje problem cold start - po recyclingu lub pierwszym requescie aplikacja moze startowac wolno. Modul preloaduje aplikacje przed pierwszym requestem od klienta.</p>
+<pre><code>&lt;applicationInitialization
+    doAppInitAfterRestart="true"
+    skipManagedModules="false"&gt;
+    &lt;add initializationPage="/health" /&gt;
+    &lt;add initializationPage="/api/v1/warmup" /&gt;
+&lt;/applicationInitialization&gt;</code></pre>
+<ul>
+<li>Application Pool ustawic na <strong>AlwaysRunning</strong></li>
+<li>Site preload (preloadEnabled=true) wymusza warmup</li>
+<li>idleTimeout w app pool najlepiej ustawic na 0 (brak idle shutdown)</li>
+</ul>
+
+<h2>Best practices</h2>
+<ul>
+<li>Reverse proxy w IIS = ARR + URL Rewrite (nie polegac wylacznie na samym URL Rewrite)</li>
+<li>SSL terminacja na IIS, w sieci wewnetrznej HTTP do backendu (lub e2e TLS gdy compliance wymaga)</li>
+<li>Compression (Static + Dynamic) wlaczone na poziomie serwera</li>
+<li>HTTP/2 i HTTP/3 (QUIC) wlaczone w Server 2025</li>
+<li>Failed Request Tracing dla debugowania problemow z URL Rewrite</li>
+<li>ARR Cache moze cachowac responses z backendu - ustawiac ostroznie (cache poisoning)</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="04-iis-podstawy.html">&larr; IIS - podstawy</a>
+    <a href="06-certyfikaty-ssl-tls.html">Certyfikaty SSL/TLS &rarr;</a>
+</div>
+</div>
+</body>
+</html>

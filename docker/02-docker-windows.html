@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker na Windows</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Docker</a>
+    <span class="sep">/</span>
+    <span class="title">Docker na Windows</span>
+</div>
+<div class="container">
+<h1>Docker na Windows</h1>
+<p class="subtitle">Konfiguracja, WSL2, GPU i troubleshooting</p>
+
+<h2>Architektura - Docker NIE dziala natywnie na Windows</h2>
+<p><strong>Kluczowy fakt:</strong> Docker uruchamia kontenery <strong>Linux</strong>. Windows kernel != Linux kernel. Aby Docker dzialal na Windows, musi miec <strong>mini-VM Linux</strong> w tle.</p>
+
+<pre><code>+-----------------------------------------+
+|           Windows Host                  |
+|                                         |
+|  +-----------------------------------+  |
+|  |   Docker Desktop (GUI app)        |  |
+|  +---------------+-------------------+  |
+|                  |                      |
+|  +---------------v-------------------+  |
+|  |     WSL2 (Linux VM)               |  |  &lt;- Tu dzialaja kontenery
+|  |  +-----------------------------+  |  |
+|  |  |  Docker Daemon (Linux)      |  |  |
+|  |  |  +--------+ +--------+      |  |  |
+|  |  |  |Container| |Container|    |  |  |
+|  |  |  +--------+ +--------+      |  |  |
+|  |  +-----------------------------+  |  |
+|  +-----------------------------------+  |
++-----------------------------------------+</code></pre>
+
+<h2>WSL2 vs Hyper-V backend</h2>
+<p>Docker Desktop oferuje 2 backendy:</p>
+
+<div class="card">
+<h3>WSL2 (preferowany 2026)</h3>
+<ul>
+<li><strong>Lzejszy</strong> - uzywa WSL2 (Windows Subsystem for Linux v2)</li>
+<li><strong>Szybszy</strong> start (sekundy)</li>
+<li><strong>Lepsza integracja</strong> z Windows</li>
+<li><strong>Dziala na Windows 10 Home</strong> (Hyper-V wymaga Pro)</li>
+<li>Filesystem: lepsze performance dla kodu w WSL2 fs niz w <code>C:\</code></li>
+</ul>
+
+<h3>Hyper-V (legacy)</h3>
+<ul>
+<li>Starszy backend</li>
+<li>Wymaga <strong>Windows Pro/Enterprise</strong> (Hyper-V feature)</li>
+<li>Wolniejszy</li>
+<li>Juz nie zalecany w 2026</li>
+</ul>
+</div>
+
+<p><strong>Ustaw w Docker Desktop:</strong> Settings -&gt; General -&gt; "Use the WSL 2 based engine" (zaznacz)</p>
+
+<h2>Wymagania systemowe (2026)</h2>
+
+<h3>Minimum:</h3>
+<ul>
+<li><strong>Windows 10/11</strong> 64-bit (Pro, Enterprise, Education, lub Home z WSL2)</li>
+<li><strong>WSL2</strong> - wymaga Windows 10 build 19041+ (May 2020) lub Windows 11</li>
+<li><strong>Wirtualizacja wlaczona w BIOS</strong> (VT-x dla Intel, AMD-V dla AMD)</li>
+<li><strong>Hyper-V wlaczony</strong> (dla Hyper-V backend) lub wystarczy WSL2</li>
+<li><strong>4 GB RAM</strong> (8 GB+ realnie potrzebne)</li>
+<li><strong>20 GB free disk</strong> dla obrazow + kontenerow</li>
+</ul>
+
+<h3>Sprawdzenie systemowe:</h3>
+<pre><code># Wersja Windows
+winver
+
+# WSL2 dostepny?
+wsl --status
+
+# Wirtualizacja wlaczona?
+systeminfo | findstr "Hyper-V Requirements"
+# Lub Task Manager -&gt; Performance -&gt; CPU -&gt; "Virtualization: Enabled"
+
+# CPU support (powinien byc TAK dla wszystkich x64)
+# Sprawdz w BIOS jesli "Disabled" w Task Manager</code></pre>
+
+<h2>Instalacja Docker Desktop na Windows</h2>
+
+<h3>Krok 1: Wlacz WSL2</h3>
+<pre><code># Run jako Administrator (PowerShell)
+wsl --install
+
+# Lub osobne kroki:
+dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+
+# Restart komputera
+
+# Po restarcie zainstaluj Ubuntu (lub inny distro)
+wsl --install -d Ubuntu
+
+# Sprawdz
+wsl --list --verbose
+# NAME    STATE    VERSION
+# Ubuntu  Running  2
+
+# Jesli VERSION=1, upgrade:
+wsl --set-version Ubuntu 2
+wsl --set-default-version 2</code></pre>
+
+<h3>Krok 2: Pobierz Docker Desktop</h3>
+<ol>
+<li>Idz do: <strong>docs.docker.com/desktop/install/windows-install/</strong></li>
+<li>Pobierz <strong>Docker Desktop Installer.exe</strong></li>
+<li>Run installer:
+<ul>
+<li><strong>Use WSL 2 instead of Hyper-V</strong> -&gt; (zaznacz, zalecane)</li>
+<li><strong>Add shortcut to desktop</strong> -&gt; (opcjonalne)</li>
+</ul>
+</li>
+<li><strong>Restart</strong> wymagany</li>
+</ol>
+
+<h3>Krok 3: Pierwsze uruchomienie</h3>
+<ol>
+<li>Uruchom Docker Desktop z menu Start</li>
+<li>Akceptuj <strong>Service Agreement</strong></li>
+<li><strong>Sign in to Docker Hub</strong> (opcjonalne, ale przydatne dla pull rate limits)</li>
+<li>Settings -&gt; Resources -&gt; WSL Integration:
+<ul>
+<li><strong>Enable integration with my default WSL distro</strong> (zaznacz)</li>
+<li><strong>Enable integration with additional distros</strong> -&gt; Ubuntu (zaznacz, jesli masz)</li>
+</ul>
+</li>
+</ol>
+
+<h3>Krok 4: Test</h3>
+<pre><code>docker --version
+# Docker version 27.x.x
+
+docker run hello-world
+# Pulls image from Docker Hub
+# Runs container
+# Prints "Hello from Docker!"
+
+docker info
+# Pokazuje status daemon, uzywana ilosc pamieci, itp.</code></pre>
+
+<h2>Konfiguracja Docker Desktop</h2>
+
+<h3>Resources (wazne!)</h3>
+<p><strong>Settings -&gt; Resources -&gt; Advanced</strong></p>
+
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>Recommended</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>CPUs</strong></td><td>2</td><td>4-8 (polowa dostepnych)</td></tr>
+<tr><td><strong>Memory</strong></td><td>2 GB</td><td>8-16 GB (1/3-1/2 RAM)</td></tr>
+<tr><td><strong>Swap</strong></td><td>1 GB</td><td>2-4 GB</td></tr>
+<tr><td><strong>Disk image size</strong></td><td>64 GB</td><td>100-200 GB</td></tr>
+</tbody>
+</table>
+
+<p><strong>Uwaga:</strong> Docker Desktop alokuje te zasoby <strong>stale</strong> (WSL2 backend zwalnia gdy nieuzywane, Hyper-V trzyma).</p>
+
+<h3>File sharing (Hyper-V backend only)</h3>
+<p>Settings -&gt; Resources -&gt; File Sharing - wybierz dyski ktore Docker moze mountowac jako bind mounts.</p>
+<p>W WSL2 backend: pliki w <code>\\wsl$\Ubuntu\home\user\</code> sa szybkie. Pliki w <code>C:\Users\...</code> mountowane jako bind mounts sa <strong>wolne</strong> (Plan 9 protocol).</p>
+
+<h3>Docker Engine config</h3>
+<p>Settings -&gt; Docker Engine -&gt; JSON config:</p>
+<pre><code>{
+  "builder": {
+    "gc": {
+      "defaultKeepStorage": "20GB",
+      "enabled": true
+    }
+  },
+  "experimental": false,
+  "features": {
+    "buildkit": true
+  },
+  "registry-mirrors": [],
+  "insecure-registries": ["registry.local:5000"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "default-address-pools": [
+    {"base": "172.30.0.0/16", "size": 24}
+  ]
+}</code></pre>
+
+<h2>Filesystem - TIPS dla wydajnosci</h2>
+
+<h3>Problem: bind mount z C:\ jest WOLNY</h3>
+<pre><code># WOLNE (~5-50x wolniej):
+docker run -v C:/Users/me/project:/app node:20
+
+# SZYBKIE - kod w WSL2 filesystem:
+# 1. W terminalu WSL2:
+cd ~
+git clone https://github.com/me/project
+# 2. Z Windows: \\wsl$\Ubuntu\home\me\project
+# 3. Docker:
+docker run -v ~/project:/app node:20</code></pre>
+
+<h3>Strategia 2026:</h3>
+<ul>
+<li><strong>Kod trzymaj w WSL2</strong> filesystem (<code>\\wsl$\Ubuntu\home\...</code>)</li>
+<li><strong>VS Code Remote-WSL</strong> extension - edycja w WSL2 z poziomu Windows VS Code</li>
+<li>Bind mounty z WSL2 path sa szybkie</li>
+</ul>
+
+<h3>Performance per scenariusz</h3>
+
+<table>
+<thead>
+<tr><th>Scenariusz</th><th>Performance</th></tr>
+</thead>
+<tbody>
+<tr><td>Kod w WSL2 + Docker</td><td>Swietnie (native)</td></tr>
+<tr><td>Kod w <code>C:\</code> + bind mount</td><td>Wolno (5-50x)</td></tr>
+<tr><td>Tylko named volumes (no bind)</td><td>Szybko</td></tr>
+<tr><td>Heavy I/O (database)</td><td>Named volume OK, bind ZLE</td></tr>
+<tr><td>Watch (file changes)</td><td>WSL2 fs OK, Windows fs unreliable</td></tr>
+</tbody>
+</table>
+
+<h2>Network - Docker Windows specifics</h2>
+
+<h3>localhost</h3>
+<pre><code># Z Windows host do kontenera:
+docker run -p 8080:80 nginx
+# Dziala: http://localhost:8080  OK
+
+# Z kontenera do Windows host:
+# Use specjalna nazwa: host.docker.internal
+# np. baza danych na Windows host:
+docker run --add-host=host.docker.internal:host-gateway myapp</code></pre>
+
+<h3>WSL2 siec</h3>
+<p>WSL2 ma swoja siecionke z osobnym IP:</p>
+<pre><code># W WSL2:
+ip addr  # zazwyczaj 172.x.x.x
+
+# Windows host IP z perspektywy WSL2:
+cat /etc/resolv.conf  # nameserver = Windows host IP</code></pre>
+
+<h3>Port forwarding</h3>
+<p>Docker Desktop automatycznie forwarduje porty z WSL2 VM do Windows host.</p>
+<pre><code>docker run -p 3000:3000 myapp
+# Dostepne:
+# - http://localhost:3000  (z Windows)
+# - http://localhost:3000  (z WSL2 - Windows port forwarding)
+# - z innych komputerow w sieci: http://&lt;windows-ip&gt;:3000</code></pre>
+
+<h2>GPU support (NVIDIA)</h2>
+<p>W 2026 GPU passthrough do Docker dziala via WSL2:</p>
+
+<h3>Wymagania:</h3>
+<ul>
+<li>Windows 11 lub Windows 10 21H2+</li>
+<li>NVIDIA GPU + driver 510.x+ (newer is better)</li>
+<li>Docker Desktop z WSL2 backend</li>
+<li>WSL2 z Linux distro</li>
+</ul>
+
+<h3>Setup:</h3>
+<pre><code># 1. Update NVIDIA driver na Windows (najnowszy z nvidia.com)
+
+# 2. W WSL2 - NIE instaluj NVIDIA driver! (Windows driver wystarczy)
+
+# 3. Zainstaluj NVIDIA Container Toolkit w WSL2:
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt update &amp;&amp; sudo apt install -y nvidia-container-toolkit
+
+# 4. Test:
+docker run --rm --gpus all nvidia/cuda:12.6.0-base-ubuntu24.04 nvidia-smi
+# Powinno pokazac Twoje GPU</code></pre>
+
+<p><strong>Use cases:</strong> ML training, LLM inference (Ollama w Docker), video processing, GPU-accelerated databases.</p>
+
+<h2>Windows Containers (rzadkie)</h2>
+<p>Jesli potrzebujesz Windows containers (np. legacy .NET Framework):</p>
+
+<pre><code># Switch z Linux containers na Windows containers
+# (right-click Docker tray icon -&gt; "Switch to Windows containers")
+
+# Lub PowerShell:
+&amp; 'C:\Program Files\Docker\Docker\DockerCli.exe' -SwitchDaemon
+
+# Test:
+docker pull mcr.microsoft.com/windows/nanoserver:ltsc2025
+docker run mcr.microsoft.com/windows/nanoserver:ltsc2025 cmd.exe /c echo "Hello from Windows container"</code></pre>
+
+<p><strong>Uwaga:</strong> Przy Windows containers tracisz dostep do Linux containers (i vice versa). Wiekszosc projektow uzywa Linux containers, ergo zostaw default.</p>
+
+<h2>Docker Desktop license (2026)</h2>
+<p>Docker Desktop wymaga <strong>Pro/Team/Business subscription</strong> dla:</p>
+<ul>
+<li>Firm &gt; 250 osob, LUB</li>
+<li>Firm z revenue &gt; $10M/rok</li>
+</ul>
+
+<p><strong>Free dla:</strong></p>
+<ul>
+<li>Personal use</li>
+<li>Education</li>
+<li>Open source projects</li>
+<li>Small businesses (ponizej limitu)</li>
+</ul>
+
+<p><strong>Pricing 2026:</strong></p>
+<ul>
+<li><strong>Personal</strong>: Free</li>
+<li><strong>Pro</strong>: $9/mc per user</li>
+<li><strong>Team</strong>: $15/mc per user</li>
+<li><strong>Business</strong>: $24/mc per user</li>
+</ul>
+
+<p><strong>Alternatives jesli nie chcesz Docker Desktop license:</strong></p>
+<ul>
+<li><strong>Podman Desktop</strong> - free, open source</li>
+<li><strong>Rancher Desktop</strong> - free, open source</li>
+<li><strong>Docker CE w WSL2</strong> (bez Desktop) - free, ale wiecej setupu</li>
+</ul>
+
+<h3>Setup Docker bez Docker Desktop (WSL2)</h3>
+<pre><code># W WSL2 Ubuntu:
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg
+
+# Add Docker GPG key
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+# Add repo
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release &amp;&amp; echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Start daemon
+sudo service docker start
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Test
+docker run hello-world</code></pre>
+
+<p><strong>Plus:</strong> Free, full Docker functionality<br>
+<strong>Minus:</strong> Brak GUI, reczne start service po kazdym restarcie WSL2</p>
+
+<h3>Auto-start Docker w WSL2 (bez Desktop)</h3>
+<pre><code># Edytuj ~/.bashrc
+echo 'if service docker status &gt; /dev/null 2&gt;&amp;1; then : ; else sudo service docker start; fi' &gt;&gt; ~/.bashrc</code></pre>
+
+<h2>Troubleshooting Windows-specific</h2>
+
+<div class="card">
+<h3>"Docker Desktop requires WSL 2"</h3>
+<pre><code>wsl --update
+wsl --set-default-version 2</code></pre>
+
+<h3>"Hardware assisted virtualization is not enabled"</h3>
+<p>Wlacz w BIOS:</p>
+<ul>
+<li>Intel: VT-x, VT-d</li>
+<li>AMD: SVM, AMD-V</li>
+</ul>
+<p>Po wlaczeniu -&gt; restart</p>
+
+<h3>"Docker daemon not running"</h3>
+<pre><code># Restart Docker Desktop:
+Stop-Service docker
+Start-Service docker
+
+# Lub: kill Docker Desktop process i uruchom ponownie</code></pre>
+
+<h3>"Cannot connect to Docker daemon" w WSL2</h3>
+<pre><code># Sprawdz WSL integration:
+# Docker Desktop -&gt; Settings -&gt; Resources -&gt; WSL Integration
+# Enable for your distro
+
+# Lub manual:
+docker context use desktop-linux</code></pre>
+</div>
+
+<div class="card">
+<h3>Bind mount jest powolny</h3>
+<ul>
+<li>Move kod do WSL2 filesystem (<code>~</code>)</li>
+<li>Lub uzyj <strong>named volume</strong> zamiast bind mount</li>
+</ul>
+
+<h3>Wysokie zuzycie pamieci przez Vmmem.exe</h3>
+<p><strong>Vmmem.exe</strong> to proces WSL2 VM. Limit przez <code>~/.wslconfig</code>:</p>
+<pre><code>[wsl2]
+memory=8GB
+processors=4
+swap=2GB</code></pre>
+<pre><code># Po edycji:
+wsl --shutdown
+# Nastepne uruchomienie WSL/Docker uzyje nowego config</code></pre>
+
+<h3>"no space left on device"</h3>
+<pre><code># Wyczysc Docker:
+docker system prune -a --volumes
+
+# Sprawdz disk image WSL2:
+# %USERPROFILE%\AppData\Local\Docker\wsl\data\ext4.vhdx
+# Moze byc duzy nawet po prune (Docker nie shrink automatically)
+
+# Manual shrink:
+wsl --shutdown
+diskpart
+# w diskpart:
+select vdisk file="C:\Users\&lt;user&gt;\AppData\Local\Docker\wsl\data\ext4.vhdx"
+attach vdisk readonly
+compact vdisk
+detach vdisk
+exit</code></pre>
+</div>
+
+<div class="card">
+<h3>Docker Desktop crashes</h3>
+<ol>
+<li>Restart Docker Desktop</li>
+<li>Reset to factory defaults: Settings -&gt; Troubleshoot -&gt; Reset to factory defaults</li>
+<li>Reinstall Docker Desktop (last resort)</li>
+</ol>
+
+<h3>Slow npm install / yarn install w bind mount</h3>
+<p><strong>Solution:</strong> node_modules na named volume:</p>
+<pre><code># compose.yaml
+services:
+  app:
+    image: node:20
+    volumes:
+      - .:/app
+      - /app/node_modules  # anonymous volume - fast
+    working_dir: /app</code></pre>
+</div>
+
+<h2>VS Code + Docker workflow (rekomendowany)</h2>
+
+<pre><code>1. Install VS Code
+2. Install extensions:
+   - Docker (Microsoft)
+   - Dev Containers (Microsoft)
+   - WSL (Microsoft)
+
+3. Otworz folder w WSL2:
+   - Ctrl+Shift+P -&gt; "WSL: Open Folder in WSL"
+   - Albo: code . z poziomu WSL2
+
+4. Dla projektow Docker:
+   - Stworz .devcontainer/devcontainer.json
+   - Ctrl+Shift+P -&gt; "Dev Containers: Reopen in Container"
+   - VS Code uruchamia kontener i otwiera folder w nim
+
+5. Wszystko (terminal, debugger, extensions) dziala wewnatrz kontenera</code></pre>
+
+<p>Przyklad <code>.devcontainer/devcontainer.json</code>:</p>
+<pre><code>{
+    "name": "Node.js Dev",
+    "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+    "forwardPorts": [3000],
+    "postCreateCommand": "npm install",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "esbenp.prettier-vscode",
+                "dbaeumer.vscode-eslint"
+            ]
+        }
+    }
+}</code></pre>
+
+<h2>Komendy Windows-specific</h2>
+
+<pre><code># Lista WSL distros
+wsl --list --verbose
+
+# Restart WSL (np. po zmianie .wslconfig)
+wsl --shutdown
+
+# Switch distro
+wsl --set-default Ubuntu
+
+# Eksportuj WSL distro (backup)
+wsl --export Ubuntu C:\backup\ubuntu.tar
+
+# Import WSL distro
+wsl --import NewName C:\WSL\NewName ubuntu.tar
+
+# Konfig WSL (w Notepad)
+notepad %UserProfile%\.wslconfig</code></pre>
+
+<p><code>~/.wslconfig</code> opcje:</p>
+<pre><code>[wsl2]
+memory=8GB                # max RAM dla WSL2 VM
+processors=4              # max CPU
+swap=2GB                  # swap size
+swapFile=C:\\temp\\wsl-swap.vhdx
+localhostForwarding=true  # default true
+nestedVirtualization=true # for nested Docker/K8s
+
+[experimental]
+sparseVhd=true            # auto-shrink VHD
+autoMemoryReclaim=gradual # reclaim unused memory gradually
+networkingMode=mirrored   # better networking (Win 11)
+dnsTunneling=true
+firewall=true
+autoProxy=true</code></pre>
+
+<h2>Best practices Windows</h2>
+
+<pre><code>[ ] Wlacz WSL2 backend (nie Hyper-V)
+[ ] Trzymaj kod w WSL2 filesystem (nie C:\)
+[ ] Uzyj VS Code Remote-WSL dla edycji
+[ ] Skonfiguruj memory limit w .wslconfig (8-16 GB)
+[ ] Disk size dla Docker: 100-200 GB
+[ ] Auto-update Docker Desktop wylaczony jesli stabilnosc krytyczna
+[ ] Backup Docker volumes regularnie
+[ ] Wylacz Docker Desktop przy zamknieciu pracy (oszczednosc pamieci)
+[ ] Zsync z Windows Defender exclusions:
+   - C:\Users\&lt;user&gt;\AppData\Local\Docker
+   - %USERPROFILE%\.docker
+   - WSL2 disk image (ext4.vhdx)</code></pre>
+
+<h2>Podsumowanie</h2>
+<p>Docker na Windows w 2026:</p>
+<ol>
+<li><strong>WSL2 backend</strong> to standard</li>
+<li><strong>Trzymaj kod w WSL2</strong> dla performance</li>
+<li><strong>Docker Desktop</strong> wymaga subscription dla wiekszych firm - alternatywy: Podman Desktop, Rancher Desktop, Docker CE w WSL2</li>
+<li><strong>GPU support</strong> dziala swietnie z NVIDIA + WSL2</li>
+<li><strong>VS Code Remote-WSL</strong> to game changer dla productivity</li>
+<li><strong>Linux containers</strong> = 99% przypadkow (Windows containers tylko dla legacy .NET Framework)</li>
+</ol>
+
+<p>W kolejnym rozdziale: <strong>macOS specifics</strong> - Docker Desktop, Colima, OrbStack.</p>
+
+<div class="nav-bottom">
+<a href="01-podstawy-docker.html">&larr; Podstawy Docker</a>
+<a href="03-docker-macos.html">Docker na macOS &rarr;</a>
+</div>
+</div>
+</body>
+</html>

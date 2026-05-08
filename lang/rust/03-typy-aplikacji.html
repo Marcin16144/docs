@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03 — Jakie aplikacje pisac w Rust</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ce422b;--accent-hover:#e85d2f;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--cyan:#22d3ee;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-left:4px solid var(--green)}
+        .card.orange{border-left:4px solid var(--orange)}
+        .card.red{border-left:4px solid var(--red)}
+        .card.blue{border-left:4px solid var(--blue)}
+        .yes{color:var(--green);font-weight:600}.no{color:var(--red);font-weight:600}.warn{color:var(--orange);font-weight:600}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="../../index.html">Glowna</a>
+        <span class="sep">/</span>
+        <a href="../index.html">Jezyki</a>
+        <span class="sep">/</span>
+        <a href="index.html">Rust</a>
+        <span class="sep">/</span>
+        <span class="title">Typy aplikacji</span>
+    </div>
+    <div class="container">
+        <h1>Jakie aplikacje pisac w Rust</h1>
+        <p class="subtitle">Przeglad typow aplikacji, gdzie Rust swieci — z realnymi przykladami i frameworkami.</p>
+
+        <h2>Mapa kategorii aplikacji</h2>
+
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│           GDZIE RUST WYGRYWA W 2026                      │
+├─────────────────────────────────────────────────────────┤
+│  SYSTEMS PROGRAMMING                                     │
+│  ├─ OS kernels, drivers (Linux, Windows, Android)        │
+│  ├─ Microvms / hypervisors (Firecracker)                │
+│  └─ File systems, low-level utilities                    │
+├─────────────────────────────────────────────────────────┤
+│  WEB BACKEND (high-performance)                          │
+│  ├─ HTTP services (Axum, Actix-web)                      │
+│  ├─ gRPC / streaming                                     │
+│  ├─ Edge computing (Cloudflare Workers Wasm)             │
+│  └─ API gateways, proxies (Pingora)                      │
+├─────────────────────────────────────────────────────────┤
+│  CLI TOOLS                                               │
+│  ├─ ripgrep, fd, bat, eza, dust, hyperfine               │
+│  ├─ Single binary, fast startup, cross-platform          │
+│  └─ Developer tools w ogole                              │
+├─────────────────────────────────────────────────────────┤
+│  EMBEDDED / IoT                                          │
+│  ├─ Microcontrollers (ESP32, RP2040, STM32)              │
+│  ├─ Embassy framework (async no_std)                     │
+│  └─ Real-time control systems                            │
+├─────────────────────────────────────────────────────────┤
+│  BLOCKCHAIN / CRYPTO                                     │
+│  ├─ Solana, Polkadot, NEAR (caly stack)                  │
+│  ├─ Wallets, exchanges, smart contracts                  │
+│  └─ Crypto libraries (RustCrypto)                        │
+├─────────────────────────────────────────────────────────┤
+│  GAME ENGINES / GRAPHICS                                 │
+│  ├─ Bevy, Fyrox (game engines)                           │
+│  ├─ wgpu (modern graphics API)                           │
+│  └─ Real-time rendering, shaders                         │
+├─────────────────────────────────────────────────────────┤
+│  DESKTOP APPS                                            │
+│  ├─ Tauri (Electron alternative — 90% smaller)           │
+│  ├─ Slint, egui, Iced, Dioxus                            │
+│  └─ Native cross-platform                                │
+├─────────────────────────────────────────────────────────┤
+│  WEBASSEMBLY                                             │
+│  ├─ Smallest WASM bundles                                │
+│  ├─ Browser-based apps (Yew, Leptos)                     │
+│  └─ Server-side WASM (Spin, wasmCloud)                   │
+├─────────────────────────────────────────────────────────┤
+│  ML / AI INFERENCE                                       │
+│  ├─ candle (HuggingFace), tch-rs                         │
+│  ├─ ONNX Runtime bindings                                │
+│  └─ Edge AI inference, LLM hosting                       │
+├─────────────────────────────────────────────────────────┤
+│  DATABASES / STORAGE                                     │
+│  ├─ SurrealDB, ScyllaDB drivers                          │
+│  ├─ Custom storage engines                               │
+│  └─ Data processing pipelines                            │
+├─────────────────────────────────────────────────────────┤
+│  NETWORKING                                              │
+│  ├─ Custom protocols                                     │
+│  ├─ Load balancers (Pingora @ Cloudflare)                │
+│  └─ VPN clients (WireGuard implementacje)                │
+└─────────────────────────────────────────────────────────┘</code></pre>
+
+        <h2>1. Systems Programming</h2>
+
+        <div class="card green">
+            <h3>Co mozesz zbudowac</h3>
+            <ul>
+                <li><strong>Kernel modules</strong> — Linux kernel akceptuje Rust od 2022, Windows kernel components od 2024</li>
+                <li><strong>Drivers</strong> — graphics, network, storage drivers</li>
+                <li><strong>Operating systems</strong> — Redox OS (eksperymentalny OS w Rust), Theseus, Tock</li>
+                <li><strong>Hypervisors / VMMs</strong> — Firecracker (Amazon, microVM dla Lambda), Cloud Hypervisor</li>
+                <li><strong>Container runtimes</strong> — youki (low-level container runtime)</li>
+                <li><strong>File systems</strong> — bcachefs (next-gen Linux fs)</li>
+                <li><strong>Bootloaders</strong> — bootloaders dla embedded systems</li>
+            </ul>
+        </div>
+
+        <h3>Realny przyklad: Firecracker (Amazon)</h3>
+        <p><strong>Firecracker</strong> to microVM hypervisor uzywany przez AWS Lambda do izolacji funkcji. Napisany w Rust, ~50k linii kodu. Boots w ~125ms, memory overhead ~5MB. Zastapil Docker dla Lambdy w 2018.</p>
+
+        <h3>Frameworki / biblioteki</h3>
+        <ul>
+            <li><strong>nix</strong> — bezpieczne POSIX bindings</li>
+            <li><strong>rust-bindgen</strong> — generuje Rust bindings z C headers</li>
+            <li><strong>libloading</strong> — dynamic library loading</li>
+            <li><strong>uefi-rs</strong> — UEFI applications w Rust</li>
+        </ul>
+
+        <h2>2. Web Backend</h2>
+
+        <div class="card green">
+            <h3>Co mozesz zbudowac</h3>
+            <ul>
+                <li><strong>REST APIs</strong> — szybsze niz Node.js, mniej resource niz Java</li>
+                <li><strong>gRPC services</strong> — tonic to industry-standard</li>
+                <li><strong>Real-time / WebSocket servers</strong> — WebSockets, SSE, streaming</li>
+                <li><strong>API Gateways / Reverse proxies</strong> — Pingora, Kong alternatives</li>
+                <li><strong>Microservices</strong> — small footprint, fast cold starts</li>
+                <li><strong>Edge functions</strong> — Cloudflare Workers (WASM), Vercel Edge</li>
+                <li><strong>Background workers / queue processors</strong></li>
+            </ul>
+        </div>
+
+        <h3>Frameworki web 2026</h3>
+
+        <table>
+            <thead><tr><th>Framework</th><th>Kategoria</th><th>Status</th><th>Przyklad uzytkownikow</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Axum</strong></td><td>Web (Tokio + Tower)</td><td>#1 wybor 2026</td><td>Cloudflare, Discord</td></tr>
+                <tr><td><strong>Actix-web</strong></td><td>Web (mature, fast)</td><td>Stable, popularny</td><td>Microsoft, Mozilla</td></tr>
+                <tr><td><strong>Rocket</strong></td><td>Web (ergonomic)</td><td>Mature</td><td>StackOverflow articles</td></tr>
+                <tr><td><strong>Warp</strong></td><td>Web (functional)</td><td>Niche</td><td>-</td></tr>
+                <tr><td><strong>Loco</strong></td><td>Rails-like framework</td><td>Rosnacy</td><td>-</td></tr>
+                <tr><td><strong>tonic</strong></td><td>gRPC</td><td>Industry standard</td><td>Wszedzie gdzie gRPC</td></tr>
+                <tr><td><strong>async-graphql</strong></td><td>GraphQL</td><td>Industry standard</td><td>-</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Realny przyklad: Pingora (Cloudflare)</h3>
+        <p><strong>Pingora</strong> to HTTP proxy framework Cloudflare ktory zastapil Nginx w produkcji. Obsluguje <strong>1+ trillion requestow dziennie</strong>. Po migracji:</p>
+        <ul>
+            <li>70% mniej zuzycia CPU</li>
+            <li>67% mniej zuzycia pamieci</li>
+            <li>Zero-downtime upgrades</li>
+            <li>P99 latency redukcja</li>
+        </ul>
+        <p>Open source od 2024 (github.com/cloudflare/pingora).</p>
+
+        <h3>Hello World w Axum</h3>
+<pre><code>use axum::{routing::get, Router, Json};
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+struct User { id: u32, name: String }
+
+async fn list_users() -&gt; Json&lt;Vec&lt;User&gt;&gt; {
+    Json(vec![
+        User { id: 1, name: "Alice".to_string() },
+        User { id: 2, name: "Bob".to_string() },
+    ])
+}
+
+#[tokio::main]
+async fn main() {
+    let app = Router::new()
+        .route("/users", get(list_users));
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+        .await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}</code></pre>
+
+        <h2>3. CLI Tools</h2>
+
+        <div class="card green">
+            <h3>Dlaczego Rust dla CLI</h3>
+            <ul>
+                <li><strong>Single binary</strong> — distribuujesz jeden plik, dziala wszedzie</li>
+                <li><strong>Fast startup</strong> — ~5ms vs Node.js ~50-200ms vs Python ~100-300ms</li>
+                <li><strong>Cross-platform</strong> — Windows, macOS, Linux z jednego codebase</li>
+                <li><strong>Memory efficient</strong> — male obrazy, low memory footprint</li>
+                <li><strong>Beautiful CLI</strong> — clap framework jest world-class</li>
+            </ul>
+        </div>
+
+        <h3>Slynne narzedzia CLI w Rust</h3>
+
+        <table>
+            <thead><tr><th>Narzedzie</th><th>Co zastepuje</th><th>Korzysc</th></tr></thead>
+            <tbody>
+                <tr><td><strong>ripgrep (rg)</strong></td><td>grep</td><td>10-100x szybszy, smarter defaults</td></tr>
+                <tr><td><strong>fd</strong></td><td>find</td><td>Prostsza skladnia, szybszy</td></tr>
+                <tr><td><strong>bat</strong></td><td>cat</td><td>Syntax highlighting, git integration</td></tr>
+                <tr><td><strong>eza (ex-exa)</strong></td><td>ls</td><td>Kolorowe, tree view, git status</td></tr>
+                <tr><td><strong>dust</strong></td><td>du</td><td>Visual disk usage</td></tr>
+                <tr><td><strong>hyperfine</strong></td><td>time</td><td>Statistical benchmarking</td></tr>
+                <tr><td><strong>tokei</strong></td><td>cloc</td><td>Code line counter, super szybki</td></tr>
+                <tr><td><strong>fnm</strong></td><td>nvm</td><td>Node Version Manager — 100x szybszy</td></tr>
+                <tr><td><strong>uv</strong></td><td>pip / poetry</td><td>Python package manager — 100x szybszy</td></tr>
+                <tr><td><strong>starship</strong></td><td>oh-my-zsh themes</td><td>Cross-shell prompt</td></tr>
+                <tr><td><strong>zoxide</strong></td><td>cd</td><td>Smart cd z history</td></tr>
+                <tr><td><strong>delta</strong></td><td>git diff</td><td>Pretty diff with syntax highlighting</td></tr>
+                <tr><td><strong>helix</strong></td><td>vim/neovim</td><td>Modal editor z modern features</td></tr>
+                <tr><td><strong>nushell</strong></td><td>bash/zsh/fish</td><td>Structured shell</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Frameworki CLI</h3>
+        <ul>
+            <li><strong>clap</strong> — gold standard, derive macros, autocomplete generation</li>
+            <li><strong>indicatif</strong> — progress bars / spinners</li>
+            <li><strong>dialoguer</strong> — interactive prompts</li>
+            <li><strong>console</strong> — terminal styling</li>
+            <li><strong>ratatui</strong> — TUI (Terminal UI) framework — like Vim/htop interfaces</li>
+        </ul>
+
+        <h2>4. Embedded / IoT</h2>
+
+        <div class="card green">
+            <h3>Co mozesz zbudowac</h3>
+            <ul>
+                <li><strong>Microcontroller firmware</strong> — ESP32, RP2040 (Raspberry Pi Pico), STM32, nRF52</li>
+                <li><strong>Real-time control systems</strong> — robotics, industrial automation</li>
+                <li><strong>IoT devices</strong> — sensors, actuators, smart home</li>
+                <li><strong>Drone autopilots</strong></li>
+                <li><strong>Wearables</strong></li>
+                <li><strong>Automotive</strong> — Volvo i Mercedes uzywaja Rust w in-car systems</li>
+            </ul>
+        </div>
+
+        <h3>Dlaczego Rust dla embedded</h3>
+        <ul>
+            <li><strong>no_std</strong> — Rust bez stdlib, maly footprint (<10 KB binary mozliwy)</li>
+            <li><strong>Zero-cost abstractions</strong> — wysokie poziomy konstrukty bez overhead</li>
+            <li><strong>Memory safety</strong> — krytyczne w safety-critical systemach</li>
+            <li><strong>No GC</strong> — predykcyjne timing</li>
+            <li><strong>Async w no_std</strong> — embassy framework wprowadzil async/await dla MCU</li>
+            <li><strong>Hardware abstraction</strong> — embedded-hal trait</li>
+        </ul>
+
+        <h3>Frameworki embedded</h3>
+        <ul>
+            <li><strong>embassy</strong> — modern async embedded framework (2024+ standard)</li>
+            <li><strong>RTIC</strong> — Real-Time Interrupt-driven Concurrency</li>
+            <li><strong>embedded-hal</strong> — hardware abstraction layer</li>
+            <li><strong>probe-rs</strong> — debugging i flashing toolkit</li>
+            <li><strong>defmt</strong> — efficient logging dla embedded</li>
+        </ul>
+
+        <h3>Przyklad: blink LED na ESP32</h3>
+<pre><code>#![no_std]
+#![no_main]
+
+use embassy_executor::Spawner;
+use embassy_time::{Duration, Timer};
+use esp_hal::{gpio::{Io, Level, Output}, prelude::*};
+
+#[esp_hal_embassy::main]
+async fn main(_spawner: Spawner) {
+    let peripherals = esp_hal::init(esp_hal::Config::default());
+    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
+    let mut led = Output::new(io.pins.gpio2, Level::Low);
+
+    loop {
+        led.toggle();
+        Timer::after(Duration::from_millis(500)).await;
+    }
+}</code></pre>
+
+        <h2>5. Blockchain / Cryptocurrency</h2>
+
+        <div class="card green">
+            <h3>Co mozesz zbudowac</h3>
+            <ul>
+                <li><strong>Layer 1 blockchains</strong> — Solana, Polkadot, NEAR, Aptos (caly stack w Rust)</li>
+                <li><strong>Smart contracts</strong> — ink! dla Polkadot, anchor dla Solana</li>
+                <li><strong>Crypto wallets</strong> — Ledger firmware components, hardware wallets</li>
+                <li><strong>Crypto exchanges</strong> — backend high-frequency trading</li>
+                <li><strong>DeFi protocols</strong></li>
+                <li><strong>Zero-knowledge proof systems</strong> — zk-SNARKs, zk-STARKs</li>
+                <li><strong>MEV bots</strong></li>
+            </ul>
+        </div>
+
+        <h3>Dlaczego Rust dla crypto</h3>
+        <ul>
+            <li>Memory safety — bug w crypto = utrata milionow $</li>
+            <li>Performance — high-frequency trading wymaga &lt;1ms latency</li>
+            <li>Cryptographic primitives — ekosystem RustCrypto jest bogaty</li>
+            <li>Determinizm — kazda noda dostaje ten sam wynik</li>
+        </ul>
+
+        <h3>Biblioteki</h3>
+        <ul>
+            <li><strong>RustCrypto</strong> — comprehensive crypto primitives (AES, RSA, ECDSA, etc.)</li>
+            <li><strong>ring</strong> — fast cryptographic primitives</li>
+            <li><strong>arkworks</strong> — zero-knowledge proofs</li>
+            <li><strong>solana-sdk</strong> — Solana smart contracts</li>
+            <li><strong>substrate</strong> — Polkadot blockchain framework</li>
+            <li><strong>ethers-rs</strong> — Ethereum bindings</li>
+        </ul>
+
+        <h2>6. Game Engines / Graphics</h2>
+
+        <div class="card orange">
+            <h3>Stan w 2026</h3>
+            <p>Rust w gaming jest <strong>rosnacy ale wciaz niche</strong>. Unity (C#) i Unreal (C++) dominuja komercyjnie. Rust jest popularny dla indie dev z preferencja do clean architecture.</p>
+        </div>
+
+        <h3>Engines</h3>
+        <ul>
+            <li><strong>Bevy</strong> — Entity-Component-System (ECS) engine, najpopularniejszy Rust engine 2026</li>
+            <li><strong>Fyrox</strong> — pelnoprawny game engine z editorem (jak Unity)</li>
+            <li><strong>Ambient</strong> — multiplayer-first runtime (kompiluje do WASM)</li>
+            <li><strong>Macroquad</strong> — proste 2D, latwiejsze niz Bevy</li>
+        </ul>
+
+        <h3>Graphics / rendering</h3>
+        <ul>
+            <li><strong>wgpu</strong> — implementacja WebGPU API (cross-platform graphics)</li>
+            <li><strong>vulkano</strong> — Vulkan bindings (wysokopoziomowe)</li>
+            <li><strong>ash</strong> — Vulkan bindings (niskopoziomowe)</li>
+            <li><strong>winit</strong> — cross-platform window management</li>
+        </ul>
+
+        <h3>Slynne gry w Rust</h3>
+        <ul>
+            <li><strong>Veloren</strong> — open-world multiplayer, najwiekszy Bevy game</li>
+            <li><strong>Tunnet</strong> — networking puzzler (komercyjny)</li>
+            <li><strong>Hytopia</strong> — block-based MMO</li>
+            <li><strong>Roblox</strong> — Hyperion anti-cheat w Rust</li>
+        </ul>
+
+        <h2>7. Desktop Applications</h2>
+
+        <div class="card green">
+            <h3>Co mozesz zbudowac</h3>
+            <ul>
+                <li><strong>Cross-platform desktop apps</strong> — Windows, macOS, Linux</li>
+                <li><strong>Slack-like / Discord-like clients</strong></li>
+                <li><strong>Editors / IDEs</strong> — Zed editor (caly w Rust), Lapce</li>
+                <li><strong>Media players</strong></li>
+                <li><strong>Productivity tools</strong></li>
+            </ul>
+        </div>
+
+        <h3>Frameworki desktop 2026</h3>
+
+        <table>
+            <thead><tr><th>Framework</th><th>Typ</th><th>Plus</th><th>Minus</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Tauri 2</strong></td><td>Web view (HTML/JS frontend)</td><td>~10MB binary, znacznie mniejszy niz Electron</td><td>Wymaga frontend stack</td></tr>
+                <tr><td><strong>Slint</strong></td><td>Native (custom UI language)</td><td>Designer GUI, embedded support</td><td>Custom DSL do nauki</td></tr>
+                <tr><td><strong>egui</strong></td><td>Immediate mode GUI</td><td>Bardzo prosty, debugging-friendly</td><td>Less polish niz native</td></tr>
+                <tr><td><strong>iced</strong></td><td>Elm-inspired</td><td>Functional, cross-platform</td><td>Mniej dojrzaly</td></tr>
+                <tr><td><strong>Dioxus</strong></td><td>React-like</td><td>Web/desktop/mobile/TUI z jednego kodu</td><td>Mlody (od 2022)</td></tr>
+                <tr><td><strong>GTK-rs</strong></td><td>GTK4 bindings</td><td>Native Linux look</td><td>Linux-first</td></tr>
+                <tr><td><strong>floem</strong></td><td>Modern, used by Lapce</td><td>Reactive, fine-grained</td><td>Niche</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Realny przyklad: 1Password</h3>
+        <p><strong>1Password</strong> przepisalo swojego klienta z Electron na Tauri+Rust w 2023. Wynik:</p>
+        <ul>
+            <li>50% mniejsze zuzycie pamieci</li>
+            <li>3x szybszy startup</li>
+            <li>Single binary ~30 MB (vs Electron ~150-300 MB)</li>
+            <li>Native feel per platforma</li>
+        </ul>
+
+        <h2>8. WebAssembly</h2>
+
+        <div class="card green">
+            <h3>Co mozesz zbudowac</h3>
+            <ul>
+                <li><strong>Browser apps</strong> — alternatywa do React/Vue (Yew, Leptos)</li>
+                <li><strong>Edge functions</strong> — Cloudflare Workers, Vercel Edge, Fastly Compute</li>
+                <li><strong>Plugins / extensions</strong> — sandboxowane plugins dla aplikacji</li>
+                <li><strong>Serverless WASM</strong> — wasmCloud, Spin (Fermyon)</li>
+                <li><strong>Game logic w przegladarce</strong> — np. Figma uses WASM</li>
+                <li><strong>Image / video processing</strong> w przegladarce</li>
+                <li><strong>ML inference w browser</strong></li>
+            </ul>
+        </div>
+
+        <h3>Dlaczego Rust dla WASM</h3>
+        <ul>
+            <li>Najmniejszy bundle size (vs Go ~2MB minimum, Rust ~50KB minimum)</li>
+            <li>Najszybsze wykonanie</li>
+            <li>Pelne wsparcie WASM od dawna</li>
+            <li>wasm-bindgen dla bridge JS ↔ Rust</li>
+        </ul>
+
+        <h3>Frameworki web frontend (Rust → WASM)</h3>
+        <ul>
+            <li><strong>Yew</strong> — React-inspired</li>
+            <li><strong>Leptos</strong> — fine-grained reactivity (popularny 2026)</li>
+            <li><strong>Dioxus</strong> — full-stack (web/mobile/desktop)</li>
+            <li><strong>Sycamore</strong> — reactive bez VDOM</li>
+            <li><strong>Trunk</strong> — build tool dla WASM apps</li>
+        </ul>
+
+        <h2>9. ML / AI Inference</h2>
+
+        <div class="card green">
+            <h3>Co mozesz zbudowac</h3>
+            <ul>
+                <li><strong>Edge AI inference</strong> — modele AI na urzadzeniach mobile/IoT</li>
+                <li><strong>Server-side LLM hosting</strong> — alternatywa do Python serving</li>
+                <li><strong>Real-time ML pipelines</strong></li>
+                <li><strong>Computer vision</strong> — image processing w real-time</li>
+                <li><strong>Model conversion / quantization tools</strong></li>
+            </ul>
+        </div>
+
+        <h3>Frameworki ML 2026</h3>
+        <ul>
+            <li><strong>candle</strong> (HuggingFace) — minimalist ML framework, ~1MB binary, no Python deps</li>
+            <li><strong>tch-rs</strong> — PyTorch bindings</li>
+            <li><strong>burn</strong> — modern ML framework (multi-backend: WGPU, Candle, ndarray)</li>
+            <li><strong>ort</strong> — ONNX Runtime bindings</li>
+            <li><strong>llama.cpp Rust bindings</strong> — LLM inference</li>
+            <li><strong>polars</strong> — DataFrames, alternative do pandas (10-100x szybszy)</li>
+        </ul>
+
+        <h3>Realny przyklad: Hugging Face candle</h3>
+        <p>Hugging Face wydalo <strong>candle</strong> w 2023 jako alternatywe dla PyTorch w deployment. W 2026 candle jest popularny w:</p>
+        <ul>
+            <li>Edge AI inference (mobile, IoT)</li>
+            <li>Serverless ML (mniejsze cold start)</li>
+            <li>WASM ML w browser</li>
+            <li>Embedded LLM inference</li>
+        </ul>
+
+        <h2>10. Networking</h2>
+
+        <div class="card green">
+            <h3>Co mozesz zbudowac</h3>
+            <ul>
+                <li><strong>Custom protocols</strong> — TCP, UDP, custom binary protocols</li>
+                <li><strong>VPN clients</strong> — WireGuard implementations</li>
+                <li><strong>Load balancers</strong> — Pingora (Cloudflare)</li>
+                <li><strong>DNS servers</strong> — Hickory DNS (formerly Trust DNS)</li>
+                <li><strong>Network monitoring tools</strong></li>
+                <li><strong>Packet filters</strong> — eBPF programs</li>
+            </ul>
+        </div>
+
+        <h3>Frameworki networking</h3>
+        <ul>
+            <li><strong>Tokio</strong> — async runtime, foundation</li>
+            <li><strong>tonic</strong> — gRPC</li>
+            <li><strong>quinn</strong> — QUIC implementation (HTTP/3)</li>
+            <li><strong>tungstenite</strong> — WebSocket</li>
+            <li><strong>hickory-dns</strong> — DNS server/client</li>
+            <li><strong>boringtun</strong> — Cloudflare WireGuard implementation</li>
+        </ul>
+
+        <h2>11. Databases / Storage</h2>
+
+        <div class="card green">
+            <h3>Co mozesz zbudowac</h3>
+            <ul>
+                <li><strong>Custom storage engines</strong></li>
+                <li><strong>Database drivers / ORMs</strong></li>
+                <li><strong>Streaming data pipelines</strong></li>
+                <li><strong>Time-series databases</strong></li>
+                <li><strong>Vector databases</strong> dla AI</li>
+            </ul>
+        </div>
+
+        <h3>Slynne projekty</h3>
+        <ul>
+            <li><strong>SurrealDB</strong> — multi-model database (caly stack Rust)</li>
+            <li><strong>Materialize</strong> — streaming database</li>
+            <li><strong>Qdrant</strong> — vector database dla AI</li>
+            <li><strong>Meilisearch</strong> — search engine (alternative to Elasticsearch)</li>
+            <li><strong>InfluxDB v3</strong> — time-series database (przepisane z Go na Rust)</li>
+            <li><strong>RisingWave</strong> — streaming database</li>
+            <li><strong>sled</strong> — embedded key-value store</li>
+        </ul>
+
+        <h3>Database drivers</h3>
+        <ul>
+            <li><strong>sqlx</strong> — async SQL z compile-time query checking</li>
+            <li><strong>SeaORM</strong> — async ORM (jak Hibernate dla Rust)</li>
+            <li><strong>Diesel</strong> — type-safe ORM</li>
+            <li><strong>tokio-postgres</strong> — Postgres async driver</li>
+            <li><strong>redis-rs</strong> — Redis client</li>
+        </ul>
+
+        <h2>12. Czego NIE pisac w Rust</h2>
+
+        <div class="card red">
+            <h3>Rust jest zly wybor dla:</h3>
+            <ul>
+                <li><strong>Quick prototypes / MVP</strong> — Python/JavaScript szybsze do iteracji</li>
+                <li><strong>Data science / Jupyter notebooks</strong> — Python ekosystem (pandas, scikit-learn) ma wszystko</li>
+                <li><strong>Simple CRUD web apps</strong> — Django/Rails/Laravel produktywniejsze</li>
+                <li><strong>Mobile apps z native UI</strong> — Swift/Kotlin lepsi dla iOS/Android</li>
+                <li><strong>Office plugins / VSTO</strong> — C# is required</li>
+                <li><strong>Unity games</strong> — C# is required</li>
+                <li><strong>SharePoint / Microsoft 365 dev</strong> — C# / TypeScript</li>
+                <li><strong>Scripting</strong> — Python/Bash</li>
+                <li><strong>Junior-friendly projects</strong> — krzywa uczenia za stroma</li>
+            </ul>
+        </div>
+
+        <h2>Decision tree: czy Rust jest dla mojego projektu?</h2>
+
+<pre><code>Czy projekt wymaga performance &lt; 10ms p99 latency?
+  TAK → Rust strong fit
+  NIE → idz dalej
+
+Czy targetujesz embedded / IoT?
+  TAK → Rust (z embassy)
+  NIE → idz dalej
+
+Czy budujesz CLI tool?
+  TAK → Rust dobry fit (single binary, fast)
+  NIE → idz dalej
+
+Czy WASM jest priorytetem (browser/edge)?
+  TAK → Rust optimal
+  NIE → idz dalej
+
+Czy masz zespol z C++ background lub chcesz inwestowac w upskill?
+  TAK → Rust mozliwy
+  NIE → uzyj C# / Go / Python
+
+Czy memory safety jest critical (security/compliance)?
+  TAK → Rust (najsilniejsze gwarancje)
+  NIE → idz dalej
+
+Czy budujesz dlugo-running service (years) gdzie GC pauzy boli?
+  TAK → Rust dobry fit
+  NIE → uzyj C#/Go (szybszy development)
+
+Czy team to seniorzy?
+  TAK → Rust mozliwy
+  NIE → C#/Go safer choice</code></pre>
+
+        <h2>Stack rekomendacje per use case (2026)</h2>
+
+        <div class="card blue">
+            <h3>Web API z high performance</h3>
+            <p>Rust + Axum + sqlx + Postgres + Redis. Deploy: Docker (~20MB image), Kubernetes lub Fly.io.</p>
+        </div>
+
+        <div class="card blue">
+            <h3>CLI tool open source</h3>
+            <p>Rust + clap + tokio (async I/O). Distribute: cargo install, GitHub Releases binaries cross-platform via cargo-dist.</p>
+        </div>
+
+        <div class="card blue">
+            <h3>Embedded device</h3>
+            <p>Rust + embassy + embedded-hal + defmt. Hardware: ESP32 / RP2040 / STM32.</p>
+        </div>
+
+        <div class="card blue">
+            <h3>Cross-platform desktop app</h3>
+            <p>Rust + Tauri 2 + (React/Vue/Svelte frontend). Single binary, ~10-30MB.</p>
+        </div>
+
+        <div class="card blue">
+            <h3>WASM module dla browser</h3>
+            <p>Rust + wasm-bindgen + Trunk. Output: optimized WASM ~50-200KB.</p>
+        </div>
+
+        <div class="card blue">
+            <h3>Edge function</h3>
+            <p>Rust → WASM. Deploy: Cloudflare Workers, Fastly Compute, Spin (Fermyon).</p>
+        </div>
+
+        <div class="card blue">
+            <h3>Smart contract / blockchain app</h3>
+            <p>Rust + anchor (Solana) lub ink! (Polkadot/Substrate).</p>
+        </div>
+
+        <div class="card blue">
+            <h3>Game (indie)</h3>
+            <p>Rust + Bevy + custom assets. Lub Fyrox jesli chcesz editor.</p>
+        </div>
+
+        <h2>Linki</h2>
+        <ul>
+            <li><strong>Rust Book:</strong> doc.rust-lang.org/book/</li>
+            <li><strong>Are We X Yet?</strong> — checklist dla roznych domen (Are We Web Yet, Are We Game Yet, etc.)</li>
+            <li><strong>This Week in Rust:</strong> this-week-in-rust.org</li>
+            <li><strong>Awesome Rust:</strong> github.com/rust-unofficial/awesome-rust</li>
+            <li><strong>Cloudflare Pingora:</strong> github.com/cloudflare/pingora</li>
+            <li><strong>Bevy:</strong> bevyengine.org</li>
+            <li><strong>Tauri:</strong> tauri.app</li>
+            <li><strong>Embassy:</strong> embassy.dev</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="02-rust-vs-csharp.html">&larr; Rust vs C#</a>
+            <a href="04-frameworki-i-ekosystem.html">Frameworki &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

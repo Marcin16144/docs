@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linux - bash skrypty</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fb923c;--accent-hover:#fdba74;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Linux</a><span class="sep">/</span><span class="title">Bash skrypty</span></div>
+<div class="container">
+<h1>Skryptowanie w Bashu</h1>
+<p class="subtitle">Solidne praktyki, sed, awk, find, error handling</p>
+
+<h2>Anatomia bezpiecznego skryptu</h2>
+<p>Kazdy produkcyjny skrypt bash powinien zaczynac sie od kilku elementow ochronnych. Bez nich blad w jednej linii moze spowodowac katastrofe (np. <code>rm -rf $UNDEFINED/</code>).</p>
+
+<pre><code>#!/usr/bin/env bash
+# Lepiej niz #!/bin/bash - przenosne (znajduje bash w PATH)
+
+set -e          # zakoncz przy bledzie (exit code != 0)
+set -u          # blad przy uzyciu niezdefiniowanej zmiennej
+set -o pipefail # exit z bledem jesli ktorakolwiek komenda w pipe failuje
+
+# Skrocony zapis (zalecany):
+set -euo pipefail
+
+# Dodatkowo dla debugowania:
+# set -x          # echo kazdej komendy przed wykonaniem
+# set -v          # echo wczytanej linii
+
+# IFS - Internal Field Separator (bezpieczniejszy podzial slow)
+IFS=$'\n\t'</code></pre>
+
+<h2>Zmienne i quoting</h2>
+<pre><code># Definicja - BEZ spacji wokol =
+NAME="Jan Kowalski"
+COUNT=42
+
+# Uzycie - preferuj ${VAR} dla jasnosci
+echo "Witaj $NAME"
+echo "Witaj ${NAME}!"
+echo "Plik: ${NAME}_2026.txt"   # ${} obowiazkowe gdy znak po zmiennej
+
+# CYTOWANIE - krytyczne dla bezpieczenstwa
+NAME='Jan z spacja'
+echo $NAME       # ZLE - rozdziela slowa
+echo "$NAME"     # DOBRZE - zachowuje calosc
+
+# Argumenty skryptu
+echo "Skrypt: $0"
+echo "Pierwszy: $1"
+echo "Drugi: $2"
+echo "Wszystkie jako string: $*"
+echo "Wszystkie jako tablica: $@"
+echo "Liczba argumentow: $#"
+echo "PID skryptu: $$"
+echo "Exit code ostatniej komendy: $?"
+
+# ZAWSZE cytuj "$@" zamiast $*
+for arg in "$@"; do
+    echo "Argument: $arg"
+done
+
+# Stale (read-only)
+readonly MAX_RETRIES=3
+declare -r LOG_FILE="/var/log/myapp.log"</code></pre>
+
+<h2>Parameter expansion</h2>
+<table>
+<tr><th>Skladnia</th><th>Dzialanie</th></tr>
+<tr><td><code>${VAR:-default}</code></td><td>Wartosc VAR lub 'default' jesli pusta/niezdefiniowana</td></tr>
+<tr><td><code>${VAR:=default}</code></td><td>Jak wyzej + ustawia VAR jesli pusta</td></tr>
+<tr><td><code>${VAR:?error msg}</code></td><td>Blad jesli pusta (przerwij skrypt)</td></tr>
+<tr><td><code>${VAR:+other}</code></td><td>'other' jesli VAR ustawiona, inaczej pusto</td></tr>
+<tr><td><code>${#VAR}</code></td><td>Dlugosc zmiennej</td></tr>
+<tr><td><code>${VAR:offset:length}</code></td><td>Wycinek (substring)</td></tr>
+<tr><td><code>${VAR/pattern/replace}</code></td><td>Zamiana pierwszego wystapienia</td></tr>
+<tr><td><code>${VAR//pattern/replace}</code></td><td>Zamiana wszystkich wystapien</td></tr>
+<tr><td><code>${VAR#prefix}</code></td><td>Usun najkrotszy prefix</td></tr>
+<tr><td><code>${VAR%suffix}</code></td><td>Usun najkrotszy suffix</td></tr>
+</table>
+
+<pre><code># Przyklady
+NAME=""
+echo "${NAME:-anonim}"        # anonim
+
+PATH_TO="/var/log/myapp.log"
+echo "${PATH_TO##*/}"         # myapp.log (basename)
+echo "${PATH_TO%/*}"          # /var/log (dirname)
+echo "${PATH_TO%.log}.gz"     # /var/log/myapp.gz
+
+FILENAME="report-2026-05-07.txt"
+echo "${FILENAME//-/_}"       # report_2026_05_07.txt
+
+# Wymagana zmienna srodowiskowa
+: "${API_KEY:?Zmienna API_KEY musi byc ustawiona}"</code></pre>
+
+<h2>Petle</h2>
+<pre><code># For - lista wartosci
+for color in red green blue; do
+    echo "Kolor: $color"
+done
+
+# For - sekwencja liczb
+for i in {1..5}; do
+    echo "Iteracja $i"
+done
+
+# For C-style
+for ((i = 0; i < 10; i++)); do
+    echo "i = $i"
+done
+
+# Iteracja po plikach (bezpiecznie z spacjami)
+for file in /var/log/*.log; do
+    echo "Plik: $file"
+done
+
+# Iteracja po tablicy
+servers=("web1" "web2" "db1")
+for server in "${servers[@]}"; do
+    echo "Serwer: $server"
+done
+
+# While - czytanie pliku linia po linii (poprawnie)
+while IFS= read -r line; do
+    echo "Linia: $line"
+done < /etc/hosts
+
+# Until - dziala dopoki warunek FALSE
+until ping -c 1 example.com &>/dev/null; do
+    echo "Czekam na siec..."
+    sleep 5
+done
+
+# Break i continue
+for i in {1..10}; do
+    [ "$i" -eq 5 ] && continue   # pomin 5
+    [ "$i" -eq 8 ] && break      # zatrzymaj na 8
+    echo "$i"
+done</code></pre>
+
+<h2>Warunki</h2>
+<pre><code># if / elif / else
+if [ "$USER" = "root" ]; then
+    echo "Jestes rootem"
+elif [ -n "$SUDO_USER" ]; then
+    echo "Uzywasz sudo jako $SUDO_USER"
+else
+    echo "Zwykly uzytkownik: $USER"
+fi
+
+# Preferuj [[ ]] (bash) nad [ ] (POSIX) - wiecej mozliwosci
+if [[ "$file" == *.txt ]]; then
+    echo "Plik tekstowy"
+fi
+
+# Operatory porownania liczb (-eq, -ne, -lt, -le, -gt, -ge)
+if [ "$count" -gt 100 ]; then
+    echo "Duzo"
+fi
+
+# Operatory plikow
+if [ -f "$file" ]; then echo "plik istnieje"; fi
+if [ -d "$dir" ]; then echo "katalog istnieje"; fi
+if [ -e "$path" ]; then echo "cokolwiek istnieje"; fi
+if [ -r "$file" ]; then echo "czytelny"; fi
+if [ -w "$file" ]; then echo "zapisywalny"; fi
+if [ -x "$file" ]; then echo "wykonywalny"; fi
+if [ -s "$file" ]; then echo "niepusty"; fi
+if [ -L "$file" ]; then echo "symlink"; fi
+
+# Lancuchy
+if [ -z "$VAR" ]; then echo "pusty"; fi
+if [ -n "$VAR" ]; then echo "niepusty"; fi
+if [[ "$str" =~ ^[0-9]+$ ]]; then echo "tylko cyfry"; fi
+
+# Kombinacje
+if [ -f "$file" ] && [ -r "$file" ]; then
+    echo "plik istnieje i jest czytelny"
+fi
+
+# Case statement
+case "$1" in
+    start)
+        echo "Uruchamianie..."
+        ;;
+    stop)
+        echo "Zatrzymywanie..."
+        ;;
+    restart|reload)
+        echo "Restart..."
+        ;;
+    *)
+        echo "Uzycie: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac</code></pre>
+
+<h2>Funkcje</h2>
+<pre><code># Definicja
+log_info() {
+    local msg="$1"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[INFO] $timestamp - $msg"
+}
+
+log_error() {
+    local msg="$1"
+    echo "[ERROR] $msg" >&amp;2     # stderr
+    return 1
+}
+
+# Funkcja z wartoscia zwrotna
+is_root() {
+    [ "$EUID" -eq 0 ]
+}
+
+# Uzycie
+if is_root; then
+    log_info "Skrypt uruchomiony jako root"
+else
+    log_error "Wymagany root"
+    exit 1
+fi
+
+# Funkcja zwracajaca wartosc przez echo (jak return wartosci)
+get_cpu_count() {
+    nproc
+}
+
+CPU=$(get_cpu_count)
+echo "Mam $CPU rdzeni"
+
+# Wiele wartosci - przez tablice lub global
+parse_url() {
+    local url="$1"
+    PROTOCOL="${url%%://*}"
+    REST="${url#*://}"
+    HOST="${REST%%/*}"
+    PATH_PART="/${REST#*/}"
+}
+
+parse_url "https://example.com/api/users"
+echo "Protokol: $PROTOCOL"
+echo "Host: $HOST"
+echo "Sciezka: $PATH_PART"</code></pre>
+
+<h2>Tablice</h2>
+<pre><code># Indeksowane
+fruits=("jablko" "banan" "wisnia")
+echo "${fruits[0]}"        # jablko
+echo "${fruits[@]}"        # wszystkie
+echo "${#fruits[@]}"       # liczba elementow
+
+# Dodanie
+fruits+=("pomarancza")
+
+# Iteracja
+for fruit in "${fruits[@]}"; do
+    echo "$fruit"
+done
+
+# Asocjacyjne (od bash 4)
+declare -A user_age
+user_age["jan"]=30
+user_age["anna"]=25
+
+echo "${user_age[jan]}"
+echo "Klucze: ${!user_age[@]}"
+echo "Wartosci: ${user_age[@]}"
+
+for name in "${!user_age[@]}"; do
+    echo "$name: ${user_age[$name]}"
+done</code></pre>
+
+<h2>sed - stream editor</h2>
+<pre><code># Zamiana w pliku (dru4kuje na stdout)
+sed 's/old/new/' file.txt
+
+# Zamiana wszystkich wystapien w linii
+sed 's/old/new/g' file.txt
+
+# Edycja w miejscu (tworzy backup .bak)
+sed -i.bak 's/old/new/g' file.txt
+
+# Wiele zamian
+sed -e 's/foo/bar/g' -e 's/baz/qux/g' file.txt
+
+# Zamiana tylko w konkretnych liniach
+sed '5,10s/old/new/g' file.txt   # linie 5-10
+sed '/^#/s/old/new/g' file.txt   # tylko komentarze
+
+# Usuniecie pustych linii
+sed '/^$/d' file.txt
+
+# Usuniecie linii zaczynajacej sie od #
+sed '/^#/d' file.txt
+
+# Wstawienie tekstu przed linia
+sed '5i\nowa linia' file.txt
+
+# Dodanie tekstu po linii
+sed '5a\dodatkowa linia' file.txt
+
+# Wyswietlenie tylko konkretnych linii
+sed -n '10,20p' file.txt</code></pre>
+
+<h2>awk - przetwarzanie pol</h2>
+<pre><code># Wyswietl drugie pole z kazdej linii
+awk '{print $2}' file.txt
+
+# Pola oddzielone : (np. /etc/passwd)
+awk -F: '{print $1, $7}' /etc/passwd
+
+# Filtruj linie i wyswietl pola
+awk '$3 > 1000 {print $1}' /etc/passwd  # uzytkownicy z UID > 1000
+
+# Sumowanie kolumny
+awk '{sum += $1} END {print sum}' numbers.txt
+
+# Suma rozmiarow plikow w katalogu
+ls -l | awk '{sum += $5} END {printf "%.2f MB\n", sum/1024/1024}'
+
+# Operacje na ciagach
+awk '{print toupper($0)}' file.txt
+awk 'NF > 0 {print NR": "$0}' file.txt   # numerowane niepuste
+
+# Wbudowane zmienne: NF (liczba pol), NR (numer linii), $0 (cala linia)
+
+# Bardziej zlozony - statystyki uzycia CPU
+ps aux | awk '{cpu += $3} END {printf "Total CPU: %.1f%%\n", cpu}'</code></pre>
+
+<h2>find - wyszukiwanie plikow</h2>
+<pre><code># Po nazwie
+find /etc -name "*.conf"
+find . -iname "*.JPG"           # case-insensitive
+
+# Po typie
+find / -type f                  # zwykle pliki
+find / -type d                  # katalogi
+find / -type l                  # symlinki
+
+# Po rozmiarze
+find . -size +100M              # ponad 100 MB
+find . -size -1k                # ponizej 1 KB
+
+# Po czasie
+find /var/log -mtime -1         # zmodyfikowane ostatnia doba
+find /tmp -atime +30            # nieuzywane od 30 dni
+find /home -mmin -60            # ostatnia godzina
+
+# Po uprawnieniach
+find / -perm 4000 -type f       # SUID
+find / -perm /u=s               # to samo (symbolicznie)
+
+# Wykonanie komendy na znalezionych
+find /tmp -type f -name "*.tmp" -exec rm {} \;
+
+# BEZPIECZNIEJ - z null-separated (radzi sobie ze spacjami)
+find /tmp -type f -print0 | xargs -0 rm
+
+# Z exec + (szybsze - jeden proces)
+find /tmp -type f -name "*.tmp" -exec rm {} +
+
+# Filtrowanie
+find / -type f -name "*.log" -size +10M 2>/dev/null
+
+# Wykluczenie katalogow
+find / -path /proc -prune -o -name "*.conf" -print</code></pre>
+
+<h2>grep - wyszukiwanie tekstu</h2>
+<pre><code># Podstawowe
+grep "wzorzec" file.txt
+grep -i "wzorzec" file.txt      # ignoruj case
+grep -v "wzorzec" file.txt      # invert (linie BEZ)
+grep -n "wzorzec" file.txt      # z numerami linii
+grep -c "wzorzec" file.txt      # tylko liczba dopasowan
+
+# Rekursywnie
+grep -r "TODO" /home/projekt/
+grep -rn --include="*.py" "import" /projekt/
+
+# Tylko nazwy plikow z dopasowaniem
+grep -l "wzorzec" *.txt
+
+# Extended regex
+grep -E "error|warning|fatal" /var/log/syslog
+
+# Kontekst (linie przed/po)
+grep -A 3 "ERROR" log.txt        # 3 linie po
+grep -B 3 "ERROR" log.txt        # 3 linie przed
+grep -C 3 "ERROR" log.txt        # 3 linie kontekstu
+
+# Dokladne dopasowanie slowa
+grep -w "log" file.txt
+
+# Tylko dopasowanie (nie cala linia)
+grep -o "[0-9]\+" file.txt</code></pre>
+
+<h2>Error handling i trap</h2>
+<pre><code>#!/usr/bin/env bash
+set -euo pipefail
+
+# Funkcja wywolywana przy bledzie
+error_handler() {
+    local line=$1
+    local code=$2
+    echo "BLAD na linii $line (kod $code)" >&amp;2
+    # Tutaj cleanup
+    rm -f /tmp/lockfile
+    exit "$code"
+}
+
+# Funkcja przy normalnym wyjsciu
+cleanup() {
+    echo "Sprzatanie..."
+    rm -f /tmp/tempfile.$$
+}
+
+# Trap - obsluga sygnalow i bledow
+trap 'error_handler $LINENO $?' ERR
+trap cleanup EXIT
+trap 'echo "Przerwane"; exit 130' INT TERM
+
+# Glowna logika
+main() {
+    echo "Start"
+
+    # Probojemy 3 razy
+    local retries=0
+    until curl -sf https://example.com > /dev/null; do
+        retries=$((retries + 1))
+        if [ "$retries" -ge 3 ]; then
+            echo "Nie udalo sie po 3 probach" >&amp;2
+            return 1
+        fi
+        echo "Proba $retries nieudana, czekam..."
+        sleep 5
+    done
+
+    echo "Sukces"
+}
+
+main "$@"</code></pre>
+
+<h2>Shellcheck - linter dla bash</h2>
+<pre><code># Instalacja
+sudo apt install shellcheck
+
+# Sprawdzenie skryptu
+shellcheck moj-skrypt.sh
+
+# Konkretne reguly do wylaczenia (na poczatku skryptu)
+# shellcheck disable=SC2034
+UNUSED_VAR="value"
+
+# W VS Code dziala wtyczka 'shellcheck'
+# W Vim: ALE / Syntastic obsluguja shellcheck</code></pre>
+
+<div class="card">
+<strong>Praktyczny szablon skryptu:</strong>
+<pre><code>#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &amp;&amp; pwd)"
+readonly LOG_FILE="/var/log/$(basename "$0" .sh).log"
+
+usage() {
+    cat &lt;&lt;EOF
+Uzycie: $0 [opcje] argument
+  -h, --help      Pomoc
+  -v, --verbose   Verbose mode
+EOF
+    exit 1
+}
+
+main() {
+    [ $# -lt 1 ] &amp;&amp; usage
+    # logika
+}
+
+main "$@"</code></pre>
+</div>
+
+<div class="nav-bottom">
+<a href="05-siec-i-firewall.html">&larr; Siec i firewall</a>
+<a href="index.html">Powrot do indeksu &rarr;</a>
+</div>
+</div>
+</body>
+</html>

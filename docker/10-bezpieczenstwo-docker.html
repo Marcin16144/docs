@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bezpieczenstwo Docker</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Docker</a><span class="sep">/</span><span class="title">Bezpieczenstwo Docker</span></div>
+<div class="container">
+<h1>Bezpieczenstwo Docker</h1>
+<p class="subtitle">Rootless, secrets, image scanning, supply chain, capabilities</p>
+
+<h2>Rootless Docker</h2>
+<p>Standardowy daemon dziala jako root. <strong>Rootless mode</strong> &mdash; dziala jako zwykly user. Eliminuje calkowicie ryzyko escape-to-root.</p>
+
+<pre><code># Setup (Ubuntu)
+sudo apt-get install -y dbus-user-session uidmap
+sudo systemctl disable --now docker.service docker.socket
+
+dockerd-rootless-setuptool.sh install
+systemctl --user enable docker
+loginctl enable-linger $(whoami)
+
+export DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock
+
+docker info | grep -i rootless
+# rootless</code></pre>
+
+<h3>Zalety rootless</h3>
+<ul>
+<li>Daemon i kontenery dzialaja jako user, nie root</li>
+<li>Container escape NIE daje roota na hoscie</li>
+<li>Per-user docker daemon &mdash; izolacja miedzy uzytkownikami</li>
+<li>Brak ryzyka eskalacji przez grupe docker</li>
+</ul>
+
+<h3>Limitacje rootless</h3>
+<ul>
+<li>Porty &lt; 1024 wymagaja CAP_NET_BIND_SERVICE lub <code>setcap</code></li>
+<li>Brak <code>--net=host</code> (uzywa slirp4netns) &mdash; wolniejsza siec</li>
+<li>Niektore storage drivers nie dzialaja (overlay2 wymaga niedawnego kernela)</li>
+<li>cgroups v2 wymagane</li>
+</ul>
+
+<h2>User namespaces remap</h2>
+<p>Alternatywa dla rootless &mdash; daemon nadal root, ale UID 0 w kontenerze mapuje sie na <strong>nie-roota</strong> hosta.</p>
+
+<pre><code># /etc/docker/daemon.json
+{
+  "userns-remap": "default"
+}
+
+# Po restarcie:
+# UID 0 w kontenerze == UID 100000 na hoscie
+# Container escape jako "root" w kontenerze = uzytkownik 100000 na hoscie</code></pre>
+
+<h2>USER w Dockerfile</h2>
+<p>NIE uzywaj root-a wewnatrz kontenera, nawet jesli daemon dziala jako root.</p>
+
+<pre><code>FROM alpine:3
+RUN addgroup -S app &amp;&amp; adduser -S app -G app
+WORKDIR /app
+COPY --chown=app:app . .
+USER app
+CMD ["./entrypoint.sh"]
+
+# Sprawdz
+docker run myimage whoami    # app, nie root</code></pre>
+
+<h2>Capabilities &mdash; granularne uprawnienia</h2>
+<p>Linux ma 38 capabilities. Default Docker daje 14. Najlepsza praktyka: <strong>cap-drop ALL + cap-add tylko potrzebne</strong>.</p>
+
+<pre><code># Niebezpieczne (default)
+docker run nginx
+# Ma m.in. CAP_NET_RAW, CAP_AUDIT_WRITE, CAP_MKNOD itp.
+
+# Bezpieczne
+docker run \
+  --cap-drop ALL \
+  --cap-add NET_BIND_SERVICE \
+  nginx
+
+# Kompletnie bez uprawnien (gdy nie potrzeba)
+docker run --cap-drop ALL myapp
+
+# Compose
+services:
+  api:
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]</code></pre>
+
+<table>
+<thead><tr><th>Capability</th><th>Co pozwala</th><th>Default?</th></tr></thead>
+<tbody>
+<tr><td>NET_BIND_SERVICE</td><td>Bind portow &lt; 1024</td><td>Tak</td></tr>
+<tr><td>CHOWN</td><td>chown plikow</td><td>Tak</td></tr>
+<tr><td>NET_RAW</td><td>raw sockets &mdash; potrzebne dla ping</td><td>Tak (RYZYKO)</td></tr>
+<tr><td>SYS_ADMIN</td><td>Pelne admin uprawnienia &mdash; UWAGA</td><td>Nie</td></tr>
+<tr><td>SYS_PTRACE</td><td>ptrace, debuggery</td><td>Nie</td></tr>
+<tr><td>AUDIT_WRITE</td><td>auditd zapisy</td><td>Tak (rzadko potrzebne)</td></tr>
+</tbody>
+</table>
+
+<h2>--security-opt no-new-privileges</h2>
+<p>Wylacza setuid &mdash; kontener nie moze podniesc swoich uprawnien (np. przez sudo, setuid binary).</p>
+
+<pre><code>docker run --security-opt no-new-privileges:true myapp
+
+# Compose
+services:
+  api:
+    security_opt:
+      - no-new-privileges:true</code></pre>
+
+<h2>Read-only root filesystem</h2>
+<pre><code>docker run --read-only --tmpfs /tmp myapp
+
+# Aplikacja nie moze pisac do /, /usr, /var ... z wyjatkiem /tmp w RAM
+# Eliminuje class atakow (drop binary, modify config)</code></pre>
+
+<h2>Image scanning</h2>
+<p>Skanuj obrazy na CVE przed deploymentem. Najlepsze tools 2026:</p>
+
+<h3>Trivy (Aqua, OSS)</h3>
+<pre><code>brew install aquasecurity/trivy/trivy
+
+# Skan obrazu
+trivy image nginx:alpine
+
+# Skan z severity threshold (CI gate)
+trivy image --severity CRITICAL,HIGH --exit-code 1 myapp:latest
+
+# Skan filesystema (Dockerfile, repo)
+trivy fs .
+
+# SBOM
+trivy image --format cyclonedx --output sbom.json myapp:latest</code></pre>
+
+<h3>Grype (Anchore, OSS)</h3>
+<pre><code>brew tap anchore/grype
+brew install grype
+
+grype myapp:latest
+grype dir:./project</code></pre>
+
+<h3>Snyk</h3>
+<pre><code>npm i -g snyk
+snyk auth
+snyk container test myapp:latest --severity-threshold=high</code></pre>
+
+<h3>Docker Scout</h3>
+<pre><code># Wbudowany w Docker Desktop / CLI
+docker scout cves myapp:latest
+docker scout recommendations myapp:latest
+docker scout compare --to myapp:1.0 myapp:1.1</code></pre>
+
+<h2>Supply chain security</h2>
+
+<h3>Signed images &mdash; Sigstore / Cosign</h3>
+<pre><code># Podpisz obraz
+cosign generate-key-pair
+cosign sign --key cosign.key user/myapp:1.0
+
+# Weryfikacja
+cosign verify --key cosign.pub user/myapp:1.0
+
+# Keyless (OIDC, GitHub Actions)
+COSIGN_EXPERIMENTAL=1 cosign sign user/myapp:1.0</code></pre>
+
+<h3>SBOM (Software Bill of Materials)</h3>
+<pre><code># syft &mdash; generator SBOM
+syft myapp:latest -o cyclonedx-json &gt; sbom.json
+syft myapp:latest -o spdx-json &gt; sbom.spdx
+
+# Dolacz SBOM do obrazu (cosign attest)
+cosign attest --key cosign.key --predicate sbom.json --type cyclonedx user/myapp:1.0</code></pre>
+
+<h3>Notary v2 / OCI artifacts</h3>
+<p>Notary v2 to nowy standard signinowania OCI &mdash; rozszerza signing na artefakty (manifest, SBOM, vulnerability scan results).</p>
+
+<h2>Secrets management</h2>
+
+<div class="card">
+<h3>NIE rob</h3>
+<ul>
+<li>Hardcoded sekrety w Dockerfile (<code>ENV API_KEY=...</code>)</li>
+<li>Sekrety jako build args (sa w historii warstw)</li>
+<li>Sekrety w docker-compose.yml commitowane</li>
+<li>Sekrety jako environment variables (<code>docker run -e API_KEY=...</code> &mdash; widoczne w <code>docker inspect</code>)</li>
+</ul>
+</div>
+
+<h3>Docker Swarm secrets</h3>
+<pre><code># Init swarm i stworz secret
+docker swarm init
+echo "supersecret" | docker secret create api_key -
+
+# Uzyj
+docker service create --secret api_key --name api myapp
+# W kontenerze /run/secrets/api_key</code></pre>
+
+<h3>Compose secrets</h3>
+<pre><code>services:
+  api:
+    image: myapp
+    secrets:
+      - db_password
+    environment:
+      DB_PASSWORD_FILE: /run/secrets/db_password
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt</code></pre>
+
+<h3>BuildKit secrets (build-time)</h3>
+<pre><code># syntax=docker/dockerfile:1
+FROM alpine
+RUN --mount=type=secret,id=npmrc,target=/root/.npmrc \
+    npm install @private/pkg
+
+# Build
+docker build --secret id=npmrc,src=$HOME/.npmrc .</code></pre>
+
+<h3>External secret managers</h3>
+<ul>
+<li><strong>HashiCorp Vault</strong> &mdash; wszechstronne, dynamic secrets</li>
+<li><strong>AWS Secrets Manager / SSM</strong></li>
+<li><strong>GCP Secret Manager</strong></li>
+<li><strong>Azure Key Vault</strong></li>
+<li><strong>External Secrets Operator (K8s)</strong></li>
+<li><strong>SOPS</strong> &mdash; encrypted in git, decrypted at deploy</li>
+</ul>
+
+<h2>CIS Docker Benchmark</h2>
+<p>Center for Internet Security publikuje hardening guide dla Dockera. Sprawdz automatycznie przez <strong>docker-bench-security</strong>:</p>
+
+<pre><code>docker run --rm -it --net host --pid host --userns host --cap-add audit_control \
+  -e DOCKER_CONTENT_TRUST=$DOCKER_CONTENT_TRUST \
+  -v /etc:/etc:ro \
+  -v /usr/bin/containerd:/usr/bin/containerd:ro \
+  -v /usr/bin/runc:/usr/bin/runc:ro \
+  -v /usr/lib/systemd:/usr/lib/systemd:ro \
+  -v /var/lib:/var/lib:ro \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  --label docker_bench_security \
+  docker/docker-bench-security</code></pre>
+
+<h2>Bezpieczna konfiguracja kontenera &mdash; pelny przyklad</h2>
+<pre><code>docker run -d \
+  --name api \
+  --restart unless-stopped \
+  --user 1000:1000 \
+  --read-only \
+  --tmpfs /tmp:size=64m \
+  --cap-drop ALL \
+  --cap-add NET_BIND_SERVICE \
+  --security-opt no-new-privileges:true \
+  --security-opt apparmor=docker-default \
+  --pids-limit 100 \
+  --memory 512m --cpus 1 \
+  -p 127.0.0.1:8080:8080 \
+  --health-cmd "wget -qO- http://localhost:8080/health" \
+  myapp:1.0.0</code></pre>
+
+<h2>Compose &mdash; bezpieczna sluzba</h2>
+<pre><code>services:
+  api:
+    image: ghcr.io/user/api:1.0.0
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 100
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1'
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s</code></pre>
+
+<div class="card">
+<h3>Production checklist</h3>
+<ul>
+<li>Rootless mode lub user namespaces remap</li>
+<li><code>USER</code> nie-root w Dockerfile</li>
+<li><code>--cap-drop ALL</code> + tylko potrzebne</li>
+<li><code>no-new-privileges:true</code></li>
+<li><code>read_only</code> z tmpfs gdzie trzeba</li>
+<li>Resource limits (memory, cpus, pids)</li>
+<li>Image scanning w CI (Trivy/Grype/Snyk) z gate na CRITICAL/HIGH</li>
+<li>Signed images (Cosign + OIDC)</li>
+<li>SBOM generowany i archiwizowany</li>
+<li>Secrets przez Vault / Compose secrets &mdash; nie env</li>
+<li>Pinned wersje obrazow (sha256 digest, nie :latest)</li>
+<li>Network: bind 127.0.0.1 + reverse proxy</li>
+<li>Regularne aktualizacje base images (Dependabot dla Dockerfile)</li>
+<li>CIS Docker Benchmark audyt</li>
+<li>Logging do central system (Loki, ELK)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="09-wolumeny-i-storage.html">&larr; Wolumeny i storage</a>
+<a href="index.html">Spis tresci &rarr;</a>
+</div>
+</div>
+</body>
+</html>

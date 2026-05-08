@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certyfikaty SSL/TLS dla uslug publicznych</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-color:var(--green)}
+.card.orange{border-color:var(--orange)}
+.card.red{border-color:var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <span class="title">Certyfikaty SSL/TLS</span>
+</div>
+
+<div class="container">
+<h1>Certyfikaty SSL/TLS dla uslug publicznych</h1>
+<p class="subtitle">Let's Encrypt, win-acme, instalacja certyfikatow w IIS, TLS hardening, HSTS i monitoring expiry.</p>
+
+<h2>Wprowadzenie</h2>
+
+<p>W 2026 <strong>HTTPS jest obowiazkowe</strong> dla wszystkich publicznych uslug. Bez certyfikatu:</p>
+<ul>
+<li>Przegladarki blokuja strone ("Not Secure")</li>
+<li>HTTP/2, HTTP/3 wymagaja TLS</li>
+<li>Browsers downgrade do HTTP/1.1</li>
+<li>Google deranking dla HTTP-only</li>
+<li>Niemozliwe service worker / PWA / wiele Web APIs</li>
+</ul>
+
+<h2>Kluczowe pojecia</h2>
+
+<table>
+<thead>
+<tr><th>Pojecie</th><th>Wyjasnienie</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>TLS</strong></td><td>Transport Layer Security (nastepca SSL, dzis uzywamy TLS 1.2/1.3)</td></tr>
+<tr><td><strong>SSL</strong></td><td>Stary protokol (1.0-3.0), juz nie uzywaj</td></tr>
+<tr><td><strong>CA</strong></td><td>Certificate Authority &mdash; zaufana instytucja podpisujaca certyfikaty</td></tr>
+<tr><td><strong>CSR</strong></td><td>Certificate Signing Request &mdash; zadanie certyfikatu (zawiera klucz publiczny)</td></tr>
+<tr><td><strong>PFX/PKCS#12</strong></td><td>Format pliku zawierajacy cert + klucz prywatny (Windows)</td></tr>
+<tr><td><strong>PEM</strong></td><td>Base64-encoded format (Linux/Apache/Nginx)</td></tr>
+<tr><td><strong>CER/CRT</strong></td><td>Tylko certyfikat (bez klucza prywatnego)</td></tr>
+<tr><td><strong>Wildcard</strong></td><td>Jeden cert dla <code>*.example.com</code> (subdomeny)</td></tr>
+<tr><td><strong>SAN</strong></td><td>Subject Alternative Names &mdash; wiele domen w jednym cercie</td></tr>
+<tr><td><strong>CT log</strong></td><td>Certificate Transparency &mdash; publiczne logi certyfikatow</td></tr>
+<tr><td><strong>CRL</strong></td><td>Certificate Revocation List</td></tr>
+<tr><td><strong>OCSP</strong></td><td>Online Certificate Status Protocol (sprawdzanie revokacji)</td></tr>
+<tr><td><strong>HSTS</strong></td><td>HTTP Strict Transport Security (wymuszenie HTTPS)</td></tr>
+</tbody>
+</table>
+
+<h2>Rodzaje certyfikatow</h2>
+
+<h3>Wg walidacji:</h3>
+
+<table>
+<thead>
+<tr><th>Typ</th><th>Co weryfikuje</th><th>Czas wystawienia</th><th>Cena (2026)</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>DV (Domain Validated)</strong></td><td>Tylko kontrola domeny</td><td>minuty</td><td>$0 (Let's Encrypt) - $20/rok</td></tr>
+<tr><td><strong>OV (Organization Validated)</strong></td><td>Domena + organizacja</td><td>dni</td><td>$50-200/rok</td></tr>
+<tr><td><strong>EV (Extended Validation)</strong></td><td>Pelna weryfikacja firmy</td><td>tygodnie</td><td>$150-500/rok</td></tr>
+</tbody>
+</table>
+
+<p><strong>W 2026:</strong> DV (Let's Encrypt, ZeroSSL) wystarcza dla 95% przypadkow. EV stracil "green bar" w przegladarkach &mdash; bezsensowny dla wiekszosci.</p>
+
+<h3>Wg zakresu:</h3>
+
+<table>
+<thead>
+<tr><th>Typ</th><th>Pokrywa</th><th>Use case</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Single</strong></td><td>Jedna domena (<code>api.example.com</code>)</td><td>Pojedynczy site</td></tr>
+<tr><td><strong>Wildcard</strong></td><td><code>*.example.com</code> (wszystkie subdomeny)</td><td>Wiele subdomen</td></tr>
+<tr><td><strong>SAN/UCC</strong></td><td>Wiele konkretnych domen (multi-domain)</td><td>Klient z kilkoma domenami</td></tr>
+</tbody>
+</table>
+
+<h2>Let's Encrypt - preferowany wybor 2026</h2>
+
+<p><strong>Let's Encrypt</strong> to free Certificate Authority. <strong>Auto-renew co 90 dni</strong>, automatyzacja przez ACME protocol.</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li><strong>Darmowy</strong></li>
+<li><strong>Wysoko zaufany</strong> (wszystkie przegladarki)</li>
+<li><strong>Automatic renewal</strong></li>
+<li><strong>Wildcard support</strong> (od 2018)</li>
+<li><strong>Rate limits hojne</strong> (50 certs/week per registered domain)</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li><strong>90 dni TTL</strong> (musisz miec automatyzacje!)</li>
+<li><strong>Tylko DV</strong> (no OV/EV)</li>
+<li><strong>Wymaga publicznie dostepnej domeny</strong> (DNS lub HTTP-01 challenge)</li>
+</ul>
+</div>
+
+<h2>Win-acme - najpopularniejszy klient ACME na Windows</h2>
+
+<p><strong>win-acme</strong> (dawniej letsencrypt-win-simple) to dedicated ACME client dla Windows + IIS.</p>
+
+<h3>Instalacja</h3>
+
+<pre><code># Pobierz najnowsza wersje
+Invoke-WebRequest -Uri "https://github.com/win-acme/win-acme/releases/latest/download/win-acme.v2.x.x.x64.pluggable.zip" -OutFile "win-acme.zip"
+
+Expand-Archive -Path "win-acme.zip" -DestinationPath "C:\win-acme"
+cd C:\win-acme</code></pre>
+
+<h3>Pierwsza certyfikacja (interactive)</h3>
+
+<pre><code>.\wacs.exe</code></pre>
+
+<p>Menu:</p>
+<pre><code>N - Create certificate (default settings)
+M - Create certificate (full options)
+R - Run renewals
+A - Manage renewals
+O - More options
+Q - Quit</code></pre>
+
+<p><strong>Recommended flow:</strong></p>
+<ol>
+<li><strong>N</strong> (Create certificate)</li>
+<li>Wybierz site z listy IIS</li>
+<li>Wybierz binding(s)</li>
+<li>win-acme automatycznie:
+    <ul>
+    <li>Generuje CSR</li>
+    <li>Doda binding HTTP do site</li>
+    <li>Spelni HTTP-01 challenge</li>
+    <li>Pobierze certyfikat</li>
+    <li>Doda binding HTTPS</li>
+    <li>Zaplanuje task do auto-renew</li>
+    </ul>
+</li>
+</ol>
+
+<h3>Non-interactive (automation)</h3>
+
+<pre><code>.\wacs.exe `
+    --target iis `
+    --siteid 1 `
+    --emailaddress admin@example.com `
+    --accepttos `
+    --usedefaulttaskuser</code></pre>
+
+<h3>Wildcard certificate (DNS-01 challenge)</h3>
+
+<p>Wildcard wymaga <strong>DNS-01 challenge</strong>. Czyli win-acme musi dodac rekord TXT w DNS.</p>
+
+<p><strong>Plugins dla popularnych providerow DNS:</strong></p>
+<ul>
+<li>Cloudflare</li>
+<li>Azure DNS</li>
+<li>AWS Route 53</li>
+<li>GoDaddy</li>
+<li>DigitalOcean</li>
+</ul>
+
+<pre><code># Wildcard z Cloudflare DNS
+.\wacs.exe `
+    --target manual `
+    --host *.example.com `
+    --validation cloudflare `
+    --cloudflareapitoken "..." `
+    --emailaddress admin@example.com `
+    --accepttos</code></pre>
+
+<h3>Renewal automation</h3>
+
+<p>win-acme automatycznie tworzy <strong>Scheduled Task</strong> ktory uruchamia sie co 24h:</p>
+<pre><code>Task name: win-acme renew (acme-v02.api.letsencrypt.org)
+Trigger: Daily at 09:00
+Action: C:\win-acme\wacs.exe --renew --baseuri https://acme-v02.api.letsencrypt.org/</code></pre>
+
+<p>Renewal odbywa sie <strong>30 dni przed expiry</strong> (czyli kazdy cert ~co 60 dni).</p>
+
+<h3>Lokalizacja certyfikatow</h3>
+
+<pre><code>Cert store: LocalMachine\WebHosting (default dla IIS)
+Klucze: C:\ProgramData\Microsoft\Crypto\RSA\MachineKeys
+Konfiguracja win-acme: C:\ProgramData\win-acme\</code></pre>
+
+<h2>Instalacja certyfikatu w IIS - manualnie</h2>
+
+<p>Jesli kupiles cert (np. Sectigo, DigiCert):</p>
+
+<h3>Krok 1: Wygeneruj CSR</h3>
+
+<p><strong>Via IIS Manager:</strong></p>
+<ol>
+<li>IIS Manager &rarr; Server name &rarr; <strong>Server Certificates</strong></li>
+<li>Right side: <strong>Create Certificate Request</strong></li>
+<li>Wypelnij Common Name (CN), Org, Country, etc.</li>
+<li>Wybierz Cryptographic Service Provider (Microsoft RSA SChannel)</li>
+<li>Bit length: 2048 lub 4096</li>
+<li>Save CSR do pliku .txt</li>
+</ol>
+
+<p><strong>Via PowerShell:</strong></p>
+<pre><code>$inf = @"
+[Version]
+Signature = "`$Windows NT`$"
+
+[NewRequest]
+Subject = "CN=www.example.com, O=My Company, C=PL, S=Mazowieckie, L=Warsaw"
+KeySpec = 1
+KeyLength = 2048
+Exportable = TRUE
+MachineKeySet = TRUE
+SMIME = False
+PrivateKeyArchive = FALSE
+UserProtected = FALSE
+UseExistingKeySet = FALSE
+ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
+ProviderType = 12
+RequestType = PKCS10
+KeyUsage = 0xa0
+
+[Strings]
+szOID_SUBJECT_ALT_NAME2 = "2.5.29.17"
+szOID_ENHANCED_KEY_USAGE = "2.5.29.37"
+szOID_PKIX_KP_SERVER_AUTH = "1.3.6.1.5.5.7.3.1"
+szOID_PKIX_KP_CLIENT_AUTH = "1.3.6.1.5.5.7.3.2"
+
+[Extensions]
+2.5.29.17 = "{text}"
+_continue_ = "dns=www.example.com&amp;"
+_continue_ = "dns=example.com&amp;"
+"@
+
+$inf | Out-File -FilePath "C:\temp\request.inf" -Encoding ASCII
+certreq -new "C:\temp\request.inf" "C:\temp\request.csr"</code></pre>
+
+<h3>Krok 2: Wyslij CSR do CA</h3>
+
+<p>Wgraj plik .csr w portalu Certyfikatu (Sectigo, DigiCert, etc.). Po weryfikacji dostaniesz certyfikat (.cer lub .crt).</p>
+
+<h3>Krok 3: Complete Certificate Request</h3>
+
+<p><strong>Via IIS Manager:</strong></p>
+<ol>
+<li>Server Certificates &rarr; <strong>Complete Certificate Request</strong></li>
+<li>Wybierz plik .cer</li>
+<li>Friendly name (np. "www.example.com")</li>
+<li>Store: <strong>Web Hosting</strong></li>
+</ol>
+
+<p><strong>Via PowerShell:</strong></p>
+<pre><code>certreq -accept "C:\temp\response.cer"</code></pre>
+
+<h3>Krok 4: Bind w IIS</h3>
+
+<pre><code># Znajdz thumbprint
+Get-ChildItem -Path "Cert:\LocalMachine\WebHosting" | Format-List Subject, Thumbprint
+
+# Bind do site
+$cert = Get-ChildItem -Path "Cert:\LocalMachine\WebHosting" | Where-Object {$_.Subject -like "*example.com*"}
+New-WebBinding -Name "MySite" -Protocol https -Port 443 -HostHeader "www.example.com" -SslFlags 1
+$binding = Get-WebBinding -Name "MySite" -Protocol "https"
+$binding.AddSslCertificate($cert.Thumbprint, "WebHosting")</code></pre>
+
+<h2>TLS Hardening (kluczowe dla bezpieczenstwa!)</h2>
+
+<h3>Kolejnosc preferencji (2026):</h3>
+<ul>
+<li><strong>TLS 1.3</strong> &mdash; uzywaj jesli mozesz</li>
+<li><strong>TLS 1.2</strong> &mdash; minimum dla prod (kompatybilnosc)</li>
+<li><strong>TLS 1.0/1.1</strong> &mdash; wylacz (deprecated, security issues)</li>
+<li><strong>SSL 3.0/2.0</strong> &mdash; wylacz (POODLE, BEAST attacks)</li>
+</ul>
+
+<h3>Cipher suites (preferowana kolejnosc):</h3>
+<pre><code>TLS 1.3:
+  TLS_AES_256_GCM_SHA384
+  TLS_CHACHA20_POLY1305_SHA256
+  TLS_AES_128_GCM_SHA256
+
+TLS 1.2 (modern):
+  ECDHE-ECDSA-AES256-GCM-SHA384
+  ECDHE-RSA-AES256-GCM-SHA384
+  ECDHE-ECDSA-CHACHA20-POLY1305
+  ECDHE-RSA-CHACHA20-POLY1305
+  ECDHE-ECDSA-AES128-GCM-SHA256
+  ECDHE-RSA-AES128-GCM-SHA256</code></pre>
+
+<div class="card red">
+<h3>Wylacz slabe:</h3>
+<ul>
+<li>SSLv2, SSLv3</li>
+<li>TLS 1.0, TLS 1.1</li>
+<li>RC4, DES, 3DES</li>
+<li>MD5, SHA1</li>
+<li>Export ciphers (40-bit, 56-bit)</li>
+<li>Anonymous DH</li>
+<li>NULL ciphers</li>
+</ul>
+</div>
+
+<h3>Konfiguracja via IIS Crypto</h3>
+
+<p><strong>Najlepsze narzedzie 2026: IIS Crypto</strong> (Nartac Software, free).</p>
+
+<p>GUI z presetami:</p>
+<ul>
+<li><strong>Best Practices</strong> &mdash; modern config</li>
+<li><strong>PCI 4.0</strong> &mdash; compliance dla payment cards</li>
+<li><strong>FIPS 140-2</strong> &mdash; federal compliance</li>
+<li><strong>Strict</strong> &mdash; maximum security</li>
+</ul>
+
+<p>Po klikniciu Apply &rarr; wymaga reboot (zmienia rejestr).</p>
+
+<h3>Manualnie via Registry (bez IIS Crypto)</h3>
+
+<pre><code># Disable SSLv2
+$path = "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\SSL 2.0\Server"
+New-Item -Path $path -Force
+New-ItemProperty -Path $path -Name "Enabled" -Value 0 -PropertyType DWORD -Force
+New-ItemProperty -Path $path -Name "DisabledByDefault" -Value 1 -PropertyType DWORD -Force
+
+# Disable SSLv3, TLS 1.0, TLS 1.1 &mdash; analogicznie
+# (zmien nazwy paths)
+
+# Enable TLS 1.2 (default w nowszych Windows, ale upewnij sie)
+$path = "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server"
+New-Item -Path $path -Force
+New-ItemProperty -Path $path -Name "Enabled" -Value 1 -PropertyType DWORD -Force
+New-ItemProperty -Path $path -Name "DisabledByDefault" -Value 0 -PropertyType DWORD -Force
+
+# Enable TLS 1.3 (Server 2022+ wspiera natywnie)
+$path = "HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.3\Server"
+New-Item -Path $path -Force
+New-ItemProperty -Path $path -Name "Enabled" -Value 1 -PropertyType DWORD -Force
+New-ItemProperty -Path $path -Name "DisabledByDefault" -Value 0 -PropertyType DWORD -Force
+
+# REBOOT WYMAGANY
+Restart-Computer</code></pre>
+
+<h2>HSTS (HTTP Strict Transport Security)</h2>
+
+<p><strong>HSTS</strong> mowi przegladarce: "Zawsze uzywaj HTTPS dla tej domeny" (przez <code>max-age</code> sekund).</p>
+
+<h3>Dodaj header:</h3>
+
+<pre><code>&lt;!-- web.config --&gt;
+&lt;system.webServer&gt;
+  &lt;httpProtocol&gt;
+    &lt;customHeaders&gt;
+      &lt;add name="Strict-Transport-Security"
+           value="max-age=31536000; includeSubDomains; preload" /&gt;
+    &lt;/customHeaders&gt;
+  &lt;/httpProtocol&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<p><strong>Parametry:</strong></p>
+<ul>
+<li><code>max-age=31536000</code> &mdash; 1 rok (sekundy)</li>
+<li><code>includeSubDomains</code> &mdash; dotyczy tez subdomen</li>
+<li><code>preload</code> &mdash; chetny do bycia w preload list (hstspreload.org)</li>
+</ul>
+
+<div class="card orange">
+<p><strong>Uwaga:</strong> HSTS jest <strong>trwaly</strong> (klient pamieta przez max-age). Jesli pomylisz konfiguracje, <strong>klienci nie beda mogli wejsc</strong> przez HTTPS!</p>
+</div>
+
+<p><strong>Strategia bezpieczna:</strong></p>
+<ol>
+<li>Najpierw <code>max-age=300</code> (5 min) &mdash; test</li>
+<li>Potem <code>max-age=86400</code> (1 dzien)</li>
+<li>Po tygodniu OK &rarr; <code>max-age=31536000</code> (1 rok)</li>
+<li>Jesli wszystko dziala &rarr; preload submission</li>
+</ol>
+
+<h2>HTTP -&gt; HTTPS redirect</h2>
+
+<pre><code>&lt;!-- web.config &mdash; wymuszenie HTTPS --&gt;
+&lt;system.webServer&gt;
+  &lt;rewrite&gt;
+    &lt;rules&gt;
+      &lt;rule name="HTTPS Redirect" stopProcessing="true"&gt;
+        &lt;match url="(.*)" /&gt;
+        &lt;conditions&gt;
+          &lt;add input="{HTTPS}" pattern="off" ignoreCase="true" /&gt;
+          &lt;!-- Wykluczyc ACME challenge (dla Let's Encrypt) --&gt;
+          &lt;add input="{REQUEST_URI}" pattern="^/.well-known/acme-challenge/" negate="true" /&gt;
+        &lt;/conditions&gt;
+        &lt;action type="Redirect" url="https://{HTTP_HOST}/{R:1}"
+                redirectType="Permanent" /&gt;
+      &lt;/rule&gt;
+    &lt;/rules&gt;
+  &lt;/rewrite&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h2>Multi-site z certyfikatami (SNI)</h2>
+
+<pre><code># Site A z certem A
+$certA = Get-ChildItem Cert:\LocalMachine\WebHosting | Where {$_.Subject -like "*sitea.com*"}
+New-WebBinding -Name "SiteA" -Protocol https -Port 443 -HostHeader "sitea.com" -SslFlags 1
+(Get-WebBinding -Name "SiteA" -Protocol "https").AddSslCertificate($certA.Thumbprint, "WebHosting")
+
+# Site B z certem B (ten sam port 443!)
+$certB = Get-ChildItem Cert:\LocalMachine\WebHosting | Where {$_.Subject -like "*siteb.com*"}
+New-WebBinding -Name "SiteB" -Protocol https -Port 443 -HostHeader "siteb.com" -SslFlags 1
+(Get-WebBinding -Name "SiteB" -Protocol "https").AddSslCertificate($certB.Thumbprint, "WebHosting")</code></pre>
+
+<p><strong>SNI (Server Name Indication)</strong> pozwala na <strong>wiele certyfikatow na tym samym IP</strong>. Wszystkie nowoczesne przegladarki to wspieraja (od 2010).</p>
+
+<h2>Custom CA - Active Directory Certificate Services (AD CS)</h2>
+
+<p>Dla <strong>wewnetrznych</strong> uslug (intranet, dev environments) &mdash; wlasna CA.</p>
+
+<h3>Instalacja</h3>
+
+<pre><code>Install-WindowsFeature -Name AD-Certificate -IncludeManagementTools
+Install-AdcsCertificationAuthority -CAType EnterpriseRootCA -CACommonName "Contoso Root CA" -KeyLength 4096 -HashAlgorithmName SHA256 -ValidityPeriod Years -ValidityPeriodUnits 20</code></pre>
+
+<h3>Workflow:</h3>
+<ol>
+<li>Stworz template (np. "WebServer Custom" w Certificate Templates MMC)</li>
+<li>Issue template w CA</li>
+<li>Klient zada cert via <code>certreq</code> lub Web Enrollment</li>
+<li>Cert auto-deploys do trusted clients (via GPO)</li>
+</ol>
+
+<h3>Auto-enrollment (Group Policy)</h3>
+
+<p>W AD environment, mozesz skonfigurowac auto-enrollment dla maszyn:</p>
+<pre><code>Group Policy:
+Computer Configuration &rarr; Policies &rarr; Windows Settings &rarr;
+Security Settings &rarr; Public Key Policies &rarr;
+Certificate Services Client - Auto-Enrollment</code></pre>
+
+<h2>Certificate Pinning</h2>
+
+<p><strong>HPKP (HTTP Public Key Pinning)</strong> &mdash; <strong>DEPRECATED</strong> (zbyt ryzykowne).</p>
+
+<p><strong>Zamiast tego:</strong></p>
+<ul>
+<li><strong>CT (Certificate Transparency)</strong> &mdash; automatyczne, w tle</li>
+<li><strong>CAA (DNS records)</strong> &mdash; wskazuj ktore CA moze wystawiac dla domeny:
+<pre><code>example.com.  CAA  0 issue "letsencrypt.org"
+example.com.  CAA  0 issuewild "letsencrypt.org"
+example.com.  CAA  0 iodef "mailto:security@example.com"</code></pre>
+</li>
+</ul>
+
+<h2>Certificate Transparency (CT)</h2>
+
+<p><strong>CT logs</strong> to publiczne logi wszystkich wystawionych certyfikatow. Kazdy moze sprawdzic.</p>
+
+<h3>Sprawdz swoje certyfikaty:</h3>
+<ul>
+<li><strong>crt.sh</strong> &mdash; search interface po CT logs</li>
+<li><strong>Censys</strong> &mdash; comprehensive dataset</li>
+</ul>
+
+<pre><code># Wszystkie certy dla domeny
+https://crt.sh/?q=example.com</code></pre>
+
+<p><strong>Use case:</strong> monitoruj swoja domene &mdash; wykryj nieautoryzowane wystawienie certu (np. ktos przejal kontrole nad DNS i zamowil cert).</p>
+
+<h2>Monitoring i alerting</h2>
+
+<h3>Sprawdzanie expiry</h3>
+
+<pre><code># Wszystkie cert na maszynie wygasajace w ciagu 30 dni
+Get-ChildItem -Path Cert:\LocalMachine\My -Recurse |
+    Where-Object {$_.NotAfter -lt (Get-Date).AddDays(30) -and $_.NotAfter -gt (Get-Date)} |
+    Select-Object Subject, Thumbprint, NotAfter</code></pre>
+
+<h3>Automated check (sprawdz zewnetrznie)</h3>
+
+<pre><code># Sprawdz expiry zewnetrznie (sprawdza nie tylko local store!)
+$url = "https://www.example.com"
+$req = [Net.HttpWebRequest]::Create($url)
+$req.GetResponse() | Out-Null
+$cert = $req.ServicePoint.Certificate
+$cert2 = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 $cert
+$daysToExpiry = ($cert2.NotAfter - (Get-Date)).Days
+
+if ($daysToExpiry -lt 30) {
+    Send-MailMessage -To "admin@example.com" -Subject "Cert expires in $daysToExpiry days"
+}</code></pre>
+
+<h3>Tools 2026:</h3>
+<ul>
+<li><strong>Cert-Manager</strong> (Kubernetes) &mdash; najlepsze dla K8s</li>
+<li><strong>Posh-ACME</strong> &mdash; PowerShell ACME client (alternatywa do win-acme)</li>
+<li><strong>certbot</strong> &mdash; przez WSL/Linux</li>
+<li><strong>Uptime monitoring</strong> (Uptime Robot, Pingdom) &mdash; z cert expiry alerts</li>
+<li><strong>Grafana</strong> dashboard z cert expiry</li>
+</ul>
+
+<h2>Performance - TLS optimization</h2>
+
+<h3>Session resumption</h3>
+<ul>
+<li><strong>Session ID</strong> &mdash; server cache (cluster nie share)</li>
+<li><strong>Session tickets</strong> &mdash; encrypted, share between servers</li>
+<li><strong>TLS 1.3</strong> &mdash; 0-RTT resumption (najszybsze, ale replay risk)</li>
+</ul>
+
+<h3>OCSP Stapling</h3>
+<p>Server pre-fetches OCSP response, dodaje do TLS handshake. Klient nie musi robic osobnego query do CA.</p>
+
+<pre><code># IIS &mdash; wlaczone domyslnie w Server 2022+
+# Sprawdzenie:
+Get-WebConfigurationProperty -Filter "system.webServer/security/access" -Name "sslFlags"</code></pre>
+
+<h3>HTTP/2 i HTTP/3</h3>
+
+<p><strong>HTTP/2</strong> &mdash; domyslnie ON dla HTTPS bindings w IIS od Server 2016. Multiplexing &rarr; szybciej.</p>
+
+<p><strong>HTTP/3 (QUIC)</strong> &mdash; Server 2025 wsparcie wbudowane.</p>
+<pre><code># Wlacz HTTP/3
+Enable-WindowsOptionalFeature -Online -FeatureName "IIS-HTTP3"</code></pre>
+
+<h2>Test i validation</h2>
+
+<h3>SSL Labs (najlepsze)</h3>
+<p><strong>ssllabs.com/ssltest/</strong> &mdash; kompleksowy test, ocena A+ to cel.</p>
+
+<p>Sprawdza:</p>
+<ul>
+<li>Protokoly (TLS 1.2/1.3)</li>
+<li>Cipher suites</li>
+<li>Forward Secrecy</li>
+<li>HSTS</li>
+<li>HPKP (deprecated)</li>
+<li>Vulnerabilities (Heartbleed, POODLE, etc.)</li>
+<li>Certificate chain</li>
+<li>Trust path</li>
+</ul>
+
+<h3>Inne narzedzia:</h3>
+<ul>
+<li><strong>testssl.sh</strong> &mdash; CLI alternative</li>
+<li><strong>Mozilla Observatory</strong> &mdash; comprehensive web security</li>
+<li><strong>DigiCert SSL Tools</strong> &mdash; quick check</li>
+<li><strong>Hardenize</strong> &mdash; DNS + TLS + email security</li>
+</ul>
+
+<h2>Checklist publikacji aplikacji z HTTPS</h2>
+
+<div class="card green">
+<pre><code>Domena zarejestrowana i skonfigurowana w DNS
+Serwer dostepny publicznie (port 80, 443 otwarte)
+IIS / web server zainstalowany i dziala
+Site stworzony z bindingiem HTTP (port 80)
+Strona testowa HTTP dziala
+Certyfikat zdobyty (Let's Encrypt lub komercyjny)
+Binding HTTPS dodany z certem
+HTTPS test z roznych przegladarek
+HTTP &rarr; HTTPS redirect skonfigurowany
+HSTS header dodany (najpierw krotki max-age, potem dlugi)
+TLS 1.0/1.1 wylaczone, slabe ciphers wylaczone (IIS Crypto)
+Security headers: X-Content-Type-Options, X-Frame-Options, CSP, Referrer-Policy
+SSL Labs test &rarr; A+
+Auto-renewal scheduled (win-acme task)
+Monitoring expiry skonfigurowany
+CAA record w DNS dla zezwolonego CA
+Backup certyfikatu (export PFX z haslem)
+Documentation: gdzie cert, kiedy expires, jak renew</code></pre>
+</div>
+
+<h2>Czeste bledy</h2>
+
+<div class="card red">
+<h3>Self-signed cert w produkcji</h3>
+<p>Tylko dla dev/test. Klienci dostaja warning, "Not Secure".</p>
+
+<h3>Bad chain</h3>
+<p>Brakuje intermediate cert w lancuchu &rarr; klienci dostaja "untrusted".</p>
+<pre><code># Test chain
+$url = "https://example.com"
+$req = [Net.HttpWebRequest]::Create($url)
+$req.GetResponse()
+# Powinno przejsc bez bledow</code></pre>
+
+<h3>Mixed content</h3>
+<p>HTTPS site laduje HTTP zasoby (obrazki, CSS, JS) &rarr; przegladarka blokuje. Wszystko musi byc HTTPS.</p>
+
+<h3>HSTS bez testowania</h3>
+<p>Wlaczasz HSTS z max-age=1 rok, blad &rarr; klienci zablokowani na rok.</p>
+
+<h3>Brak auto-renewal</h3>
+<p>Cert wygasa, zapomniales, strona down. Zawsze automatyzuj!</p>
+
+<h3>Klucz prywatny w repo Git</h3>
+<p><strong>Catastrophic.</strong> Trzymaj klucze w secure store (Vault, Key Vault, secret manager).</p>
+
+<h3>Wildcard wszedzie</h3>
+<p>Jeden compromised wildcard = wszystkie subdomeny compromised. Uzywaj single certs gdzie mozliwe.</p>
+</div>
+
+<h2>Linki i zasoby</h2>
+
+<ul>
+<li><strong>Let's Encrypt</strong>: letsencrypt.org</li>
+<li><strong>win-acme</strong>: win-acme.com (i github.com/win-acme/win-acme)</li>
+<li><strong>Posh-ACME</strong>: github.com/rmbolger/Posh-ACME (PowerShell ACME)</li>
+<li><strong>IIS Crypto</strong>: nartac.com/Products/IISCrypto/</li>
+<li><strong>SSL Labs</strong>: ssllabs.com/ssltest/</li>
+<li><strong>Mozilla SSL Configuration Generator</strong>: ssl-config.mozilla.org</li>
+<li><strong>HSTS Preload</strong>: hstspreload.org</li>
+<li><strong>CAA Records</strong>: sslmate.com/caa/</li>
+<li><strong>CT Search</strong>: crt.sh</li>
+<li><strong>OWASP TLS Cheat Sheet</strong>: cheatsheetseries.owasp.org</li>
+</ul>
+
+<h2>Nastepne kroki</h2>
+
+<ul>
+<li><strong>Rozdzial 06-01</strong> &mdash; Let's Encrypt na Windows szczegolowo</li>
+<li><strong>Rozdzial 06-02</strong> &mdash; TLS hardening (ciphers, protocols, HSTS)</li>
+<li><strong>Rozdzial 06-03</strong> &mdash; Wlasne CA z AD CS dla intranet</li>
+<li><strong>Rozdzial 09</strong> &mdash; Publikowanie uslug publicznych (architektura)</li>
+<li><strong>Rozdzial 07</strong> &mdash; Bezpieczenstwo fundamenty</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="05-iis-zaawansowane.html">&larr; IIS zaawansowane</a>
+    <a href="07-bezpieczenstwo-fundamenty.html">Bezpieczenstwo fundamenty &rarr;</a>
+</div>
+
+</div>
+</body>
+</html>

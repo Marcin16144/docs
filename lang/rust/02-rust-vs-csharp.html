@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02 — Rust vs C# — zalety i wady</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ce422b;--accent-hover:#e85d2f;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-left:4px solid var(--green)}
+        .card.red{border-left:4px solid var(--red)}
+        .card.orange{border-left:4px solid var(--orange)}
+        .yes{color:var(--green);font-weight:600}.no{color:var(--red);font-weight:600}.warn{color:var(--orange);font-weight:600}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}.two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="../../index.html">Glowna</a>
+        <span class="sep">/</span>
+        <a href="../index.html">Jezyki</a>
+        <span class="sep">/</span>
+        <a href="index.html">Rust</a>
+        <span class="sep">/</span>
+        <span class="title">Rust vs C#</span>
+    </div>
+    <div class="container">
+        <h1>Rust vs C# — zalety i wady</h1>
+        <p class="subtitle">Szczegolowe porownanie dwoch jezykow z perspektywy 2026: kiedy wybrac ktory.</p>
+
+        <h2>TL;DR — szybkie porownanie</h2>
+
+        <table>
+            <thead><tr><th>Aspekt</th><th>Rust</th><th>C# / .NET 9</th><th>Zwyciezca</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Memory safety</strong></td><td>Compile-time (ownership)</td><td>Runtime (Garbage Collector)</td><td>Rust</td></tr>
+                <tr><td><strong>Performance</strong></td><td>Native, no GC</td><td>JIT + GC + AOT (.NET 9)</td><td>Rust (raw), C# (close z AOT)</td></tr>
+                <tr><td><strong>Krzywa uczenia</strong></td><td>Bardzo stroma (ownership!)</td><td>Lagodna</td><td>C#</td></tr>
+                <tr><td><strong>Productivity</strong></td><td>Wolniej (borrow checker)</td><td>Szybko</td><td>C#</td></tr>
+                <tr><td><strong>Concurrency</strong></td><td>Fearless concurrency</td><td>async/await, dobre</td><td>Rust (compile-time safety)</td></tr>
+                <tr><td><strong>Ekosystem (web)</strong></td><td>Mniejszy ale rosnie</td><td>Ogromny i dojrzaly</td><td>C#</td></tr>
+                <tr><td><strong>IDE / tooling</strong></td><td>rust-analyzer (dobre)</td><td>VS 2025, Rider (excellent)</td><td>C#</td></tr>
+                <tr><td><strong>Compile time</strong></td><td>Wolne (10s-min)</td><td>Bardzo szybkie</td><td>C#</td></tr>
+                <tr><td><strong>Binary size</strong></td><td>Male (z optymalizacja)</td><td>Wieksze (runtime) lub male (AOT)</td><td>Rust</td></tr>
+                <tr><td><strong>Cross-platform</strong></td><td>✓ kazda platforma</td><td>✓ Windows/Linux/macOS</td><td>Tie</td></tr>
+                <tr><td><strong>Embedded / IoT</strong></td><td>Doskonale (embassy, no_std)</td><td>Slabe wsparcie (.NET nanoFramework niche)</td><td>Rust</td></tr>
+                <tr><td><strong>Enterprise</strong></td><td>Niskopoziomowe / niche</td><td>Standard branzowy</td><td>C#</td></tr>
+                <tr><td><strong>Game development</strong></td><td>Bevy (rosnie), Fyrox</td><td>Unity (najpopularniejsze)</td><td>C# (Unity ecosystem)</td></tr>
+                <tr><td><strong>Mobile</strong></td><td>Tauri (cross), niche</td><td>MAUI, Xamarin (legacy)</td><td>C# (na ogol)</td></tr>
+                <tr><td><strong>Desktop GUI</strong></td><td>Tauri, egui, Slint</td><td>WPF, WinUI, MAUI, Avalonia</td><td>C#</td></tr>
+                <tr><td><strong>WASM</strong></td><td>Native first-class</td><td>Blazor WebAssembly</td><td>Rust (mniejszy bundle)</td></tr>
+                <tr><td><strong>Salaries (2026)</strong></td><td>Wysokie ($120-200k+ US)</td><td>Wysokie ($90-180k+ US)</td><td>Rust (premium specjalista)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Filozofia jezykow</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Rust — "Empower everyone to build reliable and efficient software"</h3>
+                <ul>
+                    <li><strong>Memory safety bez GC</strong> przez ownership system</li>
+                    <li><strong>Zero-cost abstractions</strong> — wysokopoziomowy kod kompiluje sie do efektywnego maszyny</li>
+                    <li><strong>Fearless concurrency</strong> — race conditions detected at compile time</li>
+                    <li><strong>Brak undefined behavior</strong> w safe code</li>
+                    <li><strong>Explicit error handling</strong> — Result&lt;T,E&gt; zamiast exceptions</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>C# — "Modern, type-safe, productive language for .NET"</h3>
+                <ul>
+                    <li><strong>Productive</strong> — szybko piszesz, szybko iterujesz</li>
+                    <li><strong>Type-safe</strong> z bogata biblioteka standardowa</li>
+                    <li><strong>Garbage collected</strong> — nie martwisz sie o pamiec</li>
+                    <li><strong>Pragmatic</strong> — laczy OOP, FP, async</li>
+                    <li><strong>Enterprise-ready</strong> — pelne wsparcie Microsoft, ekosystem</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Memory management — kluczowa roznica</h2>
+
+        <h3>C#: Garbage Collector</h3>
+<pre><code>// C# — GC zarzadza pamiecia automatycznie
+var list = new List&lt;string&gt;();
+list.Add("hello");
+// Po wyjsciu z scope, GC wczesniej czy pozniej zwolni
+// Twoja praca: 0% (poza Dispose dla unmanaged resources)</code></pre>
+
+        <p><strong>Plusy:</strong></p>
+        <ul>
+            <li>Latwe — nie myslisz o pamieci</li>
+            <li>Szybki development</li>
+            <li>Brak segfaults</li>
+        </ul>
+
+        <p><strong>Minusy:</strong></p>
+        <ul>
+            <li>GC pauzy (mniej w generational GC + Server GC, ale sa)</li>
+            <li>Niedeterministyczna deallokacja</li>
+            <li>Wieksze zuzycie pamieci (heap fragmentation)</li>
+            <li>Trudne predykcje latencji dla real-time</li>
+        </ul>
+
+        <h3>Rust: Ownership system (compile-time)</h3>
+<pre><code>// Rust — ownership rules:
+// 1. Kazda wartosc ma jednego "wlasciciela"
+// 2. Tylko jeden owner w danym momencie
+// 3. Gdy owner wychodzi z scope, wartosc jest dropped
+
+let s1 = String::from("hello"); // s1 owns String
+let s2 = s1;                    // ownership moved s1 → s2
+// println!("{}", s1);          // ERROR! s1 nie jest juz valid
+
+// Borrowing — pożyczanie bez przeniesienia ownership
+fn print(s: &amp;String) {  // &amp; = borrow
+    println!("{}", s);
+}
+let s = String::from("hello");
+print(&amp;s);  // s borrowed
+println!("{}", s);  // OK, s wciaz valid</code></pre>
+
+        <p><strong>Plusy:</strong></p>
+        <ul>
+            <li>Zero runtime overhead — sprawdzane w compile-time</li>
+            <li>Deterministyczna deallokacja</li>
+            <li>Brak GC pauz → idealne dla real-time / embedded</li>
+            <li>Memory safety + thread safety w jednym</li>
+            <li>Mniejsze zuzycie pamieci</li>
+        </ul>
+
+        <p><strong>Minusy:</strong></p>
+        <ul>
+            <li><strong>Stroma krzywa uczenia</strong> — "fight with borrow checker"</li>
+            <li>Wolniejszy initial development</li>
+            <li>Niektore wzorce (linked lists, graphs) trudne do wyrazenia</li>
+            <li>Workarounds: Rc, RefCell, Arc, Mutex (runtime checks)</li>
+        </ul>
+
+        <h2>Performance — realne benchmarki 2026</h2>
+
+        <table>
+            <thead><tr><th>Test</th><th>Rust</th><th>C# .NET 9 (JIT)</th><th>C# .NET 9 AOT</th><th>Comment</th></tr></thead>
+            <tbody>
+                <tr><td>HTTP request handling</td><td>Axum: ~1M req/s</td><td>ASP.NET Core: ~700k req/s</td><td>~850k req/s</td><td>Rust ~30% szybszy</td></tr>
+                <tr><td>JSON serialization</td><td>serde: 1x</td><td>System.Text.Json: 1.3x slower</td><td>~1.1x slower</td><td>Marginalna roznica</td></tr>
+                <tr><td>Startup time</td><td>~5ms</td><td>~150ms (JIT)</td><td>~30ms</td><td>AOT bardzo blisko Rust</td></tr>
+                <tr><td>Memory footprint</td><td>~5-10 MB</td><td>~50-100 MB</td><td>~15-30 MB</td><td>Rust 5-10x mniej</td></tr>
+                <tr><td>Numeric computation</td><td>1x baseline</td><td>1.0-1.1x slower</td><td>1.0x</td><td>JIT dogania w hot paths</td></tr>
+                <tr><td>Cold start (serverless)</td><td>~10ms</td><td>~300ms</td><td>~50ms</td><td>AOT rozwiazuje cold start</td></tr>
+                <tr><td>Long-running latency p99</td><td>Stabilna</td><td>GC pauzy do ~10ms</td><td>GC pauzy</td><td>Rust deterministyczny</td></tr>
+            </tbody>
+        </table>
+
+        <p><strong>Wnioski 2026:</strong></p>
+        <ul>
+            <li>Dla <strong>typowych aplikacji web</strong> — C# jest wystarczajacy (rzadko jest bottleneckiem)</li>
+            <li>Dla <strong>raw performance</strong> (high-frequency trading, video encoding, embedded) — Rust wygrywa</li>
+            <li>Dla <strong>predictable latency</strong> (real-time systems, gry) — Rust wygrywa (no GC pauses)</li>
+            <li><strong>Native AOT</strong> w .NET 9 znacznie zmniejszyl roznice (cold start, binary size)</li>
+        </ul>
+
+        <h2>Composability porownanie</h2>
+
+        <h3>Hello World HTTP server</h3>
+
+        <div class="two-col">
+            <div class="card">
+                <h4>Rust + Axum</h4>
+<pre><code>use axum::{routing::get, Router};
+
+#[tokio::main]
+async fn main() {
+    let app = Router::new()
+        .route("/", get(|| async { "Hello!" }));
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+        .await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}</code></pre>
+            </div>
+            <div class="card">
+                <h4>C# Minimal API</h4>
+<pre><code>var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
+
+app.MapGet("/", () =&gt; "Hello!");
+
+app.Run();</code></pre>
+            </div>
+        </div>
+
+        <p>C# jest zwiezlejsze. Rust wymaga wiecej boilerplate ale daje wieksza kontrole.</p>
+
+        <h3>Async / await</h3>
+
+        <p>Oba jezyki maja async/await — skladniowo bardzo podobne:</p>
+
+        <div class="two-col">
+            <div class="card">
+<pre><code>// Rust
+async fn fetch_data() -&gt; Result&lt;String, Error&gt; {
+    let response = reqwest::get("https://api.example.com")
+        .await?;
+    let body = response.text().await?;
+    Ok(body)
+}</code></pre>
+            </div>
+            <div class="card">
+<pre><code>// C#
+async Task&lt;string&gt; FetchDataAsync()
+{
+    var response = await httpClient
+        .GetAsync("https://api.example.com");
+    return await response.Content.ReadAsStringAsync();
+}</code></pre>
+            </div>
+        </div>
+
+        <p><strong>Roznica:</strong> Rust wymaga eksplicitnego async runtime (Tokio), C# ma wbudowany TaskScheduler.</p>
+
+        <h3>Error handling</h3>
+
+        <div class="two-col">
+            <div class="card">
+                <h4>Rust — Result&lt;T, E&gt;</h4>
+<pre><code>fn parse(s: &amp;str) -&gt; Result&lt;i32, ParseError&gt; {
+    s.parse::&lt;i32&gt;()
+        .map_err(|_| ParseError::Invalid)
+}
+
+// Caller MUSI obsluzyc blad
+match parse("123") {
+    Ok(n) =&gt; println!("{}", n),
+    Err(e) =&gt; println!("Error: {:?}", e),
+}
+
+// Lub uzyj ? operator
+fn process(s: &amp;str) -&gt; Result&lt;i32, ParseError&gt; {
+    let n = parse(s)?;  // automatic propagate
+    Ok(n * 2)
+}</code></pre>
+                <p><strong>Plus:</strong> kompilator wymusza obsluge bledow.</p>
+            </div>
+            <div class="card">
+                <h4>C# — Exceptions</h4>
+<pre><code>int Parse(string s)
+{
+    return int.Parse(s);  // throws FormatException
+}
+
+// Caller MOZE obsluzyc, ale nie musi
+try
+{
+    var n = Parse("123");
+    Console.WriteLine(n);
+}
+catch (FormatException e)
+{
+    Console.WriteLine($"Error: {e.Message}");
+}</code></pre>
+                <p><strong>Minus:</strong> exceptions sa "invisible" w sygnaturze. Latwo przeoczyc.</p>
+            </div>
+        </div>
+
+        <h2>Concurrency — gdzie Rust naprawde swieci</h2>
+
+        <h3>Rust: compile-time data race prevention</h3>
+<pre><code>// Rust nie pozwoli na data race w compile-time
+use std::thread;
+
+let data = vec![1, 2, 3];
+
+let handle = thread::spawn(move || {
+    println!("{:?}", data);  // moved data into thread
+});
+
+// println!("{:?}", data);   // ERROR! data juz nie ma
+handle.join().unwrap();
+
+// Aby wspoldzielic miedzy watkami:
+use std::sync::Arc;
+let data = Arc::new(vec![1, 2, 3]);
+let data_clone = Arc::clone(&amp;data);
+thread::spawn(move || {
+    println!("{:?}", data_clone);
+});</code></pre>
+
+        <h3>C#: rzeczywisty data race mozliwy</h3>
+<pre><code>// C# — kompilator NIE wykryje data race
+int counter = 0;
+
+Parallel.For(0, 1000, i =&gt;
+{
+    counter++;  // RACE! NOT atomic
+});
+
+Console.WriteLine(counter);  // Prawdopodobnie != 1000
+
+// Trzeba pamietac o lock lub Interlocked:
+Parallel.For(0, 1000, i =&gt;
+{
+    Interlocked.Increment(ref counter);
+});</code></pre>
+
+        <p><strong>Wnioski:</strong> Rust eliminuje cala klase bledow concurrent programming w compile-time. C# wymaga dyscypliny developera.</p>
+
+        <h2>Productivity</h2>
+
+        <div class="card red">
+            <h3>Rust — wolniej zaczynasz</h3>
+            <ul>
+                <li>Borrow checker walczy z toba przez pierwsze 1-3 miesiace</li>
+                <li>Wiele wzorcow z innych jezykow wymaga "zmiany sposobu myslenia"</li>
+                <li>Trzeba sie nauczyc lifetimes, traits, Box/Rc/Arc</li>
+                <li>Compile times — od 10s dla malych do minut dla duzych projektow</li>
+            </ul>
+            <p><strong>Stat:</strong> Stack Overflow Survey 2024 — Rust developers spedzaja srednio 50% wiecej czasu na fixowaniu compile errors w pierwszym roku.</p>
+        </div>
+
+        <div class="card green">
+            <h3>C# — szybko piszesz, szybko iterujesz</h3>
+            <ul>
+                <li>VS 2025 / Rider z IntelliSense — IDE "wie" wszystko</li>
+                <li>Hot reload w runtime</li>
+                <li>Refactoring tools world-class</li>
+                <li>Compile time bardzo szybki</li>
+                <li>Edit and Continue w debuggerze</li>
+                <li>Bogata biblioteka standardowa (BCL)</li>
+            </ul>
+        </div>
+
+        <h2>Ekosystem 2026</h2>
+
+        <h3>Web backend</h3>
+        <table>
+            <thead><tr><th>Aspekt</th><th>Rust</th><th>C#</th></tr></thead>
+            <tbody>
+                <tr><td>Frameworks</td><td>Axum, Actix-web, Rocket, Warp</td><td>ASP.NET Core (Minimal APIs, MVC)</td></tr>
+                <tr><td>ORM</td><td>SeaORM, Diesel, sqlx</td><td>Entity Framework Core (industry standard)</td></tr>
+                <tr><td>Authentication</td><td>oauth2 crate, jsonwebtoken</td><td>ASP.NET Identity, OIDC</td></tr>
+                <tr><td>OpenAPI</td><td>utoipa</td><td>Microsoft.AspNetCore.OpenApi</td></tr>
+                <tr><td>Real-time</td><td>tokio-tungstenite (WebSocket)</td><td>SignalR (excellent)</td></tr>
+                <tr><td>GraphQL</td><td>async-graphql</td><td>Hot Chocolate</td></tr>
+                <tr><td>gRPC</td><td>tonic</td><td>Grpc.AspNetCore</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Cloud / DevOps</h3>
+        <table>
+            <thead><tr><th>Platform</th><th>Rust support</th><th>C# support</th></tr></thead>
+            <tbody>
+                <tr><td>AWS Lambda</td><td>Native (lambda_runtime crate)</td><td>Native (.NET 8/9 AOT)</td></tr>
+                <tr><td>Azure Functions</td><td>Custom handler</td><td>First-class citizen</td></tr>
+                <tr><td>Google Cloud</td><td>Cloud Run dziala</td><td>Cloud Run dziala</td></tr>
+                <tr><td>Kubernetes</td><td>Operator SDK (kube-rs)</td><td>KubeOps, Operator SDK</td></tr>
+                <tr><td>Containers</td><td>Bardzo male obrazy (~5-20 MB)</td><td>~100 MB (AOT) lub 200+ MB (runtime)</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Mobile / Desktop</h3>
+        <table>
+            <thead><tr><th>Platform</th><th>Rust</th><th>C#</th></tr></thead>
+            <tbody>
+                <tr><td>iOS</td><td>Tauri (web view), Slint, niche</td><td>MAUI, Xamarin (legacy)</td></tr>
+                <tr><td>Android</td><td>Tauri, JNI bindings</td><td>MAUI, Xamarin</td></tr>
+                <tr><td>Windows desktop</td><td>Tauri, egui, Slint, Iced</td><td>WPF, WinUI 3, MAUI, Avalonia</td></tr>
+                <tr><td>macOS desktop</td><td>Tauri, egui, Slint</td><td>MAUI, Avalonia</td></tr>
+                <tr><td>Linux desktop</td><td>Tauri, GTK-rs, Slint</td><td>Avalonia</td></tr>
+                <tr><td>Cross-platform GUI</td><td>Tauri (najpopularniejsze)</td><td>Avalonia (najlepsza)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kiedy wybrac Rust?</h2>
+
+        <div class="card green">
+            <h3>Rust jest najlepszym wyborem dla:</h3>
+            <ul>
+                <li><strong>Systems programming</strong> — kernel modules, drivers, OS dev</li>
+                <li><strong>Embedded / IoT</strong> — no_std, embassy framework, microcontrollers (ESP32, RP2040)</li>
+                <li><strong>Performance-critical applications</strong> — game engines, video encoders, databases</li>
+                <li><strong>Cryptocurrency / Blockchain</strong> — Solana, Polkadot, NEAR, wiele crypto wallets</li>
+                <li><strong>Network services</strong> z wymagana low-latency (HFT, game servers)</li>
+                <li><strong>WebAssembly modules</strong> — najmniejszy bundle, najszybsza wykonanie</li>
+                <li><strong>CLI tools</strong> — fast startup, single binary, cross-platform (ripgrep, fd, bat, exa)</li>
+                <li><strong>Audio/Video processing</strong> — real-time DSP, streaming</li>
+                <li><strong>Memory-constrained environments</strong> — embedded, edge computing</li>
+                <li><strong>Long-running services</strong> gdzie GC pauzy sa nie do przyjecia</li>
+                <li><strong>Concurrency-heavy</strong> — wiele watkow z safety-critical wymaganiami</li>
+                <li><strong>FFI / native bindings</strong> — bezpieczne C-bindings (PyO3, neon dla Node)</li>
+            </ul>
+        </div>
+
+        <h2>Kiedy wybrac C#?</h2>
+
+        <div class="card green">
+            <h3>C# / .NET jest najlepszym wyborem dla:</h3>
+            <ul>
+                <li><strong>Enterprise applications</strong> — line-of-business, ERP, CRM (.NET dominuje)</li>
+                <li><strong>Microsoft ecosystem</strong> — SharePoint, Dynamics, Power Platform, Azure native</li>
+                <li><strong>Windows desktop</strong> — WPF, WinUI 3 to industry standards</li>
+                <li><strong>Game development z Unity</strong> — najpopularniejszy game engine uzywa C#</li>
+                <li><strong>Rapid prototyping</strong> — szybki development cycle</li>
+                <li><strong>Aplikacje webowe (rapid)</strong> — ASP.NET Core jest pragmatic, dojrzaly</li>
+                <li><strong>Junior-friendly teams</strong> — latwiejsza krzywa uczenia</li>
+                <li><strong>Hybrid mobile</strong> — MAUI dla cross-platform z native UI</li>
+                <li><strong>Microservices</strong> — bogaty ekosystem (orleans, MassTransit)</li>
+                <li><strong>Data engineering</strong> — Apache Spark via .NET (mniej popularne ale dziala)</li>
+                <li><strong>Bot development</strong> — Microsoft Bot Framework</li>
+                <li><strong>SharePoint / Office add-ins</strong></li>
+                <li><strong>Legacy modernization</strong> — wiele firm migruje z .NET Framework do .NET 9</li>
+            </ul>
+        </div>
+
+        <h2>Realne historie firmowe</h2>
+
+        <div class="card">
+            <h3>Firmy uzywajace Rust w produkcji</h3>
+            <ul>
+                <li><strong>Discord</strong> — przepisane Read States Service z Go na Rust (latency p99 z 80ms na 5ms)</li>
+                <li><strong>Cloudflare</strong> — Pingora (HTTP proxy) zastapil Nginx, obsluguje 1+ trillion requestow dziennie</li>
+                <li><strong>Microsoft</strong> — Windows kernel components (Rust w kernelu od 2024), Azure Cosmos DB</li>
+                <li><strong>Amazon</strong> — Firecracker (microVMs dla Lambda), s2n-tls</li>
+                <li><strong>Meta</strong> — internal source control system Mononoke</li>
+                <li><strong>Google</strong> — Android kernel parts (od 2024), Chromium components</li>
+                <li><strong>Linux Foundation</strong> — od 2022 Rust w Linux kernel</li>
+                <li><strong>Mozilla</strong> — Servo (browser engine), parts of Firefox</li>
+                <li><strong>Dropbox</strong> — file storage backend</li>
+                <li><strong>Figma</strong> — multiplayer server in Rust</li>
+                <li><strong>1Password</strong> — przepisane z Electron na Rust (Tauri)</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>Firmy uzywajace C# / .NET w produkcji</h3>
+            <ul>
+                <li><strong>Microsoft</strong> — Office 365, Azure, Dynamics, Bing, ogromny scope</li>
+                <li><strong>Stack Overflow</strong> — caly stack na .NET</li>
+                <li><strong>Unity / Unity-based games</strong> — 50%+ rynku gier</li>
+                <li><strong>Bloomberg</strong> — financial systems</li>
+                <li><strong>JP Morgan, Goldman Sachs</strong> — trading systems</li>
+                <li><strong>Cisco</strong> — network management</li>
+                <li><strong>Accenture, Deloitte</strong> — enterprise consulting</li>
+                <li><strong>StackExchange</strong> — caly portfel w .NET</li>
+                <li><strong>BBC</strong> — backend systems</li>
+                <li><strong>Wieksze firmy w Polsce</strong> — banki (Millennium, ING, mBank), Allegro (czesciowo)</li>
+            </ul>
+        </div>
+
+        <h2>Migration paths</h2>
+
+        <h3>Z C# do Rust (kiedy to ma sens)</h3>
+        <ul>
+            <li>Niska-latency komponent — np. crypto-related compute, video encoding</li>
+            <li>Memory-intensive workload — gdy GC powoduje problemy</li>
+            <li>Embedded / edge — gdzie .NET nie pasuje</li>
+            <li>WebAssembly target — Rust ma znacznie mniejszy bundle</li>
+            <li>Long-running services — eliminacja GC pauz</li>
+        </ul>
+
+        <p><strong>Strategia:</strong> stopniowa migracja. Rust komponenty exposed jako gRPC services lub native FFI bindings, reszta zostaje w C#.</p>
+
+        <h3>Z Rust do C# (rzadko)</h3>
+        <ul>
+            <li>Szybsze wprowadzenie produktu</li>
+            <li>Latwiejsze hire developers</li>
+            <li>Enterprise integration (Active Directory, SharePoint)</li>
+            <li>Junior-friendly team</li>
+        </ul>
+
+        <h2>Wynagrodzenia 2026</h2>
+
+        <table>
+            <thead><tr><th>Region</th><th>Rust</th><th>C# / .NET</th><th>Premium Rust</th></tr></thead>
+            <tbody>
+                <tr><td>USA (mid-senior)</td><td>$120-200k</td><td>$90-180k</td><td>+15-25%</td></tr>
+                <tr><td>UK (London)</td><td>£70-130k</td><td>£55-110k</td><td>+15-20%</td></tr>
+                <tr><td>Berlin</td><td>€70-110k</td><td>€55-95k</td><td>+15-20%</td></tr>
+                <tr><td>Polska (senior)</td><td>20-35k PLN</td><td>15-28k PLN</td><td>+20-30%</td></tr>
+                <tr><td>Remote (US firmy)</td><td>$100-180k</td><td>$80-150k</td><td>+15-25%</td></tr>
+            </tbody>
+        </table>
+
+        <p><strong>Trend:</strong> Rust ma premium ze wzgledu na specjalistyczne zapotrzebowanie (crypto, embedded, systems). C# ma szerokie zapotrzebowanie korporacyjne — wiecej ofert, mniej premium.</p>
+
+        <h2>Krzywa uczenia — czas do produktywnosci</h2>
+
+        <table>
+            <thead><tr><th>Cel</th><th>Rust (z C++ background)</th><th>Rust (bez C++ bg)</th><th>C# (bez .NET bg)</th></tr></thead>
+            <tbody>
+                <tr><td>"Hello World" + zrozumienie</td><td>1 dzien</td><td>2-3 dni</td><td>kilka godzin</td></tr>
+                <tr><td>Pierwszy nieidealny projekt</td><td>1-2 tygodnie</td><td>2-4 tygodnie</td><td>1-2 tygodnie</td></tr>
+                <tr><td>Komfort z borrow checker</td><td>1-2 miesiace</td><td>3-6 miesiecy</td><td>n/a</td></tr>
+                <tr><td>Productive (bez "fighting")</td><td>3 miesiace</td><td>6-12 miesiecy</td><td>1-3 miesiace</td></tr>
+                <tr><td>Senior-level proficiency</td><td>1-2 lata</td><td>2-4 lata</td><td>1-3 lata</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Werdyk 2026</h2>
+
+        <div class="card orange">
+            <h3>To nie jest "Rust albo C#" — to "Rust I C#"</h3>
+            <p>W praktyce duze firmy uzywaja obu:</p>
+            <ul>
+                <li><strong>C#</strong> dla wiekszosci aplikacji biznesowych, web backendow, mobile</li>
+                <li><strong>Rust</strong> dla hot-path, performance-critical components, system services</li>
+            </ul>
+            <p>Discord migrowal Read States na Rust, ale reszta backendu zostala w innych jezykach.</p>
+            <p>Microsoft pisze nowe Windows kernel components w Rust, ale Office 365 wciaz na C#.</p>
+        </div>
+
+        <div class="card">
+            <h3>Quick decision guide:</h3>
+<pre><code>Czy aplikacja jest performance-critical (latency &lt; 10ms p99)?
+  TAK → Rust
+  NIE → idz dalej
+
+Czy targetujesz embedded / IoT / kernel?
+  TAK → Rust (no choice)
+  NIE → idz dalej
+
+Czy WebAssembly dla browser jest priorytetem?
+  TAK → Rust (lepszy bundle size)
+  NIE → idz dalej
+
+Czy uzywasz Unity dla gier?
+  TAK → C# (no choice)
+  NIE → idz dalej
+
+Czy team to glownie Microsoft stack (Azure, Office)?
+  TAK → C#
+  NIE → idz dalej
+
+Czy potrzebujesz szybkiego MVP / prototypu?
+  TAK → C#
+  NIE → idz dalej
+
+Czy zespol ma juniorow / chcesz ich szybko onboardowac?
+  TAK → C#
+  NIE → idz dalej
+
+Czy aplikacja bedzie dlugo-running (lata) z stabilna performance?
+  TAK → Rust
+  NIE → C# (default safe choice)</code></pre>
+        </div>
+
+        <h2>Linki</h2>
+        <ul>
+            <li><strong>Rust:</strong> rust-lang.org, "The Rust Book" (free)</li>
+            <li><strong>Rustlings:</strong> github.com/rust-lang/rustlings (interactive tutorial)</li>
+            <li><strong>This Week in Rust:</strong> this-week-in-rust.org</li>
+            <li><strong>C#:</strong> dotnet.microsoft.com</li>
+            <li><strong>Microsoft Learn:</strong> learn.microsoft.com/dotnet</li>
+            <li><strong>Discord case study:</strong> discord.com/blog/why-discord-is-switching-from-go-to-rust</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="01-podstawy-rust.html">&larr; Podstawy Rust</a>
+            <a href="03-typy-aplikacji.html">Typy aplikacji &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

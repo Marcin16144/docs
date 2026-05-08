@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IIS Modules i Handlers</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#22d3ee;--accent-hover:#67e8f9;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="index.html">Windows Server</a>
+    <span class="sep">/</span>
+    <a href="04-iis-podstawy.html">IIS - podstawy</a>
+    <span class="sep">/</span>
+    <span class="title">Modules i Handlers</span>
+</div>
+
+<div class="container">
+<h1>IIS Modules i Handlers</h1>
+<p class="subtitle">Pipeline przetwarzania requestu - kluczowe modules i handlers w IIS.</p>
+
+<h2>Pipeline IIS - przeglad</h2>
+<p>Kazdy HTTP request przechodzi przez sekwencje <strong>events</strong> w pipeline IIS. <strong>Modules</strong> reaguja na te events (np. logowanie, autoryzacja, kompresja). <strong>Handler</strong> generuje odpowiedz (np. wykonanie skryptu, serwowanie pliku).</p>
+
+<h3>Etapy pipeline (HTTP events)</h3>
+<table>
+<tr><th>Event</th><th>Co sie dzieje</th></tr>
+<tr><td>BeginRequest</td><td>Rozpoczecie obslugi requestu</td></tr>
+<tr><td>AuthenticateRequest</td><td>Identyfikacja uzytkownika (Anonymous, Basic, Windows, Forms)</td></tr>
+<tr><td>AuthorizeRequest</td><td>Sprawdzenie czy ma dostep do zasobu</td></tr>
+<tr><td>ResolveRequestCache</td><td>Sprawdzenie cache - moze omijac dalsze etapy</td></tr>
+<tr><td>MapRequestHandler</td><td>Wybor handlera do wygenerowania odpowiedzi</td></tr>
+<tr><td>AcquireRequestState</td><td>Zaladowanie session/state</td></tr>
+<tr><td>PreRequestHandlerExecute</td><td>Przed wykonaniem handlera</td></tr>
+<tr><td>ExecuteRequestHandler</td><td>Wlasciwe wykonanie handlera (generacja odpowiedzi)</td></tr>
+<tr><td>PostRequestHandlerExecute</td><td>Po wykonaniu</td></tr>
+<tr><td>ReleaseRequestState</td><td>Zwolnienie state</td></tr>
+<tr><td>UpdateRequestCache</td><td>Aktualizacja cache</td></tr>
+<tr><td>LogRequest</td><td>Zapis do logu</td></tr>
+<tr><td>EndRequest</td><td>Koniec obslugi</td></tr>
+</table>
+
+<h2>Native vs Managed modules</h2>
+<table>
+<tr><th>Typ</th><th>Jezyk</th><th>Wydajnosc</th><th>Przyklady</th></tr>
+<tr><td>Native</td><td>C++ (DLL kompilowane do nativecode)</td><td>Bardzo wysoka</td><td>HttpLoggingModule, StaticCompressionModule, RequestFilteringModule</td></tr>
+<tr><td>Managed</td><td>.NET (CLR)</td><td>Wolniejsze (CLR overhead)</td><td>FormsAuthenticationModule, OutputCacheModule, RoleManager</td></tr>
+</table>
+
+<div class="card">
+<p><strong>Wskazowka wydajnosciowa:</strong> Im mniej modulow, tym szybszy pipeline. Dla aplikacji prostych (np. statyczna strona, reverse proxy) mozna wylaczyc niepotrzebne managed modules na poziomie web.config przez <code>&lt;remove name="..."/&gt;</code>.</p>
+</div>
+
+<h2>Kluczowe wbudowane modules</h2>
+
+<h3>RequestFilteringModule</h3>
+<p>Filtruje requesty na podstawie URL, naglowkow, rozmiaru. Pierwsza linia obrony przed atakami.</p>
+<pre><code>&lt;system.webServer&gt;
+  &lt;security&gt;
+    &lt;requestFiltering removeServerHeader="true"&gt;
+      &lt;requestLimits maxAllowedContentLength="30000000"
+                      maxUrl="4096"
+                      maxQueryString="2048" /&gt;
+
+      &lt;denyUrlSequences&gt;
+        &lt;add sequence=".." /&gt;
+        &lt;add sequence=":" /&gt;
+        &lt;add sequence="\" /&gt;
+      &lt;/denyUrlSequences&gt;
+
+      &lt;fileExtensions allowUnlisted="true"&gt;
+        &lt;add fileExtension=".config" allowed="false" /&gt;
+        &lt;add fileExtension=".cs"     allowed="false" /&gt;
+        &lt;add fileExtension=".vb"     allowed="false" /&gt;
+        &lt;add fileExtension=".bak"    allowed="false" /&gt;
+        &lt;add fileExtension=".log"    allowed="false" /&gt;
+      &lt;/fileExtensions&gt;
+
+      &lt;hiddenSegments&gt;
+        &lt;add segment="App_Data" /&gt;
+        &lt;add segment="bin" /&gt;
+        &lt;add segment=".git" /&gt;
+        &lt;add segment="node_modules" /&gt;
+      &lt;/hiddenSegments&gt;
+
+      &lt;verbs allowUnlisted="false"&gt;
+        &lt;add verb="GET"     allowed="true" /&gt;
+        &lt;add verb="POST"    allowed="true" /&gt;
+        &lt;add verb="PUT"     allowed="true" /&gt;
+        &lt;add verb="DELETE"  allowed="true" /&gt;
+        &lt;add verb="OPTIONS" allowed="true" /&gt;
+      &lt;/verbs&gt;
+    &lt;/requestFiltering&gt;
+  &lt;/security&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h3>HttpLoggingModule</h3>
+<p>Generuje logi W3C Extended w <code>C:\inetpub\logs\LogFiles</code>. Standard formatu wspierany przez wszystkie analizatory logow.</p>
+<pre><code>&lt;system.webServer&gt;
+  &lt;httpLogging dontLog="false" selectiveLogging="LogAll" /&gt;
+&lt;/system.webServer&gt;
+
+&lt;system.applicationHost&gt;
+  &lt;sites&gt;
+    &lt;siteDefaults&gt;
+      &lt;logFile logFormat="W3C"
+               directory="%SystemDrive%\inetpub\logs\LogFiles"
+               period="Daily"
+               truncateSize="20971520"
+               localTimeRollover="true"
+               logExtFileFlags="Date,Time,ClientIP,UserName,SiteName,
+                                ComputerName,ServerIP,Method,UriStem,UriQuery,
+                                HttpStatus,Win32Status,BytesSent,BytesRecv,
+                                TimeTaken,ServerPort,UserAgent,Cookie,
+                                Referer,ProtocolVersion,Host,HttpSubStatus" /&gt;
+    &lt;/siteDefaults&gt;
+  &lt;/sites&gt;
+&lt;/system.applicationHost&gt;</code></pre>
+
+<h3>StaticCompressionModule i DynamicCompressionModule</h3>
+<p>Kompresja gzip/brotli odpowiedzi. Static dla plikow statycznych (cached), Dynamic dla generowanych.</p>
+<pre><code>&lt;system.webServer&gt;
+  &lt;httpCompression directory="%SystemDrive%\inetpub\temp\IIS Temporary Compressed Files"&gt;
+    &lt;scheme name="br" dll="%Windir%\system32\inetsrv\iisbrotli.dll" /&gt;
+    &lt;scheme name="gzip" dll="%Windir%\system32\inetsrv\gzip.dll" /&gt;
+
+    &lt;staticTypes&gt;
+      &lt;add mimeType="text/*"               enabled="true" /&gt;
+      &lt;add mimeType="application/javascript" enabled="true" /&gt;
+      &lt;add mimeType="application/json"     enabled="true" /&gt;
+      &lt;add mimeType="image/svg+xml"        enabled="true" /&gt;
+      &lt;add mimeType="*/*"                  enabled="false" /&gt;
+    &lt;/staticTypes&gt;
+  &lt;/httpCompression&gt;
+
+  &lt;urlCompression doStaticCompression="true" doDynamicCompression="true" /&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h3>WindowsAuthenticationModule</h3>
+<p>Wbudowane uwierzytelnianie domenowe (Kerberos/NTLM) - typowe dla intranetowych aplikacji.</p>
+<pre><code>&lt;system.webServer&gt;
+  &lt;security&gt;
+    &lt;authentication&gt;
+      &lt;anonymousAuthentication enabled="false" /&gt;
+      &lt;windowsAuthentication enabled="true"&gt;
+        &lt;providers&gt;
+          &lt;add value="Negotiate" /&gt;
+          &lt;add value="NTLM" /&gt;
+        &lt;/providers&gt;
+      &lt;/windowsAuthentication&gt;
+    &lt;/authentication&gt;
+  &lt;/security&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h3>UrlMappings / RewriteModule</h3>
+<p>Statyczne mapowanie URL przez built-in module. Dla bardziej zlozonego: instalacja URL Rewrite Module.</p>
+
+<h3>OutputCache</h3>
+<p>Cache pelnych odpowiedzi (HTML, JSON) na poziomie IIS - bardzo wydajne dla zasobow rzadko sie zmieniajacych.</p>
+
+<h2>Handlers - generatory odpowiedzi</h2>
+<table>
+<tr><th>Handler</th><th>Sciezka</th><th>Cel</th></tr>
+<tr><td>StaticFileModule</td><td>* (default)</td><td>Serwuje pliki statyczne (HTML, CSS, JS, obrazki)</td></tr>
+<tr><td>DefaultDocumentModule</td><td>/ (folder)</td><td>Index files (default.html, index.html, default.aspx)</td></tr>
+<tr><td>DirectoryListingModule</td><td>/ (folder)</td><td>Lista plikow gdy nie ma index (zwykle wylaczone produkcyjnie)</td></tr>
+<tr><td>aspNetCoreModuleV2</td><td>*</td><td>Hosting ASP.NET Core (in-process / out-of-process)</td></tr>
+<tr><td>FastCgiModule</td><td>*.php</td><td>PHP via FastCGI</td></tr>
+<tr><td>PageHandlerFactory (ASP.NET)</td><td>*.aspx</td><td>Klasyczne ASP.NET WebForms</td></tr>
+<tr><td>ManagedPipelineHandler</td><td>*.ashx, *.asmx</td><td>HTTP handlers/Web services .NET</td></tr>
+<tr><td>WebDAV</td><td>WebDAV verbs</td><td>WebDAV file sharing</td></tr>
+</table>
+
+<h3>aspNetCoreModuleV2 (.NET Core / .NET 5+)</h3>
+<pre><code>&lt;system.webServer&gt;
+  &lt;handlers&gt;
+    &lt;add name="aspNetCore"
+         path="*"
+         verb="*"
+         modules="AspNetCoreModuleV2"
+         resourceType="Unspecified" /&gt;
+  &lt;/handlers&gt;
+
+  &lt;aspNetCore processPath="dotnet"
+              arguments=".\MyApp.dll"
+              hostingModel="inprocess"
+              startupTimeLimit="120"
+              requestTimeout="00:02:00"&gt;
+    &lt;environmentVariables&gt;
+      &lt;environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" /&gt;
+    &lt;/environmentVariables&gt;
+  &lt;/aspNetCore&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h3>FastCgiModule (PHP)</h3>
+<pre><code>&lt;system.webServer&gt;
+  &lt;handlers&gt;
+    &lt;add name="PHP_via_FastCGI"
+         path="*.php"
+         verb="*"
+         modules="FastCgiModule"
+         scriptProcessor="C:\PHP\php-cgi.exe"
+         resourceType="Either"
+         requireAccess="Script" /&gt;
+  &lt;/handlers&gt;
+
+  &lt;fastCgi&gt;
+    &lt;application fullPath="C:\PHP\php-cgi.exe"
+                 instanceMaxRequests="10000"
+                 idleTimeout="300"
+                 activityTimeout="30"
+                 requestTimeout="90"&gt;
+      &lt;environmentVariables&gt;
+        &lt;environmentVariable name="PHP_FCGI_MAX_REQUESTS" value="10000" /&gt;
+        &lt;environmentVariable name="PHPRC" value="C:\PHP" /&gt;
+      &lt;/environmentVariables&gt;
+    &lt;/application&gt;
+  &lt;/fastCgi&gt;
+&lt;/system.webServer&gt;</code></pre>
+
+<h2>Kolejnosc handlerow</h2>
+<p>Handlery oceniane sa po kolei wedlug deklaracji w applicationHost.config / web.config. <strong>Pierwszy pasujacy</strong> handler obsluguje request. Dlatego custom handlery nalezy umieszczac przed StaticFileModule.</p>
+<pre><code># Listing handlerow przez PowerShell
+Get-WebHandler | Select Name, Path, Verb, ScriptProcessor, Modules
+
+# Listing modulow
+Get-WebGlobalModule
+Get-WebManagedModule
+
+# Wylaczenie modulu (per site)
+Remove-WebConfigurationProperty -PSPath "IIS:\Sites\Default Web Site" `
+                                 -Filter "system.webServer/modules" `
+                                 -Name "." `
+                                 -AtElement @{name='WindowsAuthenticationModule'}</code></pre>
+
+<h2>Failed Request Tracing (FREB)</h2>
+<p>FREB pokazuje pelny przebieg requestu przez pipeline z czasem kazdego eventu. Niezastapiony przy debugowaniu - zwlaszcza dla URL Rewrite, autoryzacji, ARR.</p>
+<pre><code># Wlaczenie tracingu (raz)
+Install-WindowsFeature Web-Http-Tracing
+&amp; "$env:windir\system32\inetsrv\appcmd.exe" set config "Default Web Site" `
+    -section:system.webServer/tracing/traceFailedRequests `
+    /+"[path='*',customActionExe='',statusCodes='400-599']"
+
+# Logi FREB w
+# C:\inetpub\logs\FailedReqLogFiles\W3SVC{SiteId}\</code></pre>
+
+<h2>Best practices</h2>
+<ul>
+<li>Wylaczac niepotrzebne managed modules dla wydajnosci</li>
+<li>RequestFilteringModule skonfigurowany restrykcyjnie (whitelist verbs, deny extensions)</li>
+<li>Static + Dynamic compression wlaczone na poziomie serwera</li>
+<li>Dla .NET Core - poole z "No Managed Code", aspNetCoreModuleV2 in-process</li>
+<li>Dla PHP - FastCGI z dedykowanym poolem</li>
+<li>Logi W3C z minimum: ClientIP, Method, UriStem, HttpStatus, TimeTaken, UserAgent</li>
+<li>Failed Request Tracing wlaczone na czas debugowania, wylaczone produkcyjnie (wydajnosc)</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="04-01-iis-application-pools.html">&larr; Application Pools</a>
+    <a href="04-iis-podstawy.html">IIS - podstawy &rarr;</a>
+</div>
+</div>
+</body>
+</html>
