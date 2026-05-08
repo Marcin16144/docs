@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Certyfikaty SSL/TLS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}
+.card.orange{border-left:4px solid var(--orange)}
+.card.red{border-left:4px solid var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Sieci</a><span class="sep">/</span><span class="title">Certyfikaty SSL/TLS</span></div>
+<div class="container">
+<h1>Certyfikaty SSL/TLS</h1>
+<p class="subtitle">TLS, X.509, Let's Encrypt, ACME, cipher suites, OCSP, HSTS, Certificate Transparency</p>
+
+<h2>Co to jest TLS</h2>
+<p>TLS (Transport Layer Security) to nastepca SSL (Secure Sockets Layer). Zapewnia trzy rzeczy: poufnosc (szyfrowanie), integralnosc (kontrola modyfikacji) i autentykacje (potwierdzenie tozsamosci serwera). Stosowany w HTTPS, SMTP-TLS, IMAPS, FTPS, OpenVPN i wielu innych.</p>
+
+<h3>Wersje TLS</h3>
+<table>
+<tr><th>Wersja</th><th>Rok</th><th>Status (2026)</th></tr>
+<tr><td>SSL 2.0</td><td>1995</td><td>Wycofany, niebezpieczny (POODLE, BEAST)</td></tr>
+<tr><td>SSL 3.0</td><td>1996</td><td>Wycofany (POODLE 2014)</td></tr>
+<tr><td>TLS 1.0</td><td>1999</td><td>Deprecated od 2020 (RFC 8996)</td></tr>
+<tr><td>TLS 1.1</td><td>2006</td><td>Deprecated od 2020</td></tr>
+<tr><td>TLS 1.2</td><td>2008</td><td>Nadal w uzyciu, akceptowalne</td></tr>
+<tr><td><strong>TLS 1.3</strong></td><td>2018</td><td>Aktualny standard 2026, najszybszy i najbezpieczniejszy</td></tr>
+</table>
+
+<h2>X.509 - struktura certyfikatu</h2>
+<p>Certyfikat X.509 to dokument cyfrowy potwierdzajacy tozsamosc i zawierajacy klucz publiczny.</p>
+
+<table>
+<tr><th>Pole</th><th>Opis</th></tr>
+<tr><td><strong>Version</strong></td><td>Wersja X.509 (zwykle v3)</td></tr>
+<tr><td><strong>Serial Number</strong></td><td>Unikalny numer cert wystawiony przez CA</td></tr>
+<tr><td><strong>Signature Algorithm</strong></td><td>Np. SHA256withRSA, ecdsa-with-SHA384</td></tr>
+<tr><td><strong>Issuer</strong></td><td>Kto wystawil cert (DN: CN, O, C)</td></tr>
+<tr><td><strong>Validity</strong></td><td>Not Before, Not After (daty waznosci)</td></tr>
+<tr><td><strong>Subject</strong></td><td>Komu wystawiono (DN: CN, O, OU, C)</td></tr>
+<tr><td><strong>Subject Public Key Info</strong></td><td>Algorytm + klucz publiczny</td></tr>
+<tr><td><strong>Extensions</strong></td><td>SAN, Key Usage, EKU, AIA, CRL DP, CT logs</td></tr>
+<tr><td><strong>Signature</strong></td><td>Podpis CA na powyzszych danych</td></tr>
+</table>
+
+<h2>Kryptografia asymetryczna</h2>
+<table>
+<tr><th>Algorytm</th><th>Klucz</th><th>Sila / 2026</th></tr>
+<tr><td><strong>RSA 2048</strong></td><td>2048 bit</td><td>Akceptowalne, najpopularniejsze</td></tr>
+<tr><td><strong>RSA 3072</strong></td><td>3072 bit</td><td>Zalecane dla nowych dlugotrwalych cert</td></tr>
+<tr><td><strong>RSA 4096</strong></td><td>4096 bit</td><td>Mocniejszy, wolniejszy CPU</td></tr>
+<tr><td><strong>ECDSA P-256</strong></td><td>256 bit</td><td>Odpowiednik RSA 3072, znacznie szybszy</td></tr>
+<tr><td><strong>ECDSA P-384</strong></td><td>384 bit</td><td>Odpowiednik RSA 7680</td></tr>
+<tr><td><strong>Ed25519</strong></td><td>256 bit</td><td>Szybki, nowoczesny (czesty w SSH)</td></tr>
+</table>
+
+<div class="card orange">
+<strong>Post-quantum</strong> - od 2024 NIST publikuje standardy postkwantowe (ML-KEM/Kyber, ML-DSA/Dilithium). Cloudflare i Google testuja hybrydowe handshake (X25519+Kyber) w 2025-2026. RSA i ECDSA mozna zlamac komputerem kwantowym, wiec migracja jest planowana.
+</div>
+
+<h2>Lancuch zaufania</h2>
+<p>Certyfikat lisciasty (leaf, end-entity) podpisany jest przez certyfikat posredni (intermediate), ktory podpisany jest przez root CA. Root CA jest w zaufanym magazynie systemu/przegladarki.</p>
+
+<pre><code>Root CA (self-signed, w trust store przegladarki/OS)
+  |
+  +-- Intermediate CA (wystawiony przez Root)
+        |
+        +-- Leaf certificate (wystawiony przez Intermediate, dla example.com)
+
+# W praktyce serwer wysyla bundle:
+# leaf cert + intermediate cert(s)
+# (root jest po stronie klienta)</code></pre>
+
+<h2>Certificate Authorities</h2>
+
+<h3>Komercyjne CA</h3>
+<table>
+<tr><th>CA</th><th>Specjalizacja</th></tr>
+<tr><td><strong>DigiCert</strong></td><td>Premium enterprise, OV/EV cert, code signing</td></tr>
+<tr><td><strong>Sectigo</strong> (dawniej Comodo)</td><td>Bardzo szeroki katalog</td></tr>
+<tr><td><strong>GlobalSign</strong></td><td>Enterprise, Belgijska CA</td></tr>
+<tr><td><strong>GoDaddy</strong></td><td>Tani DV, bundled z hostingiem</td></tr>
+<tr><td><strong>IdenTrust</strong></td><td>Wystawia cross-sign Let's Encrypt</td></tr>
+</table>
+
+<h3>Free CA</h3>
+<ul>
+<li><strong>Let's Encrypt</strong> (od 2016) - automatyczny, 90-dniowy cert, 5 cert/tydzien per FQDN. Najpopularniejsza CA na swiecie pod wzgledem liczby cert</li>
+<li><strong>ZeroSSL</strong> - 90-dniowy lub 1-roczny (platnie), API kompatybilne z Let's Encrypt</li>
+<li><strong>Buypass Go SSL</strong> - free 180-dniowy cert</li>
+<li><strong>Google Trust Services</strong> (od 2024 dla wszystkich) - free 90-day</li>
+</ul>
+
+<h2>Typy walidacji</h2>
+<table>
+<tr><th>Typ</th><th>Walidacja</th><th>Czas</th><th>Cena</th></tr>
+<tr><td><strong>DV</strong> (Domain Validation)</td><td>Tylko kontrola domeny (HTTP, DNS, email)</td><td>Minuty (Let's Encrypt)</td><td>Free - 100 PLN/rok</td></tr>
+<tr><td><strong>OV</strong> (Organization Validation)</td><td>Sprawdzenie firmy (KRS, business registration)</td><td>1-3 dni</td><td>200-500 PLN/rok</td></tr>
+<tr><td><strong>EV</strong> (Extended Validation)</td><td>Sprawdzenie firmy + osob + telefonu</td><td>1-2 tygodnie</td><td>500-2000 PLN/rok</td></tr>
+</table>
+
+<div class="card orange">
+<strong>EV juz nie wyswietla zielonego paska</strong> - przegladarki (Chrome 77, Firefox 70) usunely specjalne traktowanie EV w 2019. Dzis EV daje glownie wieksze zaufanie biznesowe i koszt.
+</div>
+
+<h2>Wildcard vs SAN</h2>
+
+<h3>Wildcard certificate</h3>
+<p>Cert z CN/SAN <code>*.example.com</code> chroni wszystkie subdomeny pierwszego poziomu (api.example.com, www.example.com). NIE pokrywa apex (samej example.com - trzeba osobno) ani <code>a.b.example.com</code>.</p>
+
+<h3>SAN (Subject Alternative Names)</h3>
+<p>Cert moze zawierac wiele konkretnych nazw, np. example.com, www.example.com, mail.example.com. Lista do 100-250 SAN typowo.</p>
+
+<pre><code># Wildcard - wymaga DNS-01 challenge w Let's Encrypt:
+*.example.com    # api, www, mail
+example.com      # apex - NIE pokryty wildcard, dodaj osobno
+
+# Multi-SAN cert:
+example.com
+www.example.com
+api.example.com
+admin.example.com
+shop.example.com</code></pre>
+
+<h2>ACME - automatyzacja certyfikatow</h2>
+<p>ACME (Automated Certificate Management Environment, RFC 8555) to protokol uzywany przez Let's Encrypt i innych. Klient ACME automatycznie zamawia, weryfikuje i odnawia certyfikaty.</p>
+
+<h3>Wyzwania ACME</h3>
+<table>
+<tr><th>Challenge</th><th>Mechanizm</th><th>Uzycie</th></tr>
+<tr><td><strong>HTTP-01</strong></td><td>Plik na serwerze pod /.well-known/acme-challenge/</td><td>Domyslne, latwe na public web</td></tr>
+<tr><td><strong>DNS-01</strong></td><td>Rekord TXT _acme-challenge.example.com</td><td>Wildcard certs, internal services</td></tr>
+<tr><td><strong>TLS-ALPN-01</strong></td><td>Specjalny TLS handshake na porcie 443</td><td>Gdy port 80 niedostepny</td></tr>
+</table>
+
+<h3>Klienci ACME</h3>
+<ul>
+<li><strong>certbot</strong> - oficjalny Python klient EFF, najpopularniejszy</li>
+<li><strong>acme.sh</strong> - bash, najlzejszy, masa pluginow DNS</li>
+<li><strong>lego</strong> - Go, modulowy</li>
+<li><strong>Caddy</strong> - HTTP serwer z auto-HTTPS wbudowanym</li>
+<li><strong>Traefik</strong> - reverse proxy z auto cert</li>
+<li><strong>cert-manager</strong> - dla Kubernetes</li>
+</ul>
+
+<h3>certbot - przyklady</h3>
+<pre><code># Standalone (otwiera port 80 sam):
+sudo certbot certonly --standalone -d example.com -d www.example.com
+
+# Webroot (uzywa istniejacego serwera):
+sudo certbot certonly --webroot -w /var/www/html -d example.com
+
+# Nginx plugin (auto-konfiguracja):
+sudo certbot --nginx -d example.com
+
+# Apache plugin:
+sudo certbot --apache -d example.com
+
+# Wildcard (DNS-01 z Cloudflare):
+sudo certbot certonly --dns-cloudflare \
+  --dns-cloudflare-credentials ~/.cf.ini \
+  -d example.com -d "*.example.com"
+
+# Renewal (automatyczne via cron/systemd timer):
+sudo certbot renew --dry-run
+sudo certbot renew
+
+# Lista certyfikatow:
+sudo certbot certificates
+
+# Usuniecie:
+sudo certbot delete --cert-name example.com</code></pre>
+
+<h3>acme.sh - przyklady</h3>
+<pre><code># Instalacja:
+curl https://get.acme.sh | sh
+
+# Standalone:
+acme.sh --issue --standalone -d example.com
+
+# DNS API (Cloudflare):
+export CF_Token="xxx"
+export CF_Account_ID="xxx"
+acme.sh --issue --dns dns_cf -d example.com -d "*.example.com"
+
+# Instalacja cert do nginx (po wystawieniu):
+acme.sh --install-cert -d example.com \
+  --key-file /etc/nginx/ssl/example.com.key \
+  --fullchain-file /etc/nginx/ssl/example.com.cer \
+  --reloadcmd "systemctl reload nginx"</code></pre>
+
+<h3>Caddy - auto HTTPS w 5 liniach</h3>
+<pre><code># Caddyfile
+example.com {
+    reverse_proxy localhost:8080
+}
+
+# Caddy automatycznie:
+# 1. Wystawi cert z Let's Encrypt
+# 2. Skonfiguruje HTTPS (port 443)
+# 3. Przekierowuje HTTP -> HTTPS
+# 4. Odnowi cert przed wygasnieciem</code></pre>
+
+<h2>OCSP - Online Certificate Status Protocol</h2>
+<p>OCSP pozwala sprawdzic czy cert nie zostal odwolany. Klient pyta serwer OCSP CA o status certu serwera.</p>
+
+<h3>OCSP Stapling</h3>
+<p>Serwer sam regularnie pobiera podpisana odpowiedz OCSP od CA i dolacza ja do TLS handshake. Klient nie musi pytac CA - lepiej dla wydajnosci i prywatnosci.</p>
+
+<pre><code># Nginx OCSP stapling:
+ssl_stapling on;
+ssl_stapling_verify on;
+ssl_trusted_certificate /etc/ssl/chain.pem;
+resolver 1.1.1.1 valid=300s;
+resolver_timeout 5s;</code></pre>
+
+<h2>CRL (Certificate Revocation List)</h2>
+<p>CRL to lista odwolanych certyfikatow publikowana przez CA. Klient pobiera caly plik. Bardziej archiczne niz OCSP - nie skaluje sie dobrze.</p>
+
+<h2>Certificate Transparency</h2>
+<p>Certificate Transparency (RFC 6962) wymaga aby wszystkie publicznie zaufane CA logowaly wystawione certyfikaty do publicznych logow CT. Daje przejrzystosc - mozna sprawdzic czy ktos wystawil cert dla naszej domeny.</p>
+
+<pre><code># Sprawdzenie cert dla domeny przez CT:
+# https://crt.sh/?q=example.com
+
+# CLI z curl:
+curl -s "https://crt.sh/?q=example.com&output=json" | jq</code></pre>
+
+<h2>Cipher suites - wspolczesne</h2>
+<p>Cipher suite to kombinacja: key exchange + authentication + bulk cipher + MAC. TLS 1.3 znacznie uproscil cipher suites.</p>
+
+<h3>TLS 1.3 - tylko 5 cipher suites</h3>
+<pre><code>TLS_AES_128_GCM_SHA256
+TLS_AES_256_GCM_SHA384
+TLS_CHACHA20_POLY1305_SHA256
+TLS_AES_128_CCM_SHA256
+TLS_AES_128_CCM_8_SHA256
+
+# AES-GCM - hardware accelerated (AES-NI), preferowany na x86/ARM modern
+# ChaCha20-Poly1305 - software-friendly, lepszy na slabsze CPU mobile</code></pre>
+
+<h3>TLS 1.2 - bezpieczne cipher suites</h3>
+<pre><code># Polec ECDHE (forward secrecy) + AEAD (GCM/CCM):
+ECDHE-ECDSA-AES256-GCM-SHA384
+ECDHE-RSA-AES256-GCM-SHA384
+ECDHE-ECDSA-CHACHA20-POLY1305
+ECDHE-RSA-CHACHA20-POLY1305
+ECDHE-ECDSA-AES128-GCM-SHA256
+ECDHE-RSA-AES128-GCM-SHA256
+
+# UNIKAJ:
+- RC4, DES, 3DES (slabe)
+- MD5, SHA1 (zlamane)
+- CBC bez ETM (BEAST, Lucky13)
+- RSA key exchange (brak forward secrecy)</code></pre>
+
+<h2>Forward secrecy (PFS)</h2>
+<p>Perfect Forward Secrecy zapewnia ze nawet jesli klucz prywatny serwera zostanie skradziony, stare nagrane sesje nie beda mogly byc odszyfrowane. Wymaga ECDHE/DHE key exchange (zamiast RSA).</p>
+
+<h2>HSTS - HTTP Strict Transport Security</h2>
+<p>HSTS (RFC 6797) mowi przegladarce "uzywaj HTTPS dla tej domeny przez X sekund". Zapobiega downgrade attacks.</p>
+
+<pre><code># Nginx:
+add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+
+# Apache:
+Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+
+# Preload list:
+# https://hstspreload.org/
+# Po dodaniu - przegladarki zawsze HTTPS, nawet pierwszy raz</code></pre>
+
+<h2>Komendy openssl</h2>
+<pre><code># Wygeneruj klucz prywatny RSA:
+openssl genrsa -out example.com.key 2048
+
+# Wygeneruj klucz ECDSA:
+openssl ecparam -genkey -name prime256v1 -out example.com.key
+
+# Stworz CSR (Certificate Signing Request):
+openssl req -new -key example.com.key -out example.com.csr \
+  -subj "/CN=example.com/O=My Company/C=PL"
+
+# Podejrzyj cert:
+openssl x509 -in cert.pem -text -noout
+
+# Sprawdz lancuch zaufania:
+openssl s_client -connect example.com:443 -servername example.com -showcerts
+
+# Sprawdz validity:
+openssl x509 -in cert.pem -dates -noout
+
+# Self-signed cert (rozwoj):
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout key.pem -out cert.pem \
+  -subj "/CN=localhost"
+
+# Konwersja formatow:
+openssl x509 -in cert.pem -out cert.der -outform DER  # PEM -> DER
+openssl pkcs12 -export -in cert.pem -inkey key.pem -out cert.pfx  # PEM -> PFX
+
+# Test polaczenia TLS:
+openssl s_client -connect example.com:443 -tls1_3
+openssl s_client -connect example.com:443 -tls1_2
+
+# Sprawdz wszystkie cipher suites serwera:
+nmap --script ssl-enum-ciphers -p 443 example.com</code></pre>
+
+<h2>Certificate pinning</h2>
+<p>HPKP (HTTP Public Key Pinning) byl mechanizmem przypinania konkretnego klucza w przegladarce. Deprecated w 2018 - zbyt latwo bylo "zabic" wlasna domene zlym pinem (DoS na siebie). Obecnie zastapiony Certificate Transparency.</p>
+
+<div class="card green">
+<strong>Best practices 2026</strong>: Let's Encrypt + Caddy/Traefik dla auto-HTTPS, TLS 1.3 only (lub TLS 1.2 z fallback), ECDSA P-256 key, OCSP stapling, HSTS z preload, monitoring CT przez crt.sh, A+ na ssllabs.com.
+</div>
+
+<div class="nav-bottom">
+<a href="06-dns-i-domeny.html">&larr; DNS i domeny</a>
+<a href="08-vpn-i-tunelowanie.html">VPN i tunelowanie &rarr;</a>
+</div>
+</div>
+</body>
+</html>

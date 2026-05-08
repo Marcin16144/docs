@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment Blazor WASM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor WebAssembly</a><span class="sep">/</span><span class="title">Deployment</span></div>
+<div class="container">
+<h1>Deployment Blazor WASM</h1>
+<p class="subtitle">Static hosting (Azure SWA, Netlify, Vercel, S3+CloudFront), CDN, kompresja, environment</p>
+
+<h2>Kluczowa zaleta WASM &mdash; static hosting</h2>
+<p>Blazor WASM po publish to <strong>statyczne pliki</strong>. Mozesz hostowac go na dowolnym hostingu, ktory podaje pliki HTML/JS/WASM. Nie potrzeba serwera .NET, nie ma sticky sessions, brak persistent connections.</p>
+
+<h2>Publishing</h2>
+<pre><code># Standardowa publikacja
+dotnet publish -c Release -o publish
+
+# Wynik: publish/wwwroot zawiera caly content do hosting
+ls publish/wwwroot/
+# index.html
+# _framework/    (mono runtime, dlls)
+# css/
+# js/
+# manifest.json
+# service-worker.js</code></pre>
+
+<h2>Azure Static Web Apps</h2>
+<p>Najszybszy wybor dla Blazor WASM &mdash; tier free, integracja z GitHub Actions, custom domains, identity providers.</p>
+
+<h3>Setup z Azure Portal</h3>
+<ol>
+<li>Create resource -&gt; Static Web App</li>
+<li>Polacz z GitHub repo</li>
+<li>Wybierz "Blazor" preset</li>
+<li>Build: app_location=/, output=wwwroot</li>
+<li>Azure auto-tworzy GitHub Action</li>
+</ol>
+
+<h3>GitHub Action workflow</h3>
+<pre><code>name: Azure Static Web Apps CI/CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0'
+      - run: dotnet publish -c Release -o release
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "/"
+          api_location: ""
+          output_location: "release/wwwroot"</code></pre>
+
+<h3>staticwebapp.config.json</h3>
+<pre><code>{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/_framework/*", "/css/*", "/js/*"]
+  },
+  "globalHeaders": {
+    "Cache-Control": "no-cache, no-store, must-revalidate"
+  },
+  "routes": [
+    {
+      "route": "/_framework/*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    }
+  ],
+  "mimeTypes": {
+    ".wasm": "application/wasm",
+    ".dll": "application/octet-stream"
+  }
+}</code></pre>
+
+<h2>Netlify</h2>
+<p>Najpopularniejszy darmowy hosting dla statycznych SPA.</p>
+
+<h3>netlify.toml</h3>
+<pre><code>[build]
+  command = "dotnet publish -c Release -o output"
+  publish = "output/wwwroot"
+
+[build.environment]
+  DOTNET_VERSION = "9.0"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/_framework/*"
+    [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+    [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"</code></pre>
+
+<h2>Vercel</h2>
+<pre><code># vercel.json
+{
+  "buildCommand": "dotnet publish -c Release -o output",
+  "outputDirectory": "output/wwwroot",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "headers": [
+    {
+      "source": "/_framework/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}</code></pre>
+
+<h2>AWS S3 + CloudFront</h2>
+
+<h3>S3 bucket setup</h3>
+<pre><code>aws s3 mb s3://my-blazor-app
+aws s3 sync publish/wwwroot/ s3://my-blazor-app/ --delete
+aws s3 website s3://my-blazor-app/ --index-document index.html --error-document index.html</code></pre>
+
+<h3>CloudFront distribution</h3>
+<ol>
+<li>Origin: S3 bucket (use OAC, nie public access)</li>
+<li>Behaviors:
+  <ul>
+    <li>/_framework/* -&gt; cache 1 year</li>
+    <li>/* -&gt; cache none, redirect 404 to index.html</li>
+  </ul>
+</li>
+<li>Viewer protocol: HTTPS only (redirect HTTP)</li>
+<li>HTTP/2 i HTTP/3 enabled</li>
+<li>Compression: enabled (auto-brotli)</li>
+</ol>
+
+<h3>CloudFront Function dla SPA fallback</h3>
+<pre><code>function handler(event) {
+    var request = event.request;
+    var uri = request.uri;
+
+    // Czy request to plik (.dll, .wasm, .png, etc.)?
+    if (uri.includes('.')) return request;
+
+    // Inaczej -&gt; index.html
+    request.uri = '/index.html';
+    return request;
+}</code></pre>
+
+<h2>GitHub Pages</h2>
+<p>Mozliwy, ale wymaga workaround dla SPA routing (nie ma server-side fallback).</p>
+<pre><code># .github/workflows/deploy.yml
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+      - run: dotnet publish -c Release -o publish
+      - run: cp publish/wwwroot/index.html publish/wwwroot/404.html # SPA fallback
+      - run: |
+          # Update base href
+          sed -i 's|&lt;base href="/"|&lt;base href="/${{ github.event.repository.name }}/"|g' \
+            publish/wwwroot/index.html
+      - uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./publish/wwwroot</code></pre>
+
+<h2>Cloudflare Pages</h2>
+<p>Darmowy, szybki, CDN globalny. Build automatycznie z GitHub.</p>
+<pre><code># Build settings
+Framework: None
+Build command: dotnet publish -c Release -o output
+Build output directory: output/wwwroot
+Environment variables:
+  DOTNET_VERSION = 9.0</code></pre>
+
+<h2>Wlasny nginx / Apache</h2>
+
+<h3>nginx</h3>
+<pre><code>server {
+    listen 443 ssl http2;
+    server_name app.example.com;
+    root /var/www/myapp/wwwroot;
+
+    # MIME types dla WASM
+    types {
+        application/wasm wasm;
+        application/octet-stream dll pdb;
+        text/cache-manifest manifest;
+    }
+
+    # SPA fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache framework agressywnie
+    location /_framework/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        gzip_static on;
+        brotli_static on;
+    }
+
+    # Index.html bez cache
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Brotli i gzip
+    gzip on;
+    gzip_types application/wasm application/octet-stream text/css application/javascript;
+
+    brotli on;
+    brotli_types application/wasm application/octet-stream text/css application/javascript;
+    brotli_comp_level 11;
+}</code></pre>
+
+<h2>Compression headers</h2>
+<p>Blazor publish generuje pliki <code>.gz</code> i <code>.br</code>. Server musi je serwowac kiedy klient wspiera (Accept-Encoding header).</p>
+
+<h2>Cache strategy &mdash; szczegoly</h2>
+<table>
+<thead><tr><th>Plik</th><th>Cache header</th></tr></thead>
+<tbody>
+<tr><td>index.html</td><td>no-cache</td></tr>
+<tr><td>service-worker.js</td><td>no-cache</td></tr>
+<tr><td>_framework/*.dll, *.wasm</td><td>max-age=31536000, immutable</td></tr>
+<tr><td>_framework/blazor.boot.json</td><td>no-cache (zmienia sie z deployem)</td></tr>
+<tr><td>css/*.css, js/*.js</td><td>max-age=86400</td></tr>
+<tr><td>manifest.json</td><td>max-age=86400</td></tr>
+</tbody>
+</table>
+
+<h2>Environment configs</h2>
+<pre><code>// Program.cs
+var environment = builder.HostEnvironment.Environment;
+
+if (environment == "Production")
+{
+    // Production-only logic
+}
+
+// Bazuje na file appsettings.Production.json
+var apiUrl = builder.Configuration["ApiUrl"];</code></pre>
+
+<h3>appsettings.json files</h3>
+<p>Po publish wszystkie pliki <code>appsettings.*.json</code> ida do wwwroot. Dla rozdzielenia env w prod, nadpisz przy build:</p>
+<pre><code># GitHub Actions
+- run: |
+    cp environments/prod/appsettings.json publish/wwwroot/
+    dotnet publish -c Release -o publish</code></pre>
+
+<h2>Pre-deployment checklist</h2>
+<ul>
+<li>HTTPS only (z HSTS)</li>
+<li>SPA fallback na 404 -&gt; index.html</li>
+<li>Cache headers prawidlowo (immutable dla _framework)</li>
+<li>Brotli/Gzip wlaczone</li>
+<li>MIME type .wasm = application/wasm</li>
+<li>CSP header (jesli mozliwe)</li>
+<li>Manifest.json link w head</li>
+<li>Apple-touch-icon dla iOS</li>
+<li>Open Graph metadata dla SEO</li>
+<li>Health check endpoint w API</li>
+</ul>
+
+<h2>Monitoring</h2>
+<p>Aplikacja WASM zyje w przegladarce &mdash; trudniej monitorowac niz server. Opcje:</p>
+<ul>
+<li><strong>Application Insights</strong> &mdash; client-side telemetry przez JS SDK</li>
+<li><strong>Sentry</strong> &mdash; error tracking z source maps</li>
+<li><strong>LogRocket / FullStory</strong> &mdash; session replay</li>
+<li><strong>Real User Monitoring (RUM)</strong> &mdash; Cloudflare, Datadog</li>
+</ul>
+
+<pre><code>// js
+window.appInsights = new ApplicationInsights({
+    config: { instrumentationKey: 'KEY' }
+});
+appInsights.loadAppInsights();
+appInsights.trackPageView();</code></pre>
+
+<h2>Performance benchmark do CDN</h2>
+<table>
+<thead><tr><th>Hosting</th><th>Edge locations</th><th>Free tier</th></tr></thead>
+<tbody>
+<tr><td>Cloudflare Pages</td><td>250+</td><td>Tak (bardzo dobry)</td></tr>
+<tr><td>Netlify</td><td>~100</td><td>Tak (100 GB / mies)</td></tr>
+<tr><td>Vercel</td><td>~100</td><td>Tak (limit traffic)</td></tr>
+<tr><td>Azure Static Web Apps</td><td>~50</td><td>Tak (free tier)</td></tr>
+<tr><td>AWS CloudFront</td><td>450+</td><td>Tak (1 TB / mies)</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<h3>Werdykt 2026</h3>
+<p>Dla nowych projektow Blazor WASM rekomenduje sie:</p>
+<ol>
+<li><strong>Cloudflare Pages</strong> &mdash; najszybszy globalnie, free tier hojny</li>
+<li><strong>Azure Static Web Apps</strong> &mdash; Microsoft ekosystem, dobra integracja z Azure</li>
+<li><strong>Netlify</strong> &mdash; latwy setup, dobre DX</li>
+<li><strong>Wlasny nginx + CDN</strong> &mdash; full control, dla wiekszych firm</li>
+</ol>
+</div>
+
+<div class="nav-bottom">
+<a href="06-uwierzytelnianie-wasm.html">&larr; Uwierzytelnianie WASM</a>
+<a href="index.html">Powrot do Blazor WASM &rarr;</a>
+</div>
+</div>
+</body>
+</html>

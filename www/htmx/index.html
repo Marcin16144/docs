@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTMX</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.hero{text-align:center;padding:30px 20px;background:linear-gradient(135deg,#1e293b,#064e3b);border-radius:12px;margin-bottom:30px}
+.hero p{font-size:1.05rem;color:var(--text-muted)}
+.notice{background:rgba(245,158,11,.1);border:1px solid #f59e0b;border-radius:8px;padding:14px 18px;margin:24px 0}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">WWW</a><span class="sep">/</span><span class="title">HTMX</span></div>
+<div class="container">
+
+<div class="hero">
+<h1>HTMX</h1>
+<p>HTML attributes for dynamic UI &mdash; zero JS framework, perfect for PHP/Python/Go</p>
+</div>
+
+<h2>Co to HTMX?</h2>
+<p><strong>HTMX</strong> to biblioteka JavaScript, ktora pozwala robic AJAX, CSS Transitions, WebSockets i Server Sent Events bezposrednio z HTML &mdash; przez atrybuty. Filozofia "HTML jako hipermedium" &mdash; kazdy element moze stac sie interaktywny przez dodanie kilku atrybutow.</p>
+
+<p>HTMX rosnie szybko od 2022 roku, glownie dzieki backend-heavy spolecznosciam (Django, Rails, Laravel, Go, ASP.NET MVC). Wystepuje czesto z <a href="../alpinejs/index.html">Alpine.js</a> dla logiki klienta i <a href="../tailwindcss/index.html">Tailwind</a> dla stylow. Filozofia "no SPA" &mdash; serwer zwraca HTML, klient go zamienia.</p>
+
+<h2>Kluczowe cechy</h2>
+<ul>
+<li><strong>Brak buildu</strong> &mdash; jeden script tag, dziala z CDN</li>
+<li><strong>Maly rozmiar</strong> &mdash; ~14 KB skompresowane</li>
+<li><strong>Server-driven</strong> &mdash; backend zwraca HTML, nie JSON</li>
+<li><strong>Progresywne enhancement</strong> &mdash; dziala bez JS (linki/forms standardowe)</li>
+<li><strong>Brak frameworka frontowego</strong> &mdash; mozna mieszac z czymkolwiek</li>
+<li>WebSocket i Server-Sent Events out-of-box</li>
+<li>Nie wymaga TypeScript, build, bundler</li>
+</ul>
+
+<h2>Instalacja</h2>
+<pre><code>&lt;!-- Po prostu CDN --&gt;
+&lt;script src="https://unpkg.com/htmx.org@2.0.3"&gt;&lt;/script&gt;</code></pre>
+
+<h2>Przykladowy kod</h2>
+<pre><code>&lt;!-- Pobieranie tresci z serwera --&gt;
+&lt;button hx-get="/api/products"
+        hx-target="#products"
+        hx-swap="innerHTML"&gt;
+  Zaladuj produkty
+&lt;/button&gt;
+&lt;div id="products"&gt;&lt;/div&gt;
+
+&lt;!-- Form submit z wynikem --&gt;
+&lt;form hx-post="/api/contact" hx-target="#result"&gt;
+  &lt;input name="email" /&gt;
+  &lt;button type="submit"&gt;Wyslij&lt;/button&gt;
+&lt;/form&gt;
+&lt;div id="result"&gt;&lt;/div&gt;
+
+&lt;!-- Live search --&gt;
+&lt;input type="search" name="q"
+       hx-get="/api/search"
+       hx-trigger="keyup changed delay:500ms"
+       hx-target="#results" /&gt;
+
+&lt;!-- Polling co 5 sek --&gt;
+&lt;div hx-get="/api/status"
+     hx-trigger="every 5s"
+     hx-swap="outerHTML"&gt;
+  Status: ladowanie...
+&lt;/div&gt;</code></pre>
+
+<h2>Atrybuty HTMX (najwazniejsze)</h2>
+<table>
+<thead><tr><th>Atrybut</th><th>Co robi</th></tr></thead>
+<tbody>
+<tr><td>hx-get / hx-post / hx-put / hx-delete</td><td>Wyslij request HTTP</td></tr>
+<tr><td>hx-target</td><td>Selektor gdzie wstawic odpowiedz</td></tr>
+<tr><td>hx-swap</td><td>Sposob wstawienia (innerHTML, outerHTML, beforeend, afterend, etc.)</td></tr>
+<tr><td>hx-trigger</td><td>Wyzwalacz (click default, keyup, every Xs, revealed)</td></tr>
+<tr><td>hx-confirm</td><td>Wyswietl confirm() przed wyslaniem</td></tr>
+<tr><td>hx-vals</td><td>Dodatkowe wartosci do wyslania</td></tr>
+<tr><td>hx-headers</td><td>Headers do dodania</td></tr>
+<tr><td>hx-push-url</td><td>Push state historii</td></tr>
+<tr><td>hx-boost</td><td>Konwertuje &lt;a&gt; na hx-get</td></tr>
+<tr><td>hx-ws</td><td>WebSocket connection</td></tr>
+<tr><td>hx-sse</td><td>Server-Sent Events</td></tr>
+</tbody>
+</table>
+
+<h2>Server response &mdash; HTML zamiast JSON</h2>
+<p>HTMX dziala z dowolnym backendem &mdash; sproszczona idea: zwracaj HTML zamiast JSON.</p>
+
+<h3>Python (Flask)</h3>
+<pre><code>@app.post("/api/contact")
+def contact():
+    name = request.form["name"]
+    return f'&lt;div class="alert alert-success"&gt;Witaj {name}!&lt;/div&gt;'</code></pre>
+
+<h3>Go</h3>
+<pre><code>http.HandleFunc("/api/products", func(w http.ResponseWriter, r *http.Request) {
+    products := loadProducts()
+    tmpl, _ := template.ParseFiles("products.html")
+    tmpl.Execute(w, products)
+})</code></pre>
+
+<h3>Django</h3>
+<pre><code>def products_partial(request):
+    products = Product.objects.all()
+    return render(request, "products_list.html", {"products": products})</code></pre>
+
+<h3>ASP.NET Core (Razor)</h3>
+<pre><code>// Controller
+public IActionResult ProductsList() =&gt; PartialView("_ProductsList", products);
+
+// _ProductsList.cshtml
+@foreach (var p in Model)
+{
+    &lt;div class="product"&gt;@p.Name - @p.Price&lt;/div&gt;
+}</code></pre>
+
+<h2>Kombinacja z Alpine.js</h2>
+<p>HTMX = server interactions, Alpine = client interactions. Razem stanowia "lekki" zestaw alternatywny do React/Vue.</p>
+<pre><code>&lt;div x-data="{ open: false }"&gt;
+  &lt;button @click="open = !open"&gt;Toggle&lt;/button&gt;
+
+  &lt;div x-show="open" hx-get="/api/data" hx-trigger="revealed"&gt;
+    Ladowanie z servera...
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+
+<h2>Plusy</h2>
+<ul>
+<li>Zero JS frameworks ekspertyzy &mdash; jest backend dev = mozesz uzywac</li>
+<li>Bardzo mae bundle (14 KB)</li>
+<li>Aplikacja dziala bez JS (progressive enhancement)</li>
+<li>SEO-friendly (server renderuje HTML)</li>
+<li>Latwa migracja existing MVC apps</li>
+<li>Brak buildu, brak node_modules</li>
+</ul>
+
+<h2>Minusy</h2>
+<ul>
+<li>Kazda interakcja = round trip do servera</li>
+<li>Bardziej skomplikowane state management client-side</li>
+<li>Animacje bardziej skomplikowane niz w SPA frameworks</li>
+<li>Mniej skomplikowane interakcje (gry, edytory) sa trudne</li>
+<li>Inny mental model niz React/Vue &mdash; wymaga zmian</li>
+</ul>
+
+<h2>Kiedy uzyc HTMX?</h2>
+<ul>
+<li>Aplikacje content-heavy (blogi, news, e-commerce)</li>
+<li>Internal tools, dashboardy</li>
+<li>Migrowanie z MVC bez przepisywania backend'u</li>
+<li>Zespol backendowy bez frontendu specjalisty</li>
+<li>Server-rendered apps (Django, Rails, Laravel, ASP.NET MVC)</li>
+<li>Mae apki lokalne, prototyping</li>
+</ul>
+
+<h2>HTMX 2.0 zmiany</h2>
+<ul>
+<li>Drop wsparcia IE 11</li>
+<li>Lepsza integracja Server-Sent Events</li>
+<li>Nowy mechanizm extensions</li>
+<li>Performance improvements</li>
+<li>Mniejszy bundle</li>
+</ul>
+
+<h2>Dokumentacja</h2>
+<ul>
+<li><strong>Oficjalna</strong>: htmx.org</li>
+<li><strong>Examples</strong>: htmx.org/examples</li>
+<li><strong>Docs</strong>: htmx.org/docs</li>
+<li><strong>Community</strong>: htmx.org/discord</li>
+</ul>
+
+<div class="notice">
+<strong>W przygotowaniu:</strong> szczegolowe rozdzialy o HTMX patterns, integracja z backendami, hyperscript, Alpine.js cooperation. HTMX w 2026 jest jednym z najszybciej rosnacych projektow w category "anti-SPA".
+</div>
+
+</div>
+</body>
+</html>

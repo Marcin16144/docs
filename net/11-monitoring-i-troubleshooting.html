@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Monitoring i troubleshooting</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}
+.card.orange{border-left:4px solid var(--orange)}
+.card.red{border-left:4px solid var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Sieci</a><span class="sep">/</span><span class="title">Monitoring i troubleshooting</span></div>
+<div class="container">
+<h1>Monitoring i troubleshooting</h1>
+<p class="subtitle">Komendy diagnostyczne, packet capture, monitoring tools, typowe problemy i rozwiazania</p>
+
+<h2>Podstawowe komendy diagnostyczne</h2>
+
+<h3>ping</h3>
+<p>Najprostszy test - czy host odpowiada (ICMP Echo Request/Reply). Mierzy RTT i packet loss.</p>
+<pre><code># Linux/macOS:
+ping 1.1.1.1                       # nieskonczone, Ctrl+C konczy
+ping -c 4 1.1.1.1                  # 4 pakiety
+ping -i 0.2 1.1.1.1                # interwal 0.2 sekundy
+ping -s 1472 1.1.1.1               # rozmiar payload (test MTU)
+ping -M do -s 1472 1.1.1.1         # don't fragment
+
+# Windows:
+ping 1.1.1.1                       # 4 pakiety domyslnie
+ping -t 1.1.1.1                    # nieskonczone
+ping -n 100 1.1.1.1                # 100 pakietow
+ping -l 1472 1.1.1.1               # rozmiar pakietu
+
+# Output (Linux):
+PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
+64 bytes from 1.1.1.1: icmp_seq=1 ttl=58 time=8.21 ms
+--- 1.1.1.1 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3005ms
+rtt min/avg/max/mdev = 8.156/8.337/8.547/0.165 ms</code></pre>
+
+<h3>traceroute / tracert</h3>
+<p>Pokazuje droge pakietow przez kolejne routery. Wysyla pakiety z rosnacym TTL i zbiera ICMP Time Exceeded.</p>
+<pre><code># Linux:
+traceroute -n 8.8.8.8              # -n = bez DNS resolution
+traceroute -I 8.8.8.8              # ICMP zamiast UDP
+traceroute -T 8.8.8.8              # TCP probe
+traceroute -p 443 -T 8.8.8.8       # TCP do portu 443
+
+# Windows:
+tracert 8.8.8.8
+tracert -d 8.8.8.8                 # bez DNS
+
+# Output:
+traceroute to 8.8.8.8 (8.8.8.8), 30 hops max, 60 byte packets
+ 1  192.168.1.1   1.234 ms   0.987 ms   0.876 ms
+ 2  10.50.1.1     5.432 ms   5.123 ms   5.234 ms
+ 3  79.96.x.x     8.123 ms   8.234 ms   8.345 ms
+ 4  *  *  *                        # nie odpowiada (filtruje ICMP)
+ 5  8.8.8.8       8.567 ms   8.456 ms   8.345 ms</code></pre>
+
+<h3>mtr - My TraceRoute</h3>
+<p>Ciagle traceroute z statystykami per hop. Najlepsze narzedzie do diagnostyki packet loss.</p>
+<pre><code># Linux:
+mtr 8.8.8.8                        # interaktywny
+mtr -r -c 100 8.8.8.8              # raport po 100 cyklach
+mtr -nrwc 100 8.8.8.8              # raport, bez DNS, wide format
+
+# Output:
+                              My traceroute  [v0.95]
+host (192.168.1.10)                                    2026-05-07
+                              Packets               Pings
+ Host                       Loss%   Snt   Last   Avg  Best  Wrst StDev
+ 1. 192.168.1.1              0.0%   100    1.2   1.3   1.0   2.3   0.2
+ 2. 10.50.1.1                0.0%   100    5.3   5.5   5.0   8.1   0.4
+ 3. 79.96.1.1                2.0%   100    8.1   8.5   7.5  15.2   1.2  &lt;-- packet loss!
+ 4. 8.8.8.8                  0.0%   100    8.5   8.7   8.3   9.8   0.3</code></pre>
+
+<h3>dig / nslookup</h3>
+<p>DNS lookup tools.</p>
+<pre><code># dig - swiss army knife DNS:
+dig example.com                    # podstawowy A lookup
+dig +short example.com             # tylko adresy
+dig MX example.com                 # rekord MX
+dig AAAA example.com               # IPv6
+dig @1.1.1.1 example.com           # konkretny resolver
+dig +trace example.com             # od root przez TLD do authoritative
+dig -x 8.8.8.8                     # reverse DNS
+dig +noall +answer example.com     # tylko answer section
+
+# nslookup (cross-platform):
+nslookup example.com
+nslookup example.com 1.1.1.1
+nslookup -type=MX example.com
+
+# host (uproszczone):
+host example.com
+host -t TXT example.com</code></pre>
+
+<h3>nmap - skanowanie portow</h3>
+<pre><code># Domyslne skanowanie 1000 najpopularniejszych portow:
+nmap example.com
+
+# Konkretne porty:
+nmap -p 22,80,443 example.com
+nmap -p 1-1000 example.com         # zakres
+nmap -p- example.com               # wszystkie 65535
+
+# Skan calej podsieci:
+nmap 192.168.1.0/24
+
+# Service detection (-sV):
+nmap -sV -p 22,80,443 example.com
+
+# OS detection (-O):
+sudo nmap -O example.com
+
+# Aggressive (vse wymienione + traceroute + scripts):
+sudo nmap -A example.com
+
+# Skan UDP (powolny):
+sudo nmap -sU -p 53,123,161 example.com
+
+# Stealth (SYN scan, half-open):
+sudo nmap -sS example.com
+
+# Skripty NSE - wykrywanie podatnosci:
+nmap --script vuln example.com
+nmap --script ssl-enum-ciphers -p 443 example.com</code></pre>
+
+<h3>nc / netcat - swiss army knife</h3>
+<pre><code># Test TCP polaczenia:
+nc -v example.com 443
+# Connection to example.com 443 port [tcp/https] succeeded!
+
+# Listen mode (sluchaj na porcie):
+nc -lvp 8080
+
+# Send file:
+# Strona odbierajaca:
+nc -lvp 8080 > received.bin
+# Strona wysylajaca:
+nc receiver.host 8080 < file.bin
+
+# UDP:
+nc -u host 53
+
+# Quick HTTP request:
+echo -e "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n" | nc example.com 80
+
+# Banner grabbing:
+nc -v ssh.host 22</code></pre>
+
+<h3>ss / netstat</h3>
+<p>Wyswietlanie polaczen i listening socketow. <code>ss</code> jest nowsze i szybsze niz <code>netstat</code>.</p>
+<pre><code># ss (preferred):
+ss -tulpn                          # TCP/UDP listening z procesami i numerami
+ss -tn state established           # aktywne TCP polaczenia
+ss -t                              # tylko TCP
+ss -u                              # tylko UDP
+ss -l                              # listening
+ss -p                              # process info
+ss -n                              # numeric (no DNS resolution)
+ss -i                              # extended info (cwnd, rtt)
+ss -s                              # summary (statystyki)
+
+# Konkretny port:
+ss -tn dport = :443
+ss -tn sport = :22
+
+# netstat (legacy, dziala wszedzie):
+netstat -tulpn                     # Linux
+netstat -an                        # Windows
+netstat -an | findstr LISTENING    # Windows: tylko sluchajace</code></pre>
+
+<h3>lsof -i</h3>
+<pre><code># Co uzywa portu 80?
+sudo lsof -i :80
+
+# Co uzywa portow w zakresie?
+sudo lsof -i :1-1024
+
+# Wszystkie network connections procesu:
+sudo lsof -p 12345 -i
+
+# Tylko TCP listening:
+sudo lsof -i TCP -s TCP:LISTEN</code></pre>
+
+<h3>iperf3 - test bandwidth</h3>
+<pre><code># Server side:
+iperf3 -s
+
+# Client side:
+iperf3 -c server.host
+iperf3 -c server.host -t 30        # 30 sekund
+iperf3 -c server.host -P 4         # 4 paralelne strumienie
+iperf3 -c server.host -R           # reverse (server -> client)
+iperf3 -c server.host -u           # UDP
+iperf3 -c server.host -u -b 1G     # UDP 1 Gbps target
+
+# Output (typowy gigabit):
+[ ID] Interval           Transfer     Bitrate
+[  5]  0.00-10.00 sec   1.10 GBytes   946 Mbits/sec  sender
+[  5]  0.00-10.00 sec   1.10 GBytes   945 Mbits/sec  receiver</code></pre>
+
+<h3>curl / wget</h3>
+<pre><code># curl - testowanie HTTP:
+curl -v https://example.com        # verbose - widac TLS handshake
+curl -I https://example.com        # tylko headers (HEAD request)
+curl -L https://example.com        # follow redirects
+curl --resolve example.com:443:1.2.3.4 https://example.com   # custom DNS
+curl -k https://self-signed.com    # ignoruj cert (insecure)
+
+# Mierzenie czasu:
+curl -w "@curl-format.txt" -o /dev/null -s https://example.com
+# format: time_namelookup, time_connect, time_appconnect, time_total
+
+# wget - download:
+wget https://example.com/file.zip
+wget -c https://example.com/file.zip   # continue resume
+wget -r -np https://example.com/dir/    # recursive, no parent</code></pre>
+
+<h2>Packet capture</h2>
+
+<h3>tcpdump</h3>
+<p>Klasyczny CLI do capturowania pakietow. Bardzo mocny, BPF filter syntax.</p>
+<pre><code># Najprostsze - na interface eth0:
+sudo tcpdump -i eth0
+
+# Z DNS i numerami portow:
+sudo tcpdump -i eth0 -nn
+
+# Konkretny host:
+sudo tcpdump -i eth0 host 1.2.3.4
+
+# Konkretny port:
+sudo tcpdump -i eth0 port 443
+sudo tcpdump -i eth0 'tcp port 80'
+
+# Kombinacje BPF:
+sudo tcpdump -i eth0 'host 1.2.3.4 and port 80'
+sudo tcpdump -i eth0 'src host 1.2.3.4 or dst host 5.6.7.8'
+sudo tcpdump -i eth0 'tcp[tcpflags] &amp; (tcp-syn) != 0'   # SYN packets
+
+# Zapis do pliku PCAP:
+sudo tcpdump -i eth0 -w capture.pcap
+
+# Czytanie z pliku:
+tcpdump -r capture.pcap
+
+# Hex + ASCII:
+sudo tcpdump -i eth0 -A port 80
+sudo tcpdump -i eth0 -X port 80    # hex + ascii
+
+# ICMP traffic:
+sudo tcpdump -i eth0 icmp
+
+# Limit pakietow:
+sudo tcpdump -i eth0 -c 100        # zatrzymaj po 100</code></pre>
+
+<h3>Wireshark</h3>
+<p>GUI do analizy ruchu. Zaznajamia ze sie z protokolami, dekoduje setki z nich. Niezbedne narzedzie diagnostyki.</p>
+
+<h4>Filter examples</h4>
+<pre><code># Display filters (rozne od capture filters!):
+ip.addr == 192.168.1.10
+tcp.port == 443
+http.request.method == "POST"
+dns.qry.name == "example.com"
+tcp.flags.syn == 1 and tcp.flags.ack == 0    # SYN tylko
+tcp.analysis.retransmission                  # retransmisje
+ssl.handshake.type == 1                      # ClientHello
+http.response.code == 500</code></pre>
+
+<h3>tshark - Wireshark CLI</h3>
+<pre><code># Capture na interface:
+sudo tshark -i eth0
+
+# Z filterem:
+sudo tshark -i eth0 -f "port 443"
+
+# Display filter (-Y):
+sudo tshark -i eth0 -Y "http.request"
+
+# Specific fields:
+sudo tshark -i eth0 -T fields -e ip.src -e ip.dst -e http.host
+
+# Read pcap:
+tshark -r capture.pcap -Y "dns"</code></pre>
+
+<h2>Network monitoring tools</h2>
+
+<table>
+<tr><th>Tool</th><th>Typ</th><th>Specjalnosc</th></tr>
+<tr><td><strong>Zabbix</strong></td><td>Open source</td><td>Pelny stack, agentowy + SNMP, alerting</td></tr>
+<tr><td><strong>Nagios / Icinga</strong></td><td>Open source</td><td>Klasyczny check-based monitoring</td></tr>
+<tr><td><strong>LibreNMS</strong></td><td>Open source</td><td>SNMP-based, auto-discovery, sweet UI</td></tr>
+<tr><td><strong>PRTG</strong></td><td>Komercyjny</td><td>Windows-friendly, latwa konfiguracja</td></tr>
+<tr><td><strong>Cacti</strong></td><td>Open source</td><td>RRDtool-based, klasyczny graphing</td></tr>
+<tr><td><strong>Grafana + Prometheus</strong></td><td>Open source</td><td>Cloud-native, time-series</td></tr>
+<tr><td><strong>Datadog</strong></td><td>SaaS</td><td>Wszystko-w-jednym, drogie</td></tr>
+<tr><td><strong>SolarWinds</strong></td><td>Komercyjny</td><td>Enterprise NMS</td></tr>
+</table>
+
+<h3>Grafana + Prometheus + node_exporter</h3>
+<p>Najpopularniejszy stack monitoring 2026. Prometheus scrapuje metryki z exporters, Grafana je wizualizuje.</p>
+
+<pre><code># node_exporter (host metrics):
+wget https://github.com/prometheus/node_exporter/releases/download/v1.8.0/node_exporter-1.8.0.linux-amd64.tar.gz
+./node_exporter
+# Domyslnie http://host:9100/metrics
+
+# prometheus.yml:
+scrape_configs:
+  - job_name: 'nodes'
+    static_configs:
+      - targets: ['host1:9100', 'host2:9100']
+
+# Network exporters:
+# - blackbox_exporter (HTTP/TCP/ICMP probing)
+# - snmp_exporter (SNMP devices)
+# - mikrotik_exporter
+# - unifi_exporter</code></pre>
+
+<h2>SNMP - Simple Network Management Protocol</h2>
+<p>SNMP od 1988 - standardowy protokol pollowania urzadzen sieciowych. UDP 161 (queries) / 162 (traps). MIB (Management Information Base) opisuje co mozna pytac.</p>
+
+<table>
+<tr><th>Wersja</th><th>Bezpieczenstwo</th><th>Status</th></tr>
+<tr><td>SNMPv1</td><td>Plain text community string</td><td>Legacy, NIE w produkcji</td></tr>
+<tr><td>SNMPv2c</td><td>Plain text community string</td><td>Nadal popularny niestety</td></tr>
+<tr><td>SNMPv3</td><td>Authentication + encryption</td><td>Zalecane</td></tr>
+</table>
+
+<pre><code># snmpwalk - dump wszystkich OID:
+snmpwalk -v 2c -c public 192.168.1.1
+snmpwalk -v 2c -c public 192.168.1.1 1.3.6.1.2.1.1   # System group
+
+# Konkretne OID:
+snmpget -v 2c -c public 192.168.1.1 sysDescr.0
+snmpget -v 2c -c public 192.168.1.1 ifInOctets.1
+
+# SNMPv3 z auth+priv:
+snmpwalk -v 3 -u myuser -l authPriv \
+  -a SHA -A "authpassword" \
+  -x AES -X "privpassword" \
+  192.168.1.1</code></pre>
+
+<h2>NetFlow / IPFIX / sFlow</h2>
+<p>Protokoly do zbierania statystyk ruchu. Routery wysylaja sample lub flow records do collectora.</p>
+<ul>
+<li><strong>NetFlow v5/v9</strong> - Cisco, najczesciej spotykany</li>
+<li><strong>IPFIX</strong> (RFC 7011) - IETF standard, oparty na NetFlow v9</li>
+<li><strong>sFlow</strong> - sample-based (np. 1 z 1000 pakietow), wsparcie wielu producentow</li>
+<li>Kolektory: nfdump/nfsen, ntopng, FlowMon, Plixer</li>
+</ul>
+
+<h2>Speed tests</h2>
+<table>
+<tr><th>Tool</th><th>Charakterystyka</th></tr>
+<tr><td><strong>speedtest.net</strong></td><td>Ookla, najpopularniejszy, wiele serwerow</td></tr>
+<tr><td><strong>fast.com</strong></td><td>Netflix CDN, prosty, only download</td></tr>
+<tr><td><strong>librespeed</strong></td><td>Self-hosted PHP/Node, brak telemetrii</td></tr>
+<tr><td><strong>iperf3</strong></td><td>CLI, testy point-to-point z wlasnym serwerem</td></tr>
+<tr><td><strong>cloudflare speed test</strong></td><td>Cloudflare edge, tez packet loss</td></tr>
+</table>
+
+<pre><code># speedtest CLI (ookla):
+speedtest
+
+# librespeed CLI:
+docker run -it --rm adolfintel/speedtest
+
+# bandwidth test bez external (wget):
+wget -O /dev/null http://speedtest.tele2.net/100MB.zip</code></pre>
+
+<h2>Najczestsze problemy + rozwiazania</h2>
+
+<h3>"Brak internetu"</h3>
+<pre><code># Krok 1: link layer
+ip link show eth0                  # czy interface UP?
+ethtool eth0                       # negocjacja link, predkosc
+
+# Krok 2: IP
+ip addr show eth0                  # czy ma adres IP?
+ip route show                      # czy jest default gateway?
+
+# Krok 3: gateway
+ping 192.168.1.1                   # local gateway
+
+# Krok 4: ISP / WAN
+ping 8.8.8.8                       # publiczny IP
+ping 1.1.1.1                       # alternatywny
+
+# Krok 5: DNS
+ping google.com                    # DNS resolution + osiagalnosc
+nslookup google.com 1.1.1.1        # explicit resolver
+
+# Diagnoza:
+# - ping 192.168.1.1 OK, 8.8.8.8 FAIL  -> problem ISP/gateway
+# - ping 8.8.8.8 OK, ping google.com FAIL -> problem DNS
+# - wszystko OK ale strona nie ladowuje  -> firewall, MTU, routing</code></pre>
+
+<h3>"Wolny internet"</h3>
+<ul>
+<li>Speedtest: porownaj z deklaracja ISP. Jesli np. 50/10 zamiast 1000/100 - problem fizyczny lub kontrakt</li>
+<li>Ping i jitter: wysokie warto. -> congestion lub problemy WAN</li>
+<li>MTU issues: <code>ping -M do -s 1472 8.8.8.8</code> - jesli niedaje, zmniejsz MTU</li>
+<li>Sprawdz CPU routera: czesto bottleneck - tani router nie obsluzy 1 Gbps z NAT/QoS/VPN</li>
+<li>WiFi vs ethernet: jesli WiFi wolniejsze, znajdz mniej zatkany kanal</li>
+</ul>
+
+<h3>"Port zablokowany"</h3>
+<pre><code># Test z zewnatrz:
+nc -v your.public.ip 8080
+# Connection refused = port closed
+# Operation timed out = filtered (firewall)
+# Connection succeeded = port open
+
+# Sprawdz kolejno:
+1. Aplikacja nasluchuje?    -> ss -tlnp | grep :8080
+2. Lokalny firewall?         -> iptables -L -n / ufw status
+3. NAT na routerze?          -> port forwarding skonfigurowany?
+4. ISP filtruje port?        -> niektore ISP blokuja port 25, 80, 443 dla home users
+5. CGNAT?                    -> jesli IP zaczyna sie 100.64-127, masz CGNAT i nie masz publicznego IP</code></pre>
+
+<h3>"Cannot reach server"</h3>
+<pre><code>mtr -rwc 50 server.host
+# Patrz w ktorym hopie packet loss zaczyna sie. To routing problem na tej trasie.
+
+# Test alternatywna trasa:
+# - przez VPN
+# - przez mobile network
+# - z innego DNS</code></pre>
+
+<h3>"DNS nie resolvuje"</h3>
+<pre><code># Test z roznymi resolverami:
+dig @1.1.1.1 example.com
+dig @8.8.8.8 example.com
+dig @9.9.9.9 example.com
+
+# Jesli wszystkie failuje - problem z domena (NXDOMAIN)
+# Jesli tylko twoj resolver - cache problem lub MITM
+
+# Flush DNS cache:
+sudo systemd-resolve --flush-caches    # Linux systemd
+sudo killall -HUP mDNSResponder        # macOS
+ipconfig /flushdns                     # Windows
+
+# Sprawdz konfiguracje resolvera:
+cat /etc/resolv.conf                   # Linux
+scutil --dns                           # macOS
+ipconfig /all                          # Windows</code></pre>
+
+<h2>Performance baselines</h2>
+<table>
+<tr><th>Metric</th><th>Wartosc dobra</th><th>Wartosc problemu</th></tr>
+<tr><td>Latency (LAN)</td><td>&lt; 1 ms</td><td>&gt; 5 ms</td></tr>
+<tr><td>Latency (do najblizszego ISP)</td><td>&lt; 10 ms</td><td>&gt; 30 ms</td></tr>
+<tr><td>Latency (do internet glownego)</td><td>&lt; 50 ms</td><td>&gt; 100 ms</td></tr>
+<tr><td>Latency (international)</td><td>&lt; 150 ms</td><td>&gt; 300 ms</td></tr>
+<tr><td>Packet loss</td><td>0%</td><td>&gt; 1% (poczatek issue)</td></tr>
+<tr><td>Jitter</td><td>&lt; 5 ms (VoIP)</td><td>&gt; 20 ms (VoIP audible)</td></tr>
+<tr><td>Bandwidth utilization</td><td>&lt; 70%</td><td>&gt; 85% (congestion)</td></tr>
+</table>
+
+<div class="card green">
+<strong>Cheatsheet</strong>: ping (czy dziala), traceroute/mtr (gdzie sie psuje), dig (DNS), curl -v (HTTPS), tcpdump (co sie dzieje na druie). To 90% diagnostyki.
+</div>
+
+<div class="nav-bottom">
+<a href="10-wifi-i-sieci-bezprzewodowe.html">&larr; WiFi</a>
+<a href="12-cloud-networking.html">Cloud networking &rarr;</a>
+</div>
+</div>
+</body>
+</html>

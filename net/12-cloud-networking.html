@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Cloud networking</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}
+.card.orange{border-left:4px solid var(--orange)}
+.card.red{border-left:4px solid var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Sieci</a><span class="sep">/</span><span class="title">Cloud networking</span></div>
+<div class="container">
+<h1>Cloud networking</h1>
+<p class="subtitle">VPC, load balancers, CDN, edge computing, service mesh, zero trust</p>
+
+<h2>VPC - Virtual Private Cloud</h2>
+<p>VPC to logicznie wydzielona, prywatna siec w chmurze. Definiujesz adresacje, subnetting, routing, firewall. To fundament cloud networkingu - kazdy zasob (VM, baza, kontener) zyje w VPC.</p>
+
+<h3>AWS VPC</h3>
+<p>Najpopularniejszy VPC. Region-bound (kazdy region ma swoje VPC), CIDR 16-28 (pojedynczy lub multiple).</p>
+
+<table>
+<tr><th>Element</th><th>Opis</th></tr>
+<tr><td><strong>VPC</strong></td><td>Glowny kontener, np. 10.0.0.0/16 (65k adresow)</td></tr>
+<tr><td><strong>Subnet</strong></td><td>Podsiec w VPC, kazda w jednej AZ (Availability Zone)</td></tr>
+<tr><td><strong>Route Table</strong></td><td>Reguly routingu - kazdy subnet ma jedna RT</td></tr>
+<tr><td><strong>Internet Gateway (IGW)</strong></td><td>Dostep do internetu, podlaczany do VPC</td></tr>
+<tr><td><strong>NAT Gateway</strong></td><td>Wychodzacy internet dla private subnet</td></tr>
+<tr><td><strong>VPC Endpoint</strong></td><td>Polaczenie do AWS services (S3, DynamoDB) bez internetu</td></tr>
+</table>
+
+<h3>Azure Virtual Network (VNet)</h3>
+<p>Podobny koncepcyjnie do AWS VPC. Region-bound, ale latwiej polaczyc cross-region (Global VNet Peering). Defaultnie outbound internet.</p>
+
+<h3>GCP VPC</h3>
+<p>Domyslnie <strong>global</strong> (w przeciwienstwie do AWS regional). Subnets per region, ale jeden VPC moze obejmowac caly swiat. Latwiejsza global architektura.</p>
+
+<h2>Subnets - public vs private</h2>
+
+<h3>Public subnet</h3>
+<ul>
+<li>Route table ma trase 0.0.0.0/0 -> IGW (Internet Gateway)</li>
+<li>Instancje moga miec public IP</li>
+<li>Stosowane dla load balancers, bastion hosts, web servers</li>
+</ul>
+
+<h3>Private subnet</h3>
+<ul>
+<li>Route table ma trase 0.0.0.0/0 -> NAT Gateway/Instance</li>
+<li>Brak public IP, brak inbound z internetu</li>
+<li>Wychodzacy internet przez NAT</li>
+<li>Stosowane dla baz danych, application servers, internal services</li>
+</ul>
+
+<pre><code># Klasyczny 3-tier setup AWS VPC:
+VPC: 10.0.0.0/16
+
+Public subnets (per AZ):
+  10.0.1.0/24   us-east-1a   -> ALB, NAT GW
+  10.0.2.0/24   us-east-1b   -> ALB, NAT GW
+
+Private app subnets:
+  10.0.10.0/24  us-east-1a   -> EC2, ECS
+  10.0.11.0/24  us-east-1b   -> EC2, ECS
+
+Private DB subnets:
+  10.0.20.0/24  us-east-1a   -> RDS
+  10.0.21.0/24  us-east-1b   -> RDS
+
+Route tables:
+  Public RT:    0.0.0.0/0 -> IGW
+  Private RT:   0.0.0.0/0 -> NAT Gateway</code></pre>
+
+<h2>Network ACLs vs Security Groups</h2>
+
+<table>
+<tr><th>Cecha</th><th>Network ACL</th><th>Security Group</th></tr>
+<tr><td>Poziom</td><td>Subnet</td><td>Instance / ENI</td></tr>
+<tr><td>Stateful</td><td>Nie (stateless)</td><td>Tak</td></tr>
+<tr><td>Reguly</td><td>Allow + Deny</td><td>Tylko Allow</td></tr>
+<tr><td>Reguly numerowane</td><td>Tak (pierwsze pasuje)</td><td>Nie (wszystkie evaluowane)</td></tr>
+<tr><td>Domyslna polityka</td><td>Allow all (default NACL)</td><td>Deny all inbound</td></tr>
+<tr><td>Zastosowanie</td><td>Coarse-grained, subnet-level</td><td>Fine-grained per resource</td></tr>
+</table>
+
+<h2>VPC Peering, Transit Gateway</h2>
+
+<h3>VPC Peering</h3>
+<p>Direct connection 1-to-1 miedzy dwoma VPC. Brak transitive (A-B i B-C nie znaczy A-C). Skaluje sie zle przy wielu VPC (mesh).</p>
+
+<h3>AWS Transit Gateway</h3>
+<p>Hub-and-spoke topologia - jeden TGW polaczony z wieloma VPC i lokalnymi data centers. Skaluje sie do tysiecy VPC. Plus: cross-region peering.</p>
+
+<h3>Azure VNet Peering</h3>
+<p>Podobne do AWS, ale defaultnie miedzy regions = global peering.</p>
+
+<h2>Cross-region / cross-cloud connectivity</h2>
+
+<h3>Site-to-site VPN</h3>
+<p>IPsec tunnel miedzy on-premise routerem a cloud VPN gateway. Najprostszy, najtanszy, ale ograniczony do 1.25 Gbps na tunel.</p>
+
+<pre><code># AWS Site-to-Site VPN:
+1. Customer Gateway (CGW) - reprezentacja routera on-prem
+2. Virtual Private Gateway (VGW) - po stronie AWS
+3. VPN Connection - 2 tunele IPsec dla redundancji
+4. Route propagation w route tables
+
+# Pricing (2026):
+$0.05 / hour per tunnel
++ data transfer $0.09/GB out</code></pre>
+
+<h3>Direct Connect / ExpressRoute / Cloud Interconnect</h3>
+<p>Dedykowane fizyczne lacze z cloud provider. Wieksza przepustowosc (do 100 Gbps), nizsza i przewidywalna latencja, taniejszy traffic out.</p>
+
+<table>
+<tr><th>Cloud</th><th>Nazwa</th><th>Predkosc</th></tr>
+<tr><td><strong>AWS</strong></td><td>Direct Connect</td><td>50 Mbps - 100 Gbps</td></tr>
+<tr><td><strong>Azure</strong></td><td>ExpressRoute</td><td>50 Mbps - 100 Gbps</td></tr>
+<tr><td><strong>GCP</strong></td><td>Cloud Interconnect (Dedicated/Partner)</td><td>50 Mbps - 200 Gbps</td></tr>
+</table>
+
+<h2>Load balancers</h2>
+
+<h3>Layer 4 (TCP/UDP)</h3>
+<p>Forwarduje pakiety bez patrzenia na payload. Bardzo szybki, transparentny. Stosuje sie do gdzies, gdzie nie potrzeba L7 logiki.</p>
+
+<table>
+<tr><th>Cloud</th><th>Service</th></tr>
+<tr><td>AWS</td><td>NLB (Network Load Balancer)</td></tr>
+<tr><td>Azure</td><td>Azure Load Balancer (Basic / Standard)</td></tr>
+<tr><td>GCP</td><td>Network Load Balancer</td></tr>
+</table>
+
+<h3>Layer 7 (HTTP/HTTPS)</h3>
+<p>Decyzje na podstawie HTTP - URL, headers, cookies. Mozna robic path-based routing, A/B testing, sticky sessions.</p>
+
+<table>
+<tr><th>Cloud</th><th>Service</th></tr>
+<tr><td>AWS</td><td>ALB (Application Load Balancer)</td></tr>
+<tr><td>Azure</td><td>Application Gateway</td></tr>
+<tr><td>GCP</td><td>HTTPS Load Balancer (Global)</td></tr>
+</table>
+
+<h3>Open source alternatives</h3>
+<ul>
+<li><strong>HAProxy</strong> - klasyk, super szybki, L4 + L7</li>
+<li><strong>Nginx</strong> - HTTP-focused, latwy, popularny</li>
+<li><strong>Traefik</strong> - cloud-native, auto-discovery z Docker/K8s, auto HTTPS</li>
+<li><strong>Envoy</strong> - foundation Istio service mesh, modern proxy</li>
+<li><strong>Caddy</strong> - HTTPS by default, bardzo prosta konfiguracja</li>
+</ul>
+
+<pre><code># HAProxy prosty config:
+frontend http_front
+    bind *:80
+    default_backend web_backend
+
+backend web_backend
+    balance roundrobin
+    server web1 10.0.10.10:80 check
+    server web2 10.0.10.11:80 check
+    server web3 10.0.10.12:80 check
+
+# Nginx upstream:
+upstream backend {
+    least_conn;
+    server 10.0.10.10:80;
+    server 10.0.10.11:80;
+    server 10.0.10.12:80 backup;
+}
+
+server {
+    listen 80;
+    location / {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}</code></pre>
+
+<h2>CDN - Content Delivery Network</h2>
+<p>CDN cachuje statyczne treci na serwerach blizej uzytkownikow. Skraca latency, redukuje load na origin, zapewnia DDoS protection.</p>
+
+<table>
+<tr><th>CDN</th><th>Lokalizacje 2026</th><th>Specjalnosc</th></tr>
+<tr><td><strong>Cloudflare</strong></td><td>330+ miast</td><td>Free tier, security focus, Workers edge</td></tr>
+<tr><td><strong>AWS CloudFront</strong></td><td>450+ POP</td><td>Integracja z AWS, Lambda@Edge</td></tr>
+<tr><td><strong>Azure CDN / Front Door</strong></td><td>250+ POP</td><td>Microsoft ecosystem</td></tr>
+<tr><td><strong>GCP Cloud CDN</strong></td><td>200+ POP</td><td>Z GCP HTTPS LB</td></tr>
+<tr><td><strong>Fastly</strong></td><td>~80 POP</td><td>VCL programming, real-time</td></tr>
+<tr><td><strong>Akamai</strong></td><td>4000+ lokalizacji</td><td>Enterprise, drogi</td></tr>
+<tr><td><strong>Bunny CDN</strong></td><td>120+ POP</td><td>Tani ($0.005-0.04/GB), popularny 2026</td></tr>
+</table>
+
+<div class="card green">
+<strong>Najpopularniejsze 2026</strong> - Cloudflare (free tier ze security i CDN). Dla taniej wysokoprzepustowej dystrybucji - Bunny CDN. Dla developerow - Cloudflare Workers / Vercel Edge.
+</div>
+
+<h2>Edge computing</h2>
+<p>Edge computing = uruchamianie kodu na CDN PoP, blisko uzytkownika. Latencja 10-50ms zamiast 100-300ms do origin.</p>
+
+<table>
+<tr><th>Platform</th><th>Runtime</th><th>Cold start</th></tr>
+<tr><td><strong>Cloudflare Workers</strong></td><td>V8 isolates (JavaScript, TypeScript, Rust via WASM)</td><td>0 ms</td></tr>
+<tr><td><strong>Vercel Edge Functions</strong></td><td>V8 isolates</td><td>0 ms</td></tr>
+<tr><td><strong>AWS Lambda@Edge</strong></td><td>Node.js, Python</td><td>50-200 ms</td></tr>
+<tr><td><strong>Fastly Compute@Edge</strong></td><td>WebAssembly</td><td>~35 ms</td></tr>
+<tr><td><strong>Deno Deploy</strong></td><td>V8 (Deno runtime)</td><td>0 ms</td></tr>
+</table>
+
+<h3>Cloudflare Workers przyklad</h3>
+<pre><code>export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/api/time') {
+      return Response.json({
+        time: new Date().toISOString(),
+        location: request.cf.colo,    // PoP code (np. WAW)
+        country: request.cf.country
+      });
+    }
+
+    return new Response('Hello from edge!');
+  }
+}</code></pre>
+
+<h2>Service mesh</h2>
+<p>Service mesh dodaje sieciowa abstrakcje miedzy mikroserwisami. Sidecar proxy obsluguje mTLS, retry, circuit breaking, traffic shaping, observability.</p>
+
+<table>
+<tr><th>Service Mesh</th><th>Technologia</th><th>Charakterystyka</th></tr>
+<tr><td><strong>Istio</strong></td><td>Envoy proxy + control plane</td><td>Najpopularniejszy, ale ciezki</td></tr>
+<tr><td><strong>Linkerd</strong></td><td>Rust micro-proxy</td><td>Lekki, prosty, fast</td></tr>
+<tr><td><strong>Cilium Service Mesh</strong></td><td>eBPF, bez sidecar</td><td>Modern 2026, najwydajniejszy</td></tr>
+<tr><td><strong>Consul Connect</strong></td><td>HashiCorp</td><td>Multi-platform (nie tylko K8s)</td></tr>
+<tr><td><strong>AWS App Mesh</strong></td><td>Envoy</td><td>Managed service</td></tr>
+</table>
+
+<h3>Cilium - eBPF revolution</h3>
+<p>Cilium uzywa eBPF w kernelu Linux zamiast sidecar proxy. Mniejsze opoznienie, mniejszy overhead pamieci, mozliwosci network observability na poziomie kernel.</p>
+
+<h2>Zero-trust networking w cloud</h2>
+
+<h3>Cloudflare Access / Tunnel</h3>
+<p>Zastapienie tradycyjnego VPN. Cloudflared tworzy outbound-only tunnel z origin do Cloudflare. Klient laczy sie przez Cloudflare z autentykacja Google/Okta/AzureAD.</p>
+
+<pre><code># Tworzenie Cloudflare Tunnel:
+cloudflared tunnel login
+cloudflared tunnel create my-app
+
+# Konfiguracja /etc/cloudflared/config.yml:
+tunnel: TUNNEL_UUID
+credentials-file: /root/.cloudflared/TUNNEL_UUID.json
+
+ingress:
+  - hostname: app.example.com
+    service: http://localhost:8080
+  - hostname: ssh.example.com
+    service: ssh://localhost:22
+  - service: http_status:404
+
+# DNS record:
+cloudflared tunnel route dns my-app app.example.com
+
+# Run:
+cloudflared tunnel run my-app</code></pre>
+
+<h3>AWS Verified Access</h3>
+<p>Aplikacje AWS dostepne bez VPN. Integracja z IdP (Okta, AzureAD), conditional access policies.</p>
+
+<h3>Tailscale + ACLs</h3>
+<p>Mesh VPN z fine-grained access control list. Per-user, per-device, per-port permissions.</p>
+
+<h2>API Gateway</h2>
+<p>API Gateway zarzadza i chroni REST/GraphQL/gRPC API - rate limiting, authentication, transformation, caching.</p>
+
+<table>
+<tr><th>Solution</th><th>Typ</th></tr>
+<tr><td><strong>AWS API Gateway</strong></td><td>Managed (REST, HTTP, WebSocket)</td></tr>
+<tr><td><strong>Azure API Management</strong></td><td>Managed</td></tr>
+<tr><td><strong>GCP API Gateway / Apigee</strong></td><td>Managed</td></tr>
+<tr><td><strong>Kong</strong></td><td>Open source / commercial</td></tr>
+<tr><td><strong>Tyk</strong></td><td>Open source</td></tr>
+<tr><td><strong>KrakenD</strong></td><td>Open source, very fast</td></tr>
+<tr><td><strong>Traefik</strong></td><td>Open source, K8s-native</td></tr>
+</table>
+
+<h2>DDoS protection</h2>
+
+<h3>Cloud-native</h3>
+<ul>
+<li><strong>AWS Shield Standard</strong> - free, Layer 3/4 protection automatycznie dla wszystkich AWS services</li>
+<li><strong>AWS Shield Advanced</strong> - $3000/mc + traffic, Layer 7, DDoS Response Team, cost protection</li>
+<li><strong>Cloudflare</strong> - free tier z DDoS automatycznie, Pro/Business/Enterprise z bardziej zaawansowana konfiguracja</li>
+<li><strong>Azure DDoS Protection</strong> - Standard ($2944/mc) z mitigation</li>
+<li><strong>GCP Cloud Armor</strong> - WAF + DDoS dla GCP LB</li>
+</ul>
+
+<h2>Cost optimization</h2>
+
+<h3>Egress traffic - drogie</h3>
+<p>Najwiekszy generator kosztow - traffic out z chmury. AWS: $0.09/GB egress (us-east-1 to internet). Cross-AZ traffic: $0.01/GB. Cross-region: $0.02/GB.</p>
+
+<h3>NAT Gateway</h3>
+<p>AWS NAT Gateway: $0.045/hr + $0.045/GB. Dla srednich obciazen $30-100/mc per AZ. Alternatywa - NAT instance na EC2 (tansze, ale mniej HA).</p>
+
+<h3>Best practices</h3>
+<ul>
+<li>Minimalizuj cross-AZ traffic (data lokalne, replikacja inteligentna)</li>
+<li>VPC Endpoints dla AWS services - brak NAT, free dla S3/DynamoDB</li>
+<li>CloudFront cache - egress przez CDN tanszy ($0.085/GB)</li>
+<li>Cloudflare przed AWS - wsparcie zewnetrznego CDN</li>
+<li>Reserved capacity / Savings Plans - oszczedza 30-72% na compute</li>
+</ul>
+
+<h2>Hybrid cloud + SD-WAN</h2>
+<p>SD-WAN (Software-Defined WAN) abstrahuje polaczenia (MPLS, internet, LTE) i tworzy logiczna siec laczaca wszystkie lokalizacje.</p>
+
+<table>
+<tr><th>Producent</th><th>Solution</th></tr>
+<tr><td><strong>Cisco</strong></td><td>Meraki MX, Catalyst SD-WAN (Viptela)</td></tr>
+<tr><td><strong>VMware</strong></td><td>VMware SD-WAN (VeloCloud)</td></tr>
+<tr><td><strong>Aruba</strong></td><td>EdgeConnect (Silver Peak)</td></tr>
+<tr><td><strong>Fortinet</strong></td><td>FortiGate Secure SD-WAN</td></tr>
+<tr><td><strong>Versa Networks</strong></td><td>Versa SASE</td></tr>
+<tr><td><strong>Cato Networks</strong></td><td>Cloud-native SASE</td></tr>
+</table>
+
+<h2>SASE - Secure Access Service Edge</h2>
+<p>Trend 2024-2026: konwergencja SD-WAN + Security (FWaaS, CASB, ZTNA, SWG) w jeden cloud-delivered service. Gartner term od 2019. Liderzy: Zscaler, Cato, Netskope, Cisco Umbrella.</p>
+
+<h2>Praktyczne komendy chmurowe</h2>
+<pre><code># AWS CLI - VPC operacje:
+aws ec2 describe-vpcs
+aws ec2 describe-subnets --filters "Name=vpc-id,Values=vpc-12345"
+aws ec2 describe-route-tables --filters "Name=vpc-id,Values=vpc-12345"
+aws ec2 describe-security-groups
+aws ec2 describe-network-interfaces --filters "Name=vpc-id,Values=vpc-12345"
+
+# Stworzenie VPC:
+aws ec2 create-vpc --cidr-block 10.0.0.0/16
+aws ec2 create-subnet --vpc-id vpc-12345 --cidr-block 10.0.1.0/24
+
+# Azure CLI:
+az network vnet list
+az network vnet subnet list --vnet-name myvnet
+az network nsg rule list --nsg-name mynsg --resource-group myrg
+
+# GCP gcloud:
+gcloud compute networks list
+gcloud compute networks subnets list
+gcloud compute firewall-rules list
+
+# Terraform - tworzenie infrastruktury:
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  tags = { Name = "production-vpc" }
+}
+
+resource "aws_subnet" "public" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.1.0/24"
+  availability_zone = "us-east-1a"
+  map_public_ip_on_launch = true
+  tags = { Name = "public-1a" }
+}</code></pre>
+
+<div class="card green">
+<strong>Cloud networking 2026 best practices</strong>: Multi-AZ deployment, private subnets dla compute, VPC Endpoints zamiast NAT gdy mozna, Cloudflare przed origin, Tailscale/Cloudflare Access zamiast VPN, Infrastructure as Code (Terraform/Pulumi/CDK), monitoring CloudWatch/Datadog, cost alerts.
+</div>
+
+<div class="nav-bottom">
+<a href="11-monitoring-i-troubleshooting.html">&larr; Monitoring</a>
+<a href="index.html">Glowna sieci &rarr;</a>
+</div>
+</div>
+</body>
+</html>

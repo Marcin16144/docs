@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Firewall i bezpieczenstwo</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}
+.card.orange{border-left:4px solid var(--orange)}
+.card.red{border-left:4px solid var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Sieci</a><span class="sep">/</span><span class="title">Firewall i bezpieczenstwo</span></div>
+<div class="container">
+<h1>Firewall i bezpieczenstwo sieci</h1>
+<p class="subtitle">iptables, nftables, pfSense, IDS/IPS, WAF, DDoS protection, Zero Trust</p>
+
+<h2>Czym jest firewall</h2>
+<p>Firewall to system filtrujacy ruch sieciowy wedlug zdefiniowanych regul. Decyduje co przepuscic, co zablokowac, co przekierowac. Moze byc software (na hoscie) lub hardware (dedykowane urzadzenie). Firewall to pierwsza linia obrony w sieci.</p>
+
+<h2>Stateless vs Stateful</h2>
+
+<h3>Stateless firewall</h3>
+<p>Sprawdza kazdy pakiet osobno - bez kontekstu. Decyzja na podstawie naglowkow (IP, port, flagi TCP). Szybki, prosty, ale slabszy w wykrywaniu ataku.</p>
+
+<h3>Stateful firewall</h3>
+<p>Sledzi stan polaczen (connection tracking). Wie ze pakiet RST nalezy do trwajacego ESTABLISHED polaczenia. Mocniejszy, ale wieksze zuzycie pamieci.</p>
+
+<table>
+<tr><th>Cecha</th><th>Stateless</th><th>Stateful</th></tr>
+<tr><td>Pamiec</td><td>Brak (per-packet)</td><td>Tablica connections</td></tr>
+<tr><td>Wydajnosc</td><td>Wyzsza (single lookup)</td><td>Nizsza (state lookup + update)</td></tr>
+<tr><td>Bezpieczenstwo</td><td>Slabsze</td><td>Lepsze (TCP sequence checking)</td></tr>
+<tr><td>NAT</td><td>Trudniej</td><td>Latwo (sledzi flows)</td></tr>
+<tr><td>Przyklad</td><td>ACL na switche</td><td>iptables, pf, FortiGate</td></tr>
+</table>
+
+<h2>Default policies</h2>
+<ul>
+<li><strong>Default deny</strong> (whitelist) - blokuj wszystko, zezwol tylko na to co potrzebne. Bezpieczniejsze podejscie.</li>
+<li><strong>Default allow</strong> (blacklist) - zezwol wszystko, blokuj tylko zlosliwe. Latwiejsze do zarzadzania, mniej bezpieczne.</li>
+</ul>
+
+<div class="card green">
+<strong>Zlote zasada</strong> - zawsze zaczynaj od default deny, otwieraj tylko to co konieczne. Lepiej zablokowac potrzebny ruch i naprawic regule, niz przepuscic atak.
+</div>
+
+<h2>Linux iptables</h2>
+<p>iptables (od 1998) to klasyczny linuksowy firewall. Bazuje na netfilter w kernelu. Konfiguruje sie poprzez tabele i lancuchy regul.</p>
+
+<h3>Tabele iptables</h3>
+<table>
+<tr><th>Tabela</th><th>Zastosowanie</th></tr>
+<tr><td><strong>filter</strong></td><td>Domyslna - filtrowanie pakietow (INPUT, OUTPUT, FORWARD)</td></tr>
+<tr><td><strong>nat</strong></td><td>NAT - PREROUTING, POSTROUTING, OUTPUT</td></tr>
+<tr><td><strong>mangle</strong></td><td>Modyfikacja pakietow (TTL, TOS, marking)</td></tr>
+<tr><td><strong>raw</strong></td><td>Pre-NAT exemption od conntrack</td></tr>
+<tr><td><strong>security</strong></td><td>SELinux marking</td></tr>
+</table>
+
+<h3>Lancuchy filter</h3>
+<ul>
+<li><strong>INPUT</strong> - pakiety przychodzace do hosta</li>
+<li><strong>OUTPUT</strong> - pakiety wychodzace z hosta</li>
+<li><strong>FORWARD</strong> - pakiety przechodzace (router, NAT)</li>
+</ul>
+
+<h3>Praktyczne komendy iptables</h3>
+<pre><code># Wyswietl aktualne reguly (numerowane):
+iptables -L -n -v --line-numbers
+iptables -L INPUT -n -v
+
+# Wyswietl tabele NAT:
+iptables -t nat -L -n -v
+
+# Default policy:
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT
+
+# Akceptuj established + related (kluczowe!):
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Akceptuj loopback:
+iptables -A INPUT -i lo -j ACCEPT
+
+# SSH (port 22):
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+
+# HTTP/HTTPS:
+iptables -A INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT
+
+# Z ograniczeniem rate (anti-bruteforce SSH):
+iptables -A INPUT -p tcp --dport 22 -m state --state NEW \
+  -m recent --set --name SSH
+iptables -A INPUT -p tcp --dport 22 -m state --state NEW \
+  -m recent --update --seconds 60 --hitcount 5 --name SSH -j DROP
+
+# Tylko z konkretnego IP:
+iptables -A INPUT -s 1.2.3.4 -p tcp --dport 22 -j ACCEPT
+
+# Block country (z ipset):
+ipset create cn_block hash:net
+ipset add cn_block 1.2.3.0/24
+iptables -A INPUT -m set --match-set cn_block src -j DROP
+
+# Logging dropped packets:
+iptables -A INPUT -j LOG --log-prefix "DROPPED: " --log-level 4
+iptables -A INPUT -j DROP
+
+# Save / restore:
+iptables-save > /etc/iptables/rules.v4
+iptables-restore < /etc/iptables/rules.v4
+
+# Flush wszystkich regul:
+iptables -F
+iptables -X
+iptables -Z</code></pre>
+
+<h2>nftables - nowoczesny zamiennik</h2>
+<p>nftables (od 2014) zastapil iptables jako defaulta w wiekszosci dystrybucji od 2020. Jeden tool zamiast iptables/ip6tables/arptables/ebtables. Lepsza wydajnosc, czytelniejsza skladnia.</p>
+
+<pre><code># Plik konfiguracji /etc/nftables.conf:
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority 0; policy drop;
+
+        iif lo accept
+        ct state {established, related} accept
+        ct state invalid drop
+
+        # ICMP
+        ip protocol icmp accept
+        ip6 nexthdr icmpv6 accept
+
+        # SSH z ograniczeniem
+        tcp dport 22 ct state new limit rate 5/minute accept
+
+        # HTTP/HTTPS
+        tcp dport {80, 443} accept
+
+        # Default drop (z log)
+        log prefix "DROPPED: " drop
+    }
+
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+    }
+
+    chain output {
+        type filter hook output priority 0; policy accept;
+    }
+}
+
+# Zastosuj:
+sudo nft -f /etc/nftables.conf
+
+# Komendy:
+sudo nft list ruleset                # caly ruleset
+sudo nft list table inet filter      # konkretna tabela
+sudo nft add rule inet filter input tcp dport 8080 accept
+sudo nft delete rule inet filter input handle 5</code></pre>
+
+<h2>ufw - Uncomplicated Firewall</h2>
+<p>ufw (Ubuntu) to wrapper na iptables/nftables. Latwe komendy do prostych zadan.</p>
+
+<pre><code># Status:
+sudo ufw status verbose
+
+# Wlacz/wylacz:
+sudo ufw enable
+sudo ufw disable
+
+# Default policy:
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# Otworz porty:
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow ssh                   # alias dla 22
+
+# Z konkretnego IP:
+sudo ufw allow from 192.168.1.0/24 to any port 22
+
+# Aplikacja-specyficzne (z definicji w /etc/ufw/applications.d/):
+sudo ufw allow Nginx Full
+sudo ufw allow OpenSSH
+
+# Lista regul z numerami:
+sudo ufw status numbered
+
+# Usun regule:
+sudo ufw delete 3                    # po numerze
+sudo ufw delete allow 22/tcp         # po regule
+
+# Limit (rate limiting):
+sudo ufw limit ssh                   # max 6 polaczen w 30 sek
+
+# Logging:
+sudo ufw logging on
+sudo ufw logging medium</code></pre>
+
+<h2>firewalld - Red Hat zone-based</h2>
+<p>firewalld na RHEL/Fedora/CentOS - oparta na strefach (zones) i serwisach.</p>
+
+<pre><code># Lista stref:
+firewall-cmd --get-zones
+firewall-cmd --get-default-zone
+
+# Pokaz konfiguracje strefy:
+firewall-cmd --list-all
+firewall-cmd --zone=public --list-all
+
+# Dodaj serwis (trwale):
+firewall-cmd --permanent --add-service=http
+firewall-cmd --permanent --add-service=https
+firewall-cmd --permanent --add-port=8080/tcp
+firewall-cmd --reload
+
+# Przeniesc interface do strefy:
+firewall-cmd --permanent --change-interface=eth1 --zone=trusted
+
+# Sprawdz aktywne reguly:
+firewall-cmd --runtime-to-permanent</code></pre>
+
+<h2>pfSense / OPNsense</h2>
+<p>FreeBSD-based, profesjonalne firewally z GUI. Ogromne mozliwosci - VPN, IDS/IPS, captive portal, multi-WAN, traffic shaping. Stosowane w SMB i nawet enterprise.</p>
+
+<ul>
+<li><strong>pfSense</strong> - klasyk od 2004, Netgate</li>
+<li><strong>OPNsense</strong> - fork od 2015, nowoczesniejszy UI, szybsze release</li>
+<li>Hardware: dedicated appliance lub instalacja na PC z 2+ NIC</li>
+<li>Minimum: 1 GB RAM, 8 GB disk</li>
+</ul>
+
+<h2>Windows Defender Firewall</h2>
+<pre><code># PowerShell - status:
+Get-NetFirewallProfile
+
+# Wlacz dla wszystkich profili:
+Set-NetFirewallProfile -All -Enabled True
+
+# Lista regul:
+Get-NetFirewallRule | Select-Object DisplayName, Enabled, Direction, Action
+
+# Dodaj regule:
+New-NetFirewallRule -DisplayName "Allow HTTP" `
+    -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow
+
+# Blokuj IP:
+New-NetFirewallRule -DisplayName "Block bad IP" `
+    -Direction Inbound -RemoteAddress 1.2.3.4 -Action Block
+
+# Usun regule:
+Remove-NetFirewallRule -DisplayName "Allow HTTP"</code></pre>
+
+<h2>Cloud firewalls</h2>
+
+<h3>AWS Security Groups</h3>
+<p>Stateful, na poziomie instance. Tylko reguly allow (deny niejawne). Reguly per VPC/subnet. Mozna podpisac do EC2, RDS, Lambda, ELB.</p>
+
+<pre><code># AWS CLI - utworz SG:
+aws ec2 create-security-group \
+  --group-name web-sg \
+  --description "Web server SG" \
+  --vpc-id vpc-12345678
+
+# Dodaj inbound:
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-abc123 \
+  --protocol tcp --port 443 --cidr 0.0.0.0/0</code></pre>
+
+<h3>Azure NSG</h3>
+<p>Network Security Groups - stateful, poziom subnet lub NIC. Reguly z priority (100-4096). Default deny inbound, allow outbound.</p>
+
+<h3>GCP Firewall Rules</h3>
+<p>Default na poziomie VPC, mozna stosowac do tagow lub service accounts. Ingress/egress, allow/deny.</p>
+
+<h2>IDS - Intrusion Detection System</h2>
+<p>IDS monitoruje ruch i alarmuje na podejrzane wzorce. Pasywny - nie blokuje, tylko logguje.</p>
+
+<h3>Suricata</h3>
+<p>Wieloskie, multi-threaded, najpopularniejszy. Kompatybilny z regulami Snorta. Wspiera 1+ Gbps na nowoczesnym sprzecie.</p>
+
+<pre><code># Instalacja na Debian/Ubuntu:
+sudo apt install suricata
+sudo suricata-update
+
+# Test:
+sudo suricata -T -c /etc/suricata/suricata.yaml -v
+
+# Run jako daemon:
+sudo systemctl enable --now suricata
+
+# Logi:
+tail -f /var/log/suricata/eve.json
+tail -f /var/log/suricata/fast.log</code></pre>
+
+<h3>Snort</h3>
+<p>Klasyk od 1998, kupiony przez Cisco. Snort 3 - wspolczesny rewrite z lepsza wydajnoscia.</p>
+
+<h3>Zeek (Bro)</h3>
+<p>Network analysis framework. Nie traditionnal IDS - generuje protokol logs (HTTP, DNS, SSL, files). Sluzy do investigations i forensics.</p>
+
+<h2>IPS - Intrusion Prevention System</h2>
+<p>IPS to IDS + blokowanie. Aktywnie odrzuca podejrzane pakiety. Suricata moze pracowac w trybie IPS (inline mode).</p>
+
+<h2>WAF - Web Application Firewall</h2>
+<p>WAF chroni aplikacje webowe na warstwie 7 - filtruje ataki SQL injection, XSS, CSRF, RCE. Patrzy na payloady HTTP, nie tylko adresy IP/porty.</p>
+
+<ul>
+<li><strong>ModSecurity</strong> - klasyczny open source WAF, modul Apache/Nginx, OWASP Core Rule Set</li>
+<li><strong>Cloudflare WAF</strong> - cloud, free i platne plany</li>
+<li><strong>AWS WAF</strong> - dla CloudFront, ALB, API Gateway</li>
+<li><strong>Coraza</strong> - nowoczesny WAF w Go, kompatybilny z ModSecurity rules</li>
+<li><strong>NAXSI</strong> - learning-mode WAF dla Nginx</li>
+</ul>
+
+<h2>DDoS protection</h2>
+<p>DDoS (Distributed Denial of Service) zalewa siec/aplikacje ruchem z wielu zrodel. Obronie pomagaja CDN i specjalizowane uslugi.</p>
+
+<h3>Typy atakow</h3>
+<table>
+<tr><th>Typ</th><th>Warstwa</th><th>Mechanizm</th></tr>
+<tr><td><strong>SYN flood</strong></td><td>L4</td><td>Niedokonczone TCP handshake</td></tr>
+<tr><td><strong>UDP flood</strong></td><td>L4</td><td>Wysylanie UDP do losowych portow</td></tr>
+<tr><td><strong>ICMP flood</strong></td><td>L3</td><td>Ping flood, smurf attack</td></tr>
+<tr><td><strong>DNS amplification</strong></td><td>L4</td><td>Zapytania DNS z spoofed src IP, odpowiedzi 50x wieksze</td></tr>
+<tr><td><strong>NTP amplification</strong></td><td>L4</td><td>Podobnie, NTP monlist (200x amplification)</td></tr>
+<tr><td><strong>HTTP flood</strong></td><td>L7</td><td>Tysiace HTTP requestow</td></tr>
+<tr><td><strong>Slowloris</strong></td><td>L7</td><td>Wolne wysylanie naglowkow, blokuje workery</td></tr>
+</table>
+
+<h3>DDoS mitigation services</h3>
+<ul>
+<li><strong>Cloudflare</strong> - free tier z DDoS protection. W 2024 absorbowali atak 5.6 Tbps</li>
+<li><strong>AWS Shield</strong> - Standard (free) lub Advanced ($3000/mc + traffic)</li>
+<li><strong>Akamai Prolexic</strong> - enterprise-grade</li>
+<li><strong>Imperva</strong> - dedicated WAF + DDoS</li>
+</ul>
+
+<h2>Rate limiting i GeoIP</h2>
+<pre><code># Nginx rate limiting:
+limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
+
+server {
+    location /login {
+        limit_req zone=login burst=10 nodelay;
+        proxy_pass http://backend;
+    }
+}
+
+# Iptables - per IP rate limit:
+iptables -A INPUT -p tcp --dport 80 -m hashlimit \
+  --hashlimit-mode srcip --hashlimit-name http_limit \
+  --hashlimit 10/sec --hashlimit-burst 30 -j ACCEPT
+
+# GeoIP block (Linux z ipset):
+wget https://www.ipdeny.com/ipblocks/data/aggregated/cn-aggregated.zone
+ipset create china hash:net
+for ip in $(cat cn-aggregated.zone); do ipset add china $ip; done
+iptables -I INPUT -m set --match-set china src -j DROP</code></pre>
+
+<h2>Zero Trust networking</h2>
+<p>"Never trust, always verify" - tradycyjnie firma trustowala wszystko za firewallem. Zero Trust: kazde polaczenie autentykowane i autoryzowane, niezaleznie od lokalizacji.</p>
+
+<h3>Najpopularniejsze rozwiazania 2026</h3>
+<ul>
+<li><strong>Google BeyondCorp</strong> - pierwsza implementacja, dla pracownikow Google bez VPN</li>
+<li><strong>Cloudflare Access / Zero Trust</strong> - identity proxy, integracja z IdP</li>
+<li><strong>AWS Verified Access</strong> - bez VPN dla aplikacji</li>
+<li><strong>Tailscale ACLs</strong> - Tailnet z fine-grained permissions</li>
+<li><strong>Twingate</strong> - dedicated zero-trust networking</li>
+<li><strong>Microsoft Entra Private Access</strong> - dawniej Azure AD App Proxy</li>
+</ul>
+
+<h2>Mikrosegmentacja</h2>
+<p>Mikrosegmentacja dzieli siec na bardzo male strefy z wlasnymi politykami. Workload-to-workload, nie tylko subnet-to-subnet. Stosowane w VMware NSX, Cisco ACI, Illumio, Cilium.</p>
+
+<div class="card green">
+<strong>Minimum 2026 dla malej firmy</strong>: ufw lub firewalld na hostach + Cloudflare WAF na publicznych aplikacjach + WireGuard/Tailscale dla remote access. Dla srednich/duzych - dedicated firewall (pfSense, FortiGate), Suricata IDS, SIEM (Wazuh, Graylog).
+</div>
+
+<div class="nav-bottom">
+<a href="08-vpn-i-tunelowanie.html">&larr; VPN i tunelowanie</a>
+<a href="10-wifi-i-sieci-bezprzewodowe.html">WiFi i sieci bezprzewodowe &rarr;</a>
+</div>
+</div>
+</body>
+</html>

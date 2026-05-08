@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shared codebase Blazor Hybrid</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Hybrid</a><span class="sep">/</span><span class="title">Shared codebase</span></div>
+<div class="container">
+<h1>Shared codebase Blazor Hybrid</h1>
+<p class="subtitle">RazorClassLibrary, conditional compilation, platform-specific implementations, MVVM</p>
+
+<h2>Cel: jeden kod &mdash; wiele platform</h2>
+<p>Pisanie aplikacji Blazor Server + WASM + MAUI z osobnymi codebases to ogromna duplikacja. Idealnie 80-90% kodu (komponenty UI, biznes-logic, models) ma byc <strong>wspolne</strong>, a tylko 10-20% (specyficzne dla platformy) per app.</p>
+
+<h2>Architektura solution</h2>
+<pre><code>MyApp.sln
+├── MyApp.Shared/              # Class library (modele, DTOs, interfaces)
+├── MyApp.Components/          # RazorClassLibrary (Blazor komponenty)
+├── MyApp.BusinessLogic/       # Class library (services, validators)
+├── MyApp.Web.Server/          # ASP.NET Core (Blazor Server / United)
+├── MyApp.Web.Client/          # Blazor WASM (interactive)
+├── MyApp.Maui/                # Blazor MAUI (mobile + desktop)
+├── MyApp.Wpf/                 # Blazor WPF (Windows desktop)
+└── MyApp.Tests/               # Unit + integration tests</code></pre>
+
+<h2>RazorClassLibrary &mdash; biblioteka komponentow</h2>
+<pre><code>dotnet new razorclasslib -o MyApp.Components</code></pre>
+
+<p>Otrzymujesz projekt z mozliwoscia umieszczania komponentow .razor, layouts, _Imports, oraz statycznych assets (CSS, JS, obrazy) w specjalnym folderze.</p>
+<pre><code>MyApp.Components/
+  Pages/
+    Home.razor
+    ProductList.razor
+  Layout/
+    MainLayout.razor
+  Services/
+    IProductService.cs
+  wwwroot/                # Asset reference: _content/MyApp.Components/...
+    css/
+      components.css
+    js/
+      utils.js
+  _Imports.razor
+  MyApp.Components.csproj</code></pre>
+
+<p>Reuse w innych projektach:</p>
+<pre><code>// MyApp.Web.Server.csproj
+&lt;ItemGroup&gt;
+  &lt;ProjectReference Include="..\MyApp.Components\MyApp.Components.csproj" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+<pre><code>&lt;!-- W Razor pages --&gt;
+@using MyApp.Components.Pages
+&lt;ProductList /&gt;</code></pre>
+
+<h2>Conditional compilation (#if)</h2>
+<p>Aby ten sam kod sluzyl w wielu projektach, ale rozni sie w detalach &mdash; uzywasz preprocessor directives.</p>
+<pre><code>public class FileService
+{
+    public string GetPath(string filename)
+    {
+#if MAUI
+        return Path.Combine(FileSystem.AppDataDirectory, filename);
+#elif WINDOWS_DESKTOP
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MyApp", filename);
+#else
+        return filename;
+#endif
+    }
+}</code></pre>
+
+<p>W <code>.csproj</code>:</p>
+<pre><code>&lt;PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-android' OR '$(TargetFramework)' == 'net9.0-ios'"&gt;
+  &lt;DefineConstants&gt;$(DefineConstants);MAUI&lt;/DefineConstants&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+<h2>Interface-based abstraction</h2>
+<p>Czystszy pattern niz #if &mdash; wszedzie interfejsem, implementacja per platforma.</p>
+
+<pre><code>// Shared
+public interface IStorageService
+{
+    Task SaveAsync(string key, string value);
+    Task&lt;string?&gt; LoadAsync(string key);
+}</code></pre>
+
+<pre><code>// Web (WASM/Server)
+public class WebStorageService : IStorageService
+{
+    private readonly ILocalStorageService localStorage;
+
+    public Task SaveAsync(string key, string value) =&gt; localStorage.SetItemAsync(key, value);
+    public Task&lt;string?&gt; LoadAsync(string key) =&gt; localStorage.GetItemAsync&lt;string&gt;(key);
+}</code></pre>
+
+<pre><code>// MAUI
+public class MauiStorageService : IStorageService
+{
+    public Task SaveAsync(string key, string value) =&gt; Preferences.Default.Set(key, value);
+    public Task&lt;string?&gt; LoadAsync(string key) =&gt; Task.FromResult(Preferences.Default.Get(key, ""));
+}</code></pre>
+
+<h2>Platform-specific code w MAUI</h2>
+<p>MAUI uzywa folderow per platform:</p>
+<pre><code>MyApp.Maui/
+  Platforms/
+    Android/
+      AndroidManifest.xml
+      MainActivity.cs
+      Services/
+        AndroidNotificationService.cs
+    iOS/
+      AppDelegate.cs
+      Info.plist
+    Windows/
+      App.xaml.cs
+    MacCatalyst/
+      AppDelegate.cs
+  Services/
+    INotificationService.cs    # interface
+    NotificationServiceShared.cs # shared</code></pre>
+
+<h2>MVVM patterns dla hybrid</h2>
+<p>MVVM (Model-View-ViewModel) pozwala oddzielic logike UI od widoku &mdash; widok moze byc Blazor (.razor), XAML lub inny.</p>
+
+<pre><code>// ViewModel (shared)
+public partial class ProductListViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private List&lt;Product&gt; products = new();
+
+    [ObservableProperty]
+    private bool isLoading;
+
+    [RelayCommand]
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        try
+        {
+            Products = await api.GetAllAsync();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}</code></pre>
+
+<pre><code>// View w Blazor
+@inject ProductListViewModel ViewModel
+
+@if (ViewModel.IsLoading)
+{
+    &lt;p&gt;Ladowanie...&lt;/p&gt;
+}
+else
+{
+    &lt;ul&gt;
+    @foreach (var p in ViewModel.Products)
+    {
+        &lt;li&gt;@p.Name&lt;/li&gt;
+    }
+    &lt;/ul&gt;
+}
+
+&lt;button @onclick="ViewModel.LoadCommand.ExecuteAsync"&gt;Odswiez&lt;/button&gt;</code></pre>
+
+<p>Pakiet <code>CommunityToolkit.Mvvm</code> generuje boilerplate (PropertyChanged, RelayCommand) automatycznie.</p>
+
+<h2>Sharing styles</h2>
+<p>RazorClassLibrary moze zawierac wspolne CSS:</p>
+<pre><code>// MyApp.Components/wwwroot/css/components.css
+.card-product { ... }
+.list-item { ... }</code></pre>
+
+<pre><code>&lt;!-- W aplikacji --&gt;
+&lt;link rel="stylesheet" href="_content/MyApp.Components/css/components.css" /&gt;</code></pre>
+
+<h2>Sharing JS</h2>
+<pre><code>// MyApp.Components/wwwroot/js/helpers.js
+export function copyToClipboard(text) {
+    return navigator.clipboard.writeText(text);
+}</code></pre>
+
+<pre><code>// W komponencie
+@inject IJSRuntime JS
+
+@code {
+    private async Task Copy(string text)
+    {
+        var module = await JS.InvokeAsync&lt;IJSObjectReference&gt;(
+            "import", "./_content/MyApp.Components/js/helpers.js");
+        await module.InvokeVoidAsync("copyToClipboard", text);
+    }
+}</code></pre>
+
+<h2>Reuse miedzy projektami webowymi i hybrid</h2>
+<p>Schemat dla maksymalnego reuse:</p>
+<pre><code>MyApp.Components (RazorClassLibrary, target net9.0)
+  - Wszystkie komponenty .razor
+  - Models, DTOs
+  - Walidatory
+  - Serwisy biznesowe (z interfejsami dla platform-specific)
+
+MyApp.Web (Blazor United)
+  - Reference: MyApp.Components
+  - Reference: MyApp.Web.Services (HttpClient implementations)
+
+MyApp.Maui (Blazor Hybrid MAUI)
+  - Reference: MyApp.Components
+  - Reference: MyApp.Maui.Services (MAUI implementations)</code></pre>
+
+<h2>Dependency Injection patterns</h2>
+<p>Wspolny <code>AddMyApp</code> extension method:</p>
+<pre><code>// MyApp.Components/ServiceCollectionExtensions.cs
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddMyAppCore(this IServiceCollection services)
+    {
+        services.AddScoped&lt;IProductService, ProductService&gt;();
+        services.AddScoped&lt;ICartService, CartService&gt;();
+        services.AddSingleton&lt;ProductCache&gt;();
+        return services;
+    }
+}</code></pre>
+
+<pre><code>// W kazdej aplikacji
+services.AddMyAppCore();
+services.AddSingleton&lt;IStorageService, WebStorageService&gt;(); // platform-specific</code></pre>
+
+<h2>Testowanie wspolnego kodu</h2>
+<p>Reuse testow dla calej logic. Komponenty Blazor mozna testowac z bUnit:</p>
+<pre><code>// MyApp.Tests
+[Test]
+public void ProductCard_Renders()
+{
+    using var ctx = new TestContext();
+    ctx.Services.AddSingleton&lt;IProductService, FakeProductService&gt;();
+
+    var cut = ctx.RenderComponent&lt;ProductCard&gt;(ps =&gt; ps
+        .Add(p =&gt; p.Product, new Product { Name = "Test", Price = 99 })
+    );
+
+    cut.Find("h3").TextContent.Should().Be("Test");
+    cut.Find(".price").TextContent.Should().Contain("99");
+}</code></pre>
+
+<h2>Multi-targeting projects</h2>
+<p>Mozesz miec jeden projekt celujacy w wiele framework:</p>
+<pre><code>&lt;PropertyGroup&gt;
+  &lt;TargetFrameworks&gt;net9.0;net9.0-android;net9.0-ios&lt;/TargetFrameworks&gt;
+  &lt;UseMaui&gt;true&lt;/UseMaui&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+<h2>Common pitfalls</h2>
+<ul>
+<li><strong>Tight coupling do platform APIs</strong> &mdash; uzywaj zawsze interface</li>
+<li><strong>JS Interop w shared lib</strong> &mdash; nie dziala w MAUI tak samo jak w WASM</li>
+<li><strong>Routing</strong> &mdash; <code>@page</code> w shared lib dziala, ale moze konfliktowac z aplikacja-specific routes</li>
+<li><strong>Auth</strong> &mdash; AuthenticationStateProvider rozni sie miedzy WASM, Server, MAUI</li>
+<li><strong>HttpClient</strong> &mdash; w MAUI default zachowanie cookies inne niz w WASM</li>
+</ul>
+
+<div class="card">
+<h3>Werdykt</h3>
+<p>Najlepsza strategia 2026: <strong>RazorClassLibrary + interface-based DI</strong>. Stworz fundament jako class library, implementuj platform-specific services per app. Reuse ~85% kodu, w tym wszystkie komponenty UI. Dodatkowo MVVM z CommunityToolkit.Mvvm dla view-models.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="04-native-interop.html">&larr; Native interop</a>
+<a href="06-deployment-mobile.html">Deployment mobile &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>VPN i tunelowanie</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}
+.card.orange{border-left:4px solid var(--orange)}
+.card.red{border-left:4px solid var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Sieci</a><span class="sep">/</span><span class="title">VPN i tunelowanie</span></div>
+<div class="container">
+<h1>VPN i tunelowanie</h1>
+<p class="subtitle">WireGuard, OpenVPN, IPsec, Tailscale, ZeroTier - kompletny przewodnik po VPN 2026</p>
+
+<h2>Co to jest VPN</h2>
+<p>VPN (Virtual Private Network) tworzy szyfrowany tunel przez publiczna siec (internet) miedzy dwoma lub wiecej punktami. Sluzy do bezpiecznego dostepu zdalnego, laczenia oddzialow firmy, prywatnosci i obejscia ograniczen geograficznych.</p>
+
+<h3>Glowne zastosowania</h3>
+<ul>
+<li><strong>Remote access VPN</strong> - pracownik laczy sie z siecia firmy z domu</li>
+<li><strong>Site-to-site VPN</strong> - laczenie biur w jedna logiczna siec</li>
+<li><strong>Privacy / anonimizacja</strong> - ukrycie IP, ochrona w niezaufanym WiFi</li>
+<li><strong>Geo-bypass</strong> - dostep do tresci niedostepnych w naszym regionie</li>
+<li><strong>Bezpieczne polaczenie do cloud</strong> - AWS, Azure, GCP via VPN</li>
+</ul>
+
+<h2>Protokoly VPN</h2>
+
+<h3>WireGuard - standard 2026</h3>
+<p>WireGuard (RFC nieoficjalny, kernel od Linux 5.6) jest nowoczesny, szybki i prosty - tylko 4000 linii kodu w kernelu. Stworzony przez Jasona Donenfelda, oparty na Noise protocol framework.</p>
+
+<ul>
+<li>Cryptographic primitives: ChaCha20-Poly1305, Curve25519, BLAKE2s</li>
+<li>UDP only - efektywniejszy niz TCP-over-TCP</li>
+<li>Cross-platform - kernel Linux, klienci na Windows, macOS, iOS, Android</li>
+<li>Konfiguracja w 10-20 liniach</li>
+<li>Przepustowosc na nowoczesnym hardware: 5-10+ Gbps</li>
+</ul>
+
+<h3>OpenVPN - klasyk</h3>
+<p>Bardzo dojrzaly (od 2001), elastyczny. Dziala na TCP lub UDP. Uzywa SSL/TLS dla key exchange, OpenSSL dla kryptografii. Wolniejszy od WireGuard, ale bardziej elastyczny i lepiej przedostaje sie przez firewally (TCP 443).</p>
+
+<h3>IPsec - enterprise</h3>
+<p>IPsec (RFC 4301) to suite protokolow Layer 3. Standard w sprzecie enterprise (Cisco ASA, FortiGate, Juniper). Konfiguracja moze byc skomplikowana.</p>
+
+<ul>
+<li><strong>IKE</strong> (Internet Key Exchange) - faza 1, ustanawia bezpieczny kanal kontrolny</li>
+<li><strong>ESP</strong> (Encapsulating Security Payload) - szyfruje i chroni dane</li>
+<li><strong>AH</strong> (Authentication Header) - tylko integralnosc (nie szyfruje, rzadziej uzywane)</li>
+<li><strong>IKEv2</strong> - nowsza wersja, mobile-friendly (MOBIKE)</li>
+</ul>
+
+<h3>L2TP/IPsec - legacy</h3>
+<p>L2TP sam nie szyfruje, dlatego polaczony z IPsec. Wbudowany w Windows, macOS. Powolny ze wzgledu na podwojna enkapsulacje, dzis raczej zastapowany przez IKEv2.</p>
+
+<h3>SSTP - Microsoft</h3>
+<p>SSTP (Secure Socket Tunneling Protocol) uzywa TCP 443, latwo przechodzi przez firewall. Wbudowany w Windows. Mniej popularny poza ekosystemem MS.</p>
+
+<h3>PPTP - DEPRECATED</h3>
+<p>Stary, niebezpieczny (zlamany 1998, MS-CHAPv2 cracking). NIE UZYWAC.</p>
+
+<h2>Porownanie protokolow</h2>
+<table>
+<tr><th>Protokol</th><th>Predkosc 2026</th><th>Zlozonosc konfiguracji</th><th>Bezpieczenstwo</th><th>Mobilnosc</th></tr>
+<tr><td><strong>WireGuard</strong></td><td>10+ Gbps</td><td>Bardzo prosta</td><td>Excellent</td><td>Doskonale</td></tr>
+<tr><td><strong>OpenVPN</strong></td><td>500 Mbps - 1 Gbps</td><td>Srednia</td><td>Excellent</td><td>Dobre</td></tr>
+<tr><td><strong>IPsec/IKEv2</strong></td><td>5+ Gbps (z hw accel)</td><td>Wysoka</td><td>Excellent</td><td>Bardzo dobre (MOBIKE)</td></tr>
+<tr><td><strong>SSTP</strong></td><td>200-500 Mbps</td><td>Latwa na Windows</td><td>Dobre</td><td>Srednie</td></tr>
+<tr><td><strong>L2TP/IPsec</strong></td><td>200 Mbps</td><td>Srednia</td><td>OK</td><td>Srednie</td></tr>
+</table>
+
+<h2>Site-to-site vs Remote access</h2>
+
+<h3>Site-to-site VPN</h3>
+<p>Dwie sieci (np. biuro Warszawa i biuro Krakow) polaczone tunelem. Routery na obu koncach utrzymuja stale polaczenie. Pracownik nie musi nic konfigurowac - traffic do drugiego biura idzie automatycznie.</p>
+
+<pre><code># Topologia:
+[LAN Warszawa]---[Router/FW WAW]===VPN===[Router/FW KRK]---[LAN Krakow]
+192.168.1.0/24                                              192.168.2.0/24</code></pre>
+
+<h3>Remote access VPN</h3>
+<p>Pojedynczy uzytkownik laczy sie z siecia firmy z laptopem/telefonem. Klient uruchamia aplikacje VPN, ktora tworzy tunel do koncentratora.</p>
+
+<h3>Split tunneling</h3>
+<p>Tylko czesc ruchu idzie przez VPN (np. tylko sieci firmy 10.0.0.0/8), reszta przez normalne lacze. Lepsze dla wydajnosci, gorsze dla prywatnosci.</p>
+
+<h2>VPN providers - komercyjne</h2>
+<table>
+<tr><th>Provider</th><th>Lokalizacja prawna</th><th>Cena (2026)</th><th>Audyt</th></tr>
+<tr><td><strong>Mullvad</strong></td><td>Szwecja</td><td>~5 EUR/mc</td><td>Tak, Cure53</td></tr>
+<tr><td><strong>ProtonVPN</strong></td><td>Szwajcaria</td><td>5-10 EUR/mc</td><td>Tak</td></tr>
+<tr><td><strong>NordVPN</strong></td><td>Panama</td><td>3-12 USD/mc</td><td>Tak, PwC</td></tr>
+<tr><td><strong>ExpressVPN</strong></td><td>BVI</td><td>8-13 USD/mc</td><td>Tak</td></tr>
+<tr><td><strong>IVPN</strong></td><td>Gibraltar</td><td>~6 USD/mc</td><td>Tak, Cure53</td></tr>
+</table>
+
+<div class="card green">
+<strong>Najwyzsze zaufanie</strong>: Mullvad (anonimowe konto - tylko 16-cyfrowy ID, brak email), ProtonVPN (Szwajcaria, audytowane), IVPN (zero-knowledge). Wszystkie no-log policy zostaly potwierdzone audytem badz proba sadowym.
+</div>
+
+<h2>Self-hosted VPN</h2>
+
+<h3>WireGuard server</h3>
+<pre><code># Instalacja na Ubuntu/Debian:
+sudo apt install wireguard
+
+# Generacja kluczy serwera:
+wg genkey | tee server.key | wg pubkey > server.pub
+
+# Plik konfiguracji /etc/wireguard/wg0.conf:
+[Interface]
+Address = 10.10.0.1/24
+ListenPort = 51820
+PrivateKey = SERVER_PRIVATE_KEY
+PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+[Peer]
+PublicKey = CLIENT_PUBLIC_KEY
+AllowedIPs = 10.10.0.2/32
+
+# IP forwarding:
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+sysctl -p
+
+# Start:
+sudo systemctl enable --now wg-quick@wg0
+
+# Status:
+sudo wg show
+
+# Klient WireGuard config (wg-client.conf):
+[Interface]
+Address = 10.10.0.2/24
+PrivateKey = CLIENT_PRIVATE_KEY
+DNS = 1.1.1.1
+
+[Peer]
+PublicKey = SERVER_PUBLIC_KEY
+Endpoint = vpn.example.com:51820
+AllowedIPs = 0.0.0.0/0       # cala siec przez VPN (full tunnel)
+# AllowedIPs = 10.10.0.0/24, 192.168.1.0/24    # split tunnel
+PersistentKeepalive = 25</code></pre>
+
+<h3>WireGuard - generacja konfiguracji szybciej</h3>
+<pre><code># Bash one-liner do generacji par kluczy:
+PRIV=$(wg genkey)
+PUB=$(echo $PRIV | wg pubkey)
+echo "Private: $PRIV"
+echo "Public:  $PUB"
+
+# Pre-shared key (dodatkowe zabezpieczenie):
+PSK=$(wg genpsk)
+
+# QR code dla telefonu (na serwerze):
+sudo apt install qrencode
+qrencode -t ansiutf8 < client.conf</code></pre>
+
+<h3>OpenVPN server</h3>
+<pre><code># Latwa instalacja przez angristan/openvpn-install:
+curl -O https://raw.githubusercontent.com/angristan/openvpn-install/master/openvpn-install.sh
+chmod +x openvpn-install.sh
+sudo ./openvpn-install.sh
+
+# Wybierz: UDP, port 1194, AES-256-GCM, ECDSA cert, prime256v1
+# Generuje plik klienta .ovpn z wszystkimi cert i kluczami
+
+# Klient:
+openvpn --config client.ovpn
+
+# Manualna konfiguracja /etc/openvpn/server/server.conf:
+port 1194
+proto udp
+dev tun
+ca ca.crt
+cert server.crt
+key server.key
+dh dh2048.pem
+server 10.8.0.0 255.255.255.0
+push "redirect-gateway def1 bypass-dhcp"
+push "dhcp-option DNS 1.1.1.1"
+keepalive 10 120
+cipher AES-256-GCM
+auth SHA256
+user nobody
+group nogroup
+persist-key
+persist-tun</code></pre>
+
+<h3>Algo VPN</h3>
+<p>Set ansible playbookow do automatycznego stawiania IPsec/WireGuard na cloud (DigitalOcean, AWS, GCP, Vultr). Bezpieczne defaulty, brak loggowania.</p>
+
+<pre><code># Algo VPN deploy:
+git clone https://github.com/trailofbits/algo
+cd algo
+python3 -m venv .env
+. .env/bin/activate
+pip install -r requirements.txt
+./algo</code></pre>
+
+<h3>Outline / Shadowsocks</h3>
+<p>Outline (przez Jigsaw, dawniej Google) tworzy serwery Shadowsocks - protokol stworzony do obejscia Chinskiego firewalla. Maskuje sie jako zwykly ruch HTTPS.</p>
+
+<h2>Mesh / overlay VPN - 2026 trend</h2>
+<p>Tradycyjny VPN = hub-and-spoke (wszyscy klienci przez serwer centralny). Mesh VPN tworzy bezposrednie polaczenia P2P miedzy wszystkimi nodami.</p>
+
+<h3>Tailscale</h3>
+<p>Najpopularniejsze rozwiazanie 2026 - WireGuard pod spodem + automatyczna wymiana kluczy + NAT traversal + zero-config. Free dla 100 urzadzen.</p>
+
+<pre><code># Instalacja Linux:
+curl -fsSL https://tailscale.com/install.sh | sh
+
+# Login:
+sudo tailscale up
+
+# Status:
+tailscale status
+
+# Subnet routing (siec 192.168.1.0/24 dostepna przez node):
+sudo tailscale up --advertise-routes=192.168.1.0/24
+
+# Exit node (caly traffic przez ten node):
+sudo tailscale up --advertise-exit-node
+
+# SSH przez Tailscale:
+sudo tailscale up --ssh
+ssh user@nazwa-w-tailnet</code></pre>
+
+<h3>Headscale</h3>
+<p>Self-hosted alternatywa dla Tailscale control plane. Zero-trust networking bez wynajmowania trzeciej strony.</p>
+
+<h3>ZeroTier</h3>
+<p>Cross-platform mesh VPN. Dzialal przed Tailscale (od 2014). UDP-based, free dla 25 nodow.</p>
+
+<h3>Nebula</h3>
+<p>Stworzony przez Slack. Bardzo szybki, certyfikatowo-bazowy. Wymaga wiecej konfiguracji niz Tailscale, ale fully self-hosted.</p>
+
+<h3>Netbird, Twingate, Cloudflare Access</h3>
+<p>Komercyjne alternatywy do Tailscale, kazda z wlasnym pomyslem na zero-trust.</p>
+
+<h2>IPsec basics - faza 1 i 2</h2>
+<pre><code># Faza 1 (IKE) - ustanawia ISAKMP SA:
+- Authentication (PSK lub certyfikaty)
+- Encryption: AES-256
+- Hash: SHA-256, SHA-384
+- DH group: 14, 15, 19, 20, 21
+- Lifetime: 28800 sekund (8 godzin)
+
+# Faza 2 (IPsec) - ustanawia IPsec SA:
+- ESP encryption: AES-256-GCM
+- ESP authentication (jesli AES-CBC): SHA-256
+- PFS group: 14+
+- Lifetime: 3600 sekund (1 godzina)
+
+# strongSwan (Linux IPsec) - przyklad /etc/swanctl/conf.d/site.conf:
+connections {
+    site-to-site {
+        version = 2
+        local_addrs = 1.2.3.4
+        remote_addrs = 5.6.7.8
+        proposals = aes256-sha256-modp2048
+        local {
+            auth = psk
+            id = 1.2.3.4
+        }
+        remote {
+            auth = psk
+            id = 5.6.7.8
+        }
+        children {
+            net {
+                local_ts = 192.168.1.0/24
+                remote_ts = 192.168.2.0/24
+                esp_proposals = aes256gcm16-modp2048
+                start_action = trap
+            }
+        }
+    }
+}</code></pre>
+
+<h2>NAT-T - NAT Traversal</h2>
+<p>IPsec ESP nie ma portow - NAT nie wie co z nim zrobic. NAT-T (RFC 3947) pakuje ESP w UDP 4500, dzieki czemu przechodzi przez NAT.</p>
+
+<h2>Komendy administracyjne</h2>
+<pre><code># WireGuard:
+wg show                              # status interfejsow
+wg show wg0                          # konkretny interface
+wg-quick up wg0                      # podnies tunel z config
+wg-quick down wg0                    # zatrzymaj
+wg-quick save wg0                    # zapisz aktualny stan
+
+# OpenVPN:
+sudo systemctl status openvpn-server@server
+sudo journalctl -u openvpn-server@server -f
+cat /var/log/openvpn/status.log      # lista podlaczonych klientow
+
+# IPsec strongSwan:
+sudo swanctl --list-conns
+sudo swanctl --list-sas              # aktywne security associations
+sudo swanctl --initiate --child net  # ustanow tunel
+sudo swanctl --terminate --ike site
+
+# Tailscale:
+tailscale status
+tailscale ping nazwa-node
+tailscale ip
+tailscale netcheck                   # diagnoza polaczenia</code></pre>
+
+<h2>DNS leak, kill switch, multi-hop</h2>
+
+<h3>DNS leak</h3>
+<p>Niewlasciwie skonfigurowany VPN moze wysylac DNS zapytania przez normalny interface (nie przez tunel) - to "DNS leak". Pomimo zaszyfrowanego ruchu, ISP widzi co odwiedzasz. Test: dnsleaktest.com</p>
+
+<h3>Kill switch</h3>
+<p>Mechanizm odcinajacy caly internet jesli VPN sie rozlaczy. Iptables rules: tylko interfejs VPN moze wysylac, reszta DROP.</p>
+
+<pre><code># Kill switch z iptables (gdy uzywasz wg0):
+iptables -A OUTPUT -o lo -j ACCEPT
+iptables -A OUTPUT -o wg0 -j ACCEPT
+iptables -A OUTPUT -d VPN_SERVER_IP -p udp --dport 51820 -j ACCEPT
+iptables -A OUTPUT -m addrtype --dst-type LOCAL -j ACCEPT
+iptables -A OUTPUT -j DROP</code></pre>
+
+<h3>Multi-hop VPN</h3>
+<p>Lancuch 2+ serwerow VPN. Pierwszy widzi tylko twoje IP, ostatni widzi cel ruchu. Trade-off: wieksza prywatnosc, mniejsza predkosc.</p>
+
+<div class="card green">
+<strong>Rekomendacja 2026</strong>: dla pracy zdalnej - <strong>Tailscale</strong> (free, automatyczne, mesh). Dla prywatnosci - <strong>Mullvad WireGuard</strong>. Dla self-hosted serwera VPS - <strong>WireGuard</strong> (server kosztuje $5/mc na DigitalOcean/Vultr/Hetzner).
+</div>
+
+<div class="nav-bottom">
+<a href="07-certyfikaty-ssl-tls.html">&larr; Certyfikaty SSL/TLS</a>
+<a href="09-firewall-i-bezpieczenstwo.html">Firewall i bezpieczenstwo &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blazor WPF</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Hybrid</a><span class="sep">/</span><span class="title">Blazor WPF</span></div>
+<div class="container">
+<h1>Blazor WPF</h1>
+<p class="subtitle">WPF host z BlazorWebView, mixing XAML and Razor, modernization legacy</p>
+
+<h2>Co to Blazor WPF?</h2>
+<p>WPF (Windows Presentation Foundation) to platforma desktop UI od 2006 roku. Wciaz wykorzystywana w tysiacach aplikacji enterprise. <strong>Blazor WPF</strong> pozwala wstawic Blazor komponenty do istniejacej WPF aplikacji przez kontrolke <code>BlazorWebView</code>.</p>
+
+<h2>Kiedy uzyc?</h2>
+<ul>
+<li>Modernizacja legacy WPF &mdash; nowe ekrany w Blazor, stare zostaja w XAML</li>
+<li>Reuse webowych komponentow w aplikacji desktop</li>
+<li>Zespol C# zna lepiej Blazor niz XAML</li>
+<li>Internal narzedzia Windows-only z modernym UI</li>
+</ul>
+
+<h2>Setup projektu</h2>
+<pre><code># Nowy WPF + Blazor
+dotnet new wpf -n MyWpfApp
+cd MyWpfApp
+dotnet add package Microsoft.AspNetCore.Components.WebView.Wpf
+
+# Lub do istniejacej aplikacji:
+# Tylko dodaj nuget package</code></pre>
+
+<h2>App.xaml &mdash; rejestracja services</h2>
+<pre><code>&lt;Application x:Class="MyWpfApp.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             StartupUri="MainWindow.xaml"&gt;
+    &lt;Application.Resources&gt;
+        &lt;ResourceDictionary&gt;
+            &lt;!-- Default Blazor styles --&gt;
+        &lt;/ResourceDictionary&gt;
+    &lt;/Application.Resources&gt;
+&lt;/Application&gt;</code></pre>
+
+<pre><code>// App.xaml.cs
+public partial class App : Application
+{
+    public IServiceProvider Services { get; private set; } = null!;
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        var services = new ServiceCollection();
+
+        services.AddWpfBlazorWebView();
+#if DEBUG
+        services.AddBlazorWebViewDeveloperTools();
+#endif
+
+        services.AddSingleton&lt;WeatherService&gt;();
+        services.AddSingleton&lt;ICustomerService, CustomerService&gt;();
+
+        Services = services.BuildServiceProvider();
+
+        base.OnStartup(e);
+    }
+}</code></pre>
+
+<h2>MainWindow.xaml &mdash; BlazorWebView</h2>
+<pre><code>&lt;Window x:Class="MyWpfApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:b="clr-namespace:Microsoft.AspNetCore.Components.WebView.Wpf;assembly=Microsoft.AspNetCore.Components.WebView.Wpf"
+        xmlns:components="clr-namespace:MyWpfApp.Components"
+        Title="My App" Height="700" Width="1200"&gt;
+    &lt;Grid&gt;
+        &lt;b:BlazorWebView x:Name="blazorWebView"
+                          HostPage="wwwroot/index.html"
+                          Services="{x:Static local:App.Services}"&gt;
+            &lt;b:BlazorWebView.RootComponents&gt;
+                &lt;b:RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" /&gt;
+            &lt;/b:BlazorWebView.RootComponents&gt;
+        &lt;/b:BlazorWebView&gt;
+    &lt;/Grid&gt;
+&lt;/Window&gt;</code></pre>
+
+<h2>Mixed UI &mdash; XAML + Blazor</h2>
+<p>Najczestszy use case &mdash; legacy WPF z nowymi sekcjami w Blazor.</p>
+<pre><code>&lt;Window&gt;
+    &lt;Grid&gt;
+        &lt;Grid.RowDefinitions&gt;
+            &lt;RowDefinition Height="Auto" /&gt;
+            &lt;RowDefinition Height="*" /&gt;
+        &lt;/Grid.RowDefinitions&gt;
+
+        &lt;!-- Stary XAML toolbar --&gt;
+        &lt;ToolBar Grid.Row="0"&gt;
+            &lt;Button Content="Zapisz" Click="OnSave" /&gt;
+            &lt;Button Content="Odswiez" Click="OnRefresh" /&gt;
+        &lt;/ToolBar&gt;
+
+        &lt;!-- Nowy Blazor content --&gt;
+        &lt;b:BlazorWebView Grid.Row="1"
+                          HostPage="wwwroot/index.html"
+                          Services="{x:Static local:App.Services}"&gt;
+            &lt;b:BlazorWebView.RootComponents&gt;
+                &lt;b:RootComponent Selector="#app" ComponentType="{x:Type components:Dashboard}" /&gt;
+            &lt;/b:BlazorWebView.RootComponents&gt;
+        &lt;/b:BlazorWebView&gt;
+    &lt;/Grid&gt;
+&lt;/Window&gt;</code></pre>
+
+<h2>Komunikacja XAML &lt;-&gt; Blazor</h2>
+
+<h3>Z XAML do Blazor</h3>
+<pre><code>// MainWindow.xaml.cs
+private void OnSave(object sender, RoutedEventArgs e)
+{
+    // Wywoluj metode w Blazor komponencie
+    var service = App.Services.GetService&lt;ICommunicationService&gt;();
+    service?.TriggerSave();
+}</code></pre>
+
+<pre><code>// CommunicationService
+public interface ICommunicationService
+{
+    event Action? OnSave;
+    void TriggerSave();
+}
+
+public class CommunicationService : ICommunicationService
+{
+    public event Action? OnSave;
+    public void TriggerSave() =&gt; OnSave?.Invoke();
+}</code></pre>
+
+<pre><code>@inject ICommunicationService Comm
+@implements IDisposable
+
+@code {
+    protected override void OnInitialized()
+    {
+        Comm.OnSave += HandleSave;
+    }
+
+    private void HandleSave() { /* ... */ }
+
+    public void Dispose() =&gt; Comm.OnSave -= HandleSave;
+}</code></pre>
+
+<h3>Z Blazor do XAML</h3>
+<p>Podobnie &mdash; przez serwis lub event aggregator.</p>
+
+<h2>WebView2 control</h2>
+<p>Pod spodem Blazor WPF uzywa WebView2 (Chromium-based, czesc Edge). Wymaga zainstalowanego Edge / WebView2 runtime. Microsoft dystrybuuje to z Windows 11 i nowszymi.</p>
+
+<h3>Instalacja runtime</h3>
+<p>Mozesz wymagac WebView2 Runtime przez installer:</p>
+<pre><code>// Sprawdzenie programowo
+try
+{
+    var version = CoreWebView2Environment.GetAvailableBrowserVersionString();
+}
+catch
+{
+    // Brak WebView2 - pokaz prompt instalacji
+}</code></pre>
+
+<h2>Plusy i minusy</h2>
+
+<h3>Plusy</h3>
+<ul>
+<li>Modernizacja bez przepisywania calej aplikacji</li>
+<li>Reuse Blazor komponentow z webowej aplikacji</li>
+<li>WebView2 Chromium &mdash; nowoczesny silnik HTML5/CSS3</li>
+<li>Hot reload dla Blazor</li>
+<li>WPF features (window, dialogi, native API) dalej dostepne</li>
+</ul>
+
+<h3>Minusy</h3>
+<ul>
+<li>Wymaga Windows + WebView2</li>
+<li>Bundle wiekszy o WebView</li>
+<li>Mixing dwoch UI paradigmatow moze byc mylace</li>
+<li>WPF Designer nie pokazuje Blazor content</li>
+<li>Theming &mdash; trudniej spojnie miedzy XAML i CSS</li>
+</ul>
+
+<h2>Migracja XAML &rarr; Blazor &mdash; strategia</h2>
+<ol>
+<li>Stworz nowy ekran w Blazor (osobno od WPF)</li>
+<li>Wyodrebnij wspolne services do interfejsow</li>
+<li>Dodaj BlazorWebView do nowej zakladki / okna</li>
+<li>Migruj kolejne sekcje za sekcja</li>
+<li>Po migracji wszystkich ekranow &mdash; rozwaz Blazor MAUI dla cross-platform</li>
+</ol>
+
+<h2>Performance</h2>
+<table>
+<thead><tr><th>Aspekt</th><th>WPF native</th><th>Blazor WPF</th></tr></thead>
+<tbody>
+<tr><td>Startup</td><td>~500 ms</td><td>~1.5 sek (WebView startup)</td></tr>
+<tr><td>Memory</td><td>~80 MB</td><td>~200 MB (WebView)</td></tr>
+<tr><td>UI render</td><td>Native, GPU-accelerated</td><td>WebView (mniej swift)</td></tr>
+<tr><td>Animacje</td><td>Smoothe (compositor)</td><td>OK, ale ograniczone</td></tr>
+</tbody>
+</table>
+
+<h2>Theming sync</h2>
+<p>Aby Blazor uzywal kolorow systemu Windows i wygladal spojnie z WPF:</p>
+<pre><code>// Detekcja system theme
+public static bool IsLightTheme()
+{
+    using var key = Registry.CurrentUser.OpenSubKey(
+        @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+    return (int?)key?.GetValue("AppsUseLightTheme") == 1;
+}
+
+// Przekaz do Blazor przez serwis
+services.AddSingleton(new ThemeService { IsLight = IsLightTheme() });</code></pre>
+
+<div class="card">
+<h3>Wskazowka</h3>
+<p>Dla nowego projektu desktop (bez legacy WPF) prawdopodobnie lepszy wybor to <strong>Blazor MAUI</strong> &mdash; cross-platform z jednym codebase. Blazor WPF ma sens glownie gdy modernizujesz istniejaca WPF aplikacje lub potrzebujesz konkretnych WPF features.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="01-blazor-maui.html">&larr; Blazor MAUI</a>
+<a href="03-blazor-winforms.html">Blazor WinForms &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blazor WinForms</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Hybrid</a><span class="sep">/</span><span class="title">Blazor WinForms</span></div>
+<div class="container">
+<h1>Blazor WinForms</h1>
+<p class="subtitle">WinForms z BlazorWebView, modernizacja legacy bez full rewrite</p>
+
+<h2>Po co Blazor w WinForms?</h2>
+<p>WinForms to najstarsza desktopowa platforma .NET (od 2002). Setki tysiecy line-of-business aplikacji w Polsce dziala na WinForms. Migracja na nowoczesne stacki jest droga &mdash; <strong>Blazor WinForms</strong> oferuje sciezke gradalna: dodawanie nowoczesnych ekranow do legacy aplikacji bez przepisywania calosci.</p>
+
+<h2>Setup projektu</h2>
+<pre><code>dotnet new winforms -n MyWinFormsApp
+cd MyWinFormsApp
+dotnet add package Microsoft.AspNetCore.Components.WebView.WindowsForms</code></pre>
+
+<h2>Program.cs (.NET 9)</h2>
+<pre><code>using Microsoft.Extensions.DependencyInjection;
+
+namespace MyWinFormsApp;
+
+internal static class Program
+{
+    public static IServiceProvider Services { get; private set; } = null!;
+
+    [STAThread]
+    static void Main()
+    {
+        ApplicationConfiguration.Initialize();
+
+        var services = new ServiceCollection();
+        services.AddWindowsFormsBlazorWebView();
+#if DEBUG
+        services.AddBlazorWebViewDeveloperTools();
+#endif
+
+        services.AddSingleton&lt;DataService&gt;();
+
+        Services = services.BuildServiceProvider();
+
+        Application.Run(new MainForm());
+    }
+}</code></pre>
+
+<h2>MainForm.cs &mdash; dodanie BlazorWebView</h2>
+<pre><code>public partial class MainForm : Form
+{
+    public MainForm()
+    {
+        InitializeComponent();
+
+        var blazorWebView = new BlazorWebView
+        {
+            Dock = DockStyle.Fill,
+            HostPage = "wwwroot/index.html",
+            Services = Program.Services
+        };
+
+        blazorWebView.RootComponents.Add&lt;Routes&gt;("#app");
+
+        // Jesli mieszany layout:
+        var splitter = new SplitContainer { Dock = DockStyle.Fill };
+        splitter.Panel1.Controls.Add(blazorWebView);
+
+        // Stara legacy GridView
+        splitter.Panel2.Controls.Add(legacyDataGrid);
+
+        Controls.Add(splitter);
+    }
+}</code></pre>
+
+<h2>Hybrid scenario &mdash; jeden ekran legacy, drugi nowoczesny</h2>
+<pre><code>// Tabbed approach
+public partial class MainForm : Form
+{
+    public MainForm()
+    {
+        var tabControl = new TabControl { Dock = DockStyle.Fill };
+
+        // Stary legacy ekran
+        var legacyTab = new TabPage("Lista (legacy)");
+        legacyTab.Controls.Add(BuildLegacyDataGrid());
+        tabControl.TabPages.Add(legacyTab);
+
+        // Nowy ekran w Blazor
+        var blazorTab = new TabPage("Dashboard (Blazor)");
+        var webView = new BlazorWebView
+        {
+            Dock = DockStyle.Fill,
+            HostPage = "wwwroot/index.html",
+            Services = Program.Services
+        };
+        webView.RootComponents.Add&lt;Dashboard&gt;("#app");
+        blazorTab.Controls.Add(webView);
+        tabControl.TabPages.Add(blazorTab);
+
+        Controls.Add(tabControl);
+    }
+}</code></pre>
+
+<h2>Komunikacja WinForms &lt;-&gt; Blazor</h2>
+
+<h3>Shared service</h3>
+<pre><code>public class AppContext
+{
+    public event Action&lt;Customer&gt;? OnCustomerSelected;
+
+    public void NotifyCustomerSelected(Customer customer)
+    {
+        OnCustomerSelected?.Invoke(customer);
+    }
+}
+
+// W Program.cs
+services.AddSingleton&lt;AppContext&gt;();</code></pre>
+
+<pre><code>// WinForms - wybor wiersza w GridView
+private void OnGridSelectionChanged(object sender, EventArgs e)
+{
+    var customer = (Customer)dataGrid.SelectedRows[0].DataBoundItem;
+    var ctx = Program.Services.GetService&lt;AppContext&gt;();
+    ctx?.NotifyCustomerSelected(customer);
+}</code></pre>
+
+<pre><code>// Blazor reaguje
+@inject AppContext Ctx
+@implements IDisposable
+
+@code {
+    private Customer? selected;
+
+    protected override void OnInitialized()
+    {
+        Ctx.OnCustomerSelected += HandleCustomerSelected;
+    }
+
+    private void HandleCustomerSelected(Customer c)
+    {
+        selected = c;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() =&gt; Ctx.OnCustomerSelected -= HandleCustomerSelected;
+}</code></pre>
+
+<h2>Dlaczego HtmlBlazorView a nie cos innego?</h2>
+<p>WinForms ma starszy <code>WebBrowser</code> control (IE-based) &mdash; przestarzaly, nie wspiera nowoczesnego HTML/CSS. <strong>BlazorWebView</strong> uzywa WebView2 (Chromium), wiec mozesz uzywac modernych framework UI (Tailwind, MudBlazor, Bootstrap 5).</p>
+
+<h2>Typowy modernization scenario</h2>
+<ol>
+<li><strong>Audit</strong> &mdash; ktore ekrany sa najbardziej "ostatnie", krytyczne, dotykane przez biznes?</li>
+<li><strong>Wybierz pilot</strong> &mdash; jeden ekran do migracji jako proof of concept</li>
+<li><strong>Wyodrebnij services</strong> &mdash; logika biznesowa do interfejsow</li>
+<li><strong>Stworz Blazor komponent</strong> &mdash; nowy UI dla pilot screen</li>
+<li><strong>Pokaz w nowej karcie / oknie</strong> &mdash; uzytkownicy maja wybor</li>
+<li><strong>Migracja sekwencyjna</strong> &mdash; co miesiac jeden ekran wiecej</li>
+<li><strong>Po migracji 80%+ &mdash; rozwaz Blazor MAUI</strong> dla cross-platform</li>
+</ol>
+
+<h2>Plusy</h2>
+<ul>
+<li>Niska bariera wejscia &mdash; nie zmienasz architektury aplikacji</li>
+<li>WebView2 daje nowoczesny silnik HTML/CSS3</li>
+<li>Mozesz uzywac istniejacych Blazor komponentow z webowej aplikacji</li>
+<li>Hot reload dziala na komponentach .razor</li>
+<li>Mieszanie z legacy WinForms (DataGrid, formularze) &mdash; bez stresu</li>
+</ul>
+
+<h2>Minusy</h2>
+<ul>
+<li>Tylko Windows (jak WinForms) &mdash; brak cross-platform</li>
+<li>Wymaga WebView2 runtime u uzytkownika</li>
+<li>Bundle wiekszy o WebView (mniejszy problem na desktopie)</li>
+<li>Theming &mdash; trudno spojnie WinForms (system colors) i Blazor (CSS)</li>
+<li>Hybrydowe debugging skomplikowane</li>
+</ul>
+
+<h2>Performance &mdash; benchmark</h2>
+<table>
+<thead><tr><th>Aspekt</th><th>WinForms native</th><th>WinForms + BlazorWebView</th></tr></thead>
+<tbody>
+<tr><td>App startup</td><td>~300 ms</td><td>~1 sek (WebView init)</td></tr>
+<tr><td>Memory</td><td>~50 MB</td><td>~150 MB (WebView)</td></tr>
+<tr><td>UI smoothness</td><td>Native</td><td>OK (Chromium)</td></tr>
+<tr><td>Render duzej tabeli</td><td>Bardzo szybki (DataGridView)</td><td>Zalezne (HTML scroll z Virtualize)</td></tr>
+</tbody>
+</table>
+
+<h2>Common scenarios</h2>
+
+<h3>1. Modernizacja zakladek</h3>
+<p>Aplikacja ksiegowa z 30 zakladkami, 5 najwazniejszych w Blazor, reszta legacy WinForms.</p>
+
+<h3>2. Mieszany formularz</h3>
+<p>Lista po lewej (WinForms DataGridView z highly-tuned filtering), szczegoly po prawej (Blazor &mdash; modern UI z walidacja, fancy formy).</p>
+
+<h3>3. Wewnetrzne dashboardy</h3>
+<p>Aplikacje narzedziowe ze 100+ widokami, ale tylko kilka wymaga modernizacji &mdash; zostaje WinForms shell, nowe analytics w Blazor.</p>
+
+<h3>4. Pomost migracyjny</h3>
+<p>Plan: za 3 lata wszystko bedzie w Blazor MAUI. Dzisiaj &mdash; piszemy nowe ekrany juz w Blazor, mieszamy z WinForms.</p>
+
+<h2>Theming &mdash; sync z systemem</h2>
+<pre><code>public static class ThemeHelper
+{
+    public static bool IsLightTheme()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(
+            @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+        return (int?)key?.GetValue("AppsUseLightTheme") == 1;
+    }
+}
+
+// Aplikacja zmiena theme przy starcie
+&lt;html data-bs-theme="@(ThemeHelper.IsLightTheme() ? "light" : "dark")"&gt;</code></pre>
+
+<div class="card">
+<h3>Wskazowka</h3>
+<p>Dla nowych projektow desktop nie wybieraj Blazor WinForms &mdash; <strong>Blazor MAUI</strong> daje to samo + cross-platform. Blazor WinForms ma sens tylko gdy:</p>
+<ul>
+<li>Masz istniejaca duza WinForms aplikacje</li>
+<li>Targeting tylko Windows</li>
+<li>Nie chcesz przepisywac calosci, tylko modernizujesz wybrane ekrany</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="02-blazor-wpf.html">&larr; Blazor WPF</a>
+<a href="04-native-interop.html">Native interop &rarr;</a>
+</div>
+</div>
+</body>
+</html>

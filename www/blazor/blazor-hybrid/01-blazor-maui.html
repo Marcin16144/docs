@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blazor MAUI</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Hybrid</a><span class="sep">/</span><span class="title">Blazor MAUI</span></div>
+<div class="container">
+<h1>Blazor MAUI</h1>
+<p class="subtitle">Single codebase: Windows, macOS, iOS, Android. BlazorWebView, MAUI APIs</p>
+
+<h2>Co to Blazor MAUI?</h2>
+<p>.NET MAUI (Multi-platform App UI) to nastepca Xamarin.Forms. Pozwala pisac aplikacje natywne dla 4 platform z jednego kodu. <strong>Blazor MAUI</strong> to specjalny tryb &mdash; uzywasz Blazor komponentow zamiast XAML do UI, a MAUI dostarcza native shell, plugins i deployment.</p>
+
+<h2>Kiedy Blazor MAUI?</h2>
+<ul>
+<li>Masz juz aplikacje Blazor (Server lub WASM) i chcesz desktop / mobile wersje</li>
+<li>Zespol C# + Blazor, ale nie chce uczyc XAML</li>
+<li>UI jest "web-like" &mdash; nie potrzebuje <em>idealnie</em> natywnych komponentow</li>
+<li>Reuse webowych komponentow w aplikacji desktopowej</li>
+</ul>
+
+<h2>Tworzenie projektu</h2>
+<pre><code>dotnet workload install maui-blazor
+dotnet new maui-blazor -o MyMauiApp
+cd MyMauiApp
+dotnet run</code></pre>
+
+<h3>Struktura</h3>
+<pre><code>MyMauiApp/
+  MauiProgram.cs           # MAUI entry point
+  App.xaml / App.xaml.cs   # MAUI app shell
+  MainPage.xaml            # Strona z BlazorWebView
+  Components/              # Blazor komponenty
+    Pages/
+      Home.razor
+      Counter.razor
+    Layout/
+      MainLayout.razor
+    _Imports.razor
+    Routes.razor
+  wwwroot/
+    index.html
+    css/
+  Platforms/
+    Android/
+    iOS/
+    MacCatalyst/
+    Windows/</code></pre>
+
+<h2>MauiProgram.cs</h2>
+<pre><code>public static class MauiProgram
+{
+    public static MauiApp CreateMauiApp()
+    {
+        var builder = MauiApp.CreateBuilder();
+        builder
+            .UseMauiApp&lt;App&gt;()
+            .ConfigureFonts(fonts =&gt;
+            {
+                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+            });
+
+        builder.Services.AddMauiBlazorWebView();
+
+#if DEBUG
+        builder.Services.AddBlazorWebViewDeveloperTools();
+        builder.Logging.AddDebug();
+#endif
+
+        builder.Services.AddSingleton&lt;WeatherForecastService&gt;();
+
+        return builder.Build();
+    }
+}</code></pre>
+
+<h2>MainPage.xaml &mdash; host dla Blazor</h2>
+<pre><code>&lt;?xml version="1.0" encoding="utf-8" ?&gt;
+&lt;ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:b="clr-namespace:Microsoft.AspNetCore.Components.WebView.Maui;assembly=Microsoft.AspNetCore.Components.WebView.Maui"
+             xmlns:components="clr-namespace:MyMauiApp.Components"
+             x:Class="MyMauiApp.MainPage"
+             BackgroundColor="{DynamicResource PageBackgroundColor}"&gt;
+
+    &lt;b:BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html"&gt;
+        &lt;b:BlazorWebView.RootComponents&gt;
+            &lt;b:RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" /&gt;
+        &lt;/b:BlazorWebView.RootComponents&gt;
+    &lt;/b:BlazorWebView&gt;
+&lt;/ContentPage&gt;</code></pre>
+
+<h2>BlazorWebView</h2>
+<p>Sercem Blazor MAUI jest komponent <strong>BlazorWebView</strong> &mdash; widget XAML, ktory hostuje native WebView2 (Windows), WKWebView (iOS), WebView (Android) i renderuje w nim Blazor app.</p>
+
+<h2>Ekrany</h2>
+
+<h3>Pojedyncze BlazorWebView</h3>
+<p>Najczesciej caly UI w jednym BlazorWebView, MAUI tylko shell.</p>
+
+<h3>Hybrid &mdash; XAML + Blazor</h3>
+<p>Mozesz miec rozne ekrany &mdash; jedne XAML, drugie Blazor. Idealne dla migracji legacy XAML aplikacji.</p>
+<pre><code>&lt;TabbedPage&gt;
+    &lt;ContentPage Title="Native"&gt;
+        &lt;StackLayout&gt;
+            &lt;Label Text="Native MAUI tab" /&gt;
+        &lt;/StackLayout&gt;
+    &lt;/ContentPage&gt;
+    &lt;ContentPage Title="Web"&gt;
+        &lt;b:BlazorWebView HostPage="wwwroot/index.html"&gt;...&lt;/b:BlazorWebView&gt;
+    &lt;/ContentPage&gt;
+&lt;/TabbedPage&gt;</code></pre>
+
+<h2>Wywolywanie native APIs</h2>
+<p>W Blazor komponencie mozesz uzywac MAUI APIs przez DI &mdash; nie ma "sandboxa", to lokalna aplikacja.</p>
+
+<h3>Geolocation</h3>
+<pre><code>@inject IGeolocation Geo
+
+&lt;button @onclick="GetLocation"&gt;Pobierz lokalizacje&lt;/button&gt;
+&lt;p&gt;@locationText&lt;/p&gt;
+
+@code {
+    private string locationText = "";
+
+    private async Task GetLocation()
+    {
+        try
+        {
+            var location = await Geo.GetLocationAsync(new GeolocationRequest
+            {
+                DesiredAccuracy = GeolocationAccuracy.Best,
+                Timeout = TimeSpan.FromSeconds(10)
+            });
+
+            if (location != null)
+                locationText = $"{location.Latitude}, {location.Longitude}";
+        }
+        catch (FeatureNotSupportedException)
+        {
+            locationText = "Brak wsparcia na tej platformie";
+        }
+    }
+}</code></pre>
+
+<h3>Camera</h3>
+<pre><code>@code {
+    private async Task TakePhoto()
+    {
+        if (MediaPicker.Default.IsCaptureSupported)
+        {
+            var photo = await MediaPicker.Default.CapturePhotoAsync();
+            if (photo != null)
+            {
+                using var stream = await photo.OpenReadAsync();
+                // wyslij na serwer lub zapisz lokalnie
+            }
+        }
+    }
+}</code></pre>
+
+<h3>Sensors</h3>
+<pre><code>@implements IDisposable
+
+@code {
+    protected override void OnInitialized()
+    {
+        Accelerometer.Default.ReadingChanged += OnAccelerometerReading;
+        Accelerometer.Default.Start(SensorSpeed.UI);
+    }
+
+    private void OnAccelerometerReading(object? sender, AccelerometerChangedEventArgs e)
+    {
+        var data = e.Reading;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Accelerometer.Default.Stop();
+        Accelerometer.Default.ReadingChanged -= OnAccelerometerReading;
+    }
+}</code></pre>
+
+<h3>Pliki</h3>
+<pre><code>private async Task ReadFile()
+{
+    var result = await FilePicker.Default.PickAsync();
+    if (result != null)
+    {
+        using var stream = await result.OpenReadAsync();
+        // ...
+    }
+}
+
+private async Task SaveFile(byte[] data)
+{
+    var path = Path.Combine(FileSystem.AppDataDirectory, "data.json");
+    await File.WriteAllBytesAsync(path, data);
+}</code></pre>
+
+<h2>Plusy Blazor MAUI</h2>
+<ul>
+<li>Single codebase &mdash; Windows + macOS + iOS + Android</li>
+<li>Reuse Blazor komponentow z webowej aplikacji</li>
+<li>Native packaging (App Store, Play Store, Microsoft Store)</li>
+<li>Pelny dostep do native APIs (camera, GPS, sensors, BLE)</li>
+<li>Brak Internet potrzebny &mdash; aplikacja dziala offline</li>
+<li>C# end-to-end</li>
+</ul>
+
+<h2>Minusy</h2>
+<ul>
+<li>Bundle size &mdash; aplikacja musi miec .NET runtime + WebView</li>
+<li>iOS na 1 .NET version behind (czas certyfikacji)</li>
+<li>Niektore komponenty webowe nie wygladaja idealnie native</li>
+<li>WebView limitations: no DRM, restricted JS API</li>
+<li>MAUI samo bywa niestabilne na niektorych edge case</li>
+</ul>
+
+<h2>Performance</h2>
+<table>
+<thead><tr><th>Platform</th><th>Startup</th><th>Memory baseline</th></tr></thead>
+<tbody>
+<tr><td>Windows</td><td>~1 sek</td><td>~150 MB</td></tr>
+<tr><td>macOS</td><td>~1 sek</td><td>~120 MB</td></tr>
+<tr><td>iOS</td><td>~2 sek</td><td>~100 MB</td></tr>
+<tr><td>Android</td><td>~2-3 sek</td><td>~150 MB</td></tr>
+</tbody>
+</table>
+
+<h2>Hot reload</h2>
+<p>Hot Reload dziala dla Blazor MAUI &mdash; zmiany w .razor sa widoczne natychmiast bez restartu.</p>
+
+<div class="card">
+<h3>Use cases 2026</h3>
+<ul>
+<li>Aplikacje terenowe (inspekcje, formularze offline)</li>
+<li>Wewnetrzne aplikacje firmowe na 4 platformy</li>
+<li>Sklepy / kioski sprzedaz</li>
+<li>POC mobile aplikacji bez angazowania React Native / Flutter teamu</li>
+<li>Aplikacje z heavy BLE / sensors (idealne dla MAUI)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="index.html">&larr; Powrot do Blazor Hybrid</a>
+<a href="02-blazor-wpf.html">Blazor WPF &rarr;</a>
+</div>
+</div>
+</body>
+</html>

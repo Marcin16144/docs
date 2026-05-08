@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Native interop Blazor Hybrid</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Hybrid</a><span class="sep">/</span><span class="title">Native interop</span></div>
+<div class="container">
+<h1>Native interop Blazor Hybrid</h1>
+<p class="subtitle">Calling native APIs from Blazor: file system, notifications, sensors, BLE, USB</p>
+
+<h2>Roznica vs Blazor WASM</h2>
+<p>W Blazor Hybrid (MAUI/WPF/WinForms) C# zyje w pelnym .NET runtime z dostepem do platforma APIs. Mozesz uzywac:</p>
+<ul>
+<li>System.IO &mdash; dowolne pliki, bez sandbox</li>
+<li>P/Invoke do native bibliotek (Win32, IOKit, Android NDK)</li>
+<li>Platform-specific APIs (MAUI Essentials, WindowsAPICodePack, JNI)</li>
+<li>Native UI overlay (popups, dialogi systemowe)</li>
+</ul>
+
+<h2>File system &mdash; pelny dostep</h2>
+<pre><code>@inject IFileService Files
+
+@code {
+    private async Task SaveReport(byte[] data)
+    {
+        // Pelny dostep do filesystem (nie sandbox)
+        var path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "raport.pdf");
+        await File.WriteAllBytesAsync(path, data);
+    }
+
+    private async Task OpenFile()
+    {
+        // MAUI - file picker
+        var result = await FilePicker.Default.PickAsync();
+        if (result != null)
+        {
+            using var stream = await result.OpenReadAsync();
+            // ...
+        }
+
+        // WinForms - dialog systemowy
+        using var dialog = new OpenFileDialog();
+        if (dialog.ShowDialog() == DialogResult.OK)
+        {
+            var bytes = await File.ReadAllBytesAsync(dialog.FileName);
+        }
+    }
+}</code></pre>
+
+<h2>System notifications</h2>
+
+<h3>MAUI &mdash; cross-platform</h3>
+<pre><code>// Zalecane: pakiet Plugin.LocalNotification
+using Plugin.LocalNotification;
+
+private async Task ShowNotification()
+{
+    var request = new NotificationRequest
+    {
+        NotificationId = 100,
+        Title = "Wykonano zadanie",
+        Description = "Backup zostal pomyslnie zakonczony",
+        Schedule = new NotificationRequestSchedule
+        {
+            NotifyTime = DateTime.Now.AddSeconds(5)
+        }
+    };
+
+    await LocalNotificationCenter.Current.Show(request);
+}</code></pre>
+
+<h3>Windows native (WPF/WinForms)</h3>
+<pre><code>// Microsoft.Toolkit.Uwp.Notifications
+using Microsoft.Toolkit.Uwp.Notifications;
+
+new ToastContentBuilder()
+    .AddText("Wykonano zadanie")
+    .AddText("Backup zakonczony pomyslnie")
+    .AddButton(new ToastButton("Otworz", "action=open"))
+    .Show();</code></pre>
+
+<h2>Geolocation</h2>
+
+<h3>MAUI</h3>
+<pre><code>@inject IGeolocation Geo
+
+private async Task GetLocation()
+{
+    var location = await Geo.GetLocationAsync(new GeolocationRequest
+    {
+        DesiredAccuracy = GeolocationAccuracy.Best,
+        Timeout = TimeSpan.FromSeconds(10)
+    });
+
+    if (location != null)
+    {
+        latitude = location.Latitude;
+        longitude = location.Longitude;
+    }
+}</code></pre>
+
+<h2>Camera</h2>
+<pre><code>private async Task TakePhoto()
+{
+    if (MediaPicker.Default.IsCaptureSupported)
+    {
+        var photo = await MediaPicker.Default.CapturePhotoAsync(new MediaPickerOptions
+        {
+            Title = "Zdjecie produktu"
+        });
+
+        if (photo != null)
+        {
+            // Save to local
+            var localFilePath = Path.Combine(FileSystem.AppDataDirectory, photo.FileName);
+            using var stream = await photo.OpenReadAsync();
+            using var newStream = File.OpenWrite(localFilePath);
+            await stream.CopyToAsync(newStream);
+        }
+    }
+}</code></pre>
+
+<h2>Sensory (akcelerometr, kompas, zyroskop)</h2>
+<pre><code>@implements IDisposable
+
+@code {
+    private double x, y, z;
+
+    protected override void OnInitialized()
+    {
+        if (Accelerometer.Default.IsSupported)
+        {
+            Accelerometer.Default.ReadingChanged += OnReading;
+            Accelerometer.Default.Start(SensorSpeed.UI);
+        }
+    }
+
+    private void OnReading(object? sender, AccelerometerChangedEventArgs e)
+    {
+        var data = e.Reading;
+        x = data.Acceleration.X;
+        y = data.Acceleration.Y;
+        z = data.Acceleration.Z;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        if (Accelerometer.Default.IsSupported)
+        {
+            Accelerometer.Default.Stop();
+            Accelerometer.Default.ReadingChanged -= OnReading;
+        }
+    }
+}</code></pre>
+
+<h2>Bluetooth Low Energy</h2>
+<p>Dla aplikacji terenowych (skanery kodow kreskowych, urzadzenia medyczne, beacons).</p>
+<pre><code>// Plugin.BLE
+using Plugin.BLE;
+
+private async Task ScanDevices()
+{
+    var ble = CrossBluetoothLE.Current;
+    var adapter = ble.Adapter;
+
+    adapter.DeviceDiscovered += (s, e) =&gt;
+    {
+        devices.Add(e.Device);
+        InvokeAsync(StateHasChanged);
+    };
+
+    await adapter.StartScanningForDevicesAsync(
+        timeout: TimeSpan.FromSeconds(10));
+}
+
+private async Task ConnectAndRead(IDevice device)
+{
+    var adapter = CrossBluetoothLE.Current.Adapter;
+    await adapter.ConnectToDeviceAsync(device);
+
+    var services = await device.GetServicesAsync();
+    var service = services.FirstOrDefault(s =&gt; s.Id == myServiceUuid);
+    var characteristics = await service.GetCharacteristicsAsync();
+    var data = await characteristics[0].ReadAsync();
+}</code></pre>
+
+<h2>USB devices</h2>
+
+<h3>Windows (WPF/WinForms)</h3>
+<pre><code>// Najczesciej: HidLibrary
+using HidLibrary;
+
+var devices = HidDevices.Enumerate(vendorId: 0x1234, productIds: new[] { 0x5678 });
+foreach (var device in devices)
+{
+    device.OpenDevice();
+    device.Write(commandBytes);
+    var response = device.Read();
+    device.CloseDevice();
+}</code></pre>
+
+<h3>Android &mdash; UsbManager</h3>
+<pre><code>// MAUI Android-specific code
+#if ANDROID
+public async Task ConnectUsb()
+{
+    var context = Android.App.Application.Context;
+    var manager = (Android.Hardware.Usb.UsbManager)context.GetSystemService(
+        Android.Content.Context.UsbService);
+    var devices = manager.DeviceList;
+    foreach (var device in devices.Values)
+    {
+        // request permission, communicate
+    }
+}
+#endif</code></pre>
+
+<h2>Drukowanie</h2>
+
+<h3>Windows</h3>
+<pre><code>// PrinterSettings, PrintDocument
+using System.Drawing.Printing;
+
+private void PrintReport()
+{
+    var doc = new PrintDocument();
+    doc.PrintPage += (s, e) =&gt;
+    {
+        e.Graphics.DrawString("Raport", new Font("Arial", 12), Brushes.Black, 100, 100);
+    };
+    doc.Print();
+}</code></pre>
+
+<h3>MAUI &mdash; cross platform</h3>
+<pre><code>// Plugin.Maui.PrintToPdf or platform-specific
+private async Task PrintViaShare()
+{
+    await Share.Default.RequestAsync(new ShareFileRequest
+    {
+        Title = "Drukuj raport",
+        File = new ShareFile(pdfPath)
+    });
+}</code></pre>
+
+<h2>SQLite local database</h2>
+<pre><code>// Pakiet: sqlite-net-pcl
+using SQLite;
+
+public class ProductDb
+{
+    private readonly SQLiteAsyncConnection db;
+
+    public ProductDb(string path)
+    {
+        db = new SQLiteAsyncConnection(path);
+        db.CreateTableAsync&lt;Product&gt;();
+    }
+
+    public async Task&lt;List&lt;Product&gt;&gt; GetAllAsync()
+        =&gt; await db.Table&lt;Product&gt;().ToListAsync();
+}
+
+// Program.cs
+var dbPath = Path.Combine(FileSystem.AppDataDirectory, "products.db3");
+services.AddSingleton(new ProductDb(dbPath));</code></pre>
+
+<h2>P/Invoke do Win32 API</h2>
+<pre><code>using System.Runtime.InteropServices;
+
+public partial class WindowHelper
+{
+    [LibraryImport("user32.dll")]
+    private static partial int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
+
+    public void ShowAlert(string message)
+    {
+        MessageBoxW(IntPtr.Zero, message, "Alert", 0);
+    }
+}</code></pre>
+
+<h2>DI for native services</h2>
+<pre><code>// Generic interface
+public interface IDeviceInfoService
+{
+    string GetDeviceName();
+    string GetOSVersion();
+}
+
+// Platform-specific implementacje
+#if WINDOWS
+public class WindowsDeviceInfoService : IDeviceInfoService
+{
+    public string GetDeviceName() =&gt; Environment.MachineName;
+    public string GetOSVersion() =&gt; Environment.OSVersion.ToString();
+}
+#elif ANDROID
+public class AndroidDeviceInfoService : IDeviceInfoService
+{
+    public string GetDeviceName() =&gt; Android.OS.Build.Model;
+    public string GetOSVersion() =&gt; Android.OS.Build.VERSION.Release;
+}
+#endif
+
+// Program.cs
+#if WINDOWS
+services.AddSingleton&lt;IDeviceInfoService, WindowsDeviceInfoService&gt;();
+#elif ANDROID
+services.AddSingleton&lt;IDeviceInfoService, AndroidDeviceInfoService&gt;();
+#endif</code></pre>
+
+<h2>Permissions</h2>
+<pre><code>// MAUI
+private async Task RequestCameraPermission()
+{
+    var status = await Permissions.RequestAsync&lt;Permissions.Camera&gt;();
+    if (status != PermissionStatus.Granted)
+    {
+        // pokaz wiadomosc, dlaczego potrzebne
+    }
+}</code></pre>
+
+<h2>Common patterns</h2>
+
+<h3>Service abstraction</h3>
+<p>Stworz abstrakcyjny interfejs z metodami, ktorych potrzebujesz. Implementuj per platform &mdash; Blazor komponent uzywa tylko interfejsu.</p>
+
+<h3>Lazy initialization</h3>
+<p>Ciezkie native services (BLE, USB, Camera) inicjalizuj <em>tylko</em> kiedy uzytkownik faktycznie ich potrzebuje &mdash; nie przy starcie aplikacji.</p>
+
+<h3>Error handling</h3>
+<p>Native APIs czesto rzucaja platform-specific bledy. Wraps w try-catch, mapuj na sensowne komunikaty:</p>
+<pre><code>try
+{
+    var location = await Geolocation.GetLastKnownLocationAsync();
+}
+catch (FeatureNotSupportedException)
+{
+    error = "GPS nie jest wspierany";
+}
+catch (PermissionException)
+{
+    error = "Brak uprawnien do GPS";
+}
+catch (Exception ex)
+{
+    error = $"Nieznany blad: {ex.Message}";
+}</code></pre>
+
+<div class="card">
+<h3>Hybrid is the bridge</h3>
+<p>Blazor Hybrid jest powolany do laczenia "web-like" UI z natywnymi APIs platformy. Jesli twoja aplikacja musi miec dostep do hardware, plikow lokalnych, sensorow &mdash; to wlasnie hybrid jest dobrym wyborem. Dla pure web preferowane sa Blazor Server / WASM / United.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="03-blazor-winforms.html">&larr; Blazor WinForms</a>
+<a href="05-shared-codebase.html">Shared codebase &rarr;</a>
+</div>
+</div>
+</body>
+</html>

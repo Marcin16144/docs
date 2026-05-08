@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment mobile Blazor Hybrid</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../../index.html">Glowna</a><span class="sep">/</span><a href="../../index.html">WWW</a><span class="sep">/</span><a href="../index.html">Blazor</a><span class="sep">/</span><a href="index.html">Blazor Hybrid</a><span class="sep">/</span><span class="title">Deployment mobile</span></div>
+<div class="container">
+<h1>Deployment Blazor Hybrid mobile</h1>
+<p class="subtitle">iOS App Store, Apple notarization, Android Play Store, Microsoft Store</p>
+
+<h2>Platforma cele</h2>
+<table>
+<thead><tr><th>Platforma</th><th>Format</th><th>Distributor</th></tr></thead>
+<tbody>
+<tr><td>iOS / iPadOS</td><td>.ipa</td><td>App Store, TestFlight, MDM</td></tr>
+<tr><td>macOS</td><td>.app, .dmg</td><td>Mac App Store, notarized direct</td></tr>
+<tr><td>Android</td><td>.apk / .aab</td><td>Play Store, side-load</td></tr>
+<tr><td>Windows</td><td>.msix, .exe</td><td>Microsoft Store, direct</td></tr>
+</tbody>
+</table>
+
+<h2>iOS deployment</h2>
+
+<h3>Wymagania</h3>
+<ul>
+<li>Mac z najnowszym Xcode (do build)</li>
+<li>Apple Developer Account (99 USD/rok)</li>
+<li>Distribution Certificate</li>
+<li>Provisioning Profile</li>
+<li>App Store Connect setup</li>
+</ul>
+
+<h3>Build</h3>
+<pre><code># Z Mac (potrzebny Xcode)
+dotnet publish -f net9.0-ios -c Release \
+  -p:RuntimeIdentifier=ios-arm64 \
+  -p:CodesignKey="iPhone Distribution: Your Name (...)" \
+  -p:CodesignProvision="Automatic"</code></pre>
+
+<h3>App Store Connect</h3>
+<ol>
+<li>Stworz aplikacje w App Store Connect</li>
+<li>Setup Bundle ID, screenshots, opis</li>
+<li>Upload .ipa przez Transporter app lub CLI</li>
+<li>Submit for review (typowo 1-3 dni)</li>
+<li>Po approve &mdash; aplikacja w App Store</li>
+</ol>
+
+<h3>TestFlight beta testing</h3>
+<p>App Store Connect umozliwia darmowe testy beta z 100 wewnetrznymi testerami i 10000 zewnetrznymi (po review).</p>
+
+<h2>Apple notarization (macOS)</h2>
+<p>Dla aplikacji macOS dystrybuowanych poza Mac App Store musisz <strong>notarize</strong> binarka u Apple. Inaczej Gatekeeper zablokuje uruchomienie.</p>
+<pre><code># Build
+dotnet publish -f net9.0-maccatalyst -c Release
+
+# Notarize via xcrun
+xcrun notarytool submit MyApp.zip \
+  --apple-id you@example.com \
+  --team-id ABCD123456 \
+  --password "app-specific-password" \
+  --wait
+
+# Staple notarization
+xcrun stapler staple MyApp.app</code></pre>
+
+<h2>Android deployment</h2>
+
+<h3>Wymagania</h3>
+<ul>
+<li>Google Play Developer Account (25 USD jednorazowo)</li>
+<li>Keystore do podpisania aplikacji</li>
+<li>Privacy policy URL</li>
+<li>Aplikacja targeting min API 35 (Android 15) w 2026</li>
+</ul>
+
+<h3>Generowanie keystore</h3>
+<pre><code>keytool -genkey -v -keystore myapp.keystore \
+  -alias myappkey -keyalg RSA -keysize 2048 \
+  -validity 10000</code></pre>
+
+<h3>Build z signing</h3>
+<pre><code>dotnet publish -f net9.0-android -c Release \
+  -p:AndroidPackageFormats=aab \
+  -p:AndroidKeyStore=true \
+  -p:AndroidSigningKeyStore=myapp.keystore \
+  -p:AndroidSigningKeyAlias=myappkey \
+  -p:AndroidSigningKeyPass=PASSWORD \
+  -p:AndroidSigningStorePass=PASSWORD</code></pre>
+
+<h3>Play Console</h3>
+<ol>
+<li>Stworz aplikacje w Google Play Console</li>
+<li>Wypelnij Store listing (screenshots, opis, kategoria, wiek)</li>
+<li>Setup Privacy Policy</li>
+<li>Upload AAB do internal testing</li>
+<li>Po stabilizacji &mdash; promote na production</li>
+<li>Pierwsza app review trwa 1-7 dni</li>
+</ol>
+
+<h3>App Bundle (AAB) vs APK</h3>
+<p>Od 2021 Google Play wymaga <strong>AAB</strong> (Android App Bundle). Play generuje optymalne APK per device. APK uzywaj tylko do side-load testing.</p>
+
+<h2>Windows deployment</h2>
+
+<h3>MSIX package</h3>
+<pre><code>dotnet publish -f net9.0-windows10.0.19041.0 -c Release \
+  -p:GenerateAppxPackageOnBuild=true</code></pre>
+
+<h3>Microsoft Store</h3>
+<ol>
+<li>Microsoft Partner Center account (19 USD jednorazowo)</li>
+<li>Reserve nazwy aplikacji</li>
+<li>Upload .msixupload</li>
+<li>Submit for cert (typowo &lt;24h)</li>
+<li>Po approve dostepne w Store</li>
+</ol>
+
+<h3>Direct distribution</h3>
+<p>Jesli nie chcesz Store, mozesz dystrybuowac MSIX przez wlasna strone. Uzytkownik musi:</p>
+<ul>
+<li>Wlaczyc Sideloading w Settings</li>
+<li>Zaufac certyfikatowi (Developer Mode lub trust manualny)</li>
+</ul>
+<p>Code signing z prawdziwym EV cert (kosztuje ~250 USD/rok) usuwa SmartScreen warnings.</p>
+
+<h2>Mac App Store vs direct</h2>
+
+<h3>Mac App Store</h3>
+<p>Distribution przez Apple. Korzysci: laczna lista wszystkich aplikacji uzytkownika, Apple ID payments. Wady: 30% prowizja, restrykcyjny sandboxing.</p>
+
+<h3>Direct + notarized</h3>
+<p>Self-hosted DMG, kazdy uzytkownik scieki download. Free tier &mdash; tylko notarization required. Wieksza wolnosc dla aplikacji systemowych.</p>
+
+<h2>CI/CD dla mobile builds</h2>
+
+<h3>GitHub Actions &mdash; Android</h3>
+<pre><code>name: Android Build
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0'
+      - name: Install MAUI
+        run: dotnet workload install maui-android
+
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > myapp.keystore
+
+      - name: Build AAB
+        run: |
+          dotnet publish -f net9.0-android -c Release \
+            -p:AndroidPackageFormats=aab \
+            -p:AndroidSigningKeyStore=myapp.keystore \
+            -p:AndroidSigningKeyAlias=${{ secrets.KEY_ALIAS }} \
+            -p:AndroidSigningKeyPass=${{ secrets.KEY_PASSWORD }} \
+            -p:AndroidSigningStorePass=${{ secrets.STORE_PASSWORD }}
+
+      - uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SA_JSON }}
+          packageName: com.example.myapp
+          releaseFiles: bin/Release/**/*.aab
+          track: internal</code></pre>
+
+<h3>GitHub Actions &mdash; iOS (wymaga macOS runner)</h3>
+<pre><code>name: iOS Build
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: dotnet workload install maui-ios
+
+      - name: Install certificates
+        env:
+          P12_BASE64: ${{ secrets.IOS_P12 }}
+          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+        run: |
+          echo "$P12_BASE64" | base64 -d &gt; cert.p12
+          security create-keychain -p "" build.keychain
+          security import cert.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-keychain-settings build.keychain
+          security unlock-keychain -p "" build.keychain
+
+      - name: Build IPA
+        run: |
+          dotnet publish -f net9.0-ios -c Release \
+            -p:RuntimeIdentifier=ios-arm64 \
+            -p:CodesignKey="iPhone Distribution: My Co" \
+            -p:CodesignProvision="MyApp Distribution"
+
+      - uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: bin/Release/net9.0-ios/ios-arm64/publish/MyApp.ipa
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}</code></pre>
+
+<h2>Wersjonowanie</h2>
+
+<h3>Android</h3>
+<p>Dwa pola: <code>versionCode</code> (incrementing int) i <code>versionName</code> (semver string).</p>
+<pre><code>&lt;PropertyGroup&gt;
+  &lt;ApplicationVersion&gt;42&lt;/ApplicationVersion&gt;
+  &lt;ApplicationDisplayVersion&gt;1.4.2&lt;/ApplicationDisplayVersion&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+<h3>iOS</h3>
+<p>CFBundleVersion (build) i CFBundleShortVersionString (version):</p>
+<pre><code>&lt;PropertyGroup&gt;
+  &lt;ApplicationVersion&gt;42&lt;/ApplicationVersion&gt;            &lt;!-- build --&gt;
+  &lt;ApplicationDisplayVersion&gt;1.4.2&lt;/ApplicationDisplayVersion&gt;  &lt;!-- short --&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+<h2>App Store guidelines</h2>
+
+<h3>iOS</h3>
+<ul>
+<li>Apps must NOT just wrap WebView (vague rule, but Blazor Hybrid OK)</li>
+<li>Privacy: musisz raportowac uzywane data types w Info.plist</li>
+<li>App Tracking Transparency dla tracking cross-app</li>
+<li>Push notifications wymagaja capability</li>
+<li>Content Security: brak nielegalnych tresci, gambling, hate speech</li>
+</ul>
+
+<h3>Android (Play)</h3>
+<ul>
+<li>Min API 31 dla nowych apps (rosnie co rok)</li>
+<li>Privacy declaration (Data Safety section)</li>
+<li>Permissions usage justification</li>
+<li>64-bit binaries required</li>
+<li>Target SDK requirements (Play wymusza upgrade)</li>
+</ul>
+
+<h2>Distribution outside stores</h2>
+
+<h3>iOS &mdash; trudno</h3>
+<p>Apple bardzo restrykcyjne &mdash; tylko Enterprise Distribution (299 USD/rok dla 100+ company), Ad-hoc (max 100 devices), TestFlight (beta), Developer Direct Distribution (UE od 2024 dla wybranych firm).</p>
+
+<h3>Android &mdash; latwo</h3>
+<p>APK direct download dziala wszedzie, tylko uzytkownik musi wyrazic zgode na install z unknown sources. Idealnie dla kiosk apps, internal corporate apps.</p>
+
+<h3>Windows &mdash; latwo</h3>
+<p>MSIX direct download + signed cert -&gt; zero friction install. Albo MSI / EXE installer.</p>
+
+<h3>macOS &mdash; mozliwe</h3>
+<p>Notarized DMG, drag&amp;drop install. Bez Mac App Store ale z Gatekeeper trust.</p>
+
+<h2>Auto-updates</h2>
+<table>
+<thead><tr><th>Platforma</th><th>Mechanizm</th></tr></thead>
+<tbody>
+<tr><td>iOS</td><td>App Store auto-update (default)</td></tr>
+<tr><td>Android Play</td><td>Auto-update (default), in-app updates API</td></tr>
+<tr><td>Windows Store</td><td>Auto-update</td></tr>
+<tr><td>Direct Windows</td><td>AppInstaller dla MSIX, custom updater</td></tr>
+<tr><td>macOS direct</td><td>Sparkle framework, custom</td></tr>
+</tbody>
+</table>
+
+<h2>Crash reporting</h2>
+<ul>
+<li><strong>App Center</strong> &mdash; Microsoft, free, integracja z Visual Studio</li>
+<li><strong>Sentry</strong> &mdash; cross-platform, MAUI SDK</li>
+<li><strong>Firebase Crashlytics</strong> &mdash; Google, Android-friendly</li>
+<li><strong>BugSnag</strong> &mdash; alternatywa premium</li>
+</ul>
+
+<div class="card">
+<h3>Pre-release checklist</h3>
+<ul>
+<li>Privacy Policy URL aktualny</li>
+<li>Screenshots dla wszystkich device sizes</li>
+<li>Localization na wymagane jezyki</li>
+<li>Ikonki we wszystkich rozmiarach (iOS 30+ rozmiarow, Android 5+)</li>
+<li>Crash reporting wlaczone</li>
+<li>Analytics wlaczone (z opt-out)</li>
+<li>App-specific password / API keys w secret store</li>
+<li>Tests na realnych urzadzeniach (nie tylko emulator)</li>
+<li>Battery usage profiling</li>
+<li>Network usage minimization</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="05-shared-codebase.html">&larr; Shared codebase</a>
+<a href="index.html">Powrot do Blazor Hybrid &rarr;</a>
+</div>
+</div>
+</body>
+</html>

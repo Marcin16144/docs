@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SolidJS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.hero{text-align:center;padding:30px 20px;background:linear-gradient(135deg,#1e293b,#064e3b);border-radius:12px;margin-bottom:30px}
+.hero p{font-size:1.05rem;color:var(--text-muted)}
+.notice{background:rgba(245,158,11,.1);border:1px solid #f59e0b;border-radius:8px;padding:14px 18px;margin:24px 0}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">Glowna</a><span class="sep">/</span><a href="../index.html">WWW</a><span class="sep">/</span><span class="title">SolidJS</span></div>
+<div class="container">
+
+<div class="hero">
+<h1>SolidJS</h1>
+<p>JSX + reactive primitives &mdash; performance king z fine-grained reactivity</p>
+</div>
+
+<h2>Co to SolidJS?</h2>
+<p><strong>SolidJS</strong> to framework JavaScript stworzony przez Ryan Carniato. Polacza skladnie React (JSX) z modelem reaktywnoci znanym z Svelte i KnockoutJS &mdash; ale z lepsza performance i prostsza modelem mentalnym. W benchmarkach Solid stale zajmuje pierwsze miejsca (js-framework-benchmark).</p>
+
+<p>Solid dziala fundamentalnie inaczej niz React &mdash; <strong>nie ma re-renderow komponentow</strong>. Komponent wykonuje sie tylko raz, a aktualizacje DOM ida bezposrednio do zmienionych miejsc przez sygnaly (signals).</p>
+
+<h2>Kluczowe cechy</h2>
+<ul>
+<li><strong>JSX</strong> &mdash; znany z React, latwy dla migracji</li>
+<li><strong>Fine-grained reactivity</strong> &mdash; tylko zmienione DOM nodes sa update'owane</li>
+<li><strong>Signals</strong> &mdash; createSignal, createMemo, createEffect</li>
+<li><strong>Brak Virtual DOM</strong> &mdash; bezposrednie operacje na DOM</li>
+<li><strong>Performance king</strong> &mdash; benchmarki pokazuja Solid 2-3x szybszy od React</li>
+<li><strong>SolidStart</strong> &mdash; meta-framework (jak Next.js)</li>
+<li><strong>Mae bundle</strong> (~7 KB)</li>
+<li><strong>TypeScript-first</strong></li>
+</ul>
+
+<h2>Instalacja</h2>
+<pre><code>npm create solid@latest my-app
+cd my-app
+npm install
+npm run dev</code></pre>
+
+<h2>Pierwszy komponent</h2>
+<pre><code>import { createSignal, createMemo } from 'solid-js';
+
+function Counter() {
+  const [count, setCount] = createSignal(0);
+  const doubled = createMemo(() =&gt; count() * 2);
+
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;Count: {count()}&lt;/h1&gt;
+      &lt;p&gt;Doubled: {doubled()}&lt;/p&gt;
+      &lt;button onClick={() =&gt; setCount(count() + 1)}&gt;+&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}
+
+export default Counter;</code></pre>
+
+<h2>Roznica vs React</h2>
+<p>Solid wyglada jak React, ale dziala inaczej:</p>
+<ul>
+<li>W React komponent re-renderuje sie kazda zmiana &mdash; w Solid komponent renderuje sie <strong>raz</strong></li>
+<li>W React props to obiekt &mdash; w Solid sa <strong>reactive getterami</strong> (props.x to actually getter)</li>
+<li>W React useState ma value &mdash; w Solid signal to function (count() vs count)</li>
+<li>W React useMemo memo'uje &mdash; w Solid createMemo to natywny part reactivity</li>
+</ul>
+
+<h2>Reactive primitives</h2>
+<pre><code>// Signal
+const [count, setCount] = createSignal(0);
+count();          // czytaj
+setCount(10);     // zapisz
+setCount(c =&gt; c + 1); // updater
+
+// Memo (computed)
+const doubled = createMemo(() =&gt; count() * 2);
+
+// Effect
+createEffect(() =&gt; {
+  console.log(`Count is ${count()}`);
+});
+
+// Stores (reactive objects)
+const [state, setState] = createStore({
+  user: { name: 'Anna', age: 30 }
+});
+setState('user', 'name', 'Bob');</code></pre>
+
+<h2>Control flow components</h2>
+<pre><code>import { Show, For, Switch, Match } from 'solid-js';
+
+&lt;Show when={count() &gt; 0} fallback={&lt;p&gt;Empty&lt;/p&gt;}&gt;
+  &lt;p&gt;Count: {count()}&lt;/p&gt;
+&lt;/Show&gt;
+
+&lt;For each={items()}&gt;
+  {(item) =&gt; &lt;li&gt;{item.name}&lt;/li&gt;}
+&lt;/For&gt;
+
+&lt;Switch&gt;
+  &lt;Match when={status() === 'loading'}&gt;Ladowanie...&lt;/Match&gt;
+  &lt;Match when={status() === 'error'}&gt;Blad&lt;/Match&gt;
+  &lt;Match when={status() === 'success'}&gt;OK&lt;/Match&gt;
+&lt;/Switch&gt;</code></pre>
+
+<h2>SolidStart &mdash; meta-framework</h2>
+<p>SolidStart to dla Solid co Next.js dla React. Cechy:</p>
+<ul>
+<li>SSR / SSG / CSR per route</li>
+<li>File-based routing</li>
+<li>Server functions (jak React Server Actions)</li>
+<li>Streaming responses</li>
+<li>Vite-based build</li>
+<li>Adapters dla Vercel, Netlify, Cloudflare, Node</li>
+</ul>
+
+<h2>Performance benchmark</h2>
+<table>
+<thead><tr><th>Framework</th><th>Pozycja w js-framework-benchmark</th></tr></thead>
+<tbody>
+<tr><td>Vanilla JS</td><td>~Top</td></tr>
+<tr><td>SolidJS</td><td>Top 5</td></tr>
+<tr><td>Svelte 5</td><td>Top 10</td></tr>
+<tr><td>Vue 3</td><td>Top 20</td></tr>
+<tr><td>React 19</td><td>Top 30</td></tr>
+</tbody>
+</table>
+
+<h2>Kiedy wybrac SolidJS?</h2>
+<ul>
+<li>Performance jest <strong>krytyczna</strong> &mdash; gry, real-time charts, edytory</li>
+<li>Polubilas/es JSX, ale chcesz lepszej reactivity</li>
+<li>Aplikacja na slabe urzadzenia mobile / IoT</li>
+<li>Chcesz uczyc sie nowoczesnych paradygmatow reactive</li>
+<li>Mae projekty &mdash; Solid latwiejszy od React'a w niektorych aspektach</li>
+</ul>
+
+<h2>Kiedy nie?</h2>
+<ul>
+<li>Job market &mdash; pracownikow Solid prawie nie ma</li>
+<li>Ekosystem &mdash; mniej bibliotek niz React</li>
+<li>Wiekszy zespol &mdash; trudniej znalezc senior'a</li>
+<li>Wymaganie integracji z React-only librarames</li>
+</ul>
+
+<h2>Komponenty UI</h2>
+<ul>
+<li><strong>SolidUI</strong> &mdash; oficjalny zestaw</li>
+<li><strong>Hope UI</strong> &mdash; design system</li>
+<li><strong>Solid Aria</strong> &mdash; accessibility primitives</li>
+<li><strong>Kobalte</strong> &mdash; headless components</li>
+<li><strong>shadcn-solid</strong> &mdash; community port shadcn/ui</li>
+</ul>
+
+<h2>Dokumentacja</h2>
+<ul>
+<li><strong>Oficjalna</strong>: solidjs.com</li>
+<li><strong>SolidStart</strong>: start.solidjs.com</li>
+<li><strong>Playground</strong>: playground.solidjs.com</li>
+<li><strong>Tutorial</strong>: solidjs.com/tutorial</li>
+</ul>
+
+<div class="notice">
+<strong>W przygotowaniu:</strong> szczegolowe rozdzialy o SolidJS reactivity, signals, stores, SolidStart deployment. SolidJS w 2026 jest jednym z najszybciej rosnacych frameworkow technicznie, ale wciaz ma stosunkowo malo aplikacji produkcyjnych w Polsce.
+</div>
+
+</div>
+</body>
+</html>
