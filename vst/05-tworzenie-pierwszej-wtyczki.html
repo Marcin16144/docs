@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>05 — Tworzenie pierwszej wtyczki w JUCE</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ec4899;--accent-hover:#f472b6;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--cyan:#22d3ee;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="../index.html">Glowna</a>
+        <span class="sep">/</span>
+        <a href="index.html">VST</a>
+        <span class="sep">/</span>
+        <span class="title">05 — Tworzenie pierwszej wtyczki</span>
+    </div>
+    <div class="container">
+        <h1>Tworzenie pierwszej wtyczki w JUCE</h1>
+        <p class="subtitle">Krok po kroku od pustego folderu do dzialajacego pluginu Gain w VST3 i AU.</p>
+
+        <p>Czas opuscic teorie i zbudowac cos, co naprawde dziala. W tym rozdziale przejdziemy od pustego folderu do dzialajacego pluginu Gain w formacie VST3 (i AU na macOS), ktory zaladuje sie w Reaperze i zmieni glosnosc audio. Ten sam szkielet posluzy pozniej dla bardziej zaawansowanych efektow.</p>
+
+        <h2>Setup JUCE — instalacja i licencja</h2>
+        <p>JUCE to nie tylko biblioteka — to caly ekosystem (framework + Projucer + dokumentacja + przyklady). Pobieramy go z <strong>juce.com</strong>.</p>
+
+        <h3>Wybor licencji (2026)</h3>
+        <p>JUCE jest dual-licensed. Decydujesz przy starcie:</p>
+        <table>
+            <thead><tr><th>Licencja</th><th>Cena</th><th>Kto moze uzywac</th><th>Splash screen</th><th>Source code</th></tr></thead>
+            <tbody>
+                <tr><td><strong>GPLv3</strong></td><td>Darmowa</td><td>Open-source projekty</td><td>nie</td><td>Twoj kod tez GPL</td></tr>
+                <tr><td><strong>Personal</strong></td><td>Darmowa</td><td>Roczne przychody &lt; $40k</td><td>"Made with JUCE"</td><td>Twoj kod prywatny</td></tr>
+                <tr><td><strong>Indie</strong></td><td>$40/mies (lub $800/rok)</td><td>Studia &lt; $500k revenue</td><td>brak</td><td>Twoj kod prywatny</td></tr>
+                <tr><td><strong>Pro</strong></td><td>$130/mies (lub $2600/rok)</td><td>Bez limitu revenue</td><td>brak</td><td>Twoj kod prywatny</td></tr>
+                <tr><td><strong>Educational</strong></td><td>Darmowa</td><td>Szkoly, uniwersytety</td><td>brak</td><td>Akademickie</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Dla poczatkujacych:</strong> zaczynaj od <strong>Personal</strong> — darmowe, dziala na 100%. Dopiero gdy plugin zarobi pierwsze $40k upgrade'ujesz na Indie. Splash screen "Made with JUCE" pojawia sie raz przy ladowaniu.</p>
+
+        <h3>Pobranie i instalacja</h3>
+<pre><code># Klon repo (najlepsza metoda — zawsze najnowsza wersja)
+git clone https://github.com/juce-framework/JUCE.git
+cd JUCE
+git checkout 8.0.4   # albo aktualna stable
+
+# Albo download zip z juce.com -&gt; "Get JUCE"</code></pre>
+        <p>Po sklonowaniu masz folder <code>JUCE/</code> z calym frameworkiem (~250 MB). Nie potrzebujesz instalowac go systemowo — bedziemy go linkowac z naszego projektu.</p>
+
+        <h2>Projucer vs CMake — wybierz CMake</h2>
+        <p>Projucer to GUI-based generator projektow (tworzy <code>.vcxproj</code> dla VS, <code>.xcodeproj</code> dla Xcode). Dziala, ale jest legacy approach. <strong>Nowsze projekty uzywaja CMake</strong> — lepiej dziala z CI/CD, GitHub Actions, automatyzacja buildow.</p>
+
+        <div class="card">
+            <h3>Dlaczego CMake?</h3>
+            <ul>
+                <li>Single source of truth — jeden <code>CMakeLists.txt</code> dla wszystkich platform</li>
+                <li>Dziala z VS 2022, Xcode, Ninja, Make jednoczesnie</li>
+                <li>Latwe automatyczne buildy (GitHub Actions, GitLab CI)</li>
+                <li>Modern C++ workflow (find_package, target-based)</li>
+                <li>JUCE od wersji 6.0 ma pelny support CMake (modul <code>juce_add_plugin</code>)</li>
+            </ul>
+        </div>
+
+        <h3>Struktura projektu</h3>
+<pre><code>MyGainPlugin/
++-- CMakeLists.txt           # Definicja projektu
++-- JUCE/                    # Submodule albo lokalny clone
++-- Source/
+|   +-- PluginProcessor.cpp  # Logika audio
+|   +-- PluginProcessor.h
+|   +-- PluginEditor.cpp     # GUI
+|   +-- PluginEditor.h
++-- Resources/               # Grafika, presety (opcjonalnie)
++-- build/                   # Generowane przez CMake (gitignore)</code></pre>
+
+        <h2>CMakeLists.txt — minimalny szablon</h2>
+<pre><code>cmake_minimum_required(VERSION 3.22)
+
+project(MyGainPlugin VERSION 0.1.0)
+
+# Dodaj JUCE jako subdirectory
+add_subdirectory(JUCE)
+
+# Definicja pluginu
+juce_add_plugin(MyGainPlugin
+    COMPANY_NAME "MyCompany"
+    BUNDLE_ID com.mycompany.mygainplugin
+    PLUGIN_MANUFACTURER_CODE Mcmp           # 4 znaki, tylko 1 wielka
+    PLUGIN_CODE Gain                         # 4 znaki, unikalny per plugin
+    FORMATS VST3 AU Standalone               # AU tylko macOS, ignorowane na Win
+    PRODUCT_NAME "My Gain Plugin"
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD TRUE              # auto-instalacja po buildzie
+)
+
+# Pliki zrodlowe
+target_sources(MyGainPlugin PRIVATE
+    Source/PluginProcessor.cpp
+    Source/PluginEditor.cpp
+)
+
+# JUCE moduly do linkowania
+target_link_libraries(MyGainPlugin PRIVATE
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_audio_plugin_client
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_lto_flags
+    juce::juce_recommended_warning_flags
+)
+
+target_compile_definitions(MyGainPlugin PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+)</code></pre>
+
+        <h3>Build first time</h3>
+<pre><code># Z folderu projektu
+mkdir build &amp;&amp; cd build
+cmake .. -G "Visual Studio 17 2022" -A x64    # Windows
+# albo
+cmake .. -G Xcode                              # macOS
+# albo
+cmake .. -G Ninja                              # cross-platform fast
+
+# Build
+cmake --build . --config Release</code></pre>
+        <p>Po buildzie plugin trafia do:</p>
+        <ul>
+            <li><strong>Windows:</strong> <code>C:\Program Files\Common Files\VST3\My Gain Plugin.vst3</code></li>
+            <li><strong>macOS:</strong> <code>~/Library/Audio/Plug-Ins/VST3/My Gain Plugin.vst3</code></li>
+            <li><strong>Standalone:</strong> <code>build/MyGainPlugin_artefacts/Release/Standalone/My Gain Plugin.exe</code></li>
+        </ul>
+
+        <h2>AudioProcessor — serce pluginu</h2>
+        <p><code>AudioProcessor</code> to klasa abstrakcyjna definiujaca lifecycle pluginu. Kazdy plugin JUCE dziedziczy z niej.</p>
+
+        <h3>PluginProcessor.h</h3>
+<pre><code>#pragma once
+
+#include &lt;juce_audio_processors/juce_audio_processors.h&gt;
+
+class MyGainAudioProcessor : public juce::AudioProcessor
+{
+public:
+    MyGainAudioProcessor();
+    ~MyGainAudioProcessor() override;
+
+    // Lifecycle
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
+    void releaseResources() override;
+    bool isBusesLayoutSupported(const BusesLayout&amp; layouts) const override;
+
+    // Audio processing
+    void processBlock(juce::AudioBuffer&lt;float&gt;&amp;, juce::MidiBuffer&amp;) override;
+
+    // Editor (GUI)
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override { return true; }
+
+    // Metadata
+    const juce::String getName() const override { return "MyGain"; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    bool isMidiEffect() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+
+    // Programs (presets) — minimal
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram(int) override {}
+    const juce::String getProgramName(int) override { return {}; }
+    void changeProgramName(int, const juce::String&amp;) override {}
+
+    // State save/load
+    void getStateInformation(juce::MemoryBlock&amp; destData) override;
+    void setStateInformation(const void* data, int sizeInBytes) override;
+
+    // Parameters — uzywamy AudioProcessorValueTreeState (APVTS)
+    juce::AudioProcessorValueTreeState parameters;
+
+private:
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MyGainAudioProcessor)
+};</code></pre>
+
+        <h3>PluginProcessor.cpp — pelna implementacja</h3>
+<pre><code>#include "PluginProcessor.h"
+#include "PluginEditor.h"
+
+MyGainAudioProcessor::MyGainAudioProcessor()
+    : AudioProcessor(BusesProperties()
+        .withInput("Input", juce::AudioChannelSet::stereo(), true)
+        .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+      parameters(*this, nullptr, "Parameters",
+        {
+            std::make_unique&lt;juce::AudioParameterFloat&gt;(
+                juce::ParameterID{"gain", 1},     // ID i wersja
+                "Gain",                            // Nazwa wyswietlana
+                juce::NormalisableRange&lt;float&gt;(-60.0f, 12.0f, 0.1f),  // -60..+12 dB
+                0.0f,                              // domyslnie 0 dB
+                "dB"
+            )
+        })
+{
+}
+
+MyGainAudioProcessor::~MyGainAudioProcessor() {}
+
+void MyGainAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
+{
+    // Wywolywane raz przed startem audio
+    // Tu inicjalizujemy bufory, filtry, smoothing
+    juce::ignoreUnused(sampleRate, samplesPerBlock);
+}
+
+void MyGainAudioProcessor::releaseResources()
+{
+    // Zwalnianie zasobow po stopie (host wstrzymal audio)
+}
+
+bool MyGainAudioProcessor::isBusesLayoutSupported(const BusesLayout&amp; layouts) const
+{
+    // Akceptujemy mono i stereo, in == out
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono() &amp;&amp;
+        layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+        return false;
+
+    return layouts.getMainOutputChannelSet() == layouts.getMainInputChannelSet();
+}
+
+void MyGainAudioProcessor::processBlock(juce::AudioBuffer&lt;float&gt;&amp; buffer,
+                                         juce::MidiBuffer&amp; midiMessages)
+{
+    juce::ScopedNoDenormals noDenormals;
+    auto totalNumInputChannels = getTotalNumInputChannels();
+    auto totalNumOutputChannels = getTotalNumOutputChannels();
+
+    // Wyzeruj nieuzywane kanaly
+    for (auto i = totalNumInputChannels; i &lt; totalNumOutputChannels; ++i)
+        buffer.clear(i, 0, buffer.getNumSamples());
+
+    // Pobierz parametr (atomic load — bezpieczne real-time)
+    const float gainDb = parameters.getRawParameterValue("gain")-&gt;load();
+    const float gainLinear = juce::Decibels::decibelsToGain(gainDb);
+
+    // Zastosuj gain do kazdego kanalu
+    for (int channel = 0; channel &lt; totalNumInputChannels; ++channel)
+    {
+        auto* channelData = buffer.getWritePointer(channel);
+        for (int sample = 0; sample &lt; buffer.getNumSamples(); ++sample)
+        {
+            channelData[sample] *= gainLinear;
+        }
+    }
+}
+
+juce::AudioProcessorEditor* MyGainAudioProcessor::createEditor()
+{
+    return new MyGainAudioProcessorEditor(*this);
+}
+
+void MyGainAudioProcessor::getStateInformation(juce::MemoryBlock&amp; destData)
+{
+    // Zapisz stan parametrow do XML -&gt; binary
+    auto state = parameters.copyState();
+    std::unique_ptr&lt;juce::XmlElement&gt; xml(state.createXml());
+    copyXmlToBinary(*xml, destData);
+}
+
+void MyGainAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
+{
+    // Wczytaj stan z binary -&gt; XML
+    std::unique_ptr&lt;juce::XmlElement&gt; xmlState(getXmlFromBinary(data, sizeInBytes));
+    if (xmlState != nullptr &amp;&amp; xmlState-&gt;hasTagName(parameters.state.getType()))
+    {
+        parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
+    }
+}
+
+// Plugin entry point — host wola to zeby utworzyc instancje
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new MyGainAudioProcessor();
+}</code></pre>
+
+        <h2>AudioProcessorEditor — GUI</h2>
+        <p>GUI w JUCE to osobna klasa. Komunikuje sie z processorem przez <code>AudioProcessorValueTreeState</code>.</p>
+
+        <h3>PluginEditor.h</h3>
+<pre><code>#pragma once
+
+#include &lt;juce_audio_processors/juce_audio_processors.h&gt;
+#include &lt;juce_gui_basics/juce_gui_basics.h&gt;
+#include "PluginProcessor.h"
+
+class MyGainAudioProcessorEditor : public juce::AudioProcessorEditor
+{
+public:
+    explicit MyGainAudioProcessorEditor(MyGainAudioProcessor&amp;);
+    ~MyGainAudioProcessorEditor() override;
+
+    void paint(juce::Graphics&amp;) override;
+    void resized() override;
+
+private:
+    MyGainAudioProcessor&amp; processorRef;
+
+    juce::Slider gainSlider;
+    juce::Label gainLabel;
+
+    // Attachment laczy slider z parametrem APVTS automatycznie
+    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+    std::unique_ptr&lt;SliderAttachment&gt; gainAttachment;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MyGainAudioProcessorEditor)
+};</code></pre>
+
+        <h3>PluginEditor.cpp</h3>
+<pre><code>#include "PluginEditor.h"
+
+MyGainAudioProcessorEditor::MyGainAudioProcessorEditor(MyGainAudioProcessor&amp; p)
+    : AudioProcessorEditor(&amp;p), processorRef(p)
+{
+    setSize(300, 250);
+
+    // Slider — rotary knob
+    gainSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    gainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 24);
+    gainSlider.setTextValueSuffix(" dB");
+    addAndMakeVisible(gainSlider);
+
+    // Label
+    gainLabel.setText("Gain", juce::dontSendNotification);
+    gainLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(gainLabel);
+
+    // Attachment — magia: GUI &lt;-&gt; APVTS w 1 linii
+    gainAttachment = std::make_unique&lt;SliderAttachment&gt;(
+        processorRef.parameters, "gain", gainSlider);
+}
+
+MyGainAudioProcessorEditor::~MyGainAudioProcessorEditor() {}
+
+void MyGainAudioProcessorEditor::paint(juce::Graphics&amp; g)
+{
+    g.fillAll(juce::Colour::fromRGB(20, 20, 30));
+    g.setColour(juce::Colours::white);
+    g.setFont(20.0f);
+    g.drawFittedText("My Gain Plugin", getLocalBounds().removeFromTop(40),
+                     juce::Justification::centred, 1);
+}
+
+void MyGainAudioProcessorEditor::resized()
+{
+    auto area = getLocalBounds();
+    area.removeFromTop(40);   // miejsce na tytul
+    gainLabel.setBounds(area.removeFromTop(24));
+    gainSlider.setBounds(area.reduced(20));
+}</code></pre>
+
+        <h2>Build i pierwsze uruchomienie</h2>
+
+        <h3>Standalone (najszybszy test)</h3>
+        <p>Po <code>cmake --build . --config Release</code> masz w <code>build/MyGainPlugin_artefacts/Release/Standalone/</code> plik <code>.exe</code> (Win) albo <code>.app</code> (macOS). Klikasz, otwiera sie okno z pokretlem, slyszysz audio z systemowego inputu (mic) -&gt; output (glosniki). Niezbedne do szybkiego testu logiki.</p>
+
+        <h3>Test w DAW — Reaper jako preferowany</h3>
+        <div class="card">
+            <p>Reaper to <strong>must-have dla developerow pluginow</strong>:</p>
+            <ul>
+                <li><strong>Darmowy do testow</strong> (60-day full eval, potem $60 personal)</li>
+                <li><strong>Najszybszy plugin scan</strong> w branzy (sekundy zamiast minut)</li>
+                <li><strong>Swietny crash protection</strong> — gdy plugin pada, Reaper zostaje</li>
+                <li><strong>Wyswietla logi</strong> z <code>juce::Logger::writeToLog()</code> w konsoli debug</li>
+                <li><strong>VST3 + VST2 + AU + LV2</strong> w jednym DAW</li>
+                <li><strong>Re-scan na zadanie</strong> — Options -&gt; Preferences -&gt; Plug-ins -&gt; VST -&gt; Re-scan</li>
+            </ul>
+            <p>Po buildzie:</p>
+            <ol>
+                <li>Otworz Reaper</li>
+                <li>Wstaw track (Insert -&gt; New Track)</li>
+                <li>Add FX -&gt; szukaj "My Gain Plugin" -&gt; load</li>
+                <li>Zagraj cokolwiek (audio file na track albo input)</li>
+                <li>Krec pokretlem — glosnosc sie zmienia</li>
+            </ol>
+        </div>
+
+        <h3>Pierwszy test w innych DAW</h3>
+        <table>
+            <thead><tr><th>DAW</th><th>Cena</th><th>Plus</th><th>Minus dla developera</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Reaper</strong></td><td>$60 (eval 60 dni full)</td><td>Najszybszy scan, debug-friendly</td><td>Malo uzytkownikow w wide market</td></tr>
+                <tr><td><strong>FL Studio</strong></td><td>$99-499</td><td>Polski producer market, latwy</td><td>Wolniejszy scan, weird VST3 wrappery</td></tr>
+                <tr><td><strong>Ableton Live</strong></td><td>$99-749</td><td>Live performance market</td><td>Wolny scan, sandbox crashe</td></tr>
+                <tr><td><strong>Logic Pro</strong></td><td>$200 (Mac only)</td><td>Premium AU market</td><td>AU only, brak VST3</td></tr>
+                <tr><td><strong>Pro Tools</strong></td><td>$400+</td><td>Pro audio post-production</td><td>Tylko AAX, ekosystem zamkniety</td></tr>
+                <tr><td><strong>Cubase</strong></td><td>$99-579</td><td>Steinberg native VST3</td><td>Wolny scan</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Strategia:</strong> rozwijaj w Reaperze, <strong>finalnie testuj w 3-4 DAW</strong> przed releasem (minimum: Reaper, Ableton, Logic, FL Studio).</p>
+
+        <h2>Czeste problemy pierwszego pluginu</h2>
+
+        <div class="card">
+            <h3>Plugin sie nie laduje (host go nie widzi)</h3>
+            <ul>
+                <li>Czy plik <code>.vst3</code> jest w odpowiednim folderze? (Windows: <code>C:\Program Files\Common Files\VST3</code>)</li>
+                <li>Czy host robi rescan? (Reaper: Options -&gt; Plug-ins -&gt; Re-scan)</li>
+                <li>Czy build jest x64? (Wiekszosc DAW jest 64-bit; 32-bit deprecated)</li>
+                <li>Czy <code>BUNDLE_ID</code> jest unikalny? (Powtarzajacy sie moze blokowac zaladowanie)</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>Brak dzwieku przez plugin</h3>
+            <ul>
+                <li>Czy <code>processBlock</code> jest faktycznie wolany? (<code>DBG("processBlock")</code> w debugu)</li>
+                <li>Czy <code>isBusesLayoutSupported</code> zwraca true dla aktualnego routingu?</li>
+                <li>Czy <code>prepareToPlay</code> zostalo wywolane przed <code>processBlock</code>?</li>
+                <li>Sprawdz <code>buffer.getNumChannels()</code> — niektore DAW (Logic Pro) wysylaja mono input nawet do stereo pluginu.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>Parametry nie reaguja</h3>
+            <ul>
+                <li>Czy uzywasz <code>AudioProcessorValueTreeState</code> z attachmentami?</li>
+                <li>Czy ID parametru w slider attachment zgadza sie z ID w konstruktorze?</li>
+                <li>Czy <code>getStateInformation</code>/<code>setStateInformation</code> sa zaimplementowane? (Bez tego DAW nie zapisze stanu — i moze go resetowac)</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>Plugin crashuje przy ladowaniu</h3>
+            <ul>
+                <li>Sprawdz <code>juce::Logger</code> output (Reaper konsola, albo log do pliku)</li>
+                <li>Najczesciej: alokacja pamieci w <code>processBlock</code> (rzadkie ale crashuje), undefined behavior w destruktorze, brak <code>JUCE_DECLARE_NON_COPYABLE</code></li>
+                <li>Use-after-free w editor — <code>~AudioProcessorEditor()</code> musi byc clean</li>
+            </ul>
+        </div>
+
+        <h2>Od Gain do prostych efektow</h2>
+        <p>Majac Gain plugin masz 90% szkieletu kazdego efektu. Modyfikacje:</p>
+
+        <h3>Panner (stereo balance)</h3>
+<pre><code>// Dodaj parametr "pan" w konstruktorze:
+std::make_unique&lt;juce::AudioParameterFloat&gt;(
+    juce::ParameterID{"pan", 1}, "Pan",
+    juce::NormalisableRange&lt;float&gt;(-1.0f, 1.0f, 0.01f), 0.0f)
+
+// W processBlock — assume stereo:
+float pan = parameters.getRawParameterValue("pan")-&gt;load();
+float leftGain  = juce::jlimit(0.0f, 1.0f, 1.0f - pan);
+float rightGain = juce::jlimit(0.0f, 1.0f, 1.0f + pan);
+
+buffer.applyGain(0, 0, buffer.getNumSamples(), leftGain);
+buffer.applyGain(1, 0, buffer.getNumSamples(), rightGain);</code></pre>
+
+        <h3>Mute / bypass</h3>
+<pre><code>auto* muteParam = parameters.getRawParameterValue("mute");
+if (muteParam-&gt;load() &gt; 0.5f)
+    buffer.clear();</code></pre>
+
+        <h3>Polarity flip (faza)</h3>
+<pre><code>auto* flipParam = parameters.getRawParameterValue("flip");
+if (flipParam-&gt;load() &gt; 0.5f)
+{
+    for (int ch = 0; ch &lt; buffer.getNumChannels(); ++ch)
+        buffer.applyGain(ch, 0, buffer.getNumSamples(), -1.0f);
+}</code></pre>
+
+        <h3>M/S (Mid-Side) processing</h3>
+<pre><code>// Stereo -&gt; M/S
+auto* L = buffer.getWritePointer(0);
+auto* R = buffer.getWritePointer(1);
+for (int i = 0; i &lt; buffer.getNumSamples(); ++i)
+{
+    float mid  = (L[i] + R[i]) * 0.5f;
+    float side = (L[i] - R[i]) * 0.5f;
+    // ... przetwarzanie mid i side osobno
+    L[i] = mid + side;
+    R[i] = mid - side;
+}</code></pre>
+
+        <h2>Co dalej</h2>
+        <p>Majac pluginy Gain, Pan, Mute, Polarity — masz fundament. Nastepne kroki:</p>
+        <ul>
+            <li><strong>Cross-platform build</strong> (Windows + macOS + universal binary) — rozdzial 6</li>
+            <li><strong>Lepsze GUI</strong> (custom knobs, level meters, waveform display) — rozdzial 7</li>
+            <li><strong>DSP advanced</strong> (filtry, kompresja, reverb, delay, FFT) — rozdzial 8</li>
+            <li><strong>Dystrybucja</strong> (instalatory, code signing, notarization) — rozdzial 9</li>
+        </ul>
+        <p>JUCE doc jest swietna — <code>juce.com/learn/documentation</code> i tutoriale na <code>juce.com/learn/tutorials</code>. Kod source frameworka tez warto czytac — najlepsze examples siedza w <code>JUCE/examples/Plugins/</code>.</p>
+
+        <div class="nav-bottom">
+            <a href="04-dsp-podstawy.html">&larr; 04 — DSP podstawy</a>
+            <a href="06-cross-platform-build.html">06 — Cross-platform build &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

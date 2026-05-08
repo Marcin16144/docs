@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ochrona kodu C++ przed kradzieza</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-color:var(--green)}
+.card.orange{border-color:var(--orange)}
+.card.red{border-color:var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">C++</a>
+    <span class="sep">/</span>
+    <span class="title">Ochrona kodu przed kradzieza</span>
+</div>
+
+<div class="container">
+<h1>Ochrona kodu C++ przed kradzieza</h1>
+<p class="subtitle">Strategia, narzedzia i praktyki ochrony komercyjnego kodu C++ &mdash; od compiler hardening do code virtualization (VMProtect, Themida).</p>
+
+<h2>Punkt wyjscia: C++ jest natywny &mdash; i to juz jest ochrona</h2>
+
+<p>W przeciwienstwie do PHP (interpretowany) i C# / .NET (IL bytecode), <strong>C++ kompiluje sie do natywnego machine code</strong> &mdash; instrukcji procesora dla konkretnej architektury (x86_64, ARM64).</p>
+
+<pre><code>C++ source (.cpp/.h)
+   &darr; preprocessing (#include, #define)
+.cpp expanded
+   &darr; compilation (g++/clang++/cl.exe)
+.o (object file) &mdash; assembly + symbols
+   &darr; linking
+.exe / .so / .dll &mdash; native machine code</code></pre>
+
+<div class="card green">
+<h4>Juz to daje znaczna ochrone:</h4>
+<ul>
+<li>Brak metadanych typu IL (CLR) lub readable bytecode</li>
+<li>Disassembly daje assembly (czytelne tylko dla reverse engineers)</li>
+<li>Brak nazw zmiennych, funkcji (stripped symbols)</li>
+<li>Optymalizacje kompilatora (inlining, loop unrolling) zaciemniaja strukture</li>
+</ul>
+</div>
+
+<p><strong>Ale:</strong> doswiadczeni reverse engineers (z IDA Pro, Ghidra, Binary Ninja) wciaz moga zrozumiec i modyfikowac Twoj kod. Dlatego dla komercyjnych aplikacji wciaz stosuje sie dodatkowe warstwy.</p>
+
+<h2>Hierarchia ochrony</h2>
+
+<pre><code>Layer 1: Stripped symbols + release build         (free, baseline)
+Layer 2: Compiler hardening flags                  (free, easy)
+Layer 3: Anti-debug / anti-tamper basics           (custom code)
+Layer 4: Commercial protector (VMProtect/Themida)  ($-$$$)
+Layer 5: Code virtualization                       (premium feature)
+Layer 6: License server + online validation        (custom)
+Layer 7: Hardware fingerprinting                   (custom)
+Layer 8: Cloud-based critical logic (SaaS hybrid)  (architecture)
+Layer 9: Code signing certificate                  ($300/yr)
+Layer 10: Legal protection (EULA, watermarking)    (legal)</code></pre>
+
+<h2>Komercyjne protektory (state-of-the-art 2026)</h2>
+
+<h3>VMProtect &mdash; gold standard</h3>
+
+<p><strong>VMProtect</strong> (rosyjska firma, popularna globalnie) to <strong>najsilniejszy</strong> komercyjny protector dla natywnych binaries. Uzywany przez wiele AAA games, anti-cheat, premium software.</p>
+
+<div class="card green">
+<h4>Core features:</h4>
+<ul>
+<li><strong>Code virtualization</strong> &mdash; przeksztalca x86 instructions w custom VM bytecode (custom opcodes per build)</li>
+<li><strong>Mutation</strong> &mdash; zmienia logike zachowujac semantyke</li>
+<li><strong>Anti-debug</strong> &mdash; wykrywa OllyDbg, x64dbg, IDA, dnSpy w pamieci</li>
+<li><strong>Anti-dump</strong> &mdash; utrudnia memory dump</li>
+<li><strong>VM machine</strong> unique per build &mdash; mozna crackowac jeden build, ale nie skali</li>
+<li><strong>Trial / license management</strong> built-in</li>
+<li><strong>Hardware ID locking</strong></li>
+</ul>
+</div>
+
+<p><strong>Wersje:</strong></p>
+<ul>
+<li><strong>Personal</strong> &mdash; &euro;490 (wystarczy dla wiekszosci)</li>
+<li><strong>Professional</strong> &mdash; &euro;890 (advanced features, bigger projects)</li>
+<li><strong>Ultimate</strong> &mdash; &euro;1490 (bulk licenses, custom builds)</li>
+</ul>
+
+<p><strong>Workflow:</strong></p>
+<pre><code>// 1. Mark functions to virtualize
+#include "VMProtectSDK.h"
+
+void critical_function() {
+    VMProtectBeginUltra("CriticalCheck");
+
+    // Twoja krytyczna logika
+    if (!validate_license()) {
+        exit(1);
+    }
+
+    VMProtectEnd();
+}
+
+// 2. Build normalnie (Visual Studio, GCC)
+// 3. Run VMProtect na .exe
+//    GUI lub CLI:
+//    VMProtect_Con.exe MyApp.exe MyApp.protected.exe project.vmp</code></pre>
+
+<p><strong>Trade-off:</strong> kod virtualizowany jest <strong>30-1000&times; wolniejszy</strong>. Stosuj tylko na critical paths (license check, anti-cheat, krytyczne algorytmy IP), nie na hot loops gameplay.</p>
+
+<p><strong>Crackowalnosc:</strong> VMProtect 3.x byl crackowany dla popularnych gier (przy ogromnym wysilku, miesiace pracy zespolow). VMProtect 4 (2024+) wzmocnil obrone. Dla wiekszosci komercyjnego software wystarcza.</p>
+
+<h3>Themida &mdash; sztywny konkurent VMProtect</h3>
+
+<p><strong>Themida</strong> (Oreans Technologies) &mdash; alternatywa, popularna w gaming i utility software.</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>Bardzo agresywny anti-debug i anti-VM (wykrywa nawet sandbox)</li>
+<li>Code virtualization (rozne VM "machines" do wyboru)</li>
+<li>Mutation engine</li>
+<li>Latwiejszy w uzyciu niz VMProtect (mniej manual annotations)</li>
+<li>License management</li>
+<li>Watermark engine</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Czasem falszywie wykrywany jako malware (wplywa na user experience)</li>
+<li>Cena: $1495 podstawowa, $1995 z VM machines</li>
+<li>Niektore AV blokuja Themida-protected binaries</li>
+<li>Mniej regularnych updates niz VMProtect</li>
+</ul>
+</div>
+
+<p><strong>Workflow:</strong></p>
+<pre><code>1. Build Twoja aplikacja normalnie
+2. Otworz Themida GUI
+3. Wybierz .exe
+4. Wybierz protection options (VM machine, anti-debug, etc.)
+5. Wygeneruj protected .exe</code></pre>
+
+<p><strong>Brak SDK markers</strong> &mdash; Themida protectje cale binary (oraz wybrane funkcje przez external markers).</p>
+
+<h3>Enigma Protector</h3>
+
+<p><strong>Enigma Protector</strong> &mdash; srodkowy segment cenowy, popular dla SaaS desktop apps i SMB software.</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>Swietny <strong>license management</strong> (online + offline, trial, hardware lock)</li>
+<li>VFS (Virtual File System) &mdash; embedded resources w jednym .exe (anti-tampering)</li>
+<li>Plugin system (custom checks)</li>
+<li>Cena: $129 (Personal) - $299 (Business) - $1499 (Studio)</li>
+<li><strong>Swietny ROI</strong> dla SMB</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Mniej silne VM niz VMProtect/Themida</li>
+<li>Mniej updatow</li>
+</ul>
+</div>
+
+<p><strong>Bardzo popular wsrod developerow Delphi i mid-range tools.</strong></p>
+
+<h3>WinLicense (Oreans)</h3>
+
+<p>Razem z Themida (ten sam producent). Focus na <strong>license management</strong> zamiast obfuskacji.</p>
+
+<ul>
+<li>Trial periods, hardware locking, online activation</li>
+<li>Czesto laczony z Themida (Themida + WinLicense = $1995-$2495)</li>
+</ul>
+
+<h3>.NET Reactor for Native (legacy)</h3>
+<p>Specyficzny &mdash; Eziriz ma tez produkt dla natywnych. Niszowy.</p>
+
+<h3>ASProtect (legacy)</h3>
+<p>Stary protector, <strong>wykrywany przez nowoczesne AV jako malicious</strong>, nie uzywaj w 2026.</p>
+
+<h2>Open source / free alternatywy</h2>
+
+<h3>UPX (Ultimate Packer for eXecutables)</h3>
+<p><strong>UPX</strong> to compressor + basic packer. Zmniejsza rozmiar binary i daje minimalna obfuskacje.</p>
+
+<p><strong>Plusy:</strong> Free, open source, prosty<br>
+<strong>Minusy:</strong> Trywialny do unpack (<code>upx -d</code>), nie liczy sie jako prawdziwa ochrona</p>
+
+<pre><code>upx --best MyApp.exe
+# Lub: upx -9 MyApp.exe</code></pre>
+
+<p><strong>Realny use case:</strong> zmniejszenie rozmiaru binary do dystrybucji, NIE ochrona kodu.</p>
+
+<h3>Tigress (academic)</h3>
+<p>Source-to-source obfuscator dla C (dziala tez na C++ z niektorymi kawalkami).</p>
+
+<pre><code>tigress --Transform=Virtualize --Functions=critical_function source.c -o output.c</code></pre>
+
+<p><strong>Plusy:</strong> Free, source-level transformation, advanced techniques<br>
+<strong>Minusy:</strong> Niedoskonaly dla full C++ (template, modern features), trudny w uzyciu</p>
+
+<h3>LLVM Obfuscator (O-LLVM)</h3>
+<p>Fork LLVM dodajacy passes obfuskacji (control flow flattening, bogus control flow, instructions substitution).</p>
+
+<p><strong>Plusy:</strong> Free, integruje sie z compilation pipeline<br>
+<strong>Minusy:</strong> Niemodyfikowany od dawna, wymaga build wlasnego LLVM</p>
+
+<pre><code>clang -mllvm -fla -mllvm -bcf -mllvm -sub source.cpp -o output
+# fla = control flow flattening
+# bcf = bogus control flow
+# sub = instructions substitution</code></pre>
+
+<h3>Hikari (modern OLLVM fork)</h3>
+<p>Open source LLVM-based obfuscator, lepiej utrzymywany niz OLLVM.</p>
+
+<h2>Compiler hardening &mdash; ZAWSZE rob</h2>
+
+<p>Niezaleznie od wyboru protectora, uzyj <strong>hardening flags</strong>:</p>
+
+<h3>MSVC (Visual Studio)</h3>
+<pre><code>/GS              # Buffer security check (stack canary)
+/guard:cf        # Control Flow Guard (CFG)
+/guard:ehcont    # Exception handler continuation guard
+/Qspectre        # Spectre mitigation
+/sdl             # Additional security checks
+/CETCOMPAT       # Hardware-enforced stack protection (CET)
+/DYNAMICBASE     # ASLR
+/HIGHENTROPYVA   # 64-bit ASLR
+/NXCOMPAT        # DEP
+/wbrachstr       # Hardening warnings</code></pre>
+
+<p>W Visual Studio: Project &rarr; Properties &rarr; Configuration Properties &rarr; C/C++ &rarr; Code Generation &rarr; Security Check = <code>/GS</code> (default ON).</p>
+
+<h3>GCC / Clang (Linux)</h3>
+<pre><code>g++ \
+    -O2 \
+    -D_FORTIFY_SOURCE=3 \
+    -fstack-protector-strong \
+    -fstack-clash-protection \
+    -fcf-protection=full \
+    -Wformat \
+    -Wformat-security \
+    -Werror=format-security \
+    -fPIE -pie \
+    -Wl,-z,relro,-z,now \
+    -Wl,-z,noexecstack \
+    -fsanitize=cfi \
+    source.cpp -o output</code></pre>
+
+<p><strong>Co robi:</strong></p>
+<ul>
+<li><code>_FORTIFY_SOURCE=3</code> &mdash; runtime checks dla buffer overflows</li>
+<li><code>-fstack-protector-strong</code> &mdash; stack canaries</li>
+<li><code>-fcf-protection=full</code> &mdash; Intel CET (Control-flow Enforcement Technology)</li>
+<li><code>-fPIE -pie</code> &mdash; Position Independent Executable (ASLR)</li>
+<li><code>-Wl,-z,relro,-z,now</code> &mdash; Read-only relocations</li>
+<li><code>-fsanitize=cfi</code> &mdash; Control Flow Integrity</li>
+</ul>
+
+<h3>Strip symbols</h3>
+<p>Po build &mdash; usun symbol info (debug, function names):</p>
+
+<p><strong>Linux:</strong></p>
+<pre><code>strip --strip-all MyApp
+strip --strip-debug MyApp
+# Lub: objcopy --strip-all MyApp</code></pre>
+
+<p><strong>Windows:</strong></p>
+<ul>
+<li>Build w <strong>Release</strong>, nie Debug</li>
+<li>Properties &rarr; Linker &rarr; Debugging &rarr; Generate Debug Info = <strong>No</strong></li>
+<li>Lub: <code>editbin /STRIPLIBPATH MyApp.exe</code> (stara opcja)</li>
+<li>Modern: separate PDB, ship binary bez PDB</li>
+</ul>
+
+<h2>Anti-debugging w C++</h2>
+
+<pre><code>#include &lt;windows.h&gt;
+
+bool is_debugger_attached() {
+    // Windows API
+    if (IsDebuggerPresent()) return true;
+
+    BOOL remote = FALSE;
+    CheckRemoteDebuggerPresent(GetCurrentProcess(), &amp;remote);
+    if (remote) return true;
+
+    // Check PEB (Process Environment Block)
+    #ifdef _WIN64
+    auto peb = (PPEB)__readgsqword(0x60);
+    #else
+    auto peb = (PPEB)__readfsdword(0x30);
+    #endif
+
+    if (peb-&gt;BeingDebugged) return true;
+    if (peb-&gt;NtGlobalFlag &amp; 0x70) return true;
+
+    // Heap flags
+    DWORD heap_flags;
+    NtQueryInformationProcess(/* ... */, &amp;heap_flags);
+    if (heap_flags &amp; (HEAP_GROWABLE | HEAP_TAIL_CHECKING_ENABLED)) return true;
+
+    // Hardware breakpoints (DR0-DR7)
+    CONTEXT ctx = {};
+    ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS;
+    GetThreadContext(GetCurrentThread(), &amp;ctx);
+    if (ctx.Dr0 || ctx.Dr1 || ctx.Dr2 || ctx.Dr3) return true;
+
+    // Timing attack &mdash; debugger spowalnia execution
+    auto t1 = std::chrono::high_resolution_clock::now();
+    Sleep(1);
+    auto t2 = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast&lt;std::chrono::milliseconds&gt;(t2 - t1);
+    if (duration.count() &gt; 50) return true;  // suspicious
+
+    return false;
+}
+
+int main() {
+    if (is_debugger_attached()) {
+        // Crash, exit silently, lub fake behavior
+        std::abort();
+    }
+    // Normal execution
+}</code></pre>
+
+<p><strong>Linux equivalent:</strong></p>
+<pre><code>#include &lt;sys/ptrace.h&gt;
+
+bool is_being_traced() {
+    // Try to ptrace ourselves &mdash; fails if already traced
+    if (ptrace(PTRACE_TRACEME, 0, NULL, 0) == -1) {
+        return true;
+    }
+    ptrace(PTRACE_DETACH, 0, NULL, 0);
+
+    // Check /proc/self/status for TracerPid
+    std::ifstream status("/proc/self/status");
+    std::string line;
+    while (std::getline(status, line)) {
+        if (line.find("TracerPid:") == 0) {
+            int tracer_pid = std::stoi(line.substr(11));
+            return tracer_pid != 0;
+        }
+    }
+    return false;
+}</code></pre>
+
+<p><strong>Uwaga:</strong> anti-debug to <strong>wojna ciagla</strong> &mdash; reverse engineers pisza bypassy. Stosuj wiele technik, niech latwo nie byc zatrzymanym.</p>
+
+<h2>Anti-tampering (integrity check)</h2>
+
+<pre><code>#include &lt;windows.h&gt;
+#include &lt;wincrypt.h&gt;
+
+bool verify_self_integrity() {
+    char path[MAX_PATH];
+    GetModuleFileNameA(NULL, path, MAX_PATH);
+
+    HANDLE file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                              OPEN_EXISTING, 0, NULL);
+    if (file == INVALID_HANDLE_VALUE) return false;
+
+    // Compute SHA-256 of binary
+    HCRYPTPROV provider;
+    HCRYPTHASH hash;
+    CryptAcquireContextA(&amp;provider, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT);
+    CryptCreateHash(provider, CALG_SHA_256, 0, 0, &amp;hash);
+
+    BYTE buffer[4096];
+    DWORD bytes_read;
+    while (ReadFile(file, buffer, sizeof(buffer), &amp;bytes_read, NULL) &amp;&amp; bytes_read &gt; 0) {
+        CryptHashData(hash, buffer, bytes_read, 0);
+    }
+
+    BYTE computed[32];
+    DWORD len = 32;
+    CryptGetHashParam(hash, HP_HASHVAL, computed, &amp;len, 0);
+
+    CryptDestroyHash(hash);
+    CryptReleaseContext(provider, 0);
+    CloseHandle(file);
+
+    // Compare with embedded expected hash (POST-BUILD set!)
+    BYTE expected[32] = { 0xA1, 0xF3, /* ... */ };  // post-build patch
+    return memcmp(computed, expected, 32) == 0;
+}</code></pre>
+
+<p><strong>Trick:</strong> expected hash jest <strong>patchowany post-build</strong> (po obliczeniu finalnego hash calego binary). Atakujacy ktory zmodyfikuje 1 bajt &rarr; integrity fails.</p>
+
+<h2>License management</h2>
+
+<h3>Online validation (call home)</h3>
+
+<pre><code>#include &lt;httplib.h&gt;  // cpp-httplib
+#include &lt;nlohmann/json.hpp&gt;
+
+class LicenseManager {
+    const std::string api_url = "https://api.mycompany.com";
+
+public:
+    struct LicenseInfo {
+        bool valid;
+        std::string customer_id;
+        std::chrono::system_clock::time_point expires_at;
+    };
+
+    LicenseInfo verify(const std::string&amp; license_key) {
+        httplib::Client client(api_url);
+
+        nlohmann::json request = {
+            {"key", license_key},
+            {"hardware_id", get_hardware_id()},
+            {"product_version", "2.4.1"}
+        };
+
+        auto response = client.Post("/license/verify",
+            request.dump(), "application/json");
+
+        if (!response || response-&gt;status != 200) {
+            return {false, "", {}};
+        }
+
+        auto json = nlohmann::json::parse(response-&gt;body);
+        return {
+            json["valid"].get&lt;bool&gt;(),
+            json["customer_id"].get&lt;std::string&gt;(),
+            std::chrono::system_clock::from_time_t(json["expires_at"].get&lt;int64_t&gt;())
+        };
+    }
+
+    std::string get_hardware_id() {
+        // Combine: CPU ID + motherboard serial + MAC
+        // Hash for unique fingerprint
+        return sha256(get_cpu_id() + get_motherboard_serial() + get_first_mac());
+    }
+};</code></pre>
+
+<h3>Offline JWT validation</h3>
+
+<pre><code>#include &lt;jwt-cpp/jwt.h&gt;
+
+class OfflineLicenseValidator {
+    std::string public_key;  // Embedded w binary
+
+public:
+    bool validate(const std::string&amp; jwt_token) {
+        try {
+            auto decoded = jwt::decode(jwt_token);
+
+            auto verifier = jwt::verify()
+                .allow_algorithm(jwt::algorithm::rs256(public_key))
+                .with_issuer("mycompany.com")
+                .expires_at_leeway(0);
+
+            verifier.verify(decoded);
+
+            return true;
+        } catch (const jwt::error::token_verification_exception&amp;) {
+            return false;
+        }
+    }
+};</code></pre>
+
+<h3>Komercyjne biblioteki license:</h3>
+<ul>
+<li><strong>Cryptolens C++ SDK</strong> &mdash; popular, multi-platform, free tier</li>
+<li><strong>LicenseSpring</strong> &mdash; managed</li>
+<li><strong>Keygen.sh</strong> &mdash; open source server, paid SaaS</li>
+<li><strong>CodeMeter (Wibu Systems)</strong> &mdash; premium, hardware tokens</li>
+<li><strong>HASP / Sentinel (Thales)</strong> &mdash; premium, hardware dongles</li>
+</ul>
+
+<h2>Code virtualization &mdash; kiedy ma sens</h2>
+
+<p>Code virtualization (VMProtect, Themida, custom):</p>
+<div class="card green">
+<ul>
+<li>License check function (1-2 funkcje, krytyczne)</li>
+<li>Authentication / cryptographic functions</li>
+<li>Anti-cheat checks (gaming)</li>
+<li>Custom proprietary algorithms (np. unique compression, ML inference dla edge AI)</li>
+<li>DRM / protected content decoding</li>
+</ul>
+</div>
+<div class="card red">
+<ul>
+<li>Hot loops gameplay (1000&times; slowdown niedopuszczalne)</li>
+<li>Real-time audio/video processing</li>
+<li>Performance-critical scientific computing</li>
+</ul>
+</div>
+
+<p><strong>Praktyka:</strong> virtualizuj <strong>5-20 funkcji</strong> w aplikacji 100k+ LOC. Reszta &mdash; normal compilation z hardening.</p>
+
+<h2>Anti-cheat (specjalny przypadek)</h2>
+
+<p>Dla gier &mdash; wlasna kategoria. Poza VMProtect/Themida:</p>
+
+<ul>
+<li><strong>EasyAntiCheat</strong> (Epic) &mdash; uzywane w Fortnite, Apex Legends</li>
+<li><strong>BattlEye</strong> &mdash; uzywane w PUBG, Rainbow Six</li>
+<li><strong>Vanguard</strong> (Riot) &mdash; kernel-level, bardzo agresywny</li>
+<li><strong>Denuvo Anti-Cheat</strong> &mdash; premium, drogie</li>
+<li><strong>Roblox Hyperion</strong> &mdash; proprietary</li>
+</ul>
+
+<p><strong>Common techniques:</strong></p>
+<ul>
+<li>Kernel-mode driver (anti-cheat ring 0)</li>
+<li>Behavioral analysis (server-side)</li>
+<li>Hardware bans (HWID)</li>
+<li>Memory integrity scans</li>
+<li>Code injection detection</li>
+</ul>
+
+<h2>Strategie dla roznych use cases</h2>
+
+<h3>"Gra single-player premium ($30-60)"</h3>
+<pre><code>Layer 1: Compiler hardening
+Layer 2: VMProtect na license check + critical algorithms
+Layer 3: License manager (online activation)
+Layer 4: Steam/Epic DRM (jesli store)
+Cena: VMProtect Personal &euro;490</code></pre>
+
+<h3>"Gra multiplayer competitive (Free-to-play)"</h3>
+<pre><code>Anti-cheat: EasyAntiCheat lub BattlEye
+Server-authoritative architecture (klient nie cheat)
+Behavior analytics (anti-bot)
+HWID bans
+Custom kernel driver (advanced)</code></pre>
+
+<h3>"Premium business software ($500-5000)"</h3>
+<pre><code>Layer 1: Compiler hardening
+Layer 2: VMProtect Pro (&euro;890) lub Themida + WinLicense ($1995)
+Layer 3: Online license server z hardware fingerprinting
+Layer 4: Critical features w cloud (SaaS hybrid)
+Layer 5: Code signing certificate (EV $400/yr)
+Layer 6: Watermarking per-customer</code></pre>
+
+<h3>"Driver / kernel module"</h3>
+<pre><code>Hardware ID locking
+Code signing certificate (EV obligatoryjne dla kernel)
+Microsoft attestation (kernel mode)
+Custom protector (kernel-aware)
+Minimal commercial protectors dzialaja (wiekszosc user-mode)</code></pre>
+
+<h3>"Open source z paid features"</h3>
+<pre><code>Free tier: GitHub source
+Pro tier: separate VMProtect-protected DLL
+License key validation w protected DLL</code></pre>
+
+<h3>"Niche tool / utility ($20-200)"</h3>
+<pre><code>Enigma Protector ($129) lub Themida ($1495 jesli stac)
+Online license activation
+Code signing cert (Standard $300/yr)</code></pre>
+
+<h2>Code signing &mdash; niezbedne dla Windows</h2>
+
+<p>Bez signed binary:</p>
+<ul>
+<li>Microsoft SmartScreen blokuje "unrecognized publisher"</li>
+<li>Niektore AV agresywniej skanuja unsigned</li>
+<li>Klient nie ufa Twojej aplikacji</li>
+</ul>
+
+<pre><code># Sign w Windows
+signtool sign /f cert.pfx /p password \
+    /tr http://timestamp.digicert.com /td sha256 /fd sha256 \
+    MyApp.exe
+
+# Verify
+signtool verify /pa MyApp.exe</code></pre>
+
+<p><strong>Cena code signing certs:</strong></p>
+<ul>
+<li><strong>Standard:</strong> $200-400/yr (Sectigo, Comodo, GlobalSign)</li>
+<li><strong>EV (Extended Validation):</strong> $400-800/yr &mdash; instant SmartScreen reputation</li>
+<li>Od 2023: <strong>EV wymaga hardware token</strong> (USB key)</li>
+<li><strong>OV (organization validated)</strong> &mdash; middle ground</li>
+</ul>
+
+<p><strong>Apple notarization</strong> (macOS) &mdash; wymagane dla apps poza App Store.</p>
+
+<h2>Reverse engineering tools (od strony atakujacego)</h2>
+
+<p>Aby projektowac obrone, znaj atak:</p>
+
+<h3>Disassemblers / decompilers:</h3>
+<ul>
+<li><strong>IDA Pro</strong> &mdash; gold standard, drogi (~$3000+), uzywany przez profesjonalistow</li>
+<li><strong>Ghidra</strong> (NSA) &mdash; free, open source, doskonala alternatywa do IDA</li>
+<li><strong>Binary Ninja</strong> &mdash; modern, $300-1500</li>
+<li><strong>Radare2</strong> / <strong>Cutter</strong> &mdash; free, open source, CLI/GUI</li>
+<li><strong>Hopper</strong> &mdash; Mac/Linux, $99</li>
+</ul>
+
+<h3>Debuggers:</h3>
+<ul>
+<li><strong>x64dbg</strong> &mdash; open source, nowoczesny Windows debugger</li>
+<li><strong>WinDbg</strong> &mdash; Microsoft, kernel-mode debugging</li>
+<li><strong>OllyDbg</strong> (legacy) &mdash; wciaz popular dla 32-bit</li>
+<li><strong>GDB</strong> &mdash; Linux standard</li>
+<li><strong>LLDB</strong> &mdash; modern alternative</li>
+</ul>
+
+<h3>Memory tools:</h3>
+<ul>
+<li><strong>Cheat Engine</strong> &mdash; popular dla games, tez dla utility</li>
+<li><strong>Process Hacker</strong> &mdash; process inspection</li>
+<li><strong>Volatility</strong> &mdash; memory forensics</li>
+</ul>
+
+<h3>Specialized:</h3>
+<ul>
+<li><strong>Frida</strong> &mdash; dynamic instrumentation</li>
+<li><strong>Themida unpacker</strong> plugins</li>
+<li><strong>VMProtect deobfuscator</strong> experiments (rzadkie working)</li>
+</ul>
+
+<h3>Typical attack flow:</h3>
+<pre><code>1. Open binary in IDA/Ghidra
+2. Find string "Invalid license" &rarr; cross-reference
+3. Trace back to license check function
+4. Patch JZ to JMP (skip check)
+5. Save modified binary
+6. Distribute "cracked" version</code></pre>
+
+<p><strong>Cel obrony:</strong> kazdy krok kosztowny. VMProtect virtualization &rarr; reverse engineer musi pisac custom VM emulator dla each build.</p>
+
+<h2>Obfuscation zrodlowy (compile-time)</h2>
+
+<p>Czasem chcemy obfuskowac na poziomie source przed compile:</p>
+
+<h3>String obfuscation (constexpr)</h3>
+
+<pre><code>#include &lt;array&gt;
+#include &lt;utility&gt;
+
+template&lt;size_t N&gt;
+struct ObfuscatedString {
+    std::array&lt;char, N&gt; data;
+
+    consteval ObfuscatedString(const char (&amp;str)[N]) {
+        for (size_t i = 0; i &lt; N; ++i) {
+            data[i] = str[i] ^ 0x55;  // XOR przy compile time
+        }
+    }
+
+    std::string decrypt() const {
+        std::string result(N - 1, 0);
+        for (size_t i = 0; i &lt; N - 1; ++i) {
+            result[i] = data[i] ^ 0x55;
+        }
+        return result;
+    }
+};
+
+#define OBFUSCATED(s) ObfuscatedString&lt;sizeof(s)&gt;(s)
+
+// Usage:
+auto api_key = OBFUSCATED("sk-secret-12345");
+// W binary widac: 0xF4 0xE9 0x67 ... (zamiast "sk-secret")
+auto plain = api_key.decrypt();  // runtime decrypt</code></pre>
+
+<p><strong>Dostepne biblioteki:</strong></p>
+<ul>
+<li><strong>xorstr</strong> (jowenkov) &mdash; lightweight string obfuscation</li>
+<li><strong>obfuscate-c++</strong> &mdash; header-only</li>
+<li><strong>andrivet/ADVobfuscator</strong> &mdash; comprehensive C++ obfuscation library</li>
+</ul>
+
+<h3>Control flow obfuscation (manual)</h3>
+
+<pre><code>// Zamiast prostego if:
+if (license_valid) {
+    proceed();
+} else {
+    exit(1);
+}
+
+// Uzyj computed gotos / state machine:
+int state = compute_state(license_key);
+switch (state) {
+    case 0xA1: goto check_a;
+    case 0xB2: goto check_b;
+    // ...
+}
+check_a:
+    if (validate_part_a()) state = 0xC3; else goto fail;
+    goto next;
+check_b:
+    // ...
+fail:
+    exit(1);</code></pre>
+
+<p>LLVM pass (Hikari/OLLVM) zrobi to automatycznie.</p>
+
+<h2>Watermarking per customer</h2>
+
+<pre><code>// W build pipeline (CI/CD), inject unique watermark per customer
+const char* CUSTOMER_ID = "CUST_8a4f2c";  // patched per build
+const char* BUILD_HASH = "BUILD_d2e9f1";
+
+// Embed multiple times (rozne miejsca, hard to remove all):
+__attribute__((used))
+static const char* watermark1 = "MyApp v2.4 (c) 2026 CUST_8a4f2c";
+
+class HiddenWatermark {
+    const char* mark = "[CUST_8a4f2c]";
+public:
+    HiddenWatermark() {
+        // Use mark in some side-effect (prevent dead-code elimination)
+        if (mark[0] == 0xFF) std::abort();  // never true, prevents removal
+    }
+};</code></pre>
+
+<p>Jesli leak na piracie torrencie &rarr; znajdziesz po watermarku.</p>
+
+<h2>Tools, biblioteki, frameworki</h2>
+
+<h3>Komercyjne protectory:</h3>
+<ul>
+<li>VMProtect: vmpsoft.com &mdash; &euro;490-1490</li>
+<li>Themida + WinLicense: oreans.com &mdash; $1495-2495</li>
+<li>Enigma Protector: enigmaprotector.com &mdash; $129-1499</li>
+<li>CodeMeter (Wibu): wibu.com &mdash; premium hardware-based</li>
+</ul>
+
+<h3>License management:</h3>
+<ul>
+<li>Cryptolens: cryptolens.io &mdash; free tier + paid</li>
+<li>LicenseSpring: licensespring.com</li>
+<li>Keygen.sh: keygen.sh &mdash; open source server</li>
+<li>10Duke: 10duke.com &mdash; enterprise</li>
+</ul>
+
+<h3>Open source:</h3>
+<ul>
+<li>Hikari: github.com/HikariObfuscator/Hikari</li>
+<li>ADVobfuscator: github.com/andrivet/ADVobfuscator</li>
+<li>xorstr: github.com/JustasMasiulis/xorstr</li>
+<li>LLVM Obfuscator: github.com/obfuscator-llvm/obfuscator (legacy)</li>
+</ul>
+
+<h3>Compiler hardening:</h3>
+<ul>
+<li>Lista flags: gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html</li>
+<li>MSVC: docs.microsoft.com/cpp/build/reference/</li>
+</ul>
+
+<h3>Anti-debug snippets:</h3>
+<ul>
+<li>AntiDBG: github.com/HackOvert/AntiDBG</li>
+<li>Themida-equivalent OSS: rare</li>
+</ul>
+
+<h2>Przyklad: kompletny CMake project z protection</h2>
+
+<pre><code># CMakeLists.txt
+cmake_minimum_required(VERSION 3.20)
+project(SecureApp CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+
+# Hardening flags
+if(MSVC)
+    add_compile_options(/GS /guard:cf /sdl /Qspectre)
+    add_link_options(/DYNAMICBASE /HIGHENTROPYVA /NXCOMPAT /CETCOMPAT)
+else()
+    add_compile_options(
+        -O2
+        -D_FORTIFY_SOURCE=3
+        -fstack-protector-strong
+        -fcf-protection=full
+        -fPIE
+    )
+    add_link_options(-pie -Wl,-z,relro,-z,now -Wl,-z,noexecstack)
+endif()
+
+# Strip release symbols
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    if(NOT MSVC)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_STRIP} --strip-all $&lt;TARGET_FILE:${PROJECT_NAME}&gt;)
+    endif()
+endif()
+
+add_executable(SecureApp main.cpp license.cpp anti_debug.cpp)
+
+# Post-build: VMProtect
+if(CMAKE_BUILD_TYPE STREQUAL "Release" AND VMPROTECT_PATH)
+    add_custom_command(TARGET SecureApp POST_BUILD
+        COMMAND ${VMPROTECT_PATH}/VMProtect_Con.exe
+            $&lt;TARGET_FILE:SecureApp&gt;
+            $&lt;TARGET_FILE_DIR:SecureApp&gt;/SecureApp_protected.exe
+            ${CMAKE_SOURCE_DIR}/protection.vmp)
+endif()
+
+# Post-build: Code signing
+if(CMAKE_BUILD_TYPE STREQUAL "Release" AND SIGN_CERT_PATH)
+    add_custom_command(TARGET SecureApp POST_BUILD
+        COMMAND signtool sign
+            /f ${SIGN_CERT_PATH}
+            /p ${SIGN_CERT_PASS}
+            /tr http://timestamp.digicert.com
+            /td sha256 /fd sha256
+            $&lt;TARGET_FILE:SecureApp&gt;)
+endif()</code></pre>
+
+<h2>Co NIE robic (anti-patterns)</h2>
+
+<div class="card red">
+<h3>"Kompilacja w release wystarczy"</h3>
+<p>Release jest stripped i optimized, ale wciaz reverse'able. Bez dodatkowej ochrony &mdash; IDA pokazuje czytelny pseudo-code.</p>
+
+<h3>Hardcoded license key</h3>
+<pre><code>const char* MASTER_KEY = "ABCD-1234-EFGH-5678";</code></pre>
+<p>Strings latwo wyciagnac z binary (<code>strings myapp.exe</code>).</p>
+
+<h3>Custom encryption wlasny algorytm</h3>
+<p>Roll-your-own crypto slabsze niz AES/RSA. Use OpenSSL, libsodium.</p>
+
+<h3>Polegac na pojedynczej obronie</h3>
+<p>Tylko VMProtect &rarr; cracker pisze custom devirtualizer dla Twojej VM.<br>
+Wiele warstw &rarr; musi crackowac wszystkie.</p>
+
+<h3>Brak code signing</h3>
+<p>Bez signing &mdash; Windows SmartScreen blokuje, klient porzuca instalacje.</p>
+
+<h3>Sharing protector key wsrod firm</h3>
+<p>Custom VM machine per build = unique. Sharing eliminuje benefit.</p>
+
+<h3>Encrypted strings z embedded key</h3>
+<pre><code>auto key = std::string("MYKEY123");
+auto decrypted = aes_decrypt(encrypted_data, key);</code></pre>
+<p>Reverse engineer znajdzie <code>MYKEY123</code> w binary jako string lub hex bytes.</p>
+</div>
+
+<h2>Wydajnosc: koszt ochrony</h2>
+
+<table>
+<thead>
+<tr><th>Technique</th><th>Overhead</th><th>Comments</th></tr>
+</thead>
+<tbody>
+<tr><td>Hardening flags (MSVC/GCC)</td><td>1-3%</td><td>Zawsze uzyj</td></tr>
+<tr><td>Stripped symbols</td><td>0% (wymaga release build)</td><td>Free benefit</td></tr>
+<tr><td>Anti-debug checks</td><td>0-1%</td><td>Sporadic checks</td></tr>
+<tr><td>Anti-tamper integrity</td><td>5-50ms startup</td><td>One-time cost</td></tr>
+<tr><td>String obfuscation (xorstr)</td><td>0-1%</td><td>Negligible</td></tr>
+<tr><td>VMProtect (per function)</td><td>30-1000&times; <strong>dla virtualizowanych funkcji</strong></td><td>Use sparingly</td></tr>
+<tr><td>Themida full binary</td><td>5-20% startup, 1-5% runtime</td><td>Acceptable</td></tr>
+<tr><td>LLVM obfuscator (full)</td><td>20-100%</td><td>Often too expensive</td></tr>
+<tr><td>Code signing</td><td>0%</td><td>Free win</td></tr>
+<tr><td>License online check</td><td>100-500ms (one-time)</td><td>Cache result</td></tr>
+</tbody>
+</table>
+
+<p><strong>Praktyka:</strong> Hardening + code signing dla calosci, VMProtect tylko critical 5-10 functions.</p>
+
+<h2>Monitoring kradziezy</h2>
+
+<h3>Telemetry (z poszanowaniem privacy)</h3>
+<pre><code>void send_anonymous_telemetry() {
+    httplib::Client client("https://telemetry.mycompany.com");
+
+    nlohmann::json data = {
+        {"version", APP_VERSION},
+        {"hardware_id", hash_hwid()},  // hashed!
+        {"license_key_hash", hash(license_key)},  // not the key
+        {"binary_hash", compute_self_hash()},
+        {"os", get_os_info()}
+        // BEZ: PII, file content, browsing data
+    };
+
+    client.Post("/event/startup", data.dump(), "application/json");
+}</code></pre>
+
+<h3>Detect cracked versions:</h3>
+<ul>
+<li>Anomalous hardware IDs (same key wide use)</li>
+<li>Binary hash mismatch (modified)</li>
+<li>Geolocation patterns (mass usage in unexpected regions)</li>
+<li>License key reuse</li>
+</ul>
+
+<h3>Tools:</h3>
+<ul>
+<li><strong>Sentry</strong> &mdash; error tracking, can detect crackers' modifications</li>
+<li><strong>Bugsnag</strong> &mdash; similar</li>
+<li><strong>Custom telemetry server</strong></li>
+</ul>
+
+<h2>Aspekty prawne</h2>
+
+<h3>Copyright</h3>
+<p>C++ source code automatycznie chroniony copyright od momentu utworzenia.<br>
+<strong>Rejestracja</strong> (US Copyright Office, ZAIKS w PL) wzmacnia legal position.</p>
+
+<h3>EULA must-haves:</h3>
+<ul>
+<li>Zakaz reverse engineering / disassembly</li>
+<li>Zakaz dystrybucji</li>
+<li>Zakaz modyfikacji</li>
+<li>Limit na liczbe instalacji / urzadzen</li>
+<li>Term &amp; renewal</li>
+<li>Liability limitation</li>
+<li>Governing law (jurisdiction)</li>
+</ul>
+
+<h3>DMCA / European equivalents</h3>
+<p>Ktos dystrybuuje cracked &rarr; DMCA takedown notice (US) lub odpowiednik EU.</p>
+
+<h3>Trade Secret</h3>
+<p>Critical algorithms &mdash; chron jako trade secret. NDA z pracownikami i kontraktorami.</p>
+
+<h2>Decision tree</h2>
+
+<pre><code>Czy software premium ($100+)?
+&#9500;&#9472; TAK
+&#9474;  &#9500;&#9472; Czy gaming?
+&#9474;  &#9474;  &#9500;&#9472; Multiplayer? &rarr; EasyAntiCheat / BattlEye + server-authoritative
+&#9474;  &#9474;  &#9492;&#9472; Single-player? &rarr; VMProtect Personal + Steam DRM
+&#9474;  &#9500;&#9472; Czy enterprise B2B ($1000+)?
+&#9474;  &#9474;  &rarr; Themida + WinLicense + cloud architecture
+&#9474;  &#9492;&#9472; SMB tool ($100-500)?
+&#9474;     &rarr; Enigma Protector + license server
+&#9492;&#9472; NIE (utility, $5-20)?
+   &rarr; Hardening + code signing + EULA
+   &rarr; Optional: simple license key check (online)</code></pre>
+
+<h2>Linki i zasoby</h2>
+
+<ul>
+<li><strong>VMProtect</strong>: vmpsoft.com</li>
+<li><strong>Themida / WinLicense</strong>: oreans.com</li>
+<li><strong>Enigma Protector</strong>: enigmaprotector.com</li>
+<li><strong>CodeMeter (Wibu)</strong>: wibu.com</li>
+<li><strong>Cryptolens C++</strong>: cryptolens.io</li>
+<li><strong>Hikari</strong>: github.com/HikariObfuscator/Hikari</li>
+<li><strong>ADVobfuscator</strong>: github.com/andrivet/ADVobfuscator</li>
+<li><strong>xorstr</strong>: github.com/JustasMasiulis/xorstr</li>
+<li><strong>OWASP C++ Cheat Sheet</strong>: cheatsheetseries.owasp.org</li>
+<li><strong>Compiler hardening guide</strong>: best-practices.dev (sample)</li>
+</ul>
+
+<h2>Nastepne kroki</h2>
+
+<ul>
+<li><strong>Rozdzial 04</strong> &mdash; bezpieczenstwo aplikacji C++ (memory safety, RAII, sanitizers)</li>
+<li><strong>Rozdzial 06</strong> &mdash; narzedzia i deployment (CMake, Conan)</li>
+<li>W folderze <strong>architektura/08-bezpieczenstwo</strong> &mdash; fundamenty bezpieczenstwa</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="index.html">&larr; Indeks C++</a>
+    <a href="index.html">Indeks C++ &rarr;</a>
+</div>
+
+</div>
+</body>
+</html>

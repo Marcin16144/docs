@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ochrona kodu C# przed kradzieza</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-color:var(--green)}
+.card.orange{border-color:var(--orange)}
+.card.red{border-color:var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">C#</a>
+    <span class="sep">/</span>
+    <span class="title">Ochrona kodu przed kradzieza</span>
+</div>
+
+<div class="container">
+<h1>Ochrona kodu C# przed kradzieza</h1>
+<p class="subtitle">Strategia, narzedzia i praktyki ochrony komercyjnego kodu C# / .NET przed reverse engineering oraz nielegalna dystrybucja.</p>
+
+<h2>Problem: .NET to kompilacja do bytecode czytelnego</h2>
+
+<p>W przeciwienstwie do PHP (interpretowany) lub C/C++ (natywne binary), <strong>.NET kompiluje sie do IL (Intermediate Language)</strong> &mdash; bytecode dla CLR.</p>
+
+<pre><code>C# source (.cs)
+   &darr; csc.exe / dotnet build
+IL (.dll / .exe)
+   &darr; JIT in runtime
+Native code (in memory)</code></pre>
+
+<p><strong>Problem:</strong> IL jest trywialnie czytelny przez decompiler (np. <strong>dnSpy, ILSpy, dotPeek</strong>). Kazdy moze zobaczyc pelny C# kod z <code>.dll</code> Twojej aplikacji.</p>
+
+<pre><code># Pokazmy dnSpy
+1. Otworz MyApp.dll w dnSpy
+2. Browse hierarchy &rarr; klasy, metody
+3. Right-click &rarr; "Edit Class" &rarr; widzisz pelny C# kod
+4. Mozesz nawet modyfikowac i save!</code></pre>
+
+<p>To <strong>GIGANTYCZNE</strong> ryzyko dla komercyjnych .NET aplikacji.</p>
+
+<h2>Modele ochrony</h2>
+
+<h3>1. Obfuskacja (zmiana nazw + struktur)</h3>
+<p>Nie zmienia funkcjonalnosci, tylko utrudnia czytanie.</p>
+
+<h3>2. Stringi i resources encryption</h3>
+<p>Ukrycie wrazliwych ciagow, kluczy, queries SQL.</p>
+
+<h3>3. Anti-tampering / Anti-debug</h3>
+<p>Wykrywanie debuggerow, modyfikacji binary.</p>
+
+<h3>4. AOT (Ahead-of-Time) compilation</h3>
+<p>Kompilacja do natywnego binary &mdash; <strong>nie ma IL</strong> w finalnym pliku.</p>
+
+<h3>5. Code virtualization</h3>
+<p>Najsilniejsza technika &mdash; przeksztalca IL w custom VM bytecode.</p>
+
+<h3>6. License management</h3>
+<p>Validacja licencji online/offline.</p>
+
+<h2>Komercyjne obfuskatory (state-of-the-art 2026)</h2>
+
+<h3>Dotfuscator (PreEmptive)</h3>
+
+<p><strong>Najstarszy gracz</strong>, w pakiecie z Visual Studio (Community Edition free, Pro/Enterprise paid).</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>Free Community Edition (basic obfuscation)</li>
+<li>Integracja z Visual Studio</li>
+<li>Wsparcie .NET Framework, .NET Core, .NET 5+, Xamarin</li>
+<li>Anti-tamper, anti-debug w paid version</li>
+<li>Tag-based obfuscation (decyduje co obfuskowac przez attributes)</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Community Edition bardzo limitowany</li>
+<li>Pro/Enterprise cena: $1500-5000+ rocznie</li>
+<li>Mniej agresywny niz konkurenci</li>
+</ul>
+</div>
+
+<p><strong>Workflow:</strong></p>
+<pre><code># Z poziomu Visual Studio: Build &rarr; Tools &rarr; PreEmptive Protection - Dotfuscator
+# Lub CLI:
+dotfuscator MyApp.dll /out=protected/</code></pre>
+
+<h3>ConfuserEx 2 (open source)</h3>
+
+<p><strong>Free, open source, agresywny.</strong> Najpopularniejszy free obfuskator dla .NET.</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>W pelni darmowy</li>
+<li>Bardzo silna ochrona (renaming, control flow, anti-debug, anti-dump)</li>
+<li>Aktywna spolecznosc (ConfuserEx 2 fork z aktualizacjami)</li>
+<li>Wsparcie .NET Framework + .NET Core/5+</li>
+<li>Resource encryption, constants encryption</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Brak komercyjnego wsparcia</li>
+<li>Moze byc wykryty jako "malware" przez niektore AV (false positive)</li>
+<li>Niektore techniki crackowane (deobfuscatory dostepne np. <strong>de4dot</strong>)</li>
+<li>Skomplikowany config</li>
+</ul>
+</div>
+
+<p><strong>Konfiguracja (<code>MyApp.crproj</code>):</strong></p>
+<pre><code>&lt;project outputDir="output" baseDir="C:\Project" xmlns="http://confuser.codeplex.com"&gt;
+  &lt;module path="MyApp.dll"&gt;
+    &lt;rule pattern="true"&gt;
+      &lt;protection id="rename" /&gt;
+      &lt;protection id="anti debug" /&gt;
+      &lt;protection id="anti dump" /&gt;
+      &lt;protection id="anti ildasm" /&gt;
+      &lt;protection id="anti tamper" /&gt;
+      &lt;protection id="ctrl flow" /&gt;
+      &lt;protection id="constants" /&gt;
+      &lt;protection id="ref proxy" /&gt;
+      &lt;protection id="resources" /&gt;
+    &lt;/rule&gt;
+  &lt;/module&gt;
+&lt;/project&gt;</code></pre>
+
+<pre><code>ConfuserEx.exe MyApp.crproj</code></pre>
+
+<h3>Eazfuscator.NET</h3>
+
+<p><strong>Komercyjny, premium.</strong> Wybierany przez wiele enterprise.</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>Bardzo silna ochrona (homomorphic encryption, code virtualization w Pro)</li>
+<li>Excellent obfuscation quality</li>
+<li>Native code conversion (some methods)</li>
+<li>Active development</li>
+<li>Dobra dokumentacja</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Cena: $399 jednorazowo (Standard), $799 (Pro)</li>
+<li>Steeper learning curve</li>
+</ul>
+</div>
+
+<p><strong>Uzycie:</strong></p>
+<pre><code>&lt;!-- W .csproj --&gt;
+&lt;PropertyGroup&gt;
+  &lt;PostBuildEvent&gt;
+    eazfuscator.net "$(TargetPath)"
+  &lt;/PostBuildEvent&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+<h3>.NET Reactor (Eziriz)</h3>
+
+<p><strong>Komercyjny, premium.</strong> Najsilniejsza ochrona w klasie.</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li><strong>NecroBit technology</strong> &mdash; converts IL into encrypted format</li>
+<li>Native code generation dla critical methods</li>
+<li>Anti-tamper, anti-debug, anti-dump</li>
+<li>License management built-in</li>
+<li>Code virtualization</li>
+<li>Wsparcie WPF, WinForms, ASP.NET, .NET Core</li>
+<li>AOT-like single-file output</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Cena: ~$180 jednorazowo (basic) do $560 (Multilanguage)</li>
+<li>Niektore techniki crackowane</li>
+</ul>
+</div>
+
+<p><strong>Workflow:</strong></p>
+<pre><code># CLI
+dotnet_reactor.exe -file MyApp.exe -necrobit 1 -anti_tamp 1 -anti_debug 1 -encryption 1</code></pre>
+
+<h3>Babel Obfuscator</h3>
+
+<p>Komercyjny, profesjonalny. Konkurent Eazfuscator.</p>
+
+<p><strong>Plusy:</strong> silna obfuskacja, integracja z MSBuild, wsparcie modern .NET<br>
+<strong>Minusy:</strong> mniejsza spolecznosc niz konkurenci</p>
+
+<h3>Smart Assembly (Red Gate)</h3>
+
+<p><strong>Komercyjny.</strong> Specjalizuje sie w error reporting + obfuskacja.</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>Integracja z error tracking</li>
+<li>Latwy w uzyciu</li>
+<li>Wsparcie .NET Framework + .NET Core</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>$795/rok subscription</li>
+<li>Mniej agresywny niz ConfuserEx/Reactor</li>
+</ul>
+</div>
+
+<h2>Porownanie &mdash; quick reference</h2>
+
+<table>
+<thead>
+<tr><th>Tool</th><th>Cena</th><th>Free?</th><th>Strength</th><th>Best for</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>ConfuserEx 2</strong></td><td>Free</td><td>Tak</td><td>High</td><td>Indie, hobbyists</td></tr>
+<tr><td><strong>Dotfuscator CE</strong></td><td>Free w VS</td><td>Tak</td><td>Low</td><td>Quick basic protection</td></tr>
+<tr><td><strong>Dotfuscator Pro</strong></td><td>$1500+/yr</td><td>Nie</td><td>High</td><td>Enterprise w VS workflow</td></tr>
+<tr><td><strong>Eazfuscator.NET</strong></td><td>$399</td><td>Nie</td><td>Very High</td><td>Mid-size commercial</td></tr>
+<tr><td><strong>.NET Reactor</strong></td><td>$180-560</td><td>Nie</td><td>Very High</td><td>Most commercial uses</td></tr>
+<tr><td><strong>Babel</strong></td><td>$$$</td><td>Nie</td><td>Very High</td><td>Enterprise</td></tr>
+<tr><td><strong>Smart Assembly</strong></td><td>$795/yr</td><td>Nie</td><td>High</td><td>Error tracking + protection</td></tr>
+</tbody>
+</table>
+
+<h2>Techniki obfuskacji &mdash; szczegolowo</h2>
+
+<h3>1. Symbol renaming (basic)</h3>
+<pre><code>// Przed
+public class Calculator {
+    public int Add(int a, int b) =&gt; a + b;
+}
+
+// Po
+public class a {
+    public int b(int c, int d) =&gt; c + d;
+}</code></pre>
+
+<p><strong>Decompiler widzi:</strong> logike, ale nazwy sa nieczytelne. Dobre, <strong>ale mozna czesciowo odzyskac</strong> przez context analysis.</p>
+
+<h3>2. Control flow obfuscation</h3>
+<p>Zamienia liniowy kod w skomplikowany graf.</p>
+<pre><code>// Przed
+if (x &gt; 5) return "big"; else return "small";
+
+// Po (uproszczone)
+int state = 0;
+while (true) {
+    switch (state) {
+        case 0: state = (x &gt; 5) ? 1 : 2; break;
+        case 1: return "big";
+        case 2: return "small";
+    }
+}</code></pre>
+
+<h3>3. String encryption</h3>
+<pre><code>// Przed
+string apiKey = "sk-secret-key-123";
+
+// Po
+string apiKey = Decrypt(new byte[] { 0xa1, 0xf3, ... });</code></pre>
+
+<h3>4. Constants/literals encryption</h3>
+<p>Liczby, stringi przez encrypted lookup.</p>
+
+<h3>5. Resource encryption</h3>
+<p>Embedded resources (images, jsons) szyfrowane.</p>
+
+<h3>6. Anti-debugging</h3>
+<pre><code>if (Debugger.IsAttached) Environment.Exit(0);
+if (DetectDnSpy()) Crash();
+if (CheckProcessParent() == "ollydbg.exe") FormatHardDrive(); // joke</code></pre>
+
+<h3>7. Anti-tampering</h3>
+<p>Self-integrity check (hash binary, compare).</p>
+
+<h3>8. Anti-dump</h3>
+<p>Wykrywa proby dump procesu z pamieci.</p>
+
+<h3>9. Code virtualization (najsilniejsza!)</h3>
+<p>IL &rarr; custom VM bytecode &rarr; custom VM interpreter.</p>
+<pre><code>Original IL: ldarg.0, ldarg.1, add, ret
+Virtualized: 0xA1 0xF3 0x21 0x88 (custom opcodes, custom VM)</code></pre>
+
+<p>Tylko <code>.NET Reactor</code>, <code>Eazfuscator Pro</code>, <code>VMProtect</code> (glownie native).</p>
+
+<h3>10. Native compilation</h3>
+<p>Konkretne metody kompilowane do natywnego binary, niedostepne dla IL decompilers.</p>
+
+<h2>AOT (Ahead-of-Time) Compilation &mdash; game changer 2026</h2>
+
+<p><strong>.NET 8/9 wprowadzily production-ready Native AOT.</strong> Kompiluje C# do natywnego binary &mdash; <strong>bez IL!</strong></p>
+
+<pre><code># Build z AOT
+dotnet publish -r win-x64 -c Release \
+    /p:PublishAot=true \
+    /p:StripSymbols=true</code></pre>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li><strong>Brak IL = brak decompiler attack</strong></li>
+<li>Single binary (no .dll dependencies)</li>
+<li>Szybszy startup (no JIT)</li>
+<li>Mniejszy memory footprint</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Limitations (no reflection, no Assembly.Load, etc.)</li>
+<li>Trim warnings (musisz adjust kod)</li>
+<li>Wiekszy binary niz .dll</li>
+<li>Nie wszystkie biblioteki kompatybilne (rosnie co miesiac w 2026)</li>
+</ul>
+</div>
+
+<p><strong>Konfiguracja w <code>.csproj</code>:</strong></p>
+<pre><code>&lt;PropertyGroup&gt;
+    &lt;PublishAot&gt;true&lt;/PublishAot&gt;
+    &lt;StripSymbols&gt;true&lt;/StripSymbols&gt;
+    &lt;InvariantGlobalization&gt;true&lt;/InvariantGlobalization&gt;
+    &lt;DebugType&gt;none&lt;/DebugType&gt;
+    &lt;DebugSymbols&gt;false&lt;/DebugSymbols&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+<p><strong>W 2026:</strong> AOT to <strong>najlepsza ochrona</strong> dla nowych projektow .NET.</p>
+
+<h2>Single-file deployment</h2>
+
+<p><code>.NET 6+</code> moze produkowac single executable (z embedded dependencies).</p>
+
+<pre><code>dotnet publish -r win-x64 -c Release \
+    -p:PublishSingleFile=true \
+    -p:IncludeNativeLibrariesForSelfExtract=true \
+    -p:EnableCompressionInSingleFile=true</code></pre>
+
+<p><strong>Ale:</strong> sam single-file nie chroni &mdash; embedded dlls mozna wyciagnac. Polacz z <strong>AOT</strong> lub <strong>obfuscation</strong>.</p>
+
+<h2>Strategia ochrony &mdash; multi-layer (rekomendowana 2026)</h2>
+
+<pre><code>Layer 1: AOT compilation (jesli mozliwe)
+Layer 2: Obfuscation (ConfuserEx Free / .NET Reactor Pro)
+Layer 3: String/resource encryption
+Layer 4: Anti-debug + anti-tamper
+Layer 5: License validation (online + offline)
+Layer 6: Critical logic w cloud (SaaS hybrid)
+Layer 7: Hardware fingerprinting
+Layer 8: Watermarking per-customer build
+Layer 9: Legal (EULA, copyright)
+Layer 10: Monitoring kradziezy (telemetry)</code></pre>
+
+<h2>Strong Naming</h2>
+
+<p><strong>Strong-named assemblies</strong> maja public/private key signature.</p>
+
+<pre><code># Generate key
+sn -k mykey.snk
+
+# Build z signing
+dotnet build -p:SignAssembly=true -p:AssemblyOriginatorKeyFile=mykey.snk</code></pre>
+
+<div class="card red">
+<h4>Czego NIE robi:</h4>
+<ul>
+<li>NIE chroni przed reverse engineering</li>
+<li>NIE szyfruje kodu</li>
+</ul>
+</div>
+
+<div class="card green">
+<h4>Co robi:</h4>
+<ul>
+<li>Identyfikacja autora (zapobiega replacing w GAC)</li>
+<li>Wymaga rebuild z nowym kluczem zeby modify assembly</li>
+<li>Niewielki deterrent dla casual modification</li>
+</ul>
+</div>
+
+<p><strong>Limitations:</strong> Mozna strip strong name z assembly (<code>sn -Vr</code> removes strong name verification).</p>
+
+<h2>License management dla .NET</h2>
+
+<h3>Online validation</h3>
+
+<pre><code>public class LicenseManager
+{
+    private readonly HttpClient _http = new();
+    private readonly string _apiUrl = "https://api.yourcompany.com/license/verify";
+
+    public async Task&lt;bool&gt; IsValid(string licenseKey)
+    {
+        var response = await _http.PostAsJsonAsync(_apiUrl, new
+        {
+            Key = licenseKey,
+            HardwareId = HardwareIdHelper.GetUnique(),
+            ProductVersion = Assembly.GetExecutingAssembly().GetName().Version.ToString()
+        });
+
+        if (!response.IsSuccessStatusCode) return false;
+
+        var data = await response.Content.ReadFromJsonAsync&lt;LicenseResponse&gt;();
+        return data!.Valid &amp;&amp; data.ExpiresAt &gt; DateTime.UtcNow;
+    }
+}
+
+public static class HardwareIdHelper
+{
+    public static string GetUnique()
+    {
+        var cpuId = GetCpuId();
+        var motherboardSerial = GetMotherboardSerial();
+        var biosUuid = GetBiosUuid();
+        return ComputeHash(cpuId + motherboardSerial + biosUuid);
+    }
+}</code></pre>
+
+<h3>Offline JWT validation</h3>
+
+<pre><code>using System.IdentityModel.Tokens.Jwt;
+
+public class OfflineLicenseValidator
+{
+    private readonly RSA _publicKey; // embedded w assembly
+
+    public LicenseInfo Validate(string licenseToken)
+    {
+        var handler = new JwtSecurityTokenHandler();
+        var validationParams = new TokenValidationParameters
+        {
+            IssuerSigningKey = new RsaSecurityKey(_publicKey),
+            ValidateIssuer = true,
+            ValidIssuer = "yourcompany.com",
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+
+        var principal = handler.ValidateToken(licenseToken, validationParams, out _);
+        return ExtractLicenseInfo(principal);
+    }
+}</code></pre>
+
+<h3>Komercyjne biblioteki:</h3>
+<ul>
+<li><strong>Treek's Licensing System</strong> &mdash; popular, latwy</li>
+<li><strong>PortableApps License Library</strong></li>
+<li><strong>Cryptolens</strong> &mdash; SaaS, modern (free tier dostepny)</li>
+<li><strong>LicenseSpring</strong> &mdash; managed, multi-platform</li>
+<li><strong>Keygen.sh</strong> &mdash; open source server, paid SaaS</li>
+</ul>
+
+<h2>Anti-tampering w praktyce</h2>
+
+<pre><code>public class IntegrityCheck
+{
+    private static readonly Dictionary&lt;string, string&gt; ExpectedHashes = new()
+    {
+        ["MyApp.dll"] = "ABC123DEF456...",
+        ["MyApp.Core.dll"] = "789XYZ012..."
+    };
+
+    public static bool VerifyIntegrity()
+    {
+        foreach (var (file, expectedHash) in ExpectedHashes)
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, file);
+            if (!File.Exists(path)) return false;
+
+            using var stream = File.OpenRead(path);
+            using var sha = SHA256.Create();
+            var hash = Convert.ToHexString(sha.ComputeHash(stream));
+
+            if (hash != expectedHash) return false;
+        }
+        return true;
+    }
+}
+
+// W bootstrap
+if (!IntegrityCheck.VerifyIntegrity())
+{
+    Environment.FailFast("Integrity check failed");
+}</code></pre>
+
+<p><strong>Uwaga:</strong> atakujacy moze zmodyfikowac ten kod. To <strong>opoznia</strong> atak, nie zatrzymuje.</p>
+
+<h2>Anti-debugging w .NET</h2>
+
+<pre><code>public static class AntiDebug
+{
+    public static bool IsDebugged()
+    {
+        if (Debugger.IsAttached) return true;
+        if (Debugger.IsLogging()) return true;
+
+        // Check for IsDebuggerPresent (Win32)
+        if (NativeMethods.IsDebuggerPresent()) return true;
+
+        // CheckRemoteDebuggerPresent
+        bool isRemote = false;
+        NativeMethods.CheckRemoteDebuggerPresent(
+            Process.GetCurrentProcess().Handle, ref isRemote);
+        if (isRemote) return true;
+
+        // Check for common debugger processes
+        var debuggers = new[] { "dnSpy", "ILSpy", "dotPeek", "x64dbg", "ollydbg" };
+        if (Process.GetProcesses().Any(p =&gt; debuggers.Contains(p.ProcessName)))
+            return true;
+
+        return false;
+    }
+}</code></pre>
+
+<h2>NuGet Package Protection</h2>
+
+<p>Jesli sprzedajesz NuGet package:</p>
+
+<h3>Private NuGet feed</h3>
+<ul>
+<li><strong>Azure Artifacts</strong> &mdash; private feed</li>
+<li><strong>MyGet</strong> &mdash; alternative</li>
+<li><strong>Sonatype Nexus</strong> &mdash; self-hosted</li>
+<li><strong>GitHub Packages</strong> &mdash; z GitHub Pro</li>
+</ul>
+
+<p>Klient potrzebuje credentials do download &rarr; kontrolujesz dostep.</p>
+
+<h3>Package signing</h3>
+<pre><code># NuGet packages mozna sign (od 2018)
+nuget sign MyPackage.nupkg \
+    -CertificatePath cert.pfx \
+    -CertificatePassword "..." \
+    -Timestamper http://timestamp.digicert.com</code></pre>
+
+<p>Klient moze verify integrity. Atakujacy nie moze modify package bez resign.</p>
+
+<h2>Wybor strategii &mdash; practical guide</h2>
+
+<h3>"Sprzedaje desktop app (mala skala)"</h3>
+<ul>
+<li><strong>AOT compilation</strong> (jesli mozliwe)</li>
+<li><strong>ConfuserEx 2</strong> (free, dobra ochrona)</li>
+<li><strong>License key validation</strong> (online + offline JWT)</li>
+<li><strong>Cryptolens</strong> dla license management (free tier)</li>
+<li><strong>Code signing certificate</strong> (~$300/yr) dla SmartScreen reputation</li>
+</ul>
+
+<h3>"Sprzedaje enterprise app .NET"</h3>
+<ul>
+<li><strong>.NET Reactor</strong> lub <strong>Eazfuscator.NET Pro</strong></li>
+<li><strong>License manager</strong> (Cryptolens, LicenseSpring)</li>
+<li><strong>Critical logic w cloud SaaS</strong> (klient ma thin client)</li>
+<li><strong>Hardware fingerprinting</strong></li>
+<li><strong>Watermarking</strong> per customer</li>
+<li><strong>Code signing</strong> + <strong>Anti-tamper checks</strong></li>
+<li><strong>Telemetry</strong> (Microsoft Application Insights)</li>
+</ul>
+
+<h3>"Sprzedaje NuGet library"</h3>
+<ul>
+<li><strong>Strong naming</strong></li>
+<li><strong>Private NuGet feed</strong> lub paid Packagist</li>
+<li><strong>License key system</strong> w bibliotece</li>
+<li><strong>AOT-friendly code</strong> (klient moze AOT compile = lepsza ochrona dla niego)</li>
+</ul>
+
+<h3>"Tworze open source z paid features"</h3>
+<ul>
+<li><strong>Free tier:</strong> GitHub open source</li>
+<li><strong>Pro tier:</strong> ConfuserEx encoded DLL</li>
+<li><strong>License validation</strong> dla Pro features</li>
+</ul>
+
+<h3>"Game/desktop SaaS"</h3>
+<ul>
+<li><strong>Server-authoritative architecture</strong> (klient nie moze cheat)</li>
+<li>Native AOT dla launcher</li>
+<li><strong>Steamworks DRM</strong> (jesli na Steam)</li>
+<li><strong>VMProtect</strong> dla anti-cheat (komercyjnie)</li>
+</ul>
+
+<h2>Wydajnosc po obfuskacji</h2>
+
+<table>
+<thead>
+<tr><th>Technique</th><th>Overhead</th></tr>
+</thead>
+<tbody>
+<tr><td>Symbol renaming</td><td>&lt;1%</td></tr>
+<tr><td>Control flow obfuscation</td><td>5-15%</td></tr>
+<tr><td>String encryption</td><td>2-5%</td></tr>
+<tr><td>Anti-tamper</td><td>1-5%</td></tr>
+<tr><td>Code virtualization</td><td>30-100%+ (drogie!)</td></tr>
+<tr><td>AOT compilation</td><td>-10 do -30% (faster startup)</td></tr>
+</tbody>
+</table>
+
+<p><strong>Praktyka:</strong> Stack obfuscation dla wiekszosci kodu, virtualization tylko dla critical methods (license check, core algorithms).</p>
+
+<h2>Co nie dziala (anti-patterns)</h2>
+
+<div class="card red">
+<h3>"DEBUG = false wiec nie ma problemu"</h3>
+<p>Release vs Debug to roznica w optymalizacji + symbol info, ale IL wciaz jest plain.</p>
+
+<h3>"Compiled to .exe = chronione"</h3>
+<p>.exe to tez assembly z IL. Same problem.</p>
+
+<h3>"Encrypted XML config"</h3>
+<p>Klucz encryption jest w binary &rarr; atakujacy wyciaga klucz z decompiled code &rarr; odszyfrowuje config.</p>
+
+<h3>"Custom encryption"</h3>
+<p>Wiekszosc roll-your-own crypto jest slabsza niz commercial.</p>
+
+<h3>Client-only license check</h3>
+<p>Atakujacy patchuje <code>if (licenseValid)</code> na <code>if (true)</code>. Trzeba server-side validation lub homomorphic encryption.</p>
+
+<h3>Polegac tylko na 1 layer</h3>
+<p>Jeden tool = jedna metoda crack. Multi-layer = kompozycja kosztu.</p>
+</div>
+
+<h2>Crackowanie &mdash; perspektywa atakujacego</h2>
+
+<p>Zeby zrozumiec obrone, zrozum atak:</p>
+
+<h3>Tools uzywane przez crackerow:</h3>
+<ul>
+<li><strong>dnSpy</strong> &mdash; interactive .NET decompiler/debugger (gold standard)</li>
+<li><strong>ILSpy</strong> &mdash; open source decompiler</li>
+<li><strong>dotPeek</strong> (JetBrains) &mdash; free decompiler</li>
+<li><strong>de4dot</strong> &mdash; generic .NET deobfuscator (radzi sobie z wiekszoscia ConfuserEx, Eazfuscator low-tier, Reactor low-tier)</li>
+<li><strong>dnSpy + WinDbg</strong> &mdash; advanced debugging</li>
+<li><strong>VirtualBox + tools</strong> &mdash; sandbox testing</li>
+<li><strong>OllyDbg / x64dbg</strong> &mdash; native debugging</li>
+</ul>
+
+<h3>Typowy atak:</h3>
+<ol>
+<li>Open .dll w dnSpy</li>
+<li>Find license check method (np. <code>IsValid</code>)</li>
+<li>Patch to return <code>true</code></li>
+<li>Save modified .dll</li>
+<li>Re-sign jesli strong-named (lub <code>sn -Vr</code>)</li>
+<li>Distribute "cracked" version</li>
+</ol>
+
+<p><strong>Czas:</strong> dla unprotected app = 5 minut. Z dobra protection = godziny do dni.</p>
+
+<h3>Twoj cel:</h3>
+<p><strong>Przekrocz "frustrationthreshold"</strong> &mdash; uczyn crack wystarczajaco kosztownym zeby cracker poszedl do innego target.</p>
+
+<h2>Monitoring kradziezy</h2>
+
+<h3>Telemetry</h3>
+<pre><code>// Send anonymous telemetry przy starcie
+public static class Telemetry
+{
+    public static async Task SendStartup()
+    {
+        await Http.PostAsJsonAsync("https://telemetry.yourapp.com/startup", new
+        {
+            Version = AssemblyVersion(),
+            HardwareId = HardwareIdHelper.GetUnique(),
+            LicenseKey = LicenseKey,  // jesli wymaga license
+            // BEZ: PII, contents
+        });
+    }
+}</code></pre>
+
+<p>Analizy:</p>
+<ul>
+<li>Anomalie (dziwne hardware IDs, masowo te same key)</li>
+<li>Geolocation (kraj ktory nie jest target market)</li>
+<li>Cracked indicators (np. modified binary hash)</li>
+</ul>
+
+<h3>DMCA monitoring</h3>
+<p>Services ktore skanuja internet pod katem Twojego kodu:</p>
+<ul>
+<li><strong>Pixsy</strong> &mdash; image/IP monitoring</li>
+<li><strong>Markmonitor</strong> &mdash; brand protection</li>
+<li><strong>Custom scripts</strong> &mdash; search GitHub, forums</li>
+</ul>
+
+<h2>Code signing certificate</h2>
+
+<p><strong>Code signing</strong> &ne; ochrona kodu, ale wazne:</p>
+
+<pre><code># Sign executable
+signtool sign /f cert.pfx /p password /tr http://timestamp.digicert.com /td sha256 /fd sha256 MyApp.exe</code></pre>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>Microsoft SmartScreen nie blokuje</li>
+<li>Windows installer pokazuje nazwe firmy zamiast "Unknown publisher"</li>
+<li>Uniemozliwia silent modification (modified binary loses signature)</li>
+</ul>
+</div>
+
+<p><strong>Cena:</strong></p>
+<ul>
+<li><strong>Standard:</strong> $200-400/yr (Sectigo, Comodo)</li>
+<li><strong>EV (Extended Validation):</strong> $400-800/yr &mdash; instant SmartScreen reputation</li>
+<li><strong>Hardware token</strong> (od 2023 wymagany dla EV) &mdash; fizyczny USB</li>
+</ul>
+
+<p><strong>Best practice 2026:</strong> Code sign EVERY release, AND obfuscate.</p>
+
+<h2>Updates strategy</h2>
+
+<pre><code>1. Sign updates z private key
+2. Verify signature przed install
+3. Encrypt update payload
+4. Server validates klient's license przed serving update
+5. Differential updates (mniejsze, trudniej reverse)</code></pre>
+
+<h2>Linki i zasoby</h2>
+
+<ul>
+<li><strong>ConfuserEx 2</strong>: github.com/mkaring/ConfuserEx</li>
+<li><strong>.NET Reactor</strong>: eziriz.com</li>
+<li><strong>Eazfuscator.NET</strong>: eazfuscator.com</li>
+<li><strong>Dotfuscator</strong>: preemptive.com</li>
+<li><strong>Babel Obfuscator</strong>: babelfor.net</li>
+<li><strong>Cryptolens</strong>: cryptolens.io (license management)</li>
+<li><strong>dnSpy</strong> (do testowania): github.com/dnSpyEx/dnSpy</li>
+<li><strong>de4dot</strong> (do testowania): github.com/de4dot/de4dot</li>
+<li><strong>NetGuard.NET</strong>: alternative obfuscator</li>
+</ul>
+
+<h2>Wazne: ochrona &ne; niemoznosc kradziezy</h2>
+
+<p><strong>Kazdy obfuskator zostanie crackowany.</strong> Wazne pytania:</p>
+<ul>
+<li>Ile to zajmie?</li>
+<li>Ile to kosztuje atakujacego?</li>
+<li>Czy wartosc Twojego software &gt; koszt crack?</li>
+</ul>
+
+<p><strong>Real targets:</strong></p>
+<ul>
+<li>$5 plugin &rarr; minimal protection (legalna ochrona glownie)</li>
+<li>$500 software &rarr; solid commercial obfuscator</li>
+<li>$50,000 enterprise &rarr; multi-layer + cloud architecture</li>
+<li>Anti-cheat / DRM gaming &rarr; VMProtect-grade + server-authoritative</li>
+</ul>
+
+<h2>Nastepne kroki</h2>
+
+<ul>
+<li><strong>Rozdzial 04</strong> &mdash; bezpieczenstwo aplikacji (OWASP, secure coding)</li>
+<li><strong>Rozdzial 06</strong> &mdash; narzedzia i deployment (AOT, single-file)</li>
+<li>W folderze <strong>architektura/08-bezpieczenstwo</strong> &mdash; fundamenty bezpieczenstwa</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="index.html">&larr; Indeks C#</a>
+    <a href="index.html">Indeks C# &rarr;</a>
+</div>
+
+</div>
+</body>
+</html>

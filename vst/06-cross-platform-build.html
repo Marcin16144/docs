@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06 — Cross-platform build: Windows + macOS</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ec4899;--accent-hover:#f472b6;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--cyan:#22d3ee;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="../index.html">Glowna</a>
+        <span class="sep">/</span>
+        <a href="index.html">VST</a>
+        <span class="sep">/</span>
+        <span class="title">06 — Cross-platform build</span>
+    </div>
+    <div class="container">
+        <h1>Cross-platform build: Windows + macOS</h1>
+        <p class="subtitle">Jeden plugin, dwie platformy: budowa, code signing, notarization, GitHub Actions.</p>
+
+        <p>Plugin VST jest dzis z definicji <strong>cross-platform</strong>. Sprzedanie tylko jednej wersji platformowej to natychmiastowa utrata polowy rynku. W tym rozdziale: jak zbudowac ten sam plugin na Windows i macOS, podpisac kod, znotaryzowac na macOS, i zautomatyzowac wszystko w GitHub Actions.</p>
+
+        <h2>Dlaczego obie platformy maja znaczenie</h2>
+        <p>Rynek pluginow audio dzieli sie asymetrycznie:</p>
+        <table>
+            <thead><tr><th>Platforma</th><th>Udzial uzytkownikow</th><th>Profil</th><th>Srednia cena pluginu</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Windows</strong></td><td>~55-60%</td><td>Wiekszy install base, hobby + pro, FL/Cubase/Reaper/Ableton</td><td>$30-100</td></tr>
+                <tr><td><strong>macOS</strong></td><td>~35-40%</td><td>Logic Pro market, profesjonalne studia, premium</td><td>$50-200</td></tr>
+                <tr><td><strong>Linux</strong></td><td>&lt;5%</td><td>Power users, niche, Bitwig/Ardour</td><td>czesto free/donate</td></tr>
+            </tbody>
+        </table>
+
+        <div class="card">
+            <h3>Dlaczego macOS = premium</h3>
+            <ul>
+                <li>Logic Pro to flagship DAW Apple — milionow producentow (Logic +1.7M users globally w 2026)</li>
+                <li>Studio profesjonalne preferuja Mac (Pro Tools, Logic, Cubase)</li>
+                <li>Klienci macOS czesciej kupuja (mniejsza piracy, wyzsze budzety)</li>
+                <li>AU jest wymagany dla Logic — VST3 nie wystarczy</li>
+            </ul>
+            <h3>Dlaczego Windows = volume</h3>
+            <ul>
+                <li>Najwiekszy install base (gaming, FL Studio, Reaper)</li>
+                <li>Polski rynek = w 80% Windows</li>
+                <li>Nizsze ceny ale wieksze wolumeny sprzedazy</li>
+                <li>Latwiejszy entry point dla beginners (tanszy hardware)</li>
+            </ul>
+            <p><strong>Wniosek:</strong> musisz wspierac <strong>obie platformy od dnia 1</strong>. Wydanie tylko Windows == zignorowanie 35-40% rynku i ~50-60% revenue (bo macOS users placa wiecej).</p>
+        </div>
+
+        <h2>Srodowisko deweloperskie macOS</h2>
+
+        <h3>Wymagania sprzetowe</h3>
+        <ul>
+            <li><strong>Mac z Apple Silicon (M1/M2/M3/M4)</strong> — preferowane w 2026, native arm64</li>
+            <li>Albo <strong>Intel Mac</strong> (legacy ale wciaz dziala do 2027)</li>
+            <li><strong>Minimum 16 GB RAM</strong>, 32 GB komfortowe</li>
+            <li><strong>macOS 13 Ventura minimum</strong>, 14 Sonoma / 15 Sequoia rekomendowane</li>
+        </ul>
+
+        <h3>Software setup</h3>
+<pre><code># 1. Xcode z App Store (~10 GB) — IDE + kompilator
+# Wersja: Xcode 15+ dla macOS 14, Xcode 16+ dla macOS 15
+
+# 2. Command Line Tools (oddzielnie!)
+xcode-select --install
+
+# 3. Homebrew — package manager
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 4. CMake + Ninja (faster builds)
+brew install cmake ninja git
+
+# 5. Verify
+clang --version    # Apple clang version 15.0.0+
+cmake --version    # cmake version 3.27+</code></pre>
+
+        <h3>Apple Silicon vs Intel x86_64</h3>
+        <p>W 2026 musimy wciaz supportowac <strong>obie architektury</strong> macOS:</p>
+        <ul>
+            <li><strong>arm64</strong> — Apple Silicon (M1, M2, M3, M4) — wiekszosc nowych Macow od 2020</li>
+            <li><strong>x86_64</strong> — Intel — wszystkie Maki sprzed listopada 2020 (jeszcze ~25% userow)</li>
+        </ul>
+        <p>Rozwiazanie: <strong>Universal Binary</strong> — jeden plik <code>.vst3</code> zawierajacy kod na obie architektury (lipo). DAW automatycznie wybiera wlasciwa.</p>
+
+        <h2>Universal Binary — fat binary na macOS</h2>
+        <p>CMake na macOS budujacy universal:</p>
+<pre><code># W CMakeLists.txt, na samej gorze (PRZED juce_add_plugin):
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Architectures" FORCE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Min macOS" FORCE)
+endif()</code></pre>
+        <p><code>CMAKE_OSX_DEPLOYMENT_TARGET 11.0</code> = Big Sur — pierwszy macOS z arm64. Nizej nie ma sensu (M1 wymaga 11.0+).</p>
+        <p>Sprawdz co wyszlo:</p>
+<pre><code># Po buildzie:
+file MyGainPlugin.vst3/Contents/MacOS/MyGainPlugin
+# Output:
+# MyGainPlugin: Mach-O universal binary with 2 architectures:
+#   [x86_64:Mach-O 64-bit executable x86_64]
+#   [arm64:Mach-O 64-bit executable arm64]
+
+lipo -info MyGainPlugin.vst3/Contents/MacOS/MyGainPlugin
+# Architectures in the fat file: arm64 x86_64</code></pre>
+
+        <h2>Srodowisko deweloperskie Windows</h2>
+
+        <h3>Wymagania</h3>
+        <ul>
+            <li><strong>Windows 10/11 64-bit</strong> (Win 11 preferowane w 2026)</li>
+            <li><strong>Visual Studio 2022 Community</strong> (darmowe) albo <strong>Pro</strong> ($45/mies) albo <strong>VS 2025</strong> (nowsze)</li>
+            <li><strong>Workload "Desktop development with C++"</strong> (zaznacz przy instalacji)</li>
+            <li><strong>Windows SDK 10.0.22621+</strong></li>
+            <li><strong>CMake</strong> (samodzielnie albo z VS Installer)</li>
+            <li><strong>Git for Windows</strong></li>
+        </ul>
+
+        <h3>Instalacja</h3>
+<pre><code># Visual Studio 2022 Community:
+# https://visualstudio.microsoft.com/downloads/
+# Workloads do zaznaczenia:
+#   - Desktop development with C++
+#     - MSVC v143 - VS 2022 C++ x64/x86 build tools
+#     - Windows 11 SDK
+#     - C++ CMake tools for Windows
+#     - C++ AddressSanitizer (przydatne do debugowania)
+
+# Verify (z Developer PowerShell):
+cl              # Microsoft (R) C/C++ Optimizing Compiler Version 19.4x
+cmake --version # cmake version 3.28+</code></pre>
+
+        <h2>Single CMakeLists.txt dla obu platform</h2>
+        <p>Cala sztuka cross-platform: <strong>jeden plik konfiguracyjny</strong>. CMake sam wykrywa platforme.</p>
+<pre><code>cmake_minimum_required(VERSION 3.22)
+
+# macOS-specific: universal binary + minimum macOS version
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
+endif()
+
+# Windows-specific: static runtime (samowystarczalny .vst3)
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;")
+    add_compile_options(/MP)   # parallel compilation
+endif()
+
+project(MyPlugin VERSION 1.0.0)
+
+add_subdirectory(JUCE)
+
+# Format AAX tylko jesli mamy SDK; AU tylko na macOS
+if(APPLE)
+    set(PLUGIN_FORMATS VST3 AU Standalone)
+else()
+    set(PLUGIN_FORMATS VST3 Standalone)
+endif()
+
+juce_add_plugin(MyPlugin
+    COMPANY_NAME "MyCompany"
+    BUNDLE_ID com.mycompany.myplugin
+    PLUGIN_MANUFACTURER_CODE Mcmp
+    PLUGIN_CODE Mpln
+    FORMATS ${PLUGIN_FORMATS}
+    PRODUCT_NAME "My Plugin"
+    HARDENED_RUNTIME_ENABLED TRUE     # macOS notarization wymaga
+    HARDENED_RUNTIME_OPTIONS
+        com.apple.security.device.audio-input
+        com.apple.security.cs.allow-unsigned-executable-memory
+)
+
+target_sources(MyPlugin PRIVATE
+    Source/PluginProcessor.cpp
+    Source/PluginEditor.cpp
+)
+
+target_link_libraries(MyPlugin PRIVATE
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_audio_plugin_client
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_lto_flags
+    juce::juce_recommended_warning_flags
+)</code></pre>
+
+        <p>Build:</p>
+<pre><code># Windows (PowerShell)
+mkdir build; cd build
+cmake .. -G "Visual Studio 17 2022" -A x64
+cmake --build . --config Release
+
+# macOS (Terminal)
+mkdir build &amp;&amp; cd build
+cmake .. -G Xcode
+cmake --build . --config Release</code></pre>
+
+        <h2>Roznice formatow per platforma</h2>
+        <table>
+            <thead><tr><th>Format</th><th>Windows</th><th>macOS</th><th>Pliki</th></tr></thead>
+            <tbody>
+                <tr><td><strong>VST3</strong></td><td>TAK</td><td>TAK</td><td>Win: <code>.vst3</code> (folder lub pojedynczy plik), Mac: <code>.vst3</code> bundle (folder)</td></tr>
+                <tr><td><strong>AU</strong></td><td>NIE</td><td>TAK</td><td><code>.component</code> bundle</td></tr>
+                <tr><td><strong>AAX</strong></td><td>TAK</td><td>TAK</td><td><code>.aaxplugin</code> bundle</td></tr>
+                <tr><td><strong>CLAP</strong></td><td>TAK</td><td>TAK</td><td><code>.clap</code></td></tr>
+                <tr><td><strong>Standalone</strong></td><td><code>.exe</code></td><td><code>.app</code></td><td>Aplikacja</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Foldery instalacji</h3>
+<pre><code>Windows:
+VST3:  C:\Program Files\Common Files\VST3
+AAX:   C:\Program Files\Common Files\Avid\Audio\Plug-Ins
+
+macOS:
+VST3:  /Library/Audio/Plug-Ins/VST3              (system-wide)
+       ~/Library/Audio/Plug-Ins/VST3              (user-only)
+AU:    /Library/Audio/Plug-Ins/Components
+       ~/Library/Audio/Plug-Ins/Components
+AAX:   /Library/Application Support/Avid/Audio/Plug-Ins</code></pre>
+        <p>JUCE <code>COPY_PLUGIN_AFTER_BUILD TRUE</code> automatycznie kopiuje do user-folder.</p>
+
+        <h2>Code signing — Windows</h2>
+
+        <h3>Dlaczego trzeba podpisywac</h3>
+        <ul>
+            <li><strong>SmartScreen warning</strong> — niesigned EXE/DLL pokazuje "Windows protected your PC" alert. 70% userow porzuca instalacje.</li>
+            <li><strong>Antywirusy</strong> — niesigned binaries flaguja sie jako podejrzane (false positives)</li>
+            <li><strong>Korporacyjne srodowiska</strong> — czesto blokuja niesigned software przez Group Policy</li>
+        </ul>
+
+        <h3>Co kupic</h3>
+        <p>W 2026 Microsoft wymaga <strong>EV Code Signing Certificate</strong> dla pelnego SmartScreen reputation:</p>
+        <table>
+            <thead><tr><th>Provider</th><th>Cena/rok</th><th>Plus</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Sectigo (dawniej Comodo)</strong></td><td>~$400-500</td><td>Najbardziej popularne, dobry support</td></tr>
+                <tr><td><strong>DigiCert</strong></td><td>~$700-1000</td><td>Premium, enterprise-grade</td></tr>
+                <tr><td><strong>SSL.com</strong></td><td>~$300-450</td><td>Tansze</td></tr>
+                <tr><td><strong>Certum (PL)</strong></td><td>~1500-2000 zl</td><td>Polski wystawca</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Uwaga:</strong> od czerwca 2023 EV certs sa dostarczane jako <strong>HSM token</strong> (USB) albo <strong>cloud HSM</strong> (np. SSL.com eSigner) — nie da sie tylko exportowac do <code>.pfx</code>.</p>
+
+        <h3>Komenda signtool</h3>
+<pre><code># signtool jest w Windows SDK
+&amp; "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" sign `
+    /tr http://timestamp.sectigo.com `
+    /td sha256 `
+    /fd sha256 `
+    /a `
+    "C:\Program Files\Common Files\VST3\My Plugin.vst3\Contents\x86_64-win\My Plugin.vst3"
+
+# Verify
+signtool verify /pa /v "My Plugin.vst3"</code></pre>
+        <p>Flagi:</p>
+        <ul>
+            <li><code>/tr</code> — timestamp server (zapobiega wygasnieciu po expirze cert)</li>
+            <li><code>/td sha256</code> — timestamp digest</li>
+            <li><code>/fd sha256</code> — file digest</li>
+            <li><code>/a</code> — auto-select najlepszy cert z magazynu</li>
+        </ul>
+
+        <h2>Code signing + notarization — macOS</h2>
+
+        <h3>Apple Developer Account</h3>
+        <p>Wymagany <strong>$99/rok</strong> Apple Developer Program (<code>developer.apple.com</code>).</p>
+        <p>Po wlaczeniu: w <strong>Keychain Access</strong> instalujesz dwa certyfikaty:</p>
+        <ul>
+            <li><strong>Developer ID Application</strong> — do podpisywania <code>.app</code>/<code>.vst3</code>/<code>.component</code></li>
+            <li><strong>Developer ID Installer</strong> — do podpisywania <code>.pkg</code> (instalatorow)</li>
+        </ul>
+
+        <h3>codesign — komendy</h3>
+<pre><code># 1. Podpisz wszystkie binaria w bundle (deep)
+codesign --force --options runtime --timestamp \
+    --sign "Developer ID Application: Your Name (TEAM_ID)" \
+    --deep \
+    "/Library/Audio/Plug-Ins/VST3/My Plugin.vst3"
+
+codesign --force --options runtime --timestamp \
+    --sign "Developer ID Application: Your Name (TEAM_ID)" \
+    --deep \
+    "/Library/Audio/Plug-Ins/Components/My Plugin.component"
+
+# 2. Verify
+codesign --verify --deep --verbose=2 "My Plugin.vst3"
+spctl --assess --verbose "My Plugin.vst3"</code></pre>
+        <p><code>--options runtime</code> = enables hardened runtime (wymagany przez notarization).</p>
+
+        <h3>Notarization — co i dlaczego</h3>
+        <div class="card">
+            <p><strong>Notarization</strong> = Apple skanuje binarke pod katem malware i wystawia "ticket" potwierdzajacy bezpieczenstwo. Bez notarization plugin pokazuje <strong>"Cannot be opened because the developer cannot be verified"</strong> na nowych macOS (od 10.15 Catalina).</p>
+            <p><strong>Workflow:</strong></p>
+            <ol>
+                <li>Spakuj plugin do <code>.zip</code> (notarytool wymaga archiwum)</li>
+                <li>Wyslij do Apple</li>
+                <li>Apple skanuje (~1-15 min)</li>
+                <li>Pobierz ticket i staple do bundle</li>
+                <li>Verify</li>
+            </ol>
+        </div>
+
+<pre><code># 1. Zarchiwizuj
+ditto -c -k --keepParent "My Plugin.vst3" "MyPlugin.zip"
+
+# 2. Wyslij do notarization (notarytool — nowy, od Xcode 13+)
+xcrun notarytool submit "MyPlugin.zip" \
+    --apple-id "your@email.com" \
+    --team-id "TEAM_ID" \
+    --password "app-specific-password" \
+    --wait
+
+# 3. Po success — staple ticket do bundle (offline verification)
+xcrun stapler staple "My Plugin.vst3"
+
+# 4. Verify
+xcrun stapler validate "My Plugin.vst3"
+spctl --assess --type install --verbose "My Plugin.vst3"</code></pre>
+        <p><strong>App-specific password:</strong> wygeneruj na <code>appleid.apple.com</code> -&gt; Security -&gt; App-Specific Passwords. Nie uzywaj glownego hasla Apple ID.</p>
+
+        <h3>Hardened Runtime entitlements</h3>
+        <p>Plugin czesto wymaga uprawnien (mic input, audio device access). Podaj w <code>entitlements.plist</code>:</p>
+<pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd"&gt;
+&lt;plist version="1.0"&gt;
+&lt;dict&gt;
+    &lt;key&gt;com.apple.security.cs.allow-unsigned-executable-memory&lt;/key&gt;
+    &lt;true/&gt;
+    &lt;key&gt;com.apple.security.device.audio-input&lt;/key&gt;
+    &lt;true/&gt;
+    &lt;key&gt;com.apple.security.cs.disable-library-validation&lt;/key&gt;
+    &lt;true/&gt;
+&lt;/dict&gt;
+&lt;/plist&gt;</code></pre>
+        <p>Stosujesz przy podpisywaniu: <code>codesign --entitlements entitlements.plist ...</code></p>
+
+        <h2>GitHub Actions — automatyczny cross-platform build</h2>
+        <p>Najczestszy setup w 2026 — push do main -&gt; automatyczny build na Win + Mac -&gt; artefakty downloadowe.</p>
+<pre><code># .github/workflows/build.yml
+name: Build Plugin
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive    # JUCE jako submodule
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      # macOS: codesign + notarize (tylko na tagach release)
+      - name: Codesign macOS
+        if: matrix.os == 'macos-latest' &amp;&amp; startsWith(github.ref, 'refs/tags/')
+        env:
+          DEVELOPER_ID: ${{ secrets.MACOS_DEVELOPER_ID }}
+          NOTARY_USER: ${{ secrets.NOTARY_USER }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          NOTARY_TEAM: ${{ secrets.NOTARY_TEAM }}
+        run: |
+          codesign --force --options runtime --timestamp \
+            --sign "$DEVELOPER_ID" --deep \
+            "build/MyPlugin_artefacts/Release/VST3/My Plugin.vst3"
+
+          ditto -c -k --keepParent \
+            "build/MyPlugin_artefacts/Release/VST3/My Plugin.vst3" \
+            "MyPlugin-mac.zip"
+
+          xcrun notarytool submit MyPlugin-mac.zip \
+            --apple-id "$NOTARY_USER" \
+            --password "$NOTARY_PASSWORD" \
+            --team-id "$NOTARY_TEAM" \
+            --wait
+
+          xcrun stapler staple "build/MyPlugin_artefacts/Release/VST3/My Plugin.vst3"
+
+      # Windows: codesign (jesli mamy cert)
+      - name: Codesign Windows
+        if: matrix.os == 'windows-latest' &amp;&amp; startsWith(github.ref, 'refs/tags/')
+        env:
+          CERT_PATH: ${{ secrets.WIN_CERT_PATH }}
+          CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+        run: |
+          signtool sign /tr http://timestamp.sectigo.com /td sha256 /fd sha256 `
+            /f $env:CERT_PATH /p $env:CERT_PASSWORD `
+            "build/MyPlugin_artefacts/Release/VST3/My Plugin.vst3"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyPlugin-${{ matrix.os }}
+          path: build/MyPlugin_artefacts/Release/</code></pre>
+
+        <h3>Sekrety GitHub do dodania (Settings -&gt; Secrets):</h3>
+        <ul>
+            <li><code>MACOS_DEVELOPER_ID</code> — np. <code>Developer ID Application: Twoja Firma (TEAMID)</code></li>
+            <li><code>NOTARY_USER</code> — Twoj Apple ID email</li>
+            <li><code>NOTARY_PASSWORD</code> — app-specific password</li>
+            <li><code>NOTARY_TEAM</code> — 10-znakowy Team ID</li>
+            <li><code>WIN_CERT_PATH</code> — sciezka do <code>.pfx</code> (jesli software cert)</li>
+            <li><code>WIN_CERT_PASSWORD</code> — haslo do <code>.pfx</code></li>
+        </ul>
+
+        <h2>Testowanie cross-platform</h2>
+        <table>
+            <thead><tr><th>Platforma</th><th>DAW priorytet 1</th><th>DAW priorytet 2</th><th>Test scenarios</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Windows</strong></td><td>Reaper, FL Studio</td><td>Ableton Live, Cubase</td><td>scan time, parameter automation, undo/redo, save/load project</td></tr>
+                <tr><td><strong>macOS</strong></td><td>Logic Pro (AU!), Reaper</td><td>Ableton Live, Pro Tools (AAX)</td><td>M1 + Intel Mac, scan, automation, AU validation tool</td></tr>
+            </tbody>
+        </table>
+        <p><strong>AU validation:</strong> zawsze sprawdz <code>auval -v aufx Mpln Mcmp</code> na macOS — Logic Pro nie zaladuje pluginu ktory nie przechodzi auval.</p>
+
+        <h2>Czeste problemy cross-platform</h2>
+
+        <div class="card">
+            <h3>Path separators</h3>
+            <p>Windows: <code>\</code> (backslash). macOS: <code>/</code> (forward slash). Uzywaj <code>juce::File::getSeparatorString()</code> zamiast hardcoded.</p>
+<pre><code>auto file = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+              .getChildFile("MyPlugin")
+              .getChildFile("preset.xml");
+// JUCE samo zarzadzi separatorami</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Line endings</h3>
+            <p>Windows: CRLF (<code>\r\n</code>). macOS/Linux: LF (<code>\n</code>). W repo uzywaj <code>.gitattributes</code>:</p>
+<pre><code>* text=auto
+*.cpp text eol=lf
+*.h text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Bundle vs file</h3>
+            <p>Windows VST3 moze byc pojedynczym plikiem <code>.vst3</code> LUB folderem <code>.vst3/Contents/x86_64-win/file.vst3</code>. macOS ZAWSZE bundle (folder). JUCE uzywa formatu <strong>bundle</strong> na obu — bezpieczniej.</p>
+        </div>
+
+        <div class="card">
+            <h3>Apple Silicon native vs Rosetta</h3>
+            <p>Plugin x86_64 zadziala na M1/M2 przez Rosetta 2 — ALE wolniej (5-10x w pewnych operacjach DSP). Universal binary jest <strong>must</strong> dla 2026.</p>
+            <p>DAW tez matters: jesli host jest x86_64 (np. starszy Logic), zaladuje TYLKO x86_64 partition Twojego pluginu. Jesli host jest arm64 — zaladuje arm64 partition.</p>
+        </div>
+
+        <div class="card">
+            <h3>macOS sandboxing — security policies</h3>
+            <p>Niektore DAW (Logic Pro, GarageBand) laduja pluginy w sandboxed processes (<code>AUv3</code>). Tradycyjny VST3/AU NIE jest sandboxed, ale i tak musisz miec hardened runtime + entitlements jesli plugin uzywa kamery/mic/network.</p>
+        </div>
+
+        <div class="card">
+            <h3>Wolny startup pluginu na macOS Gatekeeper</h3>
+            <p>Pierwszy raz zaladowany plugin na nowym Macu = Gatekeeper sprawdza notarization online. Moze zajac <strong>30-60 sekund</strong> za pierwszym razem. Stad <code>xcrun stapler staple</code> — zalacza ticket lokalnie i nie trzeba pytac Apple online.</p>
+        </div>
+
+        <h2>Distribution per platforma</h2>
+
+        <h3>Windows</h3>
+        <ul>
+            <li><strong>Inno Setup</strong> (darmowy) — najpopularniejszy installer creator</li>
+            <li><strong>NSIS</strong> (open source) — alternatywa</li>
+            <li><strong>WiX</strong> (do enterprise, MSI)</li>
+            <li>Plugin trafia do <code>C:\Program Files\Common Files\VST3</code></li>
+        </ul>
+
+        <h3>macOS</h3>
+        <ul>
+            <li><strong>Packages.app</strong> (darmowy, package builder) — preferowany</li>
+            <li><strong>PackageMaker</strong> (legacy)</li>
+            <li>Plugin trafia do <code>/Library/Audio/Plug-Ins/VST3</code> i <code>/Library/Audio/Plug-Ins/Components</code></li>
+            <li><code>.pkg</code> musi byc <strong>podpisany Developer ID Installer</strong> + <strong>notarized</strong></li>
+        </ul>
+
+        <h3>Cross-platform alternative</h3>
+        <p>Niektorzy uzywaja jednego customowego launchera (Electron app, Qt installer) ktory downloaduje wlasciwa wersje per-OS. Overkill dla malych pluginow.</p>
+
+        <h2>Co dalej</h2>
+        <p>Majac cross-platform build setup + signing pipeline, mozesz spokojnie pracowac nad GUI (rozdzial 7) i zaawansowanym DSP (rozdzial 8). Kazdy commit do main daje gotowe binarki dla obu platform via GitHub Actions.</p>
+
+        <div class="card">
+            <h3>Checklist gotowosci do release:</h3>
+            <ul>
+                <li>Build na Win + Mac przechodzi w CI</li>
+                <li>Universal binary dla macOS (arm64 + x86_64) — verified <code>lipo -info</code></li>
+                <li>Code signed na Windows (timestamp server!)</li>
+                <li>Code signed + notarized + stapled na macOS</li>
+                <li>AU passes <code>auval -v</code> na macOS</li>
+                <li>Tested w min. 3 DAW per platforma</li>
+                <li>Installer dla Windows (Inno) i macOS (.pkg, signed + notarized)</li>
+            </ul>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="05-tworzenie-pierwszej-wtyczki.html">&larr; 05 — Tworzenie pierwszej wtyczki</a>
+            <a href="07-gui-i-grafika.html">07 — GUI i grafika &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

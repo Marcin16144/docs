@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Czym sa VST plugins — wprowadzenie</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ec4899;--accent-hover:#f472b6;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">Glowna</a>
+<span class="sep">/</span>
+<a href="index.html">VST</a>
+<span class="sep">/</span>
+<span class="title">01. Podstawy VST</span>
+</div>
+
+<div class="container">
+<h1>Czym sa VST plugins — wprowadzenie</h1>
+<p class="subtitle">Architektura, formaty, real-time constraints i kluczowe pojecia DSP dla developera wtyczek audio.</p>
+
+<h2>Co to jest plugin audio?</h2>
+<p><strong>Audio plugin</strong> to modul oprogramowania ktory przetwarza dzwiek w czasie rzeczywistym wewnatrz aplikacji-hosta (DAW = Digital Audio Workstation). Plugin nie jest samodzielna aplikacja — jest <strong>biblioteka dynamiczna</strong> (DLL na Windows, .vst3 / .component na macOS) ladowana przez DAW.</p>
+
+<pre><code>+-----------------------------------------+
+|        DAW (Host application)            |
+|   Ableton Live, Logic Pro, FL Studio,    |
+|   Reaper, Cubase, Pro Tools, Bitwig...   |
+|                                          |
+|   +---------+  +---------+  +--------+ |
+|   | Plugin  |  | Plugin  |  | Plugin | |
+|   | (EQ)    |->| (Comp)  |->| (Reverb)| |
+|   +---------+  +---------+  +--------+ |
+|        v audio buffer flow              |
+|   +---------------------------------+  |
+|   |    Audio output (speakers)       |  |
+|   +---------------------------------+  |
++-----------------------------------------+</code></pre>
+
+<h2>Typy pluginow</h2>
+
+<h3>Wg funkcji:</h3>
+<table>
+<thead><tr><th>Typ</th><th>Co robi</th><th>Przyklady</th></tr></thead>
+<tbody>
+<tr><td><strong>Effect</strong> (FX)</td><td>Przetwarza audio</td><td>EQ, kompresor, reverb, delay, distortion</td></tr>
+<tr><td><strong>Instrument</strong> (synth)</td><td>Generuje audio z MIDI</td><td>Synth, sampler, drum machine</td></tr>
+<tr><td><strong>MIDI Effect</strong></td><td>Przetwarza MIDI</td><td>Arpeggiator, chord generator, scale snapping</td></tr>
+<tr><td><strong>Analyzer</strong></td><td>Wizualizacja (no audio out)</td><td>Spectrum analyzer, loudness meter, tuner</td></tr>
+<tr><td><strong>Sidechain</strong></td><td>Audio routing</td><td>Sidechain compressor, ducker</td></tr>
+</tbody>
+</table>
+
+<h3>Wg formatu:</h3>
+<table>
+<thead><tr><th>Format</th><th>Tworca</th><th>Platformy</th><th>Status 2026</th></tr></thead>
+<tbody>
+<tr><td><strong>VST3</strong></td><td>Steinberg</td><td>Win, macOS, Linux</td><td>Standard</td></tr>
+<tr><td><strong>VST2</strong></td><td>Steinberg (legacy)</td><td>Win, macOS, Linux</td><td>Deprecated (od 2018)</td></tr>
+<tr><td><strong>AU (Audio Unit)</strong></td><td>Apple</td><td>macOS, iOS only</td><td>Standard na Apple</td></tr>
+<tr><td><strong>AAX</strong></td><td>Avid</td><td>Win, macOS</td><td>Pro Tools</td></tr>
+<tr><td><strong>CLAP</strong></td><td>Bitwig + u-he</td><td>Win, macOS, Linux</td><td>Open source, growing</td></tr>
+<tr><td><strong>LV2</strong></td><td>Linux Audio Devs</td><td>Linux glownie</td><td>Niche, Linux DAW</td></tr>
+<tr><td><strong>AUv3</strong></td><td>Apple</td><td>iOS, macOS</td><td>Mobile-friendly</td></tr>
+<tr><td><strong>Component</strong> (Mac)</td><td>Apple</td><td>macOS</td><td>Audio Unit container</td></tr>
+<tr><td><strong>iLok</strong></td><td>PACE</td><td>Cross-platform DRM</td><td>Pro/legal protection</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<p><strong>W praktyce 2026:</strong> Trzeba wspierac minimum <strong>VST3</strong> (Win) + <strong>AU</strong> (macOS). AAX jesli targetujesz Pro Tools (studyjne workflow). CLAP jest swiezy i zyskuje (Bitwig, FL Studio, Reaper supportuja).</p>
+</div>
+
+<h2>Architektura plugin (high level)</h2>
+<pre><code>// Plugin lifecycle (uproszczone, JUCE-style)
+class MyPlugin {
+public:
+    // 1. Konstruktor - DAW laduje plugin
+    MyPlugin();
+
+    // 2. prepareToPlay - DAW informuje o sample rate i buffer size
+    void prepareToPlay(double sampleRate, int samplesPerBlock);
+
+    // 3. processBlock - wywolywane CIAGLE przez DAW
+    //    Tu dzieje sie magia - przetwarzasz audio sample-po-sample
+    void processBlock(AudioBuffer&lt;float&gt;&amp; buffer, MidiBuffer&amp; midi);
+
+    // 4. releaseResources - gdy DAW zatrzymuje playback
+    void releaseResources();
+
+    // 5. Parametry - DAW moze zmieniac w czasie rzeczywistym
+    void setParameter(int index, float value);
+    float getParameter(int index);
+
+    // 6. State save/load - DAW zapisuje stan plugin w projekcie
+    void getStateInformation(MemoryBlock&amp; destData);
+    void setStateInformation(const void* data, int sizeInBytes);
+
+    // 7. GUI (opcjonalnie) - okno plugin
+    AudioProcessorEditor* createEditor();
+};</code></pre>
+
+<h2>Kluczowe pojecia DSP</h2>
+
+<div class="card">
+<h3>Sample rate (czestotliwosc probkowania)</h3>
+<ul>
+<li>Ile razy na sekunde jest probkowany sygnal audio</li>
+<li>Standard: <strong>44100 Hz</strong> (CD), <strong>48000 Hz</strong> (video, modern), <strong>96000 Hz</strong> (high-quality), <strong>192000 Hz</strong> (mastering)</li>
+<li>DAW przekazuje sample rate w <code>prepareToPlay</code></li>
+</ul>
+
+<h3>Buffer size</h3>
+<ul>
+<li>Liczba sampli przetwarzanych w jednym wywolaniu <code>processBlock</code></li>
+<li>Typowe: 64, 128, 256, 512, 1024 sampli</li>
+<li><strong>Mniejszy buffer = nizsza latencja, ale wiecej CPU</strong> (wiecej wywolan/sec)</li>
+</ul>
+
+<pre><code>Latencja ~= buffer_size / sample_rate
+np. 256 / 48000 = 5.3 ms</code></pre>
+</div>
+
+<h3>Real-time constraints (KRYTYCZNE!)</h3>
+<p><code>processBlock</code> jest wywolywane w <strong>watku audio o najwyzszym priorytecie</strong>. <strong>NIE WOLNO</strong>:</p>
+<ul>
+<li>Alokowac pamieci (<code>new</code>, <code>malloc</code>, <code>std::vector::resize</code>)</li>
+<li>Lockowac mutexow (priority inversion -&gt; glitch)</li>
+<li>Wykonywac I/O (file, network, console)</li>
+<li>Rzucac wyjatkow</li>
+<li>Wywolywac funkcji o nieprzewidywalnym czasie</li>
+</ul>
+
+<p><strong>Zasada:</strong> wszystko co potrzebujesz (bufory, lookup tables, voices) <strong>alokuj w <code>prepareToPlay</code></strong>, w <code>processBlock</code> tylko <strong>arytmetyka i operacje na pre-alokowanych zasobach</strong>.</p>
+
+<h3>Channels (mono, stereo, multichannel)</h3>
+<pre><code>void processBlock(AudioBuffer&lt;float&gt;&amp; buffer, MidiBuffer&amp; midi) {
+    int numChannels = buffer.getNumChannels();  // 1 = mono, 2 = stereo, 6 = 5.1
+    int numSamples = buffer.getNumSamples();
+
+    for (int ch = 0; ch &lt; numChannels; ++ch) {
+        float* channelData = buffer.getWritePointer(ch);
+        for (int i = 0; i &lt; numSamples; ++i) {
+            // process sample
+            channelData[i] *= 0.5f;  // np. -6dB volume
+        }
+    }
+}</code></pre>
+
+<h3>MIDI</h3>
+<ul>
+<li><strong>MIDI</strong> = Musical Instrument Digital Interface</li>
+<li>Komunikuje noty, velocity, controlery, aftertouch, pitch bend</li>
+<li>Plugin instrumentalny <strong>konsumuje</strong> MIDI, generuje audio</li>
+<li>Plugin efektowy zwykle <strong>ignoruje</strong> MIDI (lub uzywa do MIDI Learn)</li>
+</ul>
+
+<pre><code>for (auto metadata : midi) {
+    auto message = metadata.getMessage();
+    if (message.isNoteOn()) {
+        int noteNumber = message.getNoteNumber();    // 60 = middle C
+        float velocity = message.getFloatVelocity();  // 0.0 - 1.0
+        // Start playing note...
+    } else if (message.isNoteOff()) {
+        // Release note...
+    }
+}</code></pre>
+
+<h3>Parametry</h3>
+<ul>
+<li>DAW moze zmieniac parametry w czasie rzeczywistym (automation)</li>
+<li>Parametry sa <strong>thread-safe atomic floats</strong> zwykle</li>
+<li>Kazdy parametr ma: name, label (dB, Hz, %), range, default, value-&gt;string conversion</li>
+</ul>
+
+<pre><code>// JUCE AudioParameterFloat
+gain = new AudioParameterFloat(
+    "gain",           // ID
+    "Gain",           // Display name
+    0.0f, 1.0f,       // Min, max
+    0.5f              // Default
+);</code></pre>
+
+<h2>Host vs Plugin</h2>
+<table>
+<thead><tr><th>Aspekt</th><th>Host (DAW)</th><th>Plugin</th></tr></thead>
+<tbody>
+<tr><td>Zycie</td><td>Standalone application</td><td>Loaded DLL/dylib</td></tr>
+<tr><td>Audio I/O</td><td>Bezposredni dostep do hardware</td><td>Przekazuje host przez buffery</td></tr>
+<tr><td>Threading</td><td>Zarzadza wszystkim</td><td>Wywolywany przez host</td></tr>
+<tr><td>GUI</td><td>Glowne okno</td><td>Sub-window (modal lub embedded)</td></tr>
+<tr><td>MIDI</td><td>Routes z controllers</td><td>Receives od host</td></tr>
+<tr><td>State</td><td>Project file</td><td>Per-instance state</td></tr>
+<tr><td>Crash</td><td>Niesie caly DAW down</td><td>Niesie caly DAW down (jesli host nie sandboxuje)</td></tr>
+</tbody>
+</table>
+
+<p><strong>Plugin sandboxing</strong> (od macOS Logic, Bitwig, niektore wersje Cubase) izoluje pluginy w osobnych procesach — jeden crashujacy plugin nie zabija DAW.</p>
+
+<h2>Popularne hosty (DAW) 2026</h2>
+<table>
+<thead><tr><th>DAW</th><th>Platforma</th><th>Cena</th><th>Target user</th></tr></thead>
+<tbody>
+<tr><td><strong>Ableton Live</strong></td><td>Win, Mac</td><td>$99-749</td><td>Electronic, live performance</td></tr>
+<tr><td><strong>FL Studio</strong></td><td>Win, Mac</td><td>$99-499</td><td>Beat making, EDM</td></tr>
+<tr><td><strong>Logic Pro</strong></td><td>Mac only</td><td>$199</td><td>Songwriting, Apple ecosystem</td></tr>
+<tr><td><strong>Cubase</strong></td><td>Win, Mac</td><td>$99-579</td><td>Studio, MIDI editing</td></tr>
+<tr><td><strong>Pro Tools</strong></td><td>Win, Mac</td><td>$30/mc-$299/yr</td><td>Professional studio, mixing</td></tr>
+<tr><td><strong>Reaper</strong></td><td>Win, Mac, Linux</td><td>$60 (rozsadna licencja)</td><td>Power users, scripting</td></tr>
+<tr><td><strong>Bitwig Studio</strong></td><td>Win, Mac, Linux</td><td>$99-399</td><td>Modern, modular workflow</td></tr>
+<tr><td><strong>Studio One</strong></td><td>Win, Mac</td><td>$99-399</td><td>All-in-one</td></tr>
+<tr><td><strong>Reason</strong></td><td>Win, Mac</td><td>$99-399</td><td>Rack-style modular</td></tr>
+<tr><td><strong>GarageBand</strong></td><td>Mac, iOS</td><td>Free</td><td>Beginners</td></tr>
+<tr><td><strong>Cakewalk</strong></td><td>Win</td><td>Free</td><td>Budget</td></tr>
+<tr><td><strong>Ardour</strong></td><td>Win, Mac, Linux</td><td>Open source</td><td>Linux users</td></tr>
+</tbody>
+</table>
+
+<p><strong>Plugin developer musi testowac w wielu DAW</strong> — kazdy ma quirks (np. Logic ma wlasne AU validation, Pro Tools ma AAX-only itp.).</p>
+
+<h2>Standardy audio</h2>
+
+<div class="card">
+<h3>VST3 (Steinberg)</h3>
+<p><strong>Aktualne (2026):</strong> VST3 SDK 3.7.x</p>
+<ul>
+<li>C++ API</li>
+<li>Manifest XML (vst3 to faktycznie folder na macOS, plik .vst3 na Windows)</li>
+<li>Multiple instances per plugin</li>
+<li>64-bit only (od dawna)</li>
+<li>Free dla wszystkich (od 2018), wczesniej GPL/proprietary</li>
+<li><strong>Steinberg License</strong> (mostly permissive ale z atrybucja)</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>AU (Audio Unit) — Apple</h3>
+<ul>
+<li>Tylko macOS (i iOS jako AUv3)</li>
+<li>C / Objective-C / Swift API</li>
+<li>AU SDK przez Apple</li>
+<li>Wymagany dla Logic, GarageBand</li>
+<li>Bundle structure: <code>MyPlugin.component</code></li>
+</ul>
+</div>
+
+<div class="card">
+<h3>AAX — Avid</h3>
+<ul>
+<li>Pro Tools only</li>
+<li>C++ API z AAX SDK</li>
+<li><strong>Wymaga PACE/iLok</strong> — anti-piracy, podpisywanie</li>
+<li>Komercyjny developer registration ($295+ za rok)</li>
+<li>Bardziej restrykcyjny niz VST3</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>CLAP (Clever Audio Plugin)</h3>
+<ul>
+<li><strong>Open source</strong> (MIT license)</li>
+<li>C API (cleaner niz VST3 C++ API)</li>
+<li>Wsparcie nowoczesnych features (modulation, polyphonic params)</li>
+<li>Rosnaca lista DAW: Bitwig, Reaper, FL Studio, Ableton (eksperymentalne)</li>
+<li><strong>Trend 2026:</strong> wiecej developerow dodaje CLAP support</li>
+</ul>
+</div>
+
+<h2>Jak DAW laduje plugin?</h2>
+
+<h3>Windows</h3>
+<p>DAW skanuje katalogi:</p>
+<pre><code>C:\Program Files\Common Files\VST3\
+C:\Program Files\Common Files\VST2\        (legacy)
+C:\Program Files\Steinberg\VstPlugins\     (legacy VST2)
+%LOCALAPPDATA%\Programs\Common\VST3\        (per user)</code></pre>
+<p>Plugin = <code>.vst3</code> plik (technically folder structure DLL).</p>
+
+<h3>macOS</h3>
+<p>DAW skanuje:</p>
+<pre><code>/Library/Audio/Plug-Ins/VST3/         (system)
+~/Library/Audio/Plug-Ins/VST3/         (user)
+/Library/Audio/Plug-Ins/Components/    (AU system)
+~/Library/Audio/Plug-Ins/Components/   (AU user)</code></pre>
+<p>Plugin = bundle (folder z <code>.vst3</code> lub <code>.component</code> extension).</p>
+
+<h3>Linux</h3>
+<pre><code>/usr/lib/vst3/
+~/.vst3/
+/usr/lib/lv2/</code></pre>
+
+<h2>Performance — co krytyczne?</h2>
+
+<div class="card">
+<h3>CPU usage</h3>
+<ul>
+<li>Plugin uzywa hosta CPU</li>
+<li>50 instancji EQ x 5% CPU each = 250% CPU = klient nienawidzi</li>
+<li><strong>Cel: &lt;1% CPU per typical instance</strong></li>
+</ul>
+
+<h3>Latency</h3>
+<ul>
+<li>Kazdy plugin moze dodac latencje (np. lookahead w limiterze)</li>
+<li>DAW kompensuje (PDC = Plugin Delay Compensation), ale dodaje do total latency tracku</li>
+<li><strong>Zero-latency design</strong> preferowany gdzie mozliwy</li>
+</ul>
+
+<h3>Memory</h3>
+<ul>
+<li>Sampler load 4GB samples -&gt; klient nie moze miec 100 instances</li>
+<li>Mind your memory footprint</li>
+</ul>
+
+<h3>Glitches / dropouts</h3>
+<ul>
+<li>Buffer underrun = audible click/pop</li>
+<li>Kazda alokacja w <code>processBlock</code> ryzyko</li>
+<li>Profile thoroughly!</li>
+</ul>
+</div>
+
+<h2>Plugin licencjonowanie i ochrona</h2>
+
+<h3>Komercyjne plugins zwykle wymagaja:</h3>
+<ol>
+<li><strong>License key</strong> validation (online lub offline)</li>
+<li><strong>Anti-piracy</strong> measure (challenge-response, hardware ID lock)</li>
+<li><strong>Trial mode</strong> (15-30 dni, lub time-limited)</li>
+<li><strong>iLok</strong> dla AAX (obowiazkowe)</li>
+</ol>
+
+<h3>Popularne systemy DRM:</h3>
+<ul>
+<li><strong>iLok</strong> (PACE) — fizyczny USB key lub cloud, dominuje w pro audio</li>
+<li><strong>eLicenser</strong> (Steinberg) — glownie dla Steinberg products, deprecated 2024</li>
+<li><strong>PACE Anti-Piracy</strong> — multi-developer</li>
+<li><strong>Custom serwer</strong> — wielu indie developers</li>
+<li><strong>CodeMeter (Wibu)</strong> — alternatywa</li>
+</ul>
+
+<p>Szczegoly w <strong>rozdziale 09</strong> (Dystrybucja).</p>
+
+<h2>Workflow tworzenia pluginu — overview</h2>
+<pre><code>+------------------------------------+
+| 1. Idea + research konkurencji    |
++------------+-----------------------+
+             v
++------------------------------------+
+| 2. DSP design (algorytm)           |
+|    Prototyp w Pythonie / MATLAB    |
+|    (NumPy, scipy.signal)           |
++------------+-----------------------+
+             v
++------------------------------------+
+| 3. Implementacja w C++ (JUCE)      |
+|    processBlock + parametry        |
++------------+-----------------------+
+             v
++------------------------------------+
+| 4. GUI design                      |
+|    JUCE LookAndFeel / wlasne SVG   |
++------------+-----------------------+
+             v
++------------------------------------+
+| 5. Testy w wielu DAW               |
+|    Reaper, Live, Logic, Pro Tools  |
++------------+-----------------------+
+             v
++------------------------------------+
+| 6. Cross-platform builds           |
+|    Windows + macOS                 |
+|    Code signing + notarization     |
++------------+-----------------------+
+             v
++------------------------------------+
+| 7. Beta testers                    |
++------------+-----------------------+
+             v
++------------------------------------+
+| 8. Marketing + sprzedaz            |
+|    Plugin Boutique, wlasna strona  |
++------------------------------------+</code></pre>
+
+<h2>Real-time programming mindset</h2>
+<p>Audio thread = <strong>hard real-time</strong>. Cokolwiek co moze blokowac lub trwac nieprzewidywalnie dlugo -&gt; <strong>dropout (audible glitch)</strong>.</p>
+
+<pre><code>// ZLE w processBlock:
+void processBlock(AudioBuffer&lt;float&gt;&amp; buffer, MidiBuffer&amp; midi) {
+    std::vector&lt;float&gt; temp;       // alokacja!
+    temp.resize(buffer.getNumSamples());
+
+    std::ofstream log("debug.log"); // I/O!
+    log &lt;&lt; "Processing\n";
+
+    std::lock_guard&lt;std::mutex&gt; lk(my_mutex);  // lock!
+
+    auto* data = new float[1024];  // alokacja heap!
+    delete[] data;
+}
+
+// DOBRZE:
+class MyPlugin {
+    std::array&lt;float, 4096&gt; tempBuffer;  // pre-allocated
+    std::atomic&lt;float&gt; gain{0.5f};       // lock-free
+public:
+    void prepareToPlay(double sr, int blockSize) {
+        // Tu alokuj wszystko co bedzie potrzebne
+        if (blockSize &gt; tempBuffer.size()) {
+            // Realokuj (NIE w processBlock!)
+        }
+    }
+
+    void processBlock(AudioBuffer&lt;float&gt;&amp; buffer, MidiBuffer&amp; midi) {
+        float currentGain = gain.load(std::memory_order_relaxed);
+        // Tylko arytmetyka, brak alokacji, brak locks
+        for (int ch = 0; ch &lt; buffer.getNumChannels(); ++ch) {
+            float* data = buffer.getWritePointer(ch);
+            for (int i = 0; i &lt; buffer.getNumSamples(); ++i) {
+                data[i] *= currentGain;
+            }
+        }
+    }
+};</code></pre>
+
+<h2>Co dalej?</h2>
+<ul>
+<li><strong>Rozdzial 02</strong> — Jezyki i frameworki (C++, JUCE, iPlug2, Rust)</li>
+<li><strong>Rozdzial 03</strong> — Narzedzia programistyczne (IDE, SDK, build systems)</li>
+<li><strong>Rozdzial 04</strong> — DSP podstawy (filtry, oscylatory, FFT)</li>
+<li><strong>Rozdzial 05</strong> — Tworzenie pierwszej wtyczki (Hello VST3 w JUCE)</li>
+<li><strong>Rozdzial 06</strong> — Cross-platform: Windows + macOS</li>
+</ul>
+
+<h2>Zasoby do nauki</h2>
+
+<div class="card">
+<h3>Ksiazki:</h3>
+<ul>
+<li><strong>The Audio Programming Book</strong> (MIT Press, Boulanger)</li>
+<li><strong>Designing Audio Effect Plugins in C++</strong> (Will Pirkle) — biblia</li>
+<li><strong>Designing Software Synthesizer Plugins in C++</strong> (Pirkle)</li>
+<li><strong>The Computer Music Tutorial</strong> (Roads) — fundamenty DSP</li>
+<li><strong>DAFX: Digital Audio Effects</strong> (Zolzer)</li>
+</ul>
+
+<h3>Online:</h3>
+<ul>
+<li><strong>JUCE Tutorials</strong>: juce.com/learn/tutorials</li>
+<li><strong>The Audio Programmer</strong> (YouTube) — Joshua Hodge, swietne tutoriale</li>
+<li><strong>Music DSP</strong> (musicdsp.org) — repozytorium algorytmow</li>
+<li><strong>Faust documentation</strong> — DSP-specific language</li>
+<li><strong>DSP Stack Exchange</strong>: dsp.stackexchange.com</li>
+<li><strong>KVR Audio Forum</strong>: kvraudio.com — community</li>
+</ul>
+
+<h3>Kursy:</h3>
+<ul>
+<li><strong>The Audio Programmer Academy</strong></li>
+<li><strong>Coursera: Audio Signal Processing</strong></li>
+<li><strong>Kadenze: Plugin Development with JUCE</strong></li>
+</ul>
+
+<h3>Open source projects do studiowania:</h3>
+<ul>
+<li><strong>JUCE Examples</strong> (github.com/juce-framework/JUCE)</li>
+<li><strong>Vital Synth</strong> (github.com/mtytel/vital) — modern wavetable synth</li>
+<li><strong>Surge XT</strong> (surge-synthesizer.github.io) — open source synth</li>
+<li><strong>Dexed</strong> (DX7 emulator)</li>
+<li><strong>TAL-NoiseMaker</strong> (open source)</li>
+</ul>
+</div>
+
+<h2>Podsumowanie</h2>
+<p>VST development to <strong>C++ + DSP + real-time programming + GUI + cross-platform deployment</strong>. Krzywa uczenia stroma, ale ekosystem dojrzaly (JUCE, iPlug2). W 2026 plugin market jest doroslly — konkurencja silna, ale niszowy plugin z dobrym brzmieniem i marketingiem moze zarobic.</p>
+
+<div class="card">
+<p><strong>Twoja roadmapa:</strong></p>
+<ol>
+<li>Naucz sie C++ (jesli nie znasz)</li>
+<li>Zrozum DSP fundamentals</li>
+<li>Wybierz framework (JUCE = #1 wybor)</li>
+<li>Zbuduj pierwszy efekt (gain plugin -&gt; EQ -&gt; delay -&gt; reverb)</li>
+<li>Naucz sie testowac w wielu DAW</li>
+<li>Mac + Windows builds + signing</li>
+<li>Idz na rynek</li>
+</ol>
+</div>
+
+<div class="nav-bottom">
+<a href="index.html">&larr; Spis tresci</a>
+<a href="02-jezyki-i-frameworki.html">02. Jezyki i frameworki &rarr;</a>
+</div>
+</div>
+</body>
+</html>

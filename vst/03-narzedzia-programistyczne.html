@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Narzedzia programistyczne dla VST plugin development</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ec4899;--accent-hover:#f472b6;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">Glowna</a>
+<span class="sep">/</span>
+<a href="index.html">VST</a>
+<span class="sep">/</span>
+<span class="title">03. Narzedzia programistyczne</span>
+</div>
+
+<div class="container">
+<h1>Narzedzia programistyczne dla VST plugin development</h1>
+<p class="subtitle">IDE, SDK, build system, validatory, debugger, hostowanie testowe i CI/CD — kompletny toolchain dla plugin developera w 2026.</p>
+
+<h2>Przeglad toolchain</h2>
+<p>Tworzenie wtyczki VST/AU/AAX wymaga koordynacji wielu narzedzi: IDE, SDK, system buildow, debugger, host testowy, validator, system kontroli wersji, CI/CD. W tym rozdziale przejdziemy przez kompletny zestaw, ktorego potrzebuje plugin developer w 2026.</p>
+
+<pre><code>+----------------------------------------------------+
+|                  Toolchain VST 2026                 |
++----------------------------------------------------+
+|  Edytor / IDE   ->  Visual Studio / Xcode / CLion   |
+|  SDK            ->  VST3 SDK + AU SDK + (AAX SDK)   |
+|  Framework      ->  JUCE 8.x (lub iPlug2)           |
+|  Build system   ->  CMake 3.22+                     |
+|  Debugger       ->  VS / LLDB / Reaper-as-host      |
+|  Validator      ->  pluginval, AU validator         |
+|  Host testowy   ->  Reaper, Ableton, Logic, ProTools|
+|  Source control ->  Git + Git LFS (samples)         |
+|  CI/CD          ->  GitHub Actions (matrix builds)  |
++----------------------------------------------------+</code></pre>
+
+<h2>IDE — wybor srodowiska</h2>
+
+<div class="card">
+<h3>Visual Studio 2022 / 2025 (Windows)</h3>
+<p><strong>Najlepszy wybor dla Windows.</strong> Edycja <strong>Community</strong> (free dla solo dev / firm &lt; $1M revenue) ma wszystko, czego potrzeba.</p>
+
+<p><strong>Komponenty do zainstalowania:</strong></p>
+<ul>
+<li>Workload <strong>Desktop development with C++</strong></li>
+<li><strong>Windows 11 SDK</strong> (najnowszy)</li>
+<li><strong>C++ CMake tools for Windows</strong></li>
+<li><strong>Git for Windows</strong> (jesli nie ma)</li>
+<li><strong>C++ Clang Compiler for Windows</strong> (opcjonalnie — second-pass walidacja)</li>
+</ul>
+
+<p><strong>Dlaczego VS:</strong></p>
+<ul>
+<li>Najlepszy debugger dla C++ na Windows (przegladanie pamieci, watch, conditional breakpoints)</li>
+<li>IntelliSense bardzo dojrzaly</li>
+<li>CMake support natywny od 2017+</li>
+<li>Hot Reload dla C++ (od VS 2022 17.5)</li>
+<li>Profilery: CPU usage, memory, concurrency</li>
+</ul>
+
+<pre><code>File -&gt; Open -&gt; CMake...
+Wybierz CMakeLists.txt
+VS automatycznie skonfiguruje CMake i pozwoli buildowac F7 / F5</code></pre>
+</div>
+
+<div class="card">
+<h3>Xcode (macOS)</h3>
+<p><strong>Wymagany dla macOS</strong> — Apple toolchain dla AU validation, code signing i notarization.</p>
+
+<p><strong>Instalacja:</strong></p>
+<pre><code># App Store: Xcode (najnowszy stable)
+# LUB Apple Developer: developer.apple.com/xcode
+xcode-select --install   # command-line tools</code></pre>
+
+<p><strong>Wersja w 2026:</strong> Xcode 16.x (z Swift 6, ale dla VST uzywamy C++/Obj-C++).</p>
+
+<p><strong>Co Xcode daje:</strong></p>
+<ul>
+<li>Apple AU SDK wbudowany w macOS SDK</li>
+<li>LLDB debugger</li>
+<li>Instruments (profilowanie pamieci, CPU, Time Profiler dla audio)</li>
+<li>Built-in Code Signing UI</li>
+<li>Notarization tooling (<code>xcrun notarytool</code>)</li>
+<li>AU Lab i AU validator (<code>auval</code>)</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>CLion (cross-platform)</h3>
+<p><strong>JetBrains CLion</strong> — swietny wybor gdy pracujesz na <strong>obu platformach</strong> (Win + Mac) i chcesz spojny IDE.</p>
+
+<p><strong>Cena 2026:</strong></p>
+<ul>
+<li>Indywidualnie: <strong>$229/yr</strong> lub <strong>$22.90/mc</strong></li>
+<li>Firma: <strong>$549/yr</strong> per user</li>
+<li>Educational: <strong>free</strong></li>
+<li>Subskrypcja taniejaca po 2-3 latach (loyalty discount)</li>
+</ul>
+
+<p><strong>Plusy:</strong></p>
+<ul>
+<li>CMake first-class support (zdecydowanie lepszy niz VS)</li>
+<li>Refactoringi automatyczne (rename, extract, move)</li>
+<li>Spojnosc UI Win &lt;-&gt; Mac &lt;-&gt; Linux</li>
+<li>Remote development (build na zdalnej Mac z Windows host)</li>
+<li>Integrated Valgrind, Google Test, sanitizers</li>
+</ul>
+
+<p><strong>Minusy:</strong></p>
+<ul>
+<li>Wolniejszy niz natywne IDE</li>
+<li>Platny</li>
+<li>Mniej zoptymalizowany dla AU/Xcode-specific tasks</li>
+</ul>
+</div>
+
+<h3>VS Code</h3>
+<p>Lekka alternatywa, popularna wsrod minimalists. Wymaga setup:</p>
+<pre><code>Extensions:
+- C/C++ (Microsoft)
+- CMake Tools (Microsoft)
+- clangd (LLVM) - alternatywa dla cpptools
+- CodeLLDB lub GDB debugger
+- GitLens</code></pre>
+
+<p>Dobry dla quick edits, debugging-friendly z extensionami, ale dla heavy plugin dev VS / Xcode / CLion wygodniejsze.</p>
+
+<h2>VST3 SDK (Steinberg)</h2>
+
+<h3>Pobranie</h3>
+<pre><code>git clone https://github.com/steinbergmedia/vst3sdk.git
+cd vst3sdk
+git submodule update --init --recursive</code></pre>
+
+<p><strong>Wersja w 2026:</strong> VST3 SDK 3.7.x (3.8 zapowiedziane).</p>
+
+<p><strong>Struktura katalogow:</strong></p>
+<pre><code>vst3sdk/
++-- base/              # Core helpers (FUID, atomics, IO)
++-- pluginterfaces/    # VST3 API interfaces (.h)
++-- public.sdk/        # Helper classes
++-- vstgui4/           # VSTGUI framework (alternatywa do JUCE GUI)
++-- doc/               # Documentation
++-- samples/           # Sample plugins (studiuj!)</code></pre>
+
+<h3>VST3 Validator</h3>
+<p>Po zbudowaniu pluginu <strong>zawsze</strong> waliduj go:</p>
+
+<pre><code># Linux/macOS
+./validator MyPlugin.vst3
+
+# Windows
+validator.exe MyPlugin.vst3</code></pre>
+
+<p>Validator sprawdza:</p>
+<ul>
+<li>Czy plugin loaduje sie</li>
+<li>Czy parametry sa poprawnie zarejestrowane</li>
+<li>Czy stan zapisuje/odczytuje sie</li>
+<li>Czy <code>processBlock</code> nie alokuje (sprawdzane przez instrumentacje)</li>
+<li>Edge cases: zero buffer, single sample, channel switches</li>
+</ul>
+
+<p><strong>Validator MUST PASS</strong> zanim wypuscisz wtyczke — w przeciwnym razie czesc DAW odrzuci.</p>
+
+<h3>License VST3 SDK</h3>
+<p>Dual licence (od 2018):</p>
+<ul>
+<li><strong>GPLv3</strong> — open source friendly</li>
+<li><strong>Steinberg License</strong> — komercyjna (wymaga atrybucji w plugin info)</li>
+</ul>
+<p>W 2026 wiekszosc commercial plugins uzywa Steinberg License.</p>
+
+<h2>Apple AU SDK</h2>
+<p><strong>Audio Unit SDK</strong> jest wbudowany w macOS przez Xcode — nie pobierasz osobnego pakietu.</p>
+
+<pre><code>// Headers (Objective-C / C++)
+#import &lt;AudioToolbox/AudioToolbox.h&gt;
+#import &lt;CoreAudioKit/CoreAudioKit.h&gt;     // dla AUv3 GUI
+#import &lt;AVFoundation/AVFoundation.h&gt;</code></pre>
+
+<h3>AU Validator (auval)</h3>
+<p>Wbudowany w macOS — sprawdza poprawnosc AU bundle:</p>
+
+<pre><code># Lista zainstalowanych AU
+auval -a
+
+# Walidacja konkretnego pluginu
+# format: aufx (effect) lub aumu (musical generator) + manufacturer + plugin code
+auval -v aufx Mcmp Plug
+
+# Verbose
+auval -V aufx Mcmp Plug</code></pre>
+
+<p><strong>Logic Pro nie zaladuje AU, ktory nie przeszedl <code>auval -v</code>.</strong></p>
+
+<h3>AUv2 vs AUv3</h3>
+<p>W 2026:</p>
+<ul>
+<li><strong>AUv2</strong> (legacy) — Component bundle, wszystkie hosty</li>
+<li><strong>AUv3</strong> (modern) — Extension-based, sandboxed, wymagany dla App Store, iOS, mac App</li>
+</ul>
+<p>JUCE generuje oba automatycznie. Dla nowych pluginow w 2026 rob <strong>AUv3</strong> (lepiej wspierane, sandbox-ready).</p>
+
+<h2>AAX SDK (Avid)</h2>
+<p><strong>AAX</strong> jest gated — musisz zarejestrowac sie jako Avid Developer.</p>
+
+<div class="card">
+<h3>Rejestracja</h3>
+<ol>
+<li>Wejdz na <strong>developer.avid.com</strong></li>
+<li>Aplikacja Avid Developer Program: <strong>$295/year minimum</strong></li>
+<li>NDA + zatwierdzenie (kilka dni)</li>
+<li>Otrzymujesz dostep do AAX SDK download</li>
+</ol>
+
+<h3>Wymagania techniczne AAX</h3>
+<ul>
+<li><strong>PACE/iLok integration</strong> — anti-piracy obowiazkowe</li>
+<li><strong>PACE Eden</strong> code signing tool (do kazdego buildu)</li>
+<li>iLok USB key lub iLok Cloud do testowania</li>
+<li>Code signing certyfikat + Apple Developer (na macOS)</li>
+</ul>
+
+<h3>Kiedy warto?</h3>
+<ul>
+<li>Targetujesz <strong>Pro Tools</strong> (studyjne workflow)</li>
+<li>Plugin ma profesjonalny use case (mixing, mastering)</li>
+<li>Akceptujesz $295/yr + iLok overhead</li>
+</ul>
+
+<p>Dla indie / hobbysty zacznij od <strong>VST3 + AU</strong>, dodaj AAX dopiero gdy klienci o to prosza.</p>
+</div>
+
+<h2>JUCE — Projucer vs CMake</h2>
+
+<h3>Projucer (legacy)</h3>
+<p>GUI tool do generowania projektow IDE:</p>
+<pre><code>JUCE/Projucer.exe -&gt; New project -&gt; Audio Plug-In -&gt;
+genujesz Visual Studio solution / Xcode project</code></pre>
+
+<p><strong>Plusy:</strong></p>
+<ul>
+<li>GUI, klikany setup</li>
+<li>Auto-managed module dependencies</li>
+<li>Eksportery dla VS, Xcode, Make, CodeBlocks</li>
+</ul>
+
+<p><strong>Minusy:</strong></p>
+<ul>
+<li>Trudniejsze do automatyzacji (CI/CD)</li>
+<li>Manualnie trzeba "Save and Open in IDE" po kazdej zmianie</li>
+<li>Mniej elastyczny niz CMake</li>
+</ul>
+
+<h3>CMake (preferowany w 2026)</h3>
+<p><strong>JUCE od wersji 6 ma natywne wsparcie CMake</strong> — to jest droga w 2026.</p>
+
+<p><strong>Plusy:</strong></p>
+<ul>
+<li>Standardowy build system C++ ekosystemu</li>
+<li>Latwa automatyzacja (CI, Docker)</li>
+<li>Cross-platform z jednym plikiem <code>CMakeLists.txt</code></li>
+<li>Integracja z Conan, vcpkg dla dependencies</li>
+<li>IDE-agnostic (kazdy IDE rozumie CMake)</li>
+</ul>
+
+<h2>Pelny CMakeLists.txt — przyklad</h2>
+
+<pre><code>cmake_minimum_required(VERSION 3.22)
+project(MyAwesomePlugin VERSION 1.0.0)
+
+# C++20
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# macOS - Universal Binary (Intel + Apple Silicon)
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "" FORCE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "" FORCE)
+endif()
+
+# Windows - statyczna runtime (mniej zewnetrznych zaleznosci)
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;")
+    add_compile_options(/MP /W4)
+endif()
+
+# JUCE jako submodul
+add_subdirectory(external/JUCE)
+
+# Plugin
+juce_add_plugin(MyAwesomePlugin
+    VERSION 1.0.0
+    COMPANY_NAME "AcmePlugins"
+    COMPANY_WEBSITE "https://example.com"
+    COMPANY_EMAIL "support@example.com"
+    PLUGIN_MANUFACTURER_CODE "Acme"
+    PLUGIN_CODE "Awsm"
+    FORMATS VST3 AU Standalone
+    PRODUCT_NAME "Awesome Plugin"
+    BUNDLE_ID "com.acme.awesomeplugin"
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD TRUE     # automatycznie kopiuj do user plugins folder
+)
+
+target_sources(MyAwesomePlugin PRIVATE
+    Source/PluginProcessor.cpp
+    Source/PluginProcessor.h
+    Source/PluginEditor.cpp
+    Source/PluginEditor.h
+    Source/Dsp/Filter.cpp
+    Source/Dsp/Filter.h
+)
+
+target_compile_definitions(MyAwesomePlugin PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+)
+
+target_link_libraries(MyAwesomePlugin PRIVATE
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_audio_plugin_client
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_lto_flags
+    juce::juce_recommended_warning_flags
+)</code></pre>
+
+<p><strong>Build commands:</strong></p>
+<pre><code># Windows
+cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+
+# macOS Universal
+cmake -B build -G "Xcode"
+cmake --build build --config Release
+
+# Linux
+cmake -B build -G "Ninja"
+cmake --build build --config Release</code></pre>
+
+<h2>Debugowanie pluginow</h2>
+
+<h3>Visual Studio Debugger (Windows)</h3>
+<p>Najlepszy debugger dla Windows. Skonfiguruj plugin do uruchamiania w hoscie testowym:</p>
+
+<pre><code>Project Properties -&gt; Debugging:
+  Command: C:\Program Files\REAPER (x64)\reaper.exe
+  Command Arguments: (puste lub sciezka projektu)
+  Working Directory: C:\ProgramData\REAPER\</code></pre>
+
+<p>F5 — Reaper startuje, laduje plugin, breakpointy dzialaja.</p>
+
+<p><strong>Warto wlaczyc:</strong></p>
+<ul>
+<li><strong>Address Sanitizer</strong> (od VS 2022): wykrywa use-after-free, buffer overflows</li>
+<li><strong>C++ Concurrency Visualizer</strong> dla threading bugs</li>
+</ul>
+
+<h3>LLDB (macOS)</h3>
+<p>LLDB jest debuggerem standardowym dla Xcode. Aby debugowac plugin w Logic / Reaper:</p>
+
+<pre><code># Zalaczenie do dzialajacego procesu
+lldb -p $(pgrep Logic)
+
+# Lub w Xcode:
+Debug -&gt; Attach to Process -&gt; Logic Pro</code></pre>
+
+<p><strong>Tip:</strong> stworz Xcode scheme <strong>AU validation</strong> uruchamiajace <code>auval -v aufx Acme Awsm</code> i debuguj walidacje.</p>
+
+<h3>Reaper jako host dla debugowania</h3>
+<p><strong>Reaper</strong> jest <strong>najlepszym hostem deweloperskim</strong>:</p>
+<ul>
+<li>Tani ($60 dozywotnio)</li>
+<li>Szybki start (sekundy vs Logic-y minuty)</li>
+<li>Restartuje skanowanie pluginow latwo</li>
+<li>Dostepny crash reporter</li>
+<li>Cross-platform (Win, Mac, Linux)</li>
+<li>Skryptowanie ReaScript do automatyzacji testow</li>
+</ul>
+
+<pre><code>Settings -&gt; Plug-ins -&gt; VST -&gt; Re-scan
+Plugin path: D:\Builds\MyPlugin_artefacts\Release\VST3</code></pre>
+
+<h3>GDB (Linux)</h3>
+<pre><code>gdb --args reaper /path/to/test-project.rpp
+(gdb) break MyPlugin::processBlock
+(gdb) run</code></pre>
+
+<h3>Sanitizers</h3>
+<p>Niezbedne do wykrywania niewidocznych bugow:</p>
+
+<pre><code>if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    if(NOT MSVC)
+        add_compile_options(-fsanitize=address -fsanitize=undefined)
+        add_link_options(-fsanitize=address -fsanitize=undefined)
+    endif()
+endif()</code></pre>
+
+<p><strong>ASan (AddressSanitizer)</strong> — wycieki, use-after-free, buffer overrun.<br>
+<strong>UBSan (UndefinedBehaviorSanitizer)</strong> — overflow integer, niewlasciwe casty.<br>
+<strong>TSan (ThreadSanitizer)</strong> — race conditions (incompatible with ASan, uzyj osobno).</p>
+
+<h2>Validatory pluginow</h2>
+
+<h3>pluginval</h3>
+<p><strong>Najlepszy uniwersalny validator</strong> dla VST3 + AU. Autorstwa Tracktion (tworcy Waveform DAW).</p>
+
+<pre><code>git clone https://github.com/Tracktion/pluginval.git
+cd pluginval
+cmake -B build -G "Visual Studio 17 2022"
+cmake --build build --config Release</code></pre>
+
+<p><strong>Uzycie:</strong></p>
+<pre><code>pluginval --strictness-level 10 --validate MyPlugin.vst3</code></pre>
+
+<p>Strictness levels 1-10. <strong>10 = paranoid</strong> (rozmaite edge cases, nieprawdopodobne stany). Dobry plugin powinien przejsc level 10.</p>
+
+<h3>AU Validator (auval)</h3>
+<pre><code>auval -v aufx Acme Awsm   # Type: aufx (effect), Manufacturer: Acme, Code: Awsm</code></pre>
+<p>Wbudowany w macOS, <strong>MUST PASS</strong> dla Logic.</p>
+
+<h3>VST3 Validator</h3>
+<p>W VST3 SDK:</p>
+<pre><code>validator MyPlugin.vst3</code></pre>
+
+<h3>AAX Validator</h3>
+<p>W AAX SDK (po rejestracji jako Avid Developer):</p>
+<pre><code>DigiShell.exe (Pro Tools developer tool) - auto-validates podczas Pro Tools loading</code></pre>
+
+<h3>Strategia walidacji</h3>
+<pre><code>Build -&gt; pluginval level 5 -&gt; pluginval level 10 -&gt; auval (Mac) -&gt;
+   -&gt; load w Reaper -&gt; load w Live -&gt; load w Logic / Cubase -&gt; user beta</code></pre>
+
+<p>CI powinno minimum lapac <code>pluginval level 5</code> automatycznie po kazdym pushu.</p>
+
+<h2>DAW do testowania</h2>
+
+<h3>Reaper — top wybor dla developerow</h3>
+<table>
+<thead><tr><th>Cecha</th><th>Reaper</th></tr></thead>
+<tbody>
+<tr><td>Cena</td><td><strong>$60</strong> (rozsadna licencja indywidualna)</td></tr>
+<tr><td>Platformy</td><td>Win, macOS, Linux</td></tr>
+<tr><td>Start time</td><td>~1 sekunda</td></tr>
+<tr><td>Plugin formaty</td><td>VST2/3, AU (Mac), CLAP, LV2</td></tr>
+<tr><td>API</td><td>ReaScript (Lua, Python, EEL2)</td></tr>
+<tr><td>Crash recovery</td><td>Wysmienity</td></tr>
+</tbody>
+</table>
+
+<p><strong>Reaper jest dla VST devs tym, czym Vim dla devops</strong> — szybki, hackowalny, oszczedny.</p>
+
+<h3>Ableton Live</h3>
+<ul>
+<li><strong>$99 (Intro) — $749 (Suite)</strong> w 2026</li>
+<li>Swietny do testowania w kontekscie produkcyjnym (electronic, beat making)</li>
+<li>Wymagajacy dla pluginow (sandbox, automation testing)</li>
+<li>VST2/3, AU (Mac)</li>
+</ul>
+
+<h3>Logic Pro</h3>
+<ul>
+<li><strong>$199</strong> (one-time payment, Mac only)</li>
+<li><strong>MUST TEST</strong> dla plugin sprzedawanego dla profesjonalistow Mac</li>
+<li>AU only (no VST3 support)</li>
+<li>Bardzo restrykcyjne walidowanie AU</li>
+<li>Free Logic alternatywa: <strong>GarageBand</strong></li>
+</ul>
+
+<h3>Pro Tools</h3>
+<ul>
+<li><strong>$30/mc — $299/yr</strong> subscription (lub perpetual $599)</li>
+<li>AAX only</li>
+<li><strong>Koniecznosc testowania jesli sprzedajesz AAX</strong></li>
+<li>Test session: utworz session, dodaj plugin, automate parametrow, save/load session</li>
+</ul>
+
+<h3>FL Studio, Cubase, Bitwig, Studio One</h3>
+<p>Kazdy ma quirks. <strong>Top 5 do testowania w 2026:</strong></p>
+<ol>
+<li>Reaper (dev workhorse)</li>
+<li>Logic Pro (Mac standard)</li>
+<li>Ableton Live (electronic standard)</li>
+<li>Pro Tools (jesli AAX)</li>
+<li>Cubase (Steinberg, native VST3 host)</li>
+</ol>
+
+<h2>Source control: Git + Git LFS</h2>
+
+<h3>Setup repo</h3>
+<pre><code>git init
+git add CMakeLists.txt Source/ external/JUCE
+git commit -m "Initial plugin scaffold"</code></pre>
+
+<h3>.gitignore dla VST projektu</h3>
+<pre><code># Build output
+build/
+out/
+cmake-build-*/
+.vs/
+.vscode/
+*.vcxproj.user
+
+# Xcode
+*.xcodeproj/
+DerivedData/
+*.dSYM/
+
+# JUCE intermediate
+JuceLibraryCode/
+*Generated*
+
+# Plugins built
+*.vst3
+*.component
+*.aaxplugin
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Secrets
+secrets/
+*.pem
+*.p12
+*.cer
+codesign_keys/</code></pre>
+
+<h3>Git LFS dla samples</h3>
+<p>Pluginy z sampli (drum samplers, IRs do convolution reverbs) — sample to <strong>gigabajty binarnych danych</strong>. Git LFS:</p>
+
+<pre><code>git lfs install
+git lfs track "*.wav"
+git lfs track "*.aif"
+git lfs track "*.flac"
+git lfs track "Resources/Samples/**"
+git add .gitattributes
+git commit -m "Configure Git LFS for samples"</code></pre>
+
+<p>LFS storage:</p>
+<ul>
+<li>GitHub: 1 GB free + $5/mc za 50 GB</li>
+<li>GitLab: 10 GB free</li>
+<li>Azure DevOps: 250 GB free</li>
+</ul>
+
+<h3>Git branching strategy</h3>
+<pre><code>main (production releases, tagged: v1.0.0, v1.1.0)
+  +-- develop (integration)
+  |     +-- feature/lookahead-limiter
+  |     +-- feature/ui-redesign
+  |     +-- feature/clap-support
+  +-- hotfix/v1.0.1-crash-fix</code></pre>
+
+<p>Tag releases: <code>v1.0.0</code> — CI/CD automatycznie buduje i publikuje binaria.</p>
+
+<h2>CI/CD — GitHub Actions</h2>
+
+<h3>Cross-platform build matrix</h3>
+
+<pre><code>name: Build Plugin
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*']
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, macos-14, ubuntu-22.04]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          lfs: true
+
+      - name: Install Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev \
+            libcurl4-openssl-dev libfreetype6-dev libx11-dev libxcomposite-dev \
+            libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev \
+            libxrender-dev libwebkit2gtk-4.0-dev libglu1-mesa-dev
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Configure CMake (macOS)
+        if: runner.os == 'macOS'
+        run: cmake -B build -G "Xcode" -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+
+      - name: Configure CMake (Linux)
+        if: runner.os == 'Linux'
+        run: cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Run pluginval
+        run: |
+          # download pluginval (cached jest dobry pomysl)
+          # uruchom w trybie strict
+          ./pluginval --strictness-level 5 --validate-in-process \
+            build/MyAwesomePlugin_artefacts/Release/VST3/MyAwesomePlugin.vst3
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-${{ matrix.os }}
+          path: build/MyAwesomePlugin_artefacts/Release/
+
+  release:
+    name: Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            plugin-windows-2022/**
+            plugin-macos-14/**
+            plugin-ubuntu-22.04/**</code></pre>
+
+<h3>Code signing w CI</h3>
+<div class="card">
+<p><strong>macOS:</strong></p>
+<ul>
+<li>Zapisz <code>Developer ID Application</code> certyfikat jako secret (<code>MACOS_CERT_P12_BASE64</code>)</li>
+<li>Zapisz haslo certyfikatu (<code>MACOS_CERT_PASSWORD</code>)</li>
+<li>Zapisz Apple ID + team ID + app-specific password do notarization</li>
+<li>Skrypt importuje cert do tymczasowego keychain, podpisuje, notarizes, staples</li>
+</ul>
+
+<p><strong>Windows:</strong></p>
+<ul>
+<li>Hardware token cert nie da sie trzymac w chmurze (od 2023)</li>
+<li>Workaround: cloud signing uslugi (DigiCert KeyLocker, Azure Key Vault)</li>
+<li>Lub: dedicated self-hosted runner w sieci, gdzie hardware token jest podlaczony</li>
+</ul>
+</div>
+
+<h2>Profilowanie wydajnosci</h2>
+
+<h3>Windows: Visual Studio Profiler</h3>
+<pre><code>Debug -&gt; Performance Profiler -&gt; CPU Usage
+Run with profiler attached, generate audio in Reaper, stop profiler</code></pre>
+
+<h3>macOS: Instruments</h3>
+<pre><code>Xcode -&gt; Open Developer Tool -&gt; Instruments
+Time Profiler template -&gt; Attach to Logic / Reaper</code></pre>
+
+<p>Sprawdz:</p>
+<ul>
+<li>Hot spots w <code>processBlock</code></li>
+<li>Memory allocations w audio thread (powinno byc <strong>zero</strong>)</li>
+<li>Cache misses (Instruments <strong>Counters</strong> template)</li>
+</ul>
+
+<h3>Audio-specific:</h3>
+<ul>
+<li><strong>Reaper VU + plugin CPU meter</strong> — szybkie szacunki</li>
+<li><strong>Plugin Doctor</strong> (Auburn Sounds, $30) — automatyzowane testy DSP (impulse response, latencja, denormals)</li>
+</ul>
+
+<h2>Lista narzedzi — checklist instalacji</h2>
+
+<div class="card">
+<h3>Windows dev box</h3>
+<ul>
+<li>&#9744; Visual Studio 2022 / 2025 Community + Desktop C++ workload</li>
+<li>&#9744; Git for Windows (z Git LFS)</li>
+<li>&#9744; CMake 3.27+ (lub przez VS)</li>
+<li>&#9744; JUCE (clone do <code>C:\dev\JUCE</code>)</li>
+<li>&#9744; VST3 SDK (clone do <code>C:\dev\vst3sdk</code>)</li>
+<li>&#9744; Reaper x64 (test host)</li>
+<li>&#9744; Ableton Live trial (sekundarny test host)</li>
+<li>&#9744; pluginval (clone + build)</li>
+<li>&#9744; Process Monitor (Sysinternals) — debugging plugin loading</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>macOS dev box</h3>
+<ul>
+<li>&#9744; Xcode (latest stable)</li>
+<li>&#9744; Command Line Tools (<code>xcode-select --install</code>)</li>
+<li>&#9744; Homebrew (<code>brew install cmake git git-lfs</code>)</li>
+<li>&#9744; JUCE clone</li>
+<li>&#9744; VST3 SDK clone</li>
+<li>&#9744; Reaper for Mac (test host)</li>
+<li>&#9744; Logic Pro (test host, jesli sprzedajesz Mac plugin)</li>
+<li>&#9744; AU Lab (free, AU testing)</li>
+<li>&#9744; Apple Developer Account ($99/yr, dla code sign + notarization)</li>
+</ul>
+</div>
+
+<h2>Podsumowanie</h2>
+
+<p><strong>Stack 2026 dla nowego projektu:</strong></p>
+
+<table>
+<thead><tr><th>Warstwa</th><th>Wybor</th></tr></thead>
+<tbody>
+<tr><td>IDE Win</td><td>Visual Studio 2022/2025 Community</td></tr>
+<tr><td>IDE Mac</td><td>Xcode 16</td></tr>
+<tr><td>IDE cross</td><td>CLion (gdy budzet pozwala)</td></tr>
+<tr><td>Framework</td><td>JUCE 8</td></tr>
+<tr><td>Build</td><td>CMake 3.22+</td></tr>
+<tr><td>Source</td><td>Git + GitHub + Git LFS</td></tr>
+<tr><td>CI</td><td>GitHub Actions matrix</td></tr>
+<tr><td>Validator</td><td>pluginval level 10 + auval</td></tr>
+<tr><td>Test DAW</td><td>Reaper (zawsze), Logic + Live + Pro Tools (target-specific)</td></tr>
+<tr><td>Code sign</td><td>Apple Developer + Sectigo EV</td></tr>
+</tbody>
+</table>
+
+<div class="card">
+<p><strong>Zlota zasada:</strong> w pierwszym tygodniu projektu skonfiguruj <strong>CI z cross-platform buildem i pluginvalem</strong> — odkryjesz 80% problemow zanim pojawia sie u userow.</p>
+</div>
+
+<h2>Co dalej?</h2>
+<ul>
+<li><strong>Rozdzial 04</strong> — DSP podstawy (filtry, oscylatory, real-time math)</li>
+<li><strong>Rozdzial 05</strong> — Tworzenie pierwszej wtyczki (Hello World w JUCE)</li>
+<li><strong>Rozdzial 06</strong> — Cross-platform: build, signing, notarization</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="02-jezyki-i-frameworki.html">&larr; 02. Jezyki i frameworki</a>
+<a href="04-dsp-podstawy.html">04. DSP podstawy &rarr;</a>
+</div>
+</div>
+</body>
+</html>

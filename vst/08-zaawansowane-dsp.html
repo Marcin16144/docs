@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>08 — Zaawansowane DSP</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ec4899;--accent-hover:#f472b6;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--cyan:#22d3ee;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="../index.html">Glowna</a>
+        <span class="sep">/</span>
+        <a href="index.html">VST</a>
+        <span class="sep">/</span>
+        <span class="title">08 — Zaawansowane DSP</span>
+    </div>
+    <div class="container">
+        <h1>Zaawansowane DSP</h1>
+        <p class="subtitle">Convolution reverby, FFT, oversampling, lookahead, multi-band, AI w DSP — techniki ktore odrozniaja produkt komercyjny od hobby plugin.</p>
+
+        <h2>Convolution reverb</h2>
+        <p><strong>Convolution</strong> to mnozenie probka po probce sygnalu wejsciowego z <strong>impulse response</strong> (IR) — nagraniem akustycznym pomieszczenia (kosciol, hala, sala koncertowa). Daje hiperrealistyczne reverby — bo IR pochodzi z prawdziwej przestrzeni.</p>
+
+        <div class="card">
+            <h3>Direct convolution (naiwna)</h3>
+<pre><code>// Splot dwoch sygnalow: y[n] = sum(x[k] * h[n-k])
+void directConvolution(const float* input, int inputLen,
+                       const float* ir, int irLen,
+                       float* output) {
+    int outputLen = inputLen + irLen - 1;
+    for (int n = 0; n &lt; outputLen; ++n) {
+        float sum = 0.0f;
+        for (int k = 0; k &lt; irLen; ++k) {
+            if (n - k &gt;= 0 &amp;&amp; n - k &lt; inputLen)
+                sum += input[n - k] * ir[k];
+        }
+        output[n] = sum;
+    }
+}</code></pre>
+            <p><strong>Problem:</strong> IR o dlugosci 4 sekund @ 48kHz = 192000 probek. Per probka audio: 192000 mnozen. Na 48000 probek/sek to <strong>9.2 mld operacji/sek</strong> — nierealne na CPU.</p>
+        </div>
+
+        <h3>Partitioned convolution (FFT-based)</h3>
+        <p>Standardem jest <strong>partitioned uniform convolution</strong> — IR dzielony na mniejsze bloki, kazdy konwolwowany w domenie czestotliwosciowej (FFT). Zlozonosc O(N log N) zamiast O(N²).</p>
+<pre><code>IR (192k probek)
+  -&gt; podziel na bloki po 1024 probek (188 blokow)
+  -&gt; FFT kazdego bloku -&gt; 188 spektr
+  -&gt; input tez FFT -&gt; mnozenie spektr -&gt; IFFT
+  -&gt; overlap-add do output buffer</code></pre>
+        <p><strong>Latency vs CPU tradeoff:</strong> maly blok = niski latency ale wiecej overhead, duzy blok = wyzszy latency ale nizsze CPU. <strong>Non-uniform partitioned convolution</strong> rozwiazuje to — pierwsze bloki male (zero latency), nastepne progresywnie wieksze.</p>
+        <p><strong>Biblioteki:</strong> FFTConvolver (open source, partitioned), HISSTools (JUCE-friendly), Intel IPP (komercyjny, najszybszy), Apple Accelerate vDSP_zvmul (macOS native).</p>
+
+        <h2>FFT-based processing</h2>
+        <p><strong>FFT</strong> zamienia sygnal czasowy na spektrum czestotliwosciowe. Rozmiar 1024-4096 probek typowo. Trzeba aplikowac <strong>window function</strong> (Hann, Hamming, Blackman) zeby uniknac spectral leakage.</p>
+
+        <h3>Overlap-add vs overlap-save</h3>
+        <table>
+            <tr><th>Metoda</th><th>Jak dziala</th><th>Use case</th></tr>
+            <tr><td><strong>Overlap-add (OLA)</strong></td><td>Bloki z window, output sumowany z poprzednim</td><td>Convolution, time stretching</td></tr>
+            <tr><td><strong>Overlap-save</strong></td><td>Bloki bez window na input, srodek output zachowywany</td><td>Liniowy filtering FFT</td></tr>
+            <tr><td><strong>WOLA</strong> (Weighted)</td><td>OLA + window na output, zwykle 50% overlap</td><td>Phase vocoder, spectral effects</td></tr>
+        </table>
+
+<pre><code>// Overlap-add z 50% overlap, Hann window
+constexpr int FFT_SIZE = 2048;
+constexpr int HOP_SIZE = FFT_SIZE / 2;  // 50% overlap
+
+void processWithOLA(juce::dsp::FFT&amp; fft, float* input, float* output) {
+    static float buffer[FFT_SIZE * 2] = {0};
+    static float overlap[FFT_SIZE] = {0};
+
+    // Zastosuj Hann window
+    for (int i = 0; i &lt; FFT_SIZE; ++i)
+        buffer[i] = input[i] * 0.5f * (1.0f - std::cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
+
+    fft.performRealOnlyForwardTransform(buffer);
+    // ... modyfikacja spektrum ...
+    fft.performRealOnlyInverseTransform(buffer);
+
+    // Overlap-add do output
+    for (int i = 0; i &lt; FFT_SIZE; ++i)
+        output[i] = buffer[i] + (i &lt; HOP_SIZE ? overlap[i] : 0);
+
+    // Zapisz druga polowe do overlap dla kolejnego bloku
+    std::memcpy(overlap, buffer + HOP_SIZE, HOP_SIZE * sizeof(float));
+}</code></pre>
+
+        <h2>Spectral processing</h2>
+        <h3>Pitch shifting (phase vocoder)</h3>
+        <p>Standardowa metoda — zmiana pitch bez zmiany dlugosci:</p>
+        <ol>
+            <li>STFT (Short-Time Fourier Transform) — sygnal do spektrum</li>
+            <li>Modyfikacja faz proporcjonalnie do shift ratio</li>
+            <li>ISTFT — z powrotem do czasu z zmodyfikowanym hop size</li>
+            <li>Resampling do oryginalnej dlugosci</li>
+        </ol>
+        <p><strong>Artefakty:</strong> phase smearing, "phasiness", transient smearing dla duzych shift. Lepsze algorytmy (np. Rubber Band Library, Elastique od zplane) uzywaja detekcji transientow i fazy lokalnej.</p>
+
+        <h3>Time stretching</h3>
+        <p>Odwrotnosc pitch shifting — zmiana dlugosci bez zmiany pitch. Te same problemy z artefaktami. Dla muzyki z transientami (perkusja) trzeba detekcji onsetow zeby je zachowac.</p>
+        <p><strong>Biblioteki:</strong> Rubber Band Library (GPL/komercyjna licencja), SoundTouch (open source), Elastique od zplane (drogo, ale TOP — uzywana przez Pro Tools, Cubase).</p>
+
+        <h2>Oversampling — kluczowe dla nieliniowych efektow</h2>
+        <p>Kazdy nieliniowy proces (saturacja, distortion, waveshaping, clipping) generuje <strong>harmoniczne</strong> powyzej czestotliwosci bazowej. Jesli te harmoniczne przekrocza Nyquista (sample_rate / 2), <strong>aliasuja</strong> sie jako falszywe czestotliwosci — brzmia paskudnie.</p>
+        <p><strong>Rozwiazanie:</strong> oversampling — przed efektem upsample audio do 2x/4x/8x sample rate, zaaplikuj efekt, downsample z powrotem z anti-aliasing filter.</p>
+
+<pre><code>class Oversampler {
+public:
+    Oversampler(int factor) : oversamplingFactor(factor) {
+        oversampler = std::make_unique&lt;juce::dsp::Oversampling&lt;float&gt;&gt;(
+            2,  // numChannels
+            std::log2(factor),  // factor as power of 2
+            juce::dsp::Oversampling&lt;float&gt;::filterHalfBandPolyphaseIIR,
+            true  // maxQuality
+        );
+    }
+
+    void prepare(double sampleRate, int blockSize) {
+        oversampler-&gt;initProcessing(blockSize);
+        oversampler-&gt;reset();
+    }
+
+    void process(juce::AudioBuffer&lt;float&gt;&amp; buffer) {
+        juce::dsp::AudioBlock&lt;float&gt; block(buffer);
+        auto oversampledBlock = oversampler-&gt;processSamplesUp(block);
+
+        // Aplikuj nieliniowy efekt na oversampledBlock
+        for (int ch = 0; ch &lt; oversampledBlock.getNumChannels(); ++ch) {
+            auto* data = oversampledBlock.getChannelPointer(ch);
+            for (size_t i = 0; i &lt; oversampledBlock.getNumSamples(); ++i)
+                data[i] = std::tanh(data[i] * drive);  // saturacja
+        }
+
+        oversampler-&gt;processSamplesDown(block);
+    }
+
+private:
+    int oversamplingFactor;
+    std::unique_ptr&lt;juce::dsp::Oversampling&lt;float&gt;&gt; oversampler;
+    float drive = 5.0f;
+};</code></pre>
+
+        <h3>Kompromis</h3>
+        <table>
+            <tr><th>Factor</th><th>CPU cost</th><th>Aliasing reduction</th><th>Latency</th></tr>
+            <tr><td>2x</td><td>+50% CPU</td><td>OK dla soft saturation</td><td>~2-4 probki</td></tr>
+            <tr><td>4x</td><td>+120% CPU</td><td>Dobre dla heavy distortion</td><td>~4-8 probek</td></tr>
+            <tr><td>8x</td><td>+250% CPU</td><td>Studio quality</td><td>~8-16 probek</td></tr>
+            <tr><td>16x</td><td>+500% CPU</td><td>Mastering grade</td><td>~16-32 probek</td></tr>
+        </table>
+        <p>W praktyce <strong>4x z polyphase IIR</strong> jest sweet spot dla wiekszosci pluginow. Filtry FIR maja liniowa faze ale wyzszy latency, IIR maja nizszy latency ale phase distortion.</p>
+
+        <h2>Lookahead processing</h2>
+        <p><strong>Lookahead</strong> = plugin "widzi w przyszlosc" buforujac sygnal i opozniajac output. Klasyczny use case — <strong>brickwall limiter</strong>, ktory anticypuje peaki i redukuje gain <em>przed</em> nimi (zamiast reagowac po).</p>
+
+<pre><code>class LookaheadLimiter {
+public:
+    void prepare(double sampleRate, int lookaheadMs) {
+        lookaheadSamples = (int)(sampleRate * lookaheadMs / 1000.0);
+        delayBuffer.setSize(2, lookaheadSamples);
+        gainEnvelope.resize(lookaheadSamples);
+        writePos = 0;
+    }
+
+    void processBlock(juce::AudioBuffer&lt;float&gt;&amp; buffer) {
+        const int numSamples = buffer.getNumSamples();
+        for (int i = 0; i &lt; numSamples; ++i) {
+            // Przeczytaj probki opoznione o lookahead
+            float sampleL = delayBuffer.getSample(0, writePos);
+            float sampleR = delayBuffer.getSample(1, writePos);
+
+            // Zapisz nowe probki do bufora
+            delayBuffer.setSample(0, writePos, buffer.getSample(0, i));
+            delayBuffer.setSample(1, writePos, buffer.getSample(1, i));
+
+            // Wyznacz peak w oknie lookahead i odpowiednio przyciszaj
+            float peak = findPeakInWindow();
+            float gain = (peak &gt; threshold) ? threshold / peak : 1.0f;
+
+            buffer.setSample(0, i, sampleL * gain);
+            buffer.setSample(1, i, sampleR * gain);
+
+            writePos = (writePos + 1) % lookaheadSamples;
+        }
+    }
+
+private:
+    juce::AudioBuffer&lt;float&gt; delayBuffer;
+    std::vector&lt;float&gt; gainEnvelope;
+    int lookaheadSamples = 0, writePos = 0;
+    float threshold = 0.95f;
+};</code></pre>
+
+        <p><strong>Cena:</strong> plugin wprowadza <strong>latency = lookahead time</strong>. DAW musi to skompensowac (PDC = Plugin Delay Compensation). Trzeba zaraportowac latency w <code>getLatencySamples()</code> zeby DAW wiedzial o ile cofnac track.</p>
+
+        <h2>Multi-band processing</h2>
+        <p>Dzielenie sygnalu na pasma (low/mid/high) i osobne przetwarzanie kazdego. Klasyk — <strong>multiband compressor</strong>, <strong>multiband saturator</strong>.</p>
+
+        <h3>Linkwitz-Riley crossover</h3>
+        <p>Najpopularniejszy crossover dla audio — bo sumuje sie <strong>flat</strong> (suma low + high = oryginal, bez phase issues w crossover frequency).</p>
+<pre><code>// Linkwitz-Riley 4th order = dwa Butterworth 2nd order w kaskadzie
+class LinkwitzRileyCrossover {
+public:
+    void setCrossoverFreq(double freq, double sampleRate) {
+        // Butterworth 2nd order, kaskadowo dwa razy = LR4
+        lowpass1.setCoefficients(juce::IIRCoefficients::makeLowPass(sampleRate, freq, 0.7071));
+        lowpass2.setCoefficients(juce::IIRCoefficients::makeLowPass(sampleRate, freq, 0.7071));
+        highpass1.setCoefficients(juce::IIRCoefficients::makeHighPass(sampleRate, freq, 0.7071));
+        highpass2.setCoefficients(juce::IIRCoefficients::makeHighPass(sampleRate, freq, 0.7071));
+    }
+
+    void processBlock(juce::AudioBuffer&lt;float&gt;&amp; low, juce::AudioBuffer&lt;float&gt;&amp; high) {
+        // Low band: dwukrotnie LP
+        lowpass1.process(low);
+        lowpass2.process(low);
+        // High band: dwukrotnie HP, plus invert dla phase consistency
+        highpass1.process(high);
+        highpass2.process(high);
+    }
+
+private:
+    juce::IIRFilter lowpass1, lowpass2, highpass1, highpass2;
+};</code></pre>
+        <p><strong>Pamietaj</strong> o <strong>all-pass kompensacji</strong> — nawet z LR4, sasiednie pasma w 3-band crossoverze potrzebuja kompensacji fazy. FabFilter Pro-MB slynnie radzi sobie z tym super.</p>
+
+        <h2>Dynamics processing</h2>
+        <h3>Compressor (klasyczny)</h3>
+<pre><code>class Compressor {
+public:
+    void prepare(double sr, int blockSize) {
+        sampleRate = sr;
+        attackCoeff = std::exp(-1.0 / (attackMs * 0.001 * sampleRate));
+        releaseCoeff = std::exp(-1.0 / (releaseMs * 0.001 * sampleRate));
+    }
+
+    void processBlock(float* data, int numSamples) {
+        for (int i = 0; i &lt; numSamples; ++i) {
+            float input = data[i];
+            float inputLevel = std::abs(input);
+
+            // Detekcja envelope (peak follower)
+            if (inputLevel &gt; envelope)
+                envelope = attackCoeff * envelope + (1.0f - attackCoeff) * inputLevel;
+            else
+                envelope = releaseCoeff * envelope + (1.0f - releaseCoeff) * inputLevel;
+
+            // Compute gain reduction (w dB)
+            float envDb = 20.0f * std::log10(envelope + 1e-9f);
+            float gainDb = 0.0f;
+            if (envDb &gt; thresholdDb) {
+                float overshoot = envDb - thresholdDb;
+                gainDb = -overshoot * (1.0f - 1.0f / ratio);
+            }
+
+            float gain = std::pow(10.0f, gainDb / 20.0f);
+            data[i] = input * gain * makeupGain;
+        }
+    }
+
+private:
+    double sampleRate = 44100;
+    float thresholdDb = -20.0f, ratio = 4.0f;
+    float attackMs = 5.0f, releaseMs = 100.0f;
+    float attackCoeff = 0, releaseCoeff = 0;
+    float envelope = 0, makeupGain = 1.0f;
+};</code></pre>
+
+        <h3>Limiter, expander, gate</h3>
+        <table>
+            <tr><th>Procesor</th><th>Dzialanie</th><th>Typowe parametry</th></tr>
+            <tr><td><strong>Compressor</strong></td><td>Redukuje gain powyzej threshold</td><td>Threshold, ratio, attack, release, knee</td></tr>
+            <tr><td><strong>Limiter</strong></td><td>Hard ratio (inf:1), zwykle z lookahead</td><td>Threshold, release, ceiling</td></tr>
+            <tr><td><strong>Expander</strong></td><td>Redukuje gain ponizej threshold (downward)</td><td>Threshold, ratio, attack, hold, release</td></tr>
+            <tr><td><strong>Gate</strong></td><td>Ostry expander (inf:1)</td><td>Threshold, attack, hold, release, range</td></tr>
+            <tr><td><strong>Upward compressor</strong></td><td>Boostuje sygnal ponizej threshold</td><td>Threshold, ratio</td></tr>
+            <tr><td><strong>Transient designer</strong></td><td>Manipuluje attack/sustain bez threshold</td><td>Attack, sustain</td></tr>
+        </table>
+
+        <h2>Modulation effects</h2>
+        <h3>Chorus / Flanger / Phaser</h3>
+        <p>Wszystkie te efekty uzywaja <strong>modulowanej linii opozniajacej</strong> z roznymi czasami delay i feedback:</p>
+        <table>
+            <tr><th>Efekt</th><th>Delay range</th><th>Modulacja</th><th>Feedback</th></tr>
+            <tr><td><strong>Chorus</strong></td><td>15-40 ms</td><td>Wolna LFO 0.1-1 Hz</td><td>Niski lub zero</td></tr>
+            <tr><td><strong>Flanger</strong></td><td>1-10 ms</td><td>Srednia LFO 0.1-3 Hz</td><td>Wysoki, charakterystyczny "jet"</td></tr>
+            <tr><td><strong>Phaser</strong></td><td>(Brak delay — kaskada all-pass)</td><td>LFO moduluje pole all-pass</td><td>Sredni</td></tr>
+            <tr><td><strong>Tremolo</strong></td><td>(Brak delay — modulacja amplitude)</td><td>LFO 1-20 Hz</td><td>N/A</td></tr>
+            <tr><td><strong>Vibrato</strong></td><td>0-10 ms</td><td>LFO 1-10 Hz</td><td>Zero</td></tr>
+        </table>
+
+<pre><code>class SimpleChorus {
+public:
+    void prepare(double sr) {
+        sampleRate = sr;
+        delayLine.setSize(1, (int)(sr * 0.05));  // 50ms max delay
+        delayLine.clear();
+    }
+
+    float process(float input) {
+        // LFO moduluje delay 15-25ms
+        float lfo = 0.5f + 0.5f * std::sin(2.0f * M_PI * lfoPhase);
+        lfoPhase += lfoFreq / sampleRate;
+        if (lfoPhase &gt;= 1.0f) lfoPhase -= 1.0f;
+
+        float delayMs = 15.0f + 10.0f * lfo;
+        float delaySamples = delayMs * sampleRate / 1000.0f;
+
+        float delayed = delayLine.getInterpolatedSample(delaySamples);
+        delayLine.pushSample(input + delayed * 0.3f);
+
+        return input * (1.0f - mix) + delayed * mix;
+    }
+
+private:
+    double sampleRate = 44100;
+    juce::DelayLine&lt;float&gt; delayLine;
+    float lfoPhase = 0, lfoFreq = 0.5f, mix = 0.5f;
+};</code></pre>
+
+        <h2>Pitch detection</h2>
+        <p>Wykrywanie wysokosci tonu — uzywane w tunerach, auto-tune, MIDI converterach.</p>
+
+        <h3>Autocorrelation</h3>
+        <p>Najprostsza metoda — przesuwasz sygnal o offset i mnozysz ze soba; maximum mnozenia daje period.</p>
+<pre><code>float detectPitchAutocorrelation(const float* buffer, int size, double sampleRate) {
+    float maxCorr = 0;
+    int bestPeriod = 0;
+    int minPeriod = (int)(sampleRate / 2000);  // 2000 Hz max
+    int maxPeriod = (int)(sampleRate / 50);    // 50 Hz min
+
+    for (int period = minPeriod; period &lt; maxPeriod; ++period) {
+        float corr = 0;
+        for (int i = 0; i + period &lt; size; ++i)
+            corr += buffer[i] * buffer[i + period];
+        if (corr &gt; maxCorr) {
+            maxCorr = corr;
+            bestPeriod = period;
+        }
+    }
+    return (float)(sampleRate / bestPeriod);
+}</code></pre>
+
+        <p><strong>Limitacje:</strong> wolne, problemy z octave errors, slabe na sygnalach harmonicznych.</p>
+
+        <h3>YIN algorithm</h3>
+        <p>Lepszy — bazuje na difference function zamiast korelacji, dodaje cumulative mean normalization. Standardem dla muzyki. Implementacja w bibliotece <strong>aubio</strong> lub <strong>dywapitchtrack</strong>.</p>
+        <p><strong>Nowoczesne 2026:</strong> <strong>CREPE</strong> (deep learning pitch detection, model ~100MB, ale super dokladny), <strong>SPICE</strong> od Google.</p>
+
+        <h2>Time-domain vs frequency-domain</h2>
+        <table>
+            <tr><th>Cecha</th><th>Time-domain</th><th>Frequency-domain (FFT)</th></tr>
+            <tr><td><strong>Latency</strong></td><td>Niski (~probki)</td><td>Wyzszy (rozmiar FFT)</td></tr>
+            <tr><td><strong>CPU dla short FIR</strong></td><td>Niski</td><td>Wyzszy overhead</td></tr>
+            <tr><td><strong>CPU dla long FIR</strong></td><td>Wysoki O(N²)</td><td>Niski O(N log N)</td></tr>
+            <tr><td><strong>Linear phase filtering</strong></td><td>Trudne</td><td>Latwe</td></tr>
+            <tr><td><strong>Spectral manipulacja</strong></td><td>Niemozliwa</td><td>Naturalna</td></tr>
+            <tr><td><strong>Przyklady</strong></td><td>EQ IIR, kompressor, delay</td><td>Convolution reverb, pitch shift, spectral gate</td></tr>
+        </table>
+        <p><strong>Regula kciuka:</strong> krotkie filtry (kilkadziesiat taps) -&gt; time-domain. Dlugie (&gt;1000 taps) lub spektralne -&gt; FFT.</p>
+
+        <h2>IIR filter design</h2>
+        <h3>Klasyczne typy</h3>
+        <table>
+            <tr><th>Typ</th><th>Charakterystyka</th><th>Use case</th></tr>
+            <tr><td><strong>Butterworth</strong></td><td>Maximally flat passband, brak ripple</td><td>Crossovers, ogolne LPF/HPF</td></tr>
+            <tr><td><strong>Chebyshev I</strong></td><td>Ripple w passband, sharper rolloff</td><td>Gdzie potrzeba szybszego cutoff</td></tr>
+            <tr><td><strong>Chebyshev II</strong></td><td>Ripple w stopband, flat passband</td><td>Anti-aliasing</td></tr>
+            <tr><td><strong>Elliptic (Cauer)</strong></td><td>Ripple w obu pasmach, najsztywniejszy rolloff</td><td>Dekonwolacja, oversampling</td></tr>
+            <tr><td><strong>Bessel</strong></td><td>Linear phase w passband</td><td>Bass management, woofers</td></tr>
+            <tr><td><strong>Linkwitz-Riley</strong></td><td>Crossover-friendly</td><td>Multi-band crossovers</td></tr>
+        </table>
+        <p>JUCE ma <code>juce::dsp::IIR::Coefficients::makeLowPass/HighPass/BandPass/Notch</code> itp. Dla bardziej zaawansowanych projektow — <strong>Q library</strong> (Joel de Guzman) lub <strong>DSPFilters</strong> (Vinnie Falco).</p>
+
+        <h2>Latency compensation</h2>
+        <p>Plugin musi raportowac swoja latency:</p>
+<pre><code>int MyAudioProcessor::getLatencySamples() const {
+    return lookaheadSamples + oversamplingLatency + fftLatency;
+}</code></pre>
+        <p>DAW wykorzystuje to w <strong>PDC</strong> (Plugin Delay Compensation) — wszystkie tracki w sesji sa synchronizowane. <strong>WAZNE:</strong> zmiana latency w trakcie playback (np. zmiana oversampling od 2x do 4x) musi byc zaraportowana przez <code>setLatencySamples()</code>. Niektore DAW (Reaper) handluje to dynamicznie, inne (Pro Tools) nie — wymaga reload.</p>
+
+        <h2>Wet/dry mix — parallel processing</h2>
+        <p>Dla efektow destrukcyjnych (saturation, compression) <strong>parallel processing</strong> = duplikujesz sygnal, jeden tor zostaje czysty (dry), drugi przetwarzany (wet), miksujesz z powrotem.</p>
+<pre><code>void processBlock(juce::AudioBuffer&lt;float&gt;&amp; buffer) {
+    juce::AudioBuffer&lt;float&gt; wetBuffer;
+    wetBuffer.makeCopyOf(buffer);  // kopia dry -&gt; wet
+
+    // Process tylko wet
+    distortion.processBlock(wetBuffer);
+    compressor.processBlock(wetBuffer);
+
+    // Mix dry + wet
+    for (int ch = 0; ch &lt; buffer.getNumChannels(); ++ch) {
+        auto* dry = buffer.getWritePointer(ch);
+        auto* wet = wetBuffer.getReadPointer(ch);
+        for (int i = 0; i &lt; buffer.getNumSamples(); ++i)
+            dry[i] = dry[i] * (1.0f - mixAmount) + wet[i] * mixAmount;
+    }
+}</code></pre>
+        <p><strong>Uwaga na phase issues</strong> — jesli wet ma latency (np. lookahead, FFT), dry musi byc opozniony o te sama wartosc, inaczej miks robi comb filter.</p>
+
+        <h2>AI/ML w DSP — trendy 2026</h2>
+        <p>Boom AI dotarl do audio:</p>
+
+        <div class="card">
+            <h3>Neural amp modeling</h3>
+            <p><strong>Neural Amp Modeler (NAM)</strong> — open source, model neural network trenowany na nagraniach realnych wzmacniaczy gitarowych. Plugin runtime laduje wytrenowany model (.nam file), real-time inference. Slynny — <strong>Tone3000</strong> repo z setkami modeli komercyjnych ampow.</p>
+            <p><strong>Konkurencja:</strong> <strong>Aida-X</strong> (tez neural), <strong>Tonex</strong> (od IK Multimedia, AI capture).</p>
+        </div>
+
+        <div class="card">
+            <h3>AI-based mastering</h3>
+            <p><strong>LANDR</strong>, <strong>iZotope Ozone Mastering Assistant</strong>, <strong>Neutron Visual Mixer</strong> — analiza spektralna + ML model decyduje o EQ, kompresji, limiterze. <strong>Sonible smart:eq3</strong> uzywa ML do dynamicznej krzywej EQ per instrument.</p>
+        </div>
+
+        <div class="card">
+            <h3>Noise reduction (RX/AudioStrip)</h3>
+            <p><strong>iZotope RX</strong> — uzywa deep learning do dialogue isolation, music rebalancing. <strong>Adobe Enhance Speech</strong>, <strong>Krisp</strong>, <strong>NVIDIA Broadcast</strong> — wszystko ML-based.</p>
+        </div>
+
+        <div class="card">
+            <h3>Stem separation</h3>
+            <p><strong>Spleeter</strong> (Deezer), <strong>Demucs</strong> (Meta), <strong>MVSEP</strong> — separacja mix do wokal/perkusja/bas/inne. W 2026 mainstream w Logic, Ableton (Stem Splitter), FL Studio, Cubase.</p>
+        </div>
+
+        <div class="card">
+            <h3>RNBO (Cycling '74)</h3>
+            <p><strong>RNBO</strong> to nowoczesny tool do tworzenia pluginow z <strong>Max for Live</strong> patches — eksport do C++ JUCE-ready. Laczy sie z <strong>TensorFlow.js</strong> dla ML w real-time.</p>
+        </div>
+
+        <h3>Inference w pluginie</h3>
+        <p>Bibliotekach do ML inference w C++:</p>
+        <ul>
+            <li><strong>ONNX Runtime</strong> — Microsoft, support dla CoreML, DirectML, CUDA</li>
+            <li><strong>TensorFlow Lite</strong> — mobile-friendly, maly footprint</li>
+            <li><strong>libtorch</strong> (PyTorch C++) — duzy, ale flexible</li>
+            <li><strong>RTNeural</strong> (audio-focused, real-time safe, JUCE-friendly)</li>
+        </ul>
+<pre><code>// Przyklad RTNeural — load wytrenowanej sieci LSTM z JSON
+#include &lt;RTNeural/RTNeural.h&gt;
+
+RTNeural::ModelT&lt;float, 1, 1,
+    RTNeural::LSTMLayerT&lt;float, 1, 16&gt;,
+    RTNeural::DenseT&lt;float, 16, 1&gt;&gt; model;
+
+std::ifstream jsonStream("amp_model.json");
+nlohmann::json modelJson;
+jsonStream &gt;&gt; modelJson;
+model.parseJson(modelJson, true);
+
+float processSample(float input) {
+    return model.forward(&amp;input);
+}</code></pre>
+
+        <h2>Biblioteki DSP — overview</h2>
+        <table>
+            <tr><th>Biblioteka</th><th>Tworca</th><th>Licencja</th><th>Cechy</th></tr>
+            <tr><td><strong>Intel IPP</strong></td><td>Intel</td><td>Komercyjna</td><td>Najszybsza, x86 only, SSE/AVX optimized</td></tr>
+            <tr><td><strong>Apple Accelerate (vDSP)</strong></td><td>Apple</td><td>Bundled</td><td>Hyper-optimized for ARM/x86 macOS</td></tr>
+            <tr><td><strong>JUCE dsp</strong></td><td>JUCE</td><td>GPL/komercyjna</td><td>Filtry, FFT, oversampling, convolution</td></tr>
+            <tr><td><strong>Q library</strong></td><td>Joel de Guzman</td><td>Boost</td><td>Modern C++, przemyslane API</td></tr>
+            <tr><td><strong>kfr</strong></td><td>KFR</td><td>GPL/Comm</td><td>Templated, bardzo szybkie</td></tr>
+            <tr><td><strong>FFTW</strong></td><td>MIT</td><td>GPL/Comm</td><td>Standard FFT na CPU</td></tr>
+            <tr><td><strong>DSPFilters</strong></td><td>Vinnie Falco</td><td>MIT</td><td>Klasyczne IIR designs</td></tr>
+            <tr><td><strong>RTNeural</strong></td><td>Jatin Chowdhury</td><td>BSD</td><td>ML inference real-time</td></tr>
+            <tr><td><strong>CDSPResampler</strong></td><td>r8brain</td><td>BSD</td><td>Wysokiej jakosci resampling</td></tr>
+        </table>
+
+        <h2>Praktyczne tipy</h2>
+        <ul>
+            <li><strong>Profile, profile, profile.</strong> CPU 5% w studio, 30% w live -&gt; katastrofa. Mierz na roznych buffer sizes (32, 64, 128, 256, 512, 1024).</li>
+            <li><strong>SIMD intrinsics</strong> — krytyczne dla performance, ale czytelnosc cierpi. Najpierw scalar implementacja, profile, potem SIMD tylko hot loops.</li>
+            <li><strong>Denormals</strong> — wylaczaj globalnie (<code>_MM_SET_FLUSH_ZERO_MODE</code>) lub dodawaj DC offset.</li>
+            <li><strong>Tablice przelicz raz</strong> — wszystkie wspolczynniki filtrow, LFO sin tables, pre-computed arrays trzymaj poza processBlock.</li>
+            <li><strong>Branch prediction</strong> — unikaj if w goracych petlach gdy sie da. Conditional move (<code>std::min/max</code>, <code>std::clamp</code>) lepsze.</li>
+            <li><strong>Cache friendly</strong> — preferuj struct-of-arrays nad array-of-structs, dane sekwencyjne nad rozproszone.</li>
+        </ul>
+
+        <h2>Dalsze lektura</h2>
+        <ul>
+            <li><strong>"The Audio Programming Book"</strong> — Boulanger, Lazzarini</li>
+            <li><strong>"DAFX: Digital Audio Effects"</strong> — Udo Zolzer</li>
+            <li><strong>"Designing Audio Effect Plug-ins in C++"</strong> — Will Pirkle (must-read)</li>
+            <li><strong>JUCE Tutorials DSP</strong> — oficjalna dokumentacja JUCE</li>
+            <li><strong>MusicDSP.org</strong> — archiwum kodow algorytmow</li>
+            <li><strong>KVR DSP Forum</strong> — najaktywniejsza spolecznosc dyskutujaca DSP</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="07-gui-i-grafika.html">&larr; 07 — GUI i grafika</a>
+            <a href="09-dystrybucja-i-instalator.html">09 — Dystrybucja i instalator &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

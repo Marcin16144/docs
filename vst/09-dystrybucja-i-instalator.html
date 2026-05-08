@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>09 — Dystrybucja i instalator</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#ec4899;--accent-hover:#f472b6;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--cyan:#22d3ee;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+        p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="../index.html">Glowna</a>
+        <span class="sep">/</span>
+        <a href="index.html">VST</a>
+        <span class="sep">/</span>
+        <span class="title">09 — Dystrybucja i instalator</span>
+    </div>
+    <div class="container">
+        <h1>Dystrybucja, instalatory i ochrona</h1>
+        <p class="subtitle">Pakowanie pluginu, code signing, notarization, anti-piracy i dystrybucja przez Plugin Boutique, wlasna strone i inne kanaly.</p>
+
+        <p>Wtyczka dziala, kompiluje sie, brzmi swietnie — ale to dopiero polowa pracy. Teraz musisz ja <strong>zapakowac</strong>, <strong>zabezpieczyc</strong> przed piractwem i <strong>dostarczyc</strong> uzytkownikowi w sposob, ktory nie bedzie blokowany przez Windows Defender lub Gatekeeper macOS.</p>
+
+        <h2>Pliki plugin per platforma</h2>
+        <p>Kazda platforma ma wlasna konwencje sciezek instalacji. <strong>Lamanie tych konwencji = plugin nie zostanie wykryty przez DAW.</strong></p>
+
+        <div class="card">
+            <h3>Windows</h3>
+            <table>
+                <tr><th>Format</th><th>Sciezka</th></tr>
+                <tr><td><strong>VST3</strong></td><td><code>C:\Program Files\Common Files\VST3\YourPlugin.vst3</code></td></tr>
+                <tr><td><strong>VST2 (legacy)</strong></td><td><code>C:\Program Files\VstPlugins\YourPlugin.dll</code> (zwyczajowo)</td></tr>
+                <tr><td><strong>AAX</strong></td><td><code>C:\Program Files\Common Files\Avid\Audio\Plug-Ins\YourPlugin.aaxplugin</code></td></tr>
+                <tr><td><strong>CLAP</strong></td><td><code>C:\Program Files\Common Files\CLAP\YourPlugin.clap</code></td></tr>
+            </table>
+            <p>VST3 na Windows to <strong>bundle</strong> (folder z rozszerzeniem <code>.vst3</code>), nie pojedynczy plik DLL — w srodku struktura <code>Contents/x86_64-win/YourPlugin.vst3</code>.</p>
+        </div>
+
+        <div class="card">
+            <h3>macOS</h3>
+            <table>
+                <tr><th>Format</th><th>Sciezka</th></tr>
+                <tr><td><strong>VST3</strong></td><td><code>/Library/Audio/Plug-Ins/VST3/YourPlugin.vst3</code></td></tr>
+                <tr><td><strong>AU (Audio Unit)</strong></td><td><code>/Library/Audio/Plug-Ins/Components/YourPlugin.component</code></td></tr>
+                <tr><td><strong>AAX</strong></td><td><code>/Library/Application Support/Avid/Audio/Plug-Ins/YourPlugin.aaxplugin</code></td></tr>
+                <tr><td><strong>CLAP</strong></td><td><code>/Library/Audio/Plug-Ins/CLAP/YourPlugin.clap</code></td></tr>
+            </table>
+            <p>Wszystkie te pliki na macOS to <strong>bundle</strong>. User-level alternatives w <code>~/Library/Audio/Plug-Ins/...</code>.</p>
+        </div>
+
+        <h2>Narzedzia tworzenia instalatorow</h2>
+
+        <h3>Windows</h3>
+        <table>
+            <tr><th>Narzedzie</th><th>Cena</th><th>Uwagi</th></tr>
+            <tr><td><strong>Inno Setup</strong></td><td>Free</td><td>Najpopularniejszy w plugin community. Pascal Script. Wystarczajacy dla 95% przypadkow.</td></tr>
+            <tr><td><strong>NSIS</strong></td><td>Free</td><td>Starszy, nizszy poziom. Mniejsze, ale mniej user-friendly.</td></tr>
+            <tr><td><strong>WiX Toolset</strong></td><td>Free</td><td>MSI installers, enterprise-grade. Stroma krzywa nauki.</td></tr>
+            <tr><td><strong>Advanced Installer</strong></td><td>$$</td><td>GUI builder, MSI + EXE, swietne support kodowania.</td></tr>
+            <tr><td><strong>InstallShield</strong></td><td>$$$$</td><td>Enterprise. Rzadko uzywany w plugin world.</td></tr>
+        </table>
+        <p><strong>Rekomendacja:</strong> <strong>Inno Setup</strong> dla malych/srednich, <strong>WiX</strong> jesli musisz MSI, <strong>Advanced Installer</strong> jesli budzet pozwala.</p>
+
+        <h3>macOS</h3>
+        <table>
+            <tr><th>Narzedzie</th><th>Cena</th><th>Uwagi</th></tr>
+            <tr><td><strong>Packages</strong></td><td>Free</td><td>GUI tool, najpopularniejszy. Wymaga konfiguracji ale solidny.</td></tr>
+            <tr><td><strong>pkgbuild + productbuild</strong></td><td>Free</td><td>Apple command line. Skryptowalny, idealny do CI/CD.</td></tr>
+            <tr><td><strong>DMG creator</strong> (DropDMG, create-dmg)</td><td>Free/Paid</td><td>Customowe DMG z designem.</td></tr>
+            <tr><td><strong>Munki / JAMF</strong></td><td>Free/$$</td><td>Enterprise deployment.</td></tr>
+        </table>
+        <p><strong>Rekomendacja:</strong> kombinacja <code>pkgbuild + productbuild</code> w skrypcie CI/CD, opcjonalnie <strong>Packages</strong> dla wizualnego setupu pierwszego instalatora.</p>
+
+        <h2>Inno Setup — przykladowy skrypt</h2>
+<pre><code>[Setup]
+AppName=Awesome Reverb
+AppVersion=1.2.0
+AppPublisher=YourCompany
+AppPublisherURL=https://yourcompany.com
+DefaultDirName={pf}\YourCompany\AwesomeReverb
+DefaultGroupName=YourCompany\AwesomeReverb
+OutputDir=installer_output
+OutputBaseFilename=AwesomeReverb-1.2.0-Win-Setup
+Compression=lzma2/ultra
+SolidCompression=yes
+PrivilegesRequired=admin
+ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64
+SetupIconFile=icon.ico
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
+
+[Components]
+Name: "vst3"; Description: "VST3 Plugin"; Types: full
+Name: "aax";  Description: "AAX Plugin (Pro Tools)"; Types: full
+Name: "presets"; Description: "Factory Presets"; Types: full
+
+[Files]
+; VST3 — folder bundle
+Source: "build\AwesomeReverb.vst3\*"; \
+  DestDir: "{commoncf}\VST3\AwesomeReverb.vst3"; \
+  Flags: ignoreversion recursesubdirs createallsubdirs; \
+  Components: vst3
+
+; AAX
+Source: "build\AwesomeReverb.aaxplugin\*"; \
+  DestDir: "{commoncf}\Avid\Audio\Plug-Ins\AwesomeReverb.aaxplugin"; \
+  Flags: ignoreversion recursesubdirs; \
+  Components: aax
+
+; Presets
+Source: "presets\*.preset"; \
+  DestDir: "{userdocs}\YourCompany\AwesomeReverb\Presets"; \
+  Flags: ignoreversion recursesubdirs; \
+  Components: presets
+
+; Manual
+Source: "docs\Manual.pdf"; \
+  DestDir: "{app}"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\Manual"; Filename: "{app}\Manual.pdf"
+Name: "{group}\Uninstall"; Filename: "{uninstallexe}"
+
+[Code]
+function InitializeSetup(): Boolean;
+begin
+  // Sprawdz licencje, wymagana wersja Windows itp.
+  Result := True;
+end;</code></pre>
+        <p>Build z linii polecen:</p>
+<pre><code>"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss</code></pre>
+
+        <h2>macOS — pkgbuild + productbuild</h2>
+<pre><code>#!/bin/bash
+PLUGIN_NAME="AwesomeReverb"
+VERSION="1.2.0"
+BUNDLE_ID="com.yourcompany.awesomereverb"
+DEV_ID="Developer ID Installer: Your Company (XXXXXXXXXX)"
+
+# 1. Code sign plugin bundles
+codesign --force --deep --options runtime \
+  --sign "Developer ID Application: Your Company (XXXXXXXXXX)" \
+  build/${PLUGIN_NAME}.vst3
+
+codesign --force --deep --options runtime \
+  --sign "Developer ID Application: Your Company (XXXXXXXXXX)" \
+  build/${PLUGIN_NAME}.component
+
+# 2. pkgbuild dla kazdego formatu
+pkgbuild --root build/${PLUGIN_NAME}.vst3 \
+  --identifier ${BUNDLE_ID}.vst3 \
+  --version ${VERSION} \
+  --install-location "/Library/Audio/Plug-Ins/VST3/${PLUGIN_NAME}.vst3" \
+  pkg-build/${PLUGIN_NAME}-VST3.pkg
+
+pkgbuild --root build/${PLUGIN_NAME}.component \
+  --identifier ${BUNDLE_ID}.au \
+  --version ${VERSION} \
+  --install-location "/Library/Audio/Plug-Ins/Components/${PLUGIN_NAME}.component" \
+  pkg-build/${PLUGIN_NAME}-AU.pkg
+
+# 3. productbuild laczy w jeden installer
+productbuild \
+  --distribution distribution.xml \
+  --resources resources \
+  --package-path pkg-build \
+  --sign "${DEV_ID}" \
+  ${PLUGIN_NAME}-${VERSION}.pkg
+
+# 4. Notarization (Apple)
+xcrun notarytool submit ${PLUGIN_NAME}-${VERSION}.pkg \
+  --apple-id "you@yourcompany.com" \
+  --team-id "XXXXXXXXXX" \
+  --password "@keychain:notarytool-password" \
+  --wait
+
+# 5. Staple ticket
+xcrun stapler staple ${PLUGIN_NAME}-${VERSION}.pkg
+
+# 6. Pakuj do DMG
+hdiutil create -volname "${PLUGIN_NAME} ${VERSION}" \
+  -srcfolder ${PLUGIN_NAME}-${VERSION}.pkg \
+  -ov -format UDZO \
+  ${PLUGIN_NAME}-${VERSION}.dmg</code></pre>
+
+        <h2>Bundle ID i podpisywanie kodu</h2>
+
+        <h3>Windows code signing</h3>
+        <p>Wymog dla unikniecia SmartScreen/Defender warnings. Procedura:</p>
+        <ol>
+            <li><strong>Kup certyfikat</strong> — Sectigo, DigiCert, GlobalSign, SSL.com (~$250-600/rok). <strong>EV (Extended Validation)</strong> lepszy — daje natychmiastowa reputacje.</li>
+            <li><strong>Hardware token</strong> — od 2023 wszystkie code signing certs <strong>musza</strong> byc w HSM/USB token (np. SafeNet eToken). Programowe certyfikaty juz niedostepne.</li>
+            <li><strong>Sign:</strong></li>
+        </ol>
+<pre><code>signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 ^
+  /a /v MyPlugin.vst3
+signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 ^
+  /a /v MyPluginInstaller.exe</code></pre>
+        <p>Zawsze podpisuj <strong>z timestampingiem</strong> — bez tego sygnatura wygasa razem z certyfikatem.</p>
+
+        <h3>macOS code signing + notarization</h3>
+        <p><strong>Apple Developer Account</strong> wymagany ($99/rok). Procedura:</p>
+        <ol>
+            <li>Wygeneruj <strong>Developer ID Application</strong> i <strong>Developer ID Installer</strong> certyfikaty.</li>
+            <li>Sign plugin bundles z <code>--options runtime</code> (Hardened Runtime).</li>
+            <li>Sign installer pkg.</li>
+            <li><strong>Notarize</strong> — wyslij do Apple, czekaj 5-30 min.</li>
+            <li><strong>Staple</strong> — przybij ticket do pliku, zeby Gatekeeper nie potrzebowal internetu.</li>
+        </ol>
+<pre><code># Sprawdz czy plugin jest poprawnie podpisany
+codesign --verify --deep --strict --verbose=2 build/MyPlugin.vst3
+spctl -a -t exec -vv build/MyPlugin.vst3</code></pre>
+        <p>Bez notarization: plugin nie laduje sie na nowych macOS (Gatekeeper blokuje), DAW pokazuje "damaged" lub "developer cannot be verified".</p>
+
+        <h2>Strategia cross-platform</h2>
+        <p><strong>Zlota zasada:</strong> Windows i macOS = <strong>dwa osobne instalatory</strong>. Proby tworzenia uniwersalnego instalatora konca sie zle. User pobiera tylko jeden, zawsze.</p>
+<pre><code>yourcompany.com/downloads
+- AwesomeReverb-1.2.0-Win-Setup.exe      (Windows)
+- AwesomeReverb-1.2.0-macOS.dmg          (macOS Universal)
+- AwesomeReverb-1.2.0-Linux.tar.gz       (Linux, opcjonalne)</code></pre>
+        <p><strong>macOS Universal Binary</strong> — pojedynczy plugin obslugujacy <strong>arm64</strong> (Apple Silicon) i <strong>x86_64</strong> (Intel) w jednym bundle, dzieki <code>lipo</code>. Wszystkie nowe pluginy 2026+ powinny byc Universal.</p>
+
+        <h2>Anti-piracy — strategie</h2>
+        <p><strong>Realistyczne podejscie:</strong> kazda ochrona zostanie zlamana. Pytanie brzmi — <strong>kiedy</strong> i <strong>jakim kosztem</strong>. Plugin software ma wysoki piracy rate (~50-80% w niszowych formatach). Najlepsze plugins (FabFilter, UAD, Waves) godza sie z tym i koncentruja na user experience.</p>
+
+        <table>
+            <tr><th>Metoda</th><th>Koszt impl</th><th>Trudnosc lamania</th><th>Polecane</th></tr>
+            <tr><td><strong>Bez ochrony (free trial all-in)</strong></td><td>$0</td><td>N/A</td><td>Indie, freeware</td></tr>
+            <tr><td><strong>Serial key + email</strong></td><td>Niski</td><td>Bardzo niska</td><td>Indie, taniej $20-50</td></tr>
+            <tr><td><strong>Online activation + offline cache</strong></td><td>Sredni</td><td>Niska/srednia</td><td>Mid-range $50-150</td></tr>
+            <tr><td><strong>Hardware fingerprinting</strong></td><td>Sredni</td><td>Srednia</td><td>Mid-range, customowe</td></tr>
+            <tr><td><strong>iLok (PACE)</strong></td><td>Wysoki ($)</td><td>Wysoka</td><td>Pro $200+, AAX, Plugin Alliance</td></tr>
+            <tr><td><strong>eLicenser</strong></td><td>N/A</td><td>Srednia</td><td>Deprecated 2024 (Steinberg)</td></tr>
+            <tr><td><strong>VMProtect + iLok kombinacja</strong></td><td>Bardzo wysoki</td><td>Bardzo wysoka</td><td>Tylko enterprise/AAX</td></tr>
+        </table>
+
+        <h3>iLok (PACE)</h3>
+        <p><strong>Standard branzowy</strong> dla pluginow premium. Wymog dla AAX (Pro Tools). Wsparcie:</p>
+        <ul>
+            <li><strong>iLok Cloud</strong> (online) — 2 device limit, no USB needed</li>
+            <li><strong>iLok USB key</strong> — 3rd-gen, $50, fizyczny token</li>
+            <li><strong>Machine activation</strong> — 2 maszyny, hardware-bound</li>
+        </ul>
+        <p>Integracja przez <strong>PACE Eden</strong> SDK. Kosztuje <strong>$$$$$ rocznie</strong> + per-activation fees. Praktycznie tylko dla wiekszych firm. Indie alternatywa jest <strong>License key + online activation</strong>.</p>
+
+        <h3>Custom license server</h3>
+        <p>Najczestsze rozwiazanie u indie devow. Server backend (Node/Go/Python) trzyma DB licencji, plugin wysyla hardware fingerprint + license key, server zwraca podpisany token cache'owany lokalnie z grace period (np. 30 dni offline).</p>
+<pre><code>// Uproszczony przyklad walidacji licencji
+class LicenseValidator {
+public:
+    bool validate(const std::string&amp; licenseKey) {
+        // 1. Sprobuj online aktywacji
+        auto response = httpClient.post("https://api.yourcompany.com/activate", {
+            {"license_key", licenseKey},
+            {"hardware_id", getHardwareFingerprint()},
+            {"product", "AwesomeReverb"},
+            {"version", "1.2.0"}
+        });
+
+        if (response.statusCode == 200) {
+            // Server zwraca podpisany token z signed expiration
+            saveTokenLocally(response.body);
+            return verifyTokenSignature(response.body);
+        }
+
+        // 2. Fallback: offline grace period
+        auto cachedToken = loadTokenLocally();
+        if (cachedToken.empty()) return false;
+        if (!verifyTokenSignature(cachedToken)) return false;
+
+        auto expiry = getTokenExpiry(cachedToken);
+        auto now = std::chrono::system_clock::now();
+        auto daysSinceLastCheck = std::chrono::duration_cast&lt;std::chrono::hours&gt;(
+            now - getLastCheckTime()).count() / 24;
+
+        return daysSinceLastCheck &lt; 30;  // 30 dni offline
+    }
+
+    std::string getHardwareFingerprint() {
+        // Combo: MAC address + CPU ID + motherboard serial
+        return sha256(getMacAddress() + getCpuId() + getMotherboardSerial());
+    }
+};</code></pre>
+        <p><strong>Best practice:</strong> uzyj <strong>asymetrycznego podpisu</strong> (ECDSA) — server podpisuje prywatnym kluczem, plugin weryfikuje publicznym (zaszytym w binary). Cracker musialby znalezc private key na serverze, nie w pluginie.</p>
+
+        <h3>Demo / trial implementation</h3>
+        <table>
+            <tr><th>Pattern</th><th>Jak dziala</th><th>Plusy</th><th>Minusy</th></tr>
+            <tr><td><strong>Time limit</strong></td><td>14-30 dni od first run</td><td>Pelna funkcjonalnosc</td><td>Latwo cofnac system clock</td></tr>
+            <tr><td><strong>Save/recall disabled</strong></td><td>Plugin dziala, ale state nie zapisuje</td><td>User slyszy efekt</td><td>Wysoki refund rate jesli niejasne</td></tr>
+            <tr><td><strong>Periodic noise / silence</strong></td><td>Co 60s plugin daje cisze 1s lub szum</td><td>Driving — user slyszy ograniczenie</td><td>Trudny dla mastering pluginow</td></tr>
+            <tr><td><strong>Watermark output</strong></td><td>Niskopoziomowy szum/efekt zawsze obecny</td><td>Sprzedaje sie</td><td>Trudno dobrac niewinny watermark</td></tr>
+            <tr><td><strong>Limited presets</strong></td><td>Demo ma 3 presety, full ma 50+</td><td>Sprzedaze przez preset hunger</td><td>Tylko jesli presety sa atrakcja</td></tr>
+        </table>
+        <p><strong>Najpopularniejsze</strong> w 2026: <strong>time-limit (14 dni full features)</strong> + <strong>periodic short silence</strong> dla pluginow po time-limit.</p>
+
+        <h2>Update mechanisms</h2>
+        <h3>macOS — Sparkle</h3>
+        <p><strong>Sparkle Framework</strong> to standard. Plugin laduje XML feed (appcast.xml), sprawdza wersje, oferuje update.</p>
+<pre><code>&lt;rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0"&gt;
+  &lt;channel&gt;
+    &lt;title&gt;AwesomeReverb Updates&lt;/title&gt;
+    &lt;item&gt;
+      &lt;title&gt;Version 1.2.0&lt;/title&gt;
+      &lt;pubDate&gt;Wed, 15 Apr 2026 12:00:00 +0000&lt;/pubDate&gt;
+      &lt;enclosure url="https://yourcompany.com/AwesomeReverb-1.2.0.dmg"
+                 sparkle:version="1.2.0"
+                 sparkle:edSignature="..."
+                 length="12345678"
+                 type="application/octet-stream"/&gt;
+      &lt;description&gt;Bug fixes, improved CPU performance.&lt;/description&gt;
+    &lt;/item&gt;
+  &lt;/channel&gt;
+&lt;/rss&gt;</code></pre>
+        <p>Plugin code signs updates kluczem EdDSA — bez tego Sparkle odmawia instalacji.</p>
+
+        <h3>Windows — custom solution</h3>
+        <p>Brak standardu. Najczesciej:</p>
+        <ul>
+            <li>Plugin sprawdza JSON endpoint przy starcie</li>
+            <li>Jesli nowsza wersja — pokazuje banner "Update available"</li>
+            <li>Klik otwiera browser do download (nie auto-install — bo permissions)</li>
+        </ul>
+        <p>Niektorzy uzywaja <strong>Squirrel.Windows</strong> lub <strong>WinSparkle</strong> (port Sparkle dla Win), ale rzadkosc.</p>
+
+        <h2>VMProtect i obfuscation</h2>
+        <p><strong>VMProtect</strong> to komercyjny tool ($$$) ktory:</p>
+        <ul>
+            <li>Szyfruje sekcje kodu, deszyfruje runtime</li>
+            <li>Wirtualizuje krytyczne funkcje (interpretowane VM-bytecode)</li>
+            <li>Anti-debug, anti-VM detection</li>
+            <li>Code obfuscation</li>
+        </ul>
+        <p>Stosowane wraz z iLok dla AAX (Pro Tools) — dla PACE wymog zeby krytyczna logika byla VMProtected.</p>
+<pre><code>// Markery dla VMProtect kompilatora
+#include "VMProtectSDK.h"
+
+bool validateLicense() {
+    VMProtectBeginVirtualization("LicenseCheck");
+    // Krytyczna logika tutaj — zamieniona na VM bytecode
+    auto fingerprint = getHardwareFingerprint();
+    auto valid = checkSignature(fingerprint);
+    VMProtectEnd();
+    return valid;
+}</code></pre>
+        <p><strong>Uwaga:</strong> zbyt agresywny VMProtect = drastyczny spadek performance. <strong>NIE</strong> wirtualizuj <code>processBlock</code> ani innego DSP code — tylko license checks i license parsing.</p>
+
+        <h2>Dystrybucja — platformy</h2>
+
+        <div class="card">
+            <h3>Plugin Boutique</h3>
+            <p><strong>Najwiekszy specjalistyczny store</strong> dla pluginow audio. ~15-20% commission. Wymaga aplikacji ich curation team. Idealny dla nowych devow — driver organic traffic, maja loyal customer base, czeste sale events.</p>
+            <p><strong>Plusy:</strong> market reach, scheduled sales (Black Friday push), Loyalty Points system. <strong>Minusy:</strong> commission, oczekiwanie na approval (tygodnie), konkurencja w listing.</p>
+        </div>
+
+        <div class="card">
+            <h3>Plugin Alliance</h3>
+            <p><strong>Premium curation</strong>, focus na pro audio. Nizszy ratio aplikacji vs accept. Synchronizacja sales z Brainworx, Lindell, etc. Bardziej selektywny — jesli przyjma, to znaczy ze masz quality plugin.</p>
+        </div>
+
+        <div class="card">
+            <h3>Splice</h3>
+            <p>Bardziej <strong>subscription-based</strong> (Splice Sounds), dla pluginow to <strong>rent-to-own</strong> model. Swietne dla onboardingu mlodszych producentow (hip-hop, electronic). Inne demographics niz Plugin Boutique.</p>
+        </div>
+
+        <div class="card">
+            <h3>Native Instruments / Komplete</h3>
+            <p><strong>Gated</strong>, bardzo trudne. NI selectionuja tylko najlepsze, ale jak sie dostaniesz w Komplete bundle — to game-changer dla sprzedazy. Lata aplikacji czesto.</p>
+        </div>
+
+        <div class="card">
+            <h3>Wlasna strona (preferowane dlugoterminowo)</h3>
+            <p><strong>Najwiecej zarobku, ale wymaga marketingu.</strong> Stack:</p>
+            <ul>
+                <li><strong>Shopify</strong> + <strong>Digital Downloads app</strong> — najprostszy</li>
+                <li><strong>WordPress + WooCommerce + EDD</strong> — bardziej customowe</li>
+                <li><strong>FastSpring</strong> lub <strong>Paddle</strong> — Merchant of Record (oni handluja VAT, refunds, fraud)</li>
+                <li><strong>Stripe + custom backend</strong> — jesli masz dev resources</li>
+            </ul>
+            <p><strong>FastSpring</strong> popular w plugin world bo: handluje VAT MOSS (UE), GST (AU), Japan tax; refund policy management; anti-fraud built-in. Fee ~5.9% + $0.95 per transaction.</p>
+        </div>
+
+        <h2>File size optimization</h2>
+        <p>Userzy widza "<strong>157 MB plugin</strong>" i robia abandonment. Optymalizacja:</p>
+        <table>
+            <tr><th>Technika</th><th>Jak</th><th>Saving</th></tr>
+            <tr><td><strong>Strip debug symbols</strong></td><td><code>strip -S MyPlugin</code> (macOS), default Release (MSVC)</td><td>20-50%</td></tr>
+            <tr><td><strong>LTO (Link Time Optimization)</strong></td><td><code>-flto</code> w build flags</td><td>5-15%</td></tr>
+            <tr><td><strong>Compress samples/IRs</strong></td><td>FLAC zamiast WAV, OGG dla loops</td><td>50-70% per asset</td></tr>
+            <tr><td><strong>Lazy load assets</strong></td><td>Zaladuj IR przy pierwszym uzyciu, nie przy startup</td><td>RAM, nie size</td></tr>
+            <tr><td><strong>Remove unused dependencies</strong></td><td>Audyt linked libs</td><td>Zmienne</td></tr>
+            <tr><td><strong>Optimize images</strong></td><td>WebP/AVIF zamiast PNG, skompresuj UI assets</td><td>40-70% per asset</td></tr>
+            <tr><td><strong>Single-arch builds</strong></td><td>Per-platform, nie Universal jesli unfinish</td><td>50% (Mac)</td></tr>
+            <tr><td><strong>UPX compression DLL</strong></td><td>Tylko Windows, lekko ryzykowne (AV alarm)</td><td>30-50%</td></tr>
+        </table>
+        <p><strong>Cel:</strong> instalator pod 50MB dla efektow, pod 200MB dla samplerow. Convolution reverb z 4GB IR library to inna kategoria — komunikuj wprost przed download.</p>
+
+        <h2>Praktyczne checklisty</h2>
+
+        <div class="card">
+            <h3>Pre-release Windows</h3>
+            <ul>
+                <li>VST3 podpisany Authenticode</li>
+                <li>Instalator EXE podpisany Authenticode</li>
+                <li>Test na czystym Windows 10/11 (swieza VM)</li>
+                <li>SmartScreen warning poziom akceptowalny</li>
+                <li>Antywirus scan (Windows Defender, Malwarebytes)</li>
+                <li>Test instalacji bez admin rights (powinno fail gracefully)</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>Pre-release macOS</h3>
+            <ul>
+                <li>Universal Binary (arm64 + x86_64)</li>
+                <li>Hardened Runtime enabled</li>
+                <li>All bundles code signed</li>
+                <li>Notarized + stapled</li>
+                <li>DMG podpisany</li>
+                <li>Test na swiezym macOS (VM lub second Mac)</li>
+                <li>Test w Logic, Live, Reaper, Pro Tools</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>License/protection</h3>
+            <ul>
+                <li>License validation dziala offline (grace period)</li>
+                <li>Demo/trial flow przejrzysty</li>
+                <li>Activation server stable (load tested)</li>
+                <li>Fallback gdy server down</li>
+                <li>Privacy policy zgodna z RODO/CCPA</li>
+            </ul>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="08-zaawansowane-dsp.html">&larr; 08 — Zaawansowane DSP</a>
+            <a href="10-marketing-i-sprzedaz.html">10 — Marketing i sprzedaz &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

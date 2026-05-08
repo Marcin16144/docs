@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ochrona kodu PHP przed kradzieza</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#8b5cf6;--accent-hover:#a78bfa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-color:var(--green)}
+.card.orange{border-color:var(--orange)}
+.card.red{border-color:var(--red)}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <a href="../../index.html">Glowna</a>
+    <span class="sep">/</span>
+    <a href="../index.html">Jezyki</a>
+    <span class="sep">/</span>
+    <a href="index.html">PHP</a>
+    <span class="sep">/</span>
+    <span class="title">Ochrona kodu przed kradzieza</span>
+</div>
+
+<div class="container">
+<h1>Ochrona kodu PHP przed kradzieza</h1>
+<p class="subtitle">Strategia, narzedzia i praktyki ochrony komercyjnego kodu PHP przed reverse engineering i nielegalna dystrybucja.</p>
+
+<h2>Problem: PHP to jezyk interpretowany</h2>
+<p>W przeciwienstwie do C# / Java, <strong>PHP nie kompiluje sie do bytecode</strong> dystrybuowanego (chociaz OPcache cachuje skompilowany bytecode na serwerze). Kod zrodlowy w plikach <code>.php</code> jest <strong>plain text</strong> &mdash; czytelny dla kazdego z dostepem do serwera.</p>
+
+<pre><code>PHP deployment:
+  source code (.php) &rarr; uploaded to server &rarr; executed
+
+vs
+
+C# deployment:
+  source code (.cs) &rarr; compiled to .dll &rarr; deployed &rarr; executed</code></pre>
+
+<p>Dla developerow ktorzy sprzedaja oprogramowanie (CMS, plugins, libraries) &mdash; to ryzyko <strong>utraty IP</strong>.</p>
+
+<h2>Modele ochrony</h2>
+
+<h3>1. Obfuskacja (Obfuscation)</h3>
+<p>Znieksztalca kod aby byl nieczytelny dla czlowieka, ale wciaz wykonywalny.</p>
+<pre><code>// Przed
+function calculateTotal($items) {
+    return array_sum($items);
+}
+
+// Po obfuskacji
+function _0x1f3a($_0xa1) {
+    return array_sum($_0xa1);
+}</code></pre>
+
+<p><strong>Zalety:</strong> Tanie/free, nie wymaga rozszerzen serwerowych<br>
+<strong>Wady:</strong> Mozna odwrocic (deobfuskacja)</p>
+
+<h3>2. Bytecode encoding</h3>
+<p>Konwertuje PHP do encoded format. Wymaga <strong>rozszerzenia (loader)</strong> na serwerze.</p>
+<pre><code>source.php &rarr; encoder &rarr; encoded.php (binary blob) &rarr; loader extension &rarr; execute</code></pre>
+
+<p><strong>Zalety:</strong> Trudne/niemozliwe do odwrocenia<br>
+<strong>Wady:</strong> Wymaga loader extension na serwerze, koszty licencji, ograniczona wydajnosc</p>
+
+<h3>3. License management</h3>
+<p>Dodaje weryfikacje licencji do kodu (call home, license key validation).</p>
+
+<h3>4. Native compilation (najnowszy trend)</h3>
+<p>Kompilacja do natywnego binary. PHP nie mial dobrej opcji do 2024.</p>
+
+<h2>Komercyjne enkodery (state-of-the-art 2026)</h2>
+
+<h3>ionCube &mdash; najpopularniejszy</h3>
+<p><strong>ionCube</strong> to lider rynku. Uzywany przez wiekszosc komercyjnych skryptow PHP (np. Laravel Spark, BoxBilling, WHMCS).</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>Najszerzej dostepny loader (wiekszosc hostingow ma preinstalled)</li>
+<li>Wsparcie PHP 8.0/8.1/8.2/8.3/8.4</li>
+<li>Bardzo trudny do odwrocenia (state-of-the-art encoding)</li>
+<li>License management built-in (expiry, domain locking, IP locking)</li>
+<li>Free loader, encoder platny</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Encoder platny: $199 jednorazowo (Basic) do $499 (24-month support)</li>
+<li>Lekka degradacja wydajnosci (~5-10%)</li>
+<li>Encoded files sa wieksze niz oryginalne</li>
+</ul>
+</div>
+
+<p><strong>Workflow:</strong></p>
+<pre><code># Linux/Mac
+./ioncube_encoder.sh --encode myapp.php
+
+# Windows
+ioncube_encoder.exe --encode myapp.php
+
+# Output: encoded myapp.php (lookable jak: &lt;?php //00fb840000018000000041000091a000... ?&gt;)</code></pre>
+
+<p><strong>License binding:</strong></p>
+<pre><code># Bind do domeny
+./ioncube_encoder.sh --license-allowed-server "example.com"
+
+# Bind do IP
+./ioncube_encoder.sh --license-allowed-server "192.168.1.100"
+
+# Expiry
+./ioncube_encoder.sh --license-expire-on "2027-12-31"</code></pre>
+
+<p><strong>Loader installation (na serwerze klienta):</strong></p>
+<pre><code># Pobierz loader dla wersji PHP
+wget https://www.ioncube.com/loaders/ioncube_loaders_lin_x86-64.tar.gz
+tar xvf ioncube_loaders_lin_x86-64.tar.gz
+
+# Skopiuj odpowiedni loader
+cp ioncube_loader_lin_8.3.so /usr/lib/php/20230831/
+
+# Dodaj do php.ini
+echo "zend_extension = /usr/lib/php/20230831/ioncube_loader_lin_8.3.so" &gt;&gt; /etc/php/8.3/fpm/php.ini
+
+# Restart
+systemctl restart php8.3-fpm</code></pre>
+
+<h3>SourceGuardian &mdash; silny konkurent</h3>
+<p><strong>SourceGuardian</strong> &mdash; UK firma, podobnie do ionCube.</p>
+
+<div class="card green">
+<h4>Plusy:</h4>
+<ul>
+<li>Bardzo silne encoding</li>
+<li>Dobre license management</li>
+<li>Wsparcie najnowszych wersji PHP</li>
+<li>Mozna sie ma "encrypted" mode (wymaga klucza klienta)</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Minusy:</h4>
+<ul>
+<li>Mniej hostingow ma preinstalled loader (vs ionCube)</li>
+<li>Encoder $399+ jednorazowo</li>
+</ul>
+</div>
+
+<p><strong>Workflow:</strong></p>
+<pre><code>sourceguardian -o protected.php source.php
+sourceguardian --bind-to-domain "example.com" -o protected.php source.php</code></pre>
+
+<h3>Zend Guard / Zend Studio (legacy)</h3>
+<p><strong>Zend Guard</strong> byl pionierem, ale <strong>nie obsluguje PHP 8+</strong> od dluzszego czasu. Wiekszosc firm migruje do ionCube/SourceGuardian.</p>
+<p><strong>Status 2026:</strong> legacy, uzywaj tylko jesli musisz dla starych projektow.</p>
+
+<h3>Cobwwweb (PHP 8 friendly)</h3>
+<p>Nowsze rozwiazanie, focus na PHP 8.x. Niszowe ale wzmianki w community.</p>
+
+<h2>Open source / free alternatywy</h2>
+
+<h3>blenc (BLENd Crypt)</h3>
+<p>Rozszerzenie PECL do encrypt PHP scripts.</p>
+<ul>
+<li>Free, open source</li>
+<li>Rzadko aktualizowane</li>
+<li>Slabe encryption (mozna reverse)</li>
+</ul>
+
+<h3>POBS (PHP Obfuscator)</h3>
+<p>Open source obfuskator (zmienia nazwy zmiennych, removuje whitespace, encoduje stringi).</p>
+<ul>
+<li>Free</li>
+<li>Tylko obfuskacja, nie encoding</li>
+<li>Latwy do odwrocenia z wystarczajacym wysilkiem</li>
+</ul>
+
+<h3>YAK Pro PHP Obfuscator</h3>
+<p>Profesjonalny obfuskator open source. Bardziej zaawansowany.</p>
+
+<pre><code>composer require pk-fr/yakpro-po
+yakpro-po source/ -o obfuscated/</code></pre>
+
+<p>Robi:</p>
+<ul>
+<li>Renaming (variables, functions, classes, methods, namespaces)</li>
+<li>String encoding</li>
+<li>Code shuffling</li>
+<li>Control flow obfuscation</li>
+<li>Junk code insertion</li>
+</ul>
+
+<p><strong>Zalety:</strong> Free, no loader needed (czysty PHP)<br>
+<strong>Wady:</strong> Mozna odwrocic z determinacja (samo PHP wciaz jest), slabszy niz ionCube</p>
+
+<h3>eval+base64 (NIE rob tego!)</h3>
+<pre><code>eval(base64_decode("PD9waHAgZWNobyAnSGVsbG8nOyA/Pg=="));</code></pre>
+
+<p>Klasyczny "amateur protection". <strong>Zle pomysl</strong> &mdash; mozna odwrocic w 5 sekund:</p>
+<pre><code>echo base64_decode("PD9waHAgZWNobyAnSGVsbG8nOyA/Pg==");</code></pre>
+
+<p>Wiekszosc AV i hostingow blokuje takie wzorce jako malware.</p>
+
+<h2>Native compilation &mdash; nowy trend</h2>
+
+<h3>FrankenPHP + AOT compilation</h3>
+<p><strong>FrankenPHP</strong> (od Symfony team, 2024+) &mdash; modern PHP runtime z mozliwoscia <strong>embed PHP w Go binary</strong>.</p>
+
+<pre><code>// main.go
+package main
+
+import (
+    _ "embed"
+    "github.com/dunglas/frankenphp"
+)
+
+//go:embed public
+var publicFS embed.FS
+
+func main() {
+    frankenphp.Init(...)
+    // PHP source jest embedded w binary!
+}</code></pre>
+
+<p><strong>Build:</strong></p>
+<pre><code>go build -o myapp
+# Single binary z PHP source jako embedded resource
+# Trudne do extract bez odpowiednich tools</code></pre>
+
+<div class="card green">
+<h4>Zalety:</h4>
+<ul>
+<li>Single binary deployment</li>
+<li>Source jest "ukryty" (nie w pliku .php)</li>
+<li>Modern, performant</li>
+</ul>
+</div>
+
+<div class="card orange">
+<h4>Wady:</h4>
+<ul>
+<li>Wymaga Go knowledge</li>
+<li>Source nie jest <strong>encrypted</strong> &mdash; mozna wyciagnac z binary z wysilkiem</li>
+<li>Younger ecosystem</li>
+</ul>
+</div>
+
+<h3>NativePHP / Tauri PHP</h3>
+<p>Dla desktop apps &mdash; kompiluje PHP do native desktop binary.</p>
+
+<h2>Strategia ochrony &mdash; multi-layer</h2>
+
+<p><strong>Pojedyncza warstwa nie wystarcza.</strong> Dobra ochrona = wiele warstw:</p>
+
+<pre><code>1. Frontend obfuscation (np. ionCube)
+2. License key validation (online check)
+3. Domain/IP binding
+4. Hardware fingerprinting
+5. Anti-debug measures
+6. Server-side critical logic (klient nie ma kodu)
+7. Watermarking (tracking po kradziezy)
+8. Legal (license agreement, EULA)</code></pre>
+
+<h3>Pattern: Hybrid SaaS + Self-hosted</h3>
+<p>Najlepszy model w 2026 dla komercyjnych aplikacji:</p>
+
+<pre><code>Klient instaluje Twoj encoded plugin (ionCube)
+      &darr;
+Plugin laczy sie z TWOIM API (cloud)
+      &darr;
+Krytyczne business logic wykonywane PO STRONIE TWOJEGO API
+      &darr;
+Klient dostaje tylko WYNIK</code></pre>
+
+<div class="card green">
+<h4>Zalety:</h4>
+<ul>
+<li>Klient nie ma critical code</li>
+<li>Mozesz update/disable per klient</li>
+<li>Telemetry, usage tracking</li>
+<li>Latwiej monetyzowac (subscription)</li>
+</ul>
+</div>
+
+<p><strong>Tak dziala:</strong> WHMCS, BoxBilling, ProcessWire Pro, wiekszosc commercial pluginow.</p>
+
+<h2>License management</h2>
+
+<h3>Walidacja online (call home)</h3>
+
+<pre><code>class LicenseChecker {
+    private string $apiUrl = 'https://api.yourcompany.com/license/verify';
+
+    public function isValid(string $licenseKey): bool {
+        $response = file_get_contents(
+            $this-&gt;apiUrl . '?key=' . urlencode($licenseKey)
+            . '&amp;domain=' . urlencode($_SERVER['SERVER_NAME'])
+            . '&amp;hash=' . hash('sha256', $licenseKey . self::SECRET)
+        );
+
+        $data = json_decode($response, true);
+        return $data['valid'] === true
+            &amp;&amp; $data['expires_at'] &gt; time();
+    }
+}
+
+// W bootstrap:
+if (!$license-&gt;isValid(LICENSE_KEY)) {
+    die('Invalid or expired license');
+}</code></pre>
+
+<div class="card green">
+<h4>Best practices:</h4>
+<ul>
+<li>Cache result (sprawdzaj raz na dobe, nie kazdy request)</li>
+<li>Graceful degradation (nie kladz aplikacji jesli API down)</li>
+<li>Hardware fingerprint (bind do server hostname/MAC)</li>
+<li>Encrypted communication (HTTPS + signed responses)</li>
+<li>Anti-replay (nonces)</li>
+</ul>
+</div>
+
+<h3>Offline license (signed JWT)</h3>
+
+<pre><code>$jwt = "eyJhbGciOiJSUzI1NiJ9...";
+
+// Verify with public key (klient nie ma private)
+$publicKey = openssl_pkey_get_public('file://public.key');
+$valid = openssl_verify(
+    $payload,
+    $signature,
+    $publicKey,
+    OPENSSL_ALGO_SHA256
+);</code></pre>
+
+<p><strong>Zalety:</strong> Dziala offline, weryfikacja przez asymmetric crypto<br>
+<strong>Wady:</strong> Trudniej revoke (klient juz ma valid JWT)</p>
+
+<h2>Anti-tampering</h2>
+
+<pre><code>// Self-integrity check
+class IntegrityChecker {
+    private array $expectedHashes = [
+        'app/core/License.php' =&gt; 'sha256:abcd1234...',
+        'app/core/Auth.php' =&gt; 'sha256:efgh5678...',
+    ];
+
+    public function verify(): bool {
+        foreach ($this-&gt;expectedHashes as $file =&gt; $expected) {
+            $actual = 'sha256:' . hash_file('sha256', __DIR__ . '/' . $file);
+            if ($actual !== $expected) {
+                $this-&gt;onTampering($file);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private function onTampering(string $file): void {
+        // Disable, log, alert
+    }
+}</code></pre>
+
+<p><strong>Uwaga:</strong> Klient z determinacja moze zmodyfikowac ten kod tez. To <strong>opoznia</strong> atak, nie zatrzymuje.</p>
+
+<h2>Watermarking &mdash; fingerprint per klient</h2>
+
+<p>Dla kazdego klienta &mdash; <strong>unikalna kompilacja</strong> z embedded fingerprint.</p>
+
+<pre><code>// Per klient encoder:
+ioncube_encoder --license-property "client_id=ABC123" \
+                --watermark "$(uuidgen)" \
+                source.php</code></pre>
+
+<p>Jesli kod wyciecze &rarr; mozesz zidentyfikowac zrodlo.</p>
+
+<h2>Praktyczne rekomendacje (2026)</h2>
+
+<h3>Dla pojedynczego komercyjnego pluginu/skryptu (low budget):</h3>
+<pre><code>1. Obfuskacja: YAK Pro (free)
+2. License validation: simple online API
+3. Trust legal (EULA, copyright)</code></pre>
+
+<h3>Dla mid-size product (CMS, business app):</h3>
+<pre><code>1. ionCube Encoder ($199-499)
+2. License management: online + offline JWT
+3. Domain/IP binding
+4. Hybrid: critical logic w cloud</code></pre>
+
+<h3>Dla enterprise / large product:</h3>
+<pre><code>1. ionCube + SourceGuardian (multiple layers)
+2. Custom license server
+3. Hardware fingerprinting
+4. Anti-debug, anti-tampering
+5. Code watermarking (per-customer builds)
+6. Cloud-first architecture (klient ma minimum kodu)
+7. Aggressive legal protection (DMCA monitoring)</code></pre>
+
+<h3>Dla SaaS:</h3>
+<pre><code>Klient nie dostaje kodu w ogole.
+Tylko thin client / API calls.
+Nie potrzebujesz obfuskacji w ogole.</code></pre>
+
+<h2>Workflow: setup ionCube dla projektu</h2>
+
+<pre><code># 1. Kup encoder (ioncube.com)
+
+# 2. Pobierz encoder dla swojego OS
+wget https://download.ioncube.com/encoder/ioncube_encoder_lin_x86-64.tar.gz
+tar xvf ioncube_encoder_lin_x86-64.tar.gz
+
+# 3. Encode calego projektu
+./ioncube_encoder \
+    --encode . \
+    --target encoded/ \
+    --skip-defaults \
+    --license-property "domain=example.com" \
+    --license-property "expires=2027-01-01" \
+    --without-runtime-loader-support  # wymusza loader
+
+# 4. Test loader
+echo "&lt;?php phpinfo(); ?&gt;" &gt; test.php
+php -d zend_extension=ioncube_loader_lin_8.3.so test.php
+# Powinno pokazac "with the ionCube PHP Loader" w phpinfo
+
+# 5. Test encoded code
+php -d zend_extension=ioncube_loader_lin_8.3.so encoded/index.php
+
+# 6. Pakuj do dystrybucji (z instrukcja instalacji loader dla klienta)</code></pre>
+
+<h2>Co NIE dziala (anty-patterns)</h2>
+
+<div class="card red">
+<h3>"Ukryje plik z license"</h3>
+<p>Plik tekstowy z license key w <code>.htaccess</code> zaprotected &rarr; klient znajdzie w 5 sekund.</p>
+
+<h3>"Custom encryption w PHP"</h3>
+<pre><code>$decoded = my_custom_decrypt($encrypted);
+eval($decoded);</code></pre>
+<p>Klient odpali debugger lub <code>php -r "echo my_custom_decrypt('...');"</code> &rarr; ma plain code.</p>
+
+<h3>"Compiled SOAP binding"</h3>
+<p>Pomijam wszystkie warstwy security przez exposed API.</p>
+
+<h3>"JS frontend z business logic"</h3>
+<p>Caly kod w przegladarce &rarr; nic nie chronisz.</p>
+
+<h3>Tylko EULA</h3>
+<p>"Nie wolno modyfikowac" w EULA = legal protection ale fizycznie nikt tego nie sprawdza. Polacz z technical protection.</p>
+</div>
+
+<h2>Wydajnosc po enkodowaniu</h2>
+
+<table>
+<thead>
+<tr><th>Encoding</th><th>Przykladowy overhead</th></tr>
+</thead>
+<tbody>
+<tr><td>Plain PHP (oryginalny)</td><td>100% (baseline)</td></tr>
+<tr><td>OPcache enabled</td><td>~95% (5-10% szybciej!)</td></tr>
+<tr><td>ionCube encoded</td><td>105-115% (5-15% wolniejsze)</td></tr>
+<tr><td>ionCube + OPcache</td><td>95-105% (porownywalne do plain)</td></tr>
+<tr><td>YAK Pro obfuscated</td><td>100-105% (similar)</td></tr>
+<tr><td>SourceGuardian</td><td>105-115% (similar to ionCube)</td></tr>
+</tbody>
+</table>
+
+<p><strong>Praktyka:</strong> OPcache w produkcji eliminuje wiekszosc roznicy. Encoded code jest nieco wolniejszy ale niezauwazalnie.</p>
+
+<h2>Bezpieczenstwo loader-ow</h2>
+
+<p>Czasem znajduja sie <strong>vulnerabilities w loader-ach</strong>. Updateuj!</p>
+
+<ul>
+<li><strong>ionCube</strong>: regularne updates, free</li>
+<li><strong>SourceGuardian</strong>: regularne</li>
+<li><strong>Zend Guard</strong>: legacy, brak updates &rarr; security risk</li>
+</ul>
+
+<p>Sprawdzaj CVE database regularnie.</p>
+
+<h2>Aspekty prawne</h2>
+
+<h3>Copyright</h3>
+<p>PHP source code ma automatyczna ochrone copyright (od momentu utworzenia). <strong>Rejestracja</strong> w odpowiedniej organizacji (np. US Copyright Office, ZAIKS w PL) wzmacnia pozycje prawna.</p>
+
+<h3>EULA / License</h3>
+<p>Twoj <strong>EULA</strong> powinien zawierac:</p>
+<ul>
+<li>Zakaz reverse engineering</li>
+<li>Zakaz dystrybucji</li>
+<li>Zakaz modyfikacji core</li>
+<li>Limit na liczbe uzytkownikow/serwerow</li>
+<li>Term i renewal</li>
+<li>Liability limitation</li>
+<li>Governing law</li>
+</ul>
+
+<h3>DMCA / European equivalents</h3>
+<p>Jesli ktos dystrybuuje skradziony kod online &mdash; DMCA takedown notice (US) lub odpowiednik w EU.</p>
+
+<h3>Trade Secret</h3>
+<p>Niektore algorytmy moga byc chronione jako trade secret. Wymagana <strong>NDA</strong> z pracownikami i kontraktorami.</p>
+
+<h2>Monitorowanie i wykrywanie kradziezy</h2>
+
+<h3>Tools:</h3>
+<ul>
+<li><strong>GitHub search</strong> &mdash; szukaj fragmentow Twojego kodu</li>
+<li><strong>Google search</strong> &mdash; unique strings z Twojego kodu</li>
+<li><strong>DMCA scanner services</strong>: Pixsy, Markmonitor (commercial)</li>
+<li><strong>Telemetry w aplikacji</strong> &mdash; track gdzie i kiedy uruchamiana</li>
+<li><strong>License server analytics</strong> &mdash; anomalie w uzyciu</li>
+</ul>
+
+<h3>Watermarking practices:</h3>
+<pre><code>// Unique per-customer comment / variable name
+// (zostaje po deobfuskacji bo to legalna czesc logiki)
+
+class LicenseChecker {
+    // Internal ref: CUSTOMER_8a4f2c
+    private const REF = 'CUSTOMER_8a4f2c';
+}</code></pre>
+
+<p>Jesli ktos wrzuci na GitHub &mdash; latwo zidentyfikujesz klienta-leakera.</p>
+
+<h2>Stack rekomendacji 2026</h2>
+
+<h3>"Sprzedaje plugin do popularnego CMS"</h3>
+<ul>
+<li><strong>Encoder:</strong> ionCube (largest hosting compatibility)</li>
+<li><strong>License:</strong> online check + cache</li>
+<li><strong>Anti-tamper:</strong> integrity check w bootstrap</li>
+<li><strong>Pricing:</strong> subscription with auto-disable on non-payment</li>
+</ul>
+
+<h3>"Sprzedaje self-hosted business app"</h3>
+<ul>
+<li><strong>Encoder:</strong> ionCube + custom license server</li>
+<li><strong>Architecture:</strong> core encoded + cloud API for critical features</li>
+<li><strong>Anti-tamper:</strong> multiple checks, watermarking</li>
+<li><strong>Updates:</strong> signed updates, server-validated</li>
+<li><strong>Backup:</strong> klient ma encoded code, backup ma source (tylko Ty)</li>
+</ul>
+
+<h3>"Open source z paid features"</h3>
+<ul>
+<li><strong>Free tier:</strong> open source GitHub</li>
+<li><strong>Pro tier:</strong> ionCube encoded module</li>
+<li><strong>Community plugin marketplace:</strong> signing system (verified publishers)</li>
+</ul>
+
+<h2>Wazne: ochrona &ne; niemoznosc kradziezy</h2>
+
+<p><strong>Zadna ochrona nie jest 100%.</strong> ionCube byl crackowany w przeszlosci (chociaz rzadko, z wysilkiem). YAK Pro mozna odwrocic determined reverse engineer.</p>
+
+<p><strong>Cel ochrony:</strong> zwiekszyc <strong>koszt</strong> kradziezy powyzej <strong>wartosci</strong> dla atakujacego.</p>
+
+<p>Jesli plugin kosztuje $50 &rarr; ionCube wystarczy (nikt nie wyda 100h na crack)<br>
+Jesli system kosztuje $50,000 &rarr; potrzebujesz multiple layers + cloud architecture</p>
+
+<h2>Linki i zasoby</h2>
+
+<ul>
+<li><strong>ionCube</strong>: ioncube.com</li>
+<li><strong>SourceGuardian</strong>: sourceguardian.com</li>
+<li><strong>YAK Pro</strong>: github.com/pk-fr/yakpro-po</li>
+<li><strong>POBS</strong>: github.com/php-obfuscator/php-obfuscator</li>
+<li><strong>FrankenPHP</strong>: frankenphp.dev</li>
+<li><strong>PHP-Parser</strong> (do custom obfuskatorow): github.com/nikic/PHP-Parser</li>
+</ul>
+
+<h2>Nastepne kroki</h2>
+
+<ul>
+<li><strong>Rozdzial 04</strong> &mdash; bezpieczenstwo aplikacji (OWASP, walidacja)</li>
+<li><strong>Rozdzial 06</strong> &mdash; narzedzia i deployment</li>
+<li>W folderze <strong>architektura/08-bezpieczenstwo</strong> &mdash; fundamenty bezpieczenstwa</li>
+</ul>
+
+<div class="nav-bottom">
+    <a href="index.html">&larr; Indeks PHP</a>
+    <a href="index.html">Indeks PHP &rarr;</a>
+</div>
+
+</div>
+</body>
+</html>
