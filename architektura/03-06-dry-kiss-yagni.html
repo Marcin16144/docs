@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03-06 — DRY, KISS, YAGNI</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="03-zasady-projektowania.html">03 — Zasady</a>
+        <span class="sep">/</span>
+        <span class="title">DRY / KISS / YAGNI</span>
+    </div>
+    <div class="container">
+        <h1>DRY, KISS, YAGNI</h1>
+        <p class="subtitle">Zasady prostoty i pragmatyzmu — unikaj duplikacji wiedzy, zbednej zlozonosci i implementowania na zapas.</p>
+
+        <h2>DRY — Don't Repeat Yourself</h2>
+        <p>Kazda porcja wiedzy powinna miec <strong>jedna, jednoznaczna, autorytatywna reprezentacje</strong> w systemie. Uwaga: DRY dotyczy duplikacji wiedzy, nie duplikacji kodu.</p>
+
+        <h3>Przypadkowa zbieznosc vs prawdziwa duplikacja</h3>
+<pre><code>// PRZYPADKOWA ZBIEZNOSC — wyglada identycznie, ale to ROZNA wiedza
+
+// Zmienia sie gdy zmienia sie logistyka
+function validateShippingAddress(addr: Address): boolean {
+    return addr.street.length &gt; 0
+        &amp;&amp; addr.city.length &gt; 0
+        &amp;&amp; addr.zip.length === 5;
+}
+
+// Zmienia sie gdy zmienia sie prawo podatkowe
+function validateBillingAddress(addr: Address): boolean {
+    return addr.street.length &gt; 0
+        &amp;&amp; addr.city.length &gt; 0
+        &amp;&amp; addr.zip.length === 5;
+}
+
+// Wygladaja identycznie, ale za miesiac billing moze wymagac NIP.
+// Polaczenie ich w jedna = zle zastosowane DRY.</code></pre>
+
+<pre><code>// PRAWDZIWA DUPLIKACJA — ta sama wiedza w wielu miejscach
+
+// ZLE — logika podatku powtorzona
+class CartService {
+    calcTax(amount: number) { return amount * 0.23; }
+}
+class InvoiceService {
+    calcTax(amount: number) { return amount * 0.23; }
+}
+class ReportService {
+    calcTax(amount: number) { return amount * 0.23; }
+}
+
+// DOBRZE — jedna reprezentacja wiedzy
+class TaxCalculator {
+    private static readonly VAT_RATE = 0.23;
+    static calculate(amount: number): number {
+        return amount * TaxCalculator.VAT_RATE;
+    }
+}</code></pre>
+
+        <h3>Kiedy DRY jest szkodliwe — Wrong Abstraction</h3>
+<pre><code># ZLE — wymuszona "uniwersalna" funkcja
+def process_entity(entity, entity_type):
+    if entity_type == 'user':
+        validate_email(entity.email)
+        # ... 20 linii specyficznych dla usera
+    elif entity_type == 'product':
+        validate_sku(entity.sku)
+        # ... 20 linii specyficznych dla produktu
+    # Wspolna czesc: 3 linie
+    entity.updated_at = datetime.now()
+    entity.version += 1
+    db.save(entity)
+
+# DOBRZE — oddzielne funkcje, nawet jesli koncowka sie powtarza
+def process_user(user: User):
+    validate_email(user.email)
+    # logika specyficzna
+    user.updated_at = datetime.now()
+    user.version += 1
+    db.save(user)
+
+def process_product(product: Product):
+    validate_sku(product.sku)
+    # logika specyficzna
+    product.updated_at = datetime.now()
+    product.version += 1
+    db.save(product)</code></pre>
+
+        <div class="card">
+            <h3>Rule of Three</h3>
+            <ol>
+                <li><strong>Pierwsze uzycie</strong> — napisz kod</li>
+                <li><strong>Drugie uzycie</strong> — skopiuj i zanotuj</li>
+                <li><strong>Trzecie uzycie</strong> — refaktoryzuj, bo widzisz wzorzec</li>
+            </ol>
+        </div>
+
+        <h2>KISS — Keep It Simple, Stupid</h2>
+        <p>Systemy dzialaja najlepiej, gdy sa proste. Prostota powinna byc kluczowym celem projektowania.</p>
+
+        <h3>Accidental vs Essential Complexity</h3>
+<pre><code>// ACCIDENTAL COMPLEXITY — programista przesadzil
+
+// ZLE — wzorzec Strategy dla toUpperCase
+interface IStringFormatterStrategy {
+    format(input: string): string;
+}
+class UpperCaseStrategy implements IStringFormatterStrategy {
+    format(input: string): string {
+        return input.toUpperCase();
+    }
+}
+class FormatterContext {
+    constructor(private strategy: IStringFormatterStrategy) {}
+    execute(input: string): string {
+        return this.strategy.format(input);
+    }
+}
+const result = new FormatterContext(
+    new UpperCaseStrategy()
+).execute("hello");
+
+// DOBRZE — proste rozwiazanie prostego problemu
+const result = "hello".toUpperCase();</code></pre>
+
+<pre><code># Kolejny przyklad zbednej zlozonosci
+
+# ZLE — overcomplicated
+class NumberProcessor:
+    def __init__(self, numbers):
+        self.numbers = numbers
+    def get_sum(self):
+        return functools.reduce(lambda a, x: a + x, self.numbers, 0)
+    def get_even(self):
+        return list(filter(lambda x: x % 2 == 0, self.numbers))
+
+processor = NumberProcessor([1, 2, 3, 4, 5])
+total = processor.get_sum()
+
+# DOBRZE — proste i czytelne
+numbers = [1, 2, 3, 4, 5]
+total = sum(numbers)
+evens = [n for n in numbers if n % 2 == 0]</code></pre>
+
+<pre><code>// ZLE — generyczny builder dla prostej konfiguracji
+const config = new ConfigBuilder()
+    .withDatabase(new DatabaseConfigBuilder()
+        .withHost('localhost').withPort(5432).build())
+    .withLogging(new LoggingConfigBuilder()
+        .withLevel('info').build())
+    .build();
+
+// DOBRZE — prosty obiekt
+const config = {
+    database: { host: 'localhost', port: 5432, name: 'mydb' },
+    logging: { level: 'info' }
+};</code></pre>
+
+        <h2>YAGNI — You Aren't Gonna Need It</h2>
+        <p>Nie implementuj funkcjonalnosci, dopoki nie jest faktycznie potrzebna. Pochodzi z Extreme Programming i walczy z tendencja do przewidywania przyszlych potrzeb.</p>
+
+        <h3>System pluginow "na wyrost"</h3>
+<pre><code>// ZLE — system pluginow dla bloga z 3 typami postow
+interface Plugin {
+    name: string;
+    version: string;
+    initialize(context: PluginContext): void;
+    destroy(): void;
+}
+class PluginManager {
+    private plugins = new Map&lt;string, Plugin&gt;();
+    private hooks = new Map&lt;string, Function[]&gt;();
+    load(plugin: Plugin): void { /* ... */ }
+    unload(name: string): void { /* ... */ }
+    executeHook(event: string, data: any): void { /* ... */ }
+    // ... 200 linii kodu bez zadnego uzytkownika
+}
+
+// DOBRZE — proste rozwiazanie adekwatne do potrzeb
+type PostType = 'article' | 'gallery' | 'video';
+
+function renderPost(post: Post): string {
+    switch (post.type) {
+        case 'article': return renderArticle(post);
+        case 'gallery': return renderGallery(post);
+        case 'video':   return renderVideo(post);
+    }
+}
+// Gdy faktycznie pojawi sie potrzeba pluginow — WTEDY je zbuduj.</code></pre>
+
+        <h3>Premature Optimization</h3>
+<pre><code># ZLE — cache z LRU, TTL, shardingiem dla 50 uzytkownikow
+class UserCache:
+    def __init__(self, shards=16, ttl=300, max_size=10000,
+                 replication_factor=3):
+        self.shards = [OrderedDict() for _ in range(shards)]
+        # ... 150 linii kodu cache'a
+
+# DOBRZE — adekwatne do skali
+users = {}  # dict wystarczy dla 50 uzytkownikow
+
+def get_user(user_id):
+    if user_id not in users:
+        users[user_id] = db.find_user(user_id)
+    return users[user_id]
+
+# Gdy urosnie do 100k — WTEDY dodaj Redis.</code></pre>
+
+        <h2>Napiecia miedzy zasadami</h2>
+        <h3>DRY vs KISS</h3>
+<pre><code>// DRY moze prowadzic do zbytniej zlozonosci
+
+// Sztywne DRY — skomplikowane generyki
+function formatEntity&lt;T extends Record&lt;string, any&gt;&gt;(
+    entity: T,
+    fields: (keyof T)[],
+    formatters: Partial&lt;Record&lt;keyof T, (v: any) =&gt; string&gt;&gt;
+): string {
+    return fields.map(f =&gt; (formatters[f] || String)(entity[f])).join(', ');
+}
+
+// KISS — proste, nawet z lekka powtarzalnoscia
+function formatUser(user: User): string {
+    return `${user.name} (${user.email})`;
+}
+function formatProduct(product: Product): string {
+    return `${product.name} — ${product.price} PLN`;
+}</code></pre>
+
+        <h2>Praktyczne wskazowki</h2>
+        <table>
+            <thead><tr><th>Zasada</th><th>Stosuj gdy...</th><th>Nie stosuj gdy...</th></tr></thead>
+            <tbody>
+                <tr><td><strong>DRY</strong></td><td>Ta sama wiedza powtarza sie 3+ razy</td><td>Zbieznosc jest przypadkowa</td></tr>
+                <tr><td><strong>KISS</strong></td><td>Istnieje prostsze rozwiazanie</td><td>Prostsze nie spelnia wymagan</td></tr>
+                <tr><td><strong>YAGNI</strong></td><td>Funkcja nie ma realnego uzytkownika</td><td>Koszt pozniejszego dodania jest wysoki</td></tr>
+            </tbody>
+        </table>
+
+        <div class="nav-bottom">
+            <a href="03-05-dependency-inversion.html">&larr; Dependency Inversion</a>
+            <a href="03-07-prawo-demeter.html">Prawo Demeter &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02-05 — CQRS</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="02-wzorce-architektoniczne.html">02 — Wzorce</a>
+        <span class="sep">/</span>
+        <span class="title">CQRS</span>
+    </div>
+    <div class="container">
+        <h1>CQRS</h1>
+        <p class="subtitle">Command Query Responsibility Segregation — rozdzielenie modelu zapisu od modelu odczytu dla lepszej skalowalnosci i czytelnosci.</p>
+
+        <h2>Czym jest CQRS?</h2>
+        <p>CQRS to wzorzec architektoniczny polegajacy na <strong>rozdzieleniu modelu odczytu (Query) od modelu zapisu (Command)</strong>. Zamiast jednego modelu obslugujacego oba zadania, tworzymy dwa niezalezne modele, kazdy zoptymalizowany pod katem swoich wymagan.</p>
+
+<pre><code>Tradycyjne podejscie (CRUD):
+
+┌─────────┐     ┌──────────────┐     ┌──────┐
+│ Klient  │────►│  Jeden model │────►│  BD  │
+│         │◄────│  (CRUD)      │◄────│      │
+└─────────┘     └──────────────┘     └──────┘
+
+CQRS:
+
+┌─────────┐  Command  ┌──────────────┐     ┌─────────┐
+│ Klient  │──────────►│ Write Model  │────►│ Write   │
+│         │           └──────────────┘     │ Store   │
+│         │                                └────┬────┘
+│         │                                     │ sync
+│         │  Query    ┌──────────────┐     ┌────▼────┐
+│         │◄──────────│ Read Model   │◄────│ Read    │
+└─────────┘           └──────────────┘     │ Store   │
+                                           └─────────┘</code></pre>
+
+        <h2>Dlaczego CQRS?</h2>
+
+        <div class="card">
+            <h3>Problem jednego modelu</h3>
+            <p>W typowej aplikacji CRUD jeden model musi obsluzuc: walidacje i reguly biznesowe (zapis), zlozone zapytania raportowe (odczyt), wyszukiwanie pelnotekstowe (odczyt) i agregacje (odczyt). To prowadzi do kompromisow — model jest zbyt zlozony dla zapisu i zbyt wolny dla odczytu.</p>
+        </div>
+
+        <div class="card">
+            <h3>Asymetria odczyt/zapis</h3>
+<pre><code>W wiekszosci systemow:
+
+Odczyty:  ████████████████████████ 90%
+Zapisy:   ████                     10%
+
+Wymagania odczytu:           Wymagania zapisu:
+- Szybkosc                   - Walidacja
+- Denormalizacja             - Reguly biznesowe
+- Wiele widokow              - Spojnosc transakcyjna
+- Stronicowanie              - Audyt
+- Cache-friendly             - Idempotentnosc</code></pre>
+        </div>
+
+        <h2>Command Model (strona zapisu)</h2>
+
+        <h3>Struktura komendy i handlera</h3>
+<pre><code>// Komenda = intencja zmiany stanu
+interface CreateOrderCommand {
+    type: "CreateOrder";
+    customerId: string;
+    items: Array&lt;{
+        productId: string;
+        quantity: number;
+    }&gt;;
+    shippingAddress: Address;
+}
+
+// Command Handler = logika biznesowa
+class CreateOrderHandler {
+    constructor(
+        private readonly orderRepo: OrderRepository,
+        private readonly inventory: InventoryService,
+        private readonly eventBus: EventBus
+    ) {}
+
+    async handle(cmd: CreateOrderCommand): Promise&lt;OrderId&gt; {
+        // 1. Walidacja biznesowa
+        await this.inventory.checkAvailability(cmd.items);
+
+        // 2. Utworzenie agregatu
+        const order = Order.create(
+            cmd.customerId, cmd.items, cmd.shippingAddress
+        );
+
+        // 3. Zapis
+        await this.orderRepo.save(order);
+
+        // 4. Publikacja zdarzen
+        await this.eventBus.publish(order.domainEvents);
+
+        return order.id;
+    }
+}</code></pre>
+
+        <h3>Walidacja komend</h3>
+<pre><code>Komenda --► [Walidacja strukturalna] --► [Walidacja biznesowa] --► [Wykonanie]
+              (format danych)              (reguly domeny)          (zapis)
+
+Poziomy walidacji:
+1. Strukturalna: czy pola sa wypelnione, typy poprawne?
+2. Biznesowa:    czy klient istnieje? czy produkt jest dostepny?
+3. Autoryzacja:  czy uzytkownik ma prawo wykonac te operacje?</code></pre>
+
+        <h2>Query Model (strona odczytu)</h2>
+
+        <h3>Projekcje — zdenormalizowane widoki</h3>
+<pre><code>Write Model (znormalizowany):     Read Model (zdenormalizowany):
+
+┌──────────┐ ┌──────────┐        ┌─────────────────────────┐
+│ orders   │ │ users    │        │ order_view              │
+│ ──────── │ │ ──────── │   ──►  │ ────────────────────── │
+│ id       │ │ id       │        │ order_id               │
+│ user_id  │ │ name     │        │ customer_name          │
+│ total    │ │ email    │        │ customer_email         │
+│ status   │ │          │        │ total                  │
+└──────────┘ └──────────┘        │ status                 │
+┌──────────┐                     │ items_count            │
+│order_items│                    │ items_json             │
+│ ──────── │                     │ created_at             │
+│ order_id │                     │ shipping_address       │
+│ product  │                     └─────────────────────────┘
+│ quantity │
+│ price    │                     Jedna tabela = jeden widok
+└──────────┘                     Bez JOINow!</code></pre>
+
+        <h3>Implementacja projekcji</h3>
+<pre><code>// Projekcja nasluchuje na zdarzenia i aktualizuje Read Model
+class OrderProjection {
+    constructor(private readonly readDb: ReadDatabase) {}
+
+    async onOrderCreated(event: OrderCreated): Promise&lt;void&gt; {
+        await this.readDb.insert("order_views", {
+            order_id: event.orderId,
+            customer_name: event.customerName,
+            status: "created",
+            total: event.total,
+            items_count: event.items.length,
+            items_json: JSON.stringify(event.items),
+            created_at: event.timestamp
+        });
+    }
+
+    async onOrderShipped(event: OrderShipped): Promise&lt;void&gt; {
+        await this.readDb.update("order_views",
+            { order_id: event.orderId },
+            {
+                status: "shipped",
+                shipped_at: event.timestamp,
+                tracking_number: event.trackingNumber
+            }
+        );
+    }
+}
+
+// Query Handler — prosty odczyt bez logiki biznesowej
+class GetOrderQueryHandler {
+    constructor(private readonly readDb: ReadDatabase) {}
+
+    async handle(query: GetOrderQuery): Promise&lt;OrderView&gt; {
+        return this.readDb.findOne("order_views", {
+            order_id: query.orderId
+        });
+    }
+}</code></pre>
+
+        <h2>Synchronizacja modeli</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Synchroniczna</h3>
+<pre><code>Command
+  --► Write DB
+  --► [Sync Update]
+  --► Read DB
+
+W tej samej transakcji
+(strong consistency)</code></pre>
+                <p>Proste, ale ogranicza skalowanie.</p>
+            </div>
+            <div class="card">
+                <h3>Asynchroniczna</h3>
+<pre><code>Command
+  --► Write DB
+  --► [Event]
+  --► Broker
+  --► [Projection]
+  --► Read DB
+
+Eventual consistency</code></pre>
+                <p>Skalowalne, wymaga obslugi opoznien.</p>
+            </div>
+        </div>
+
+        <table>
+            <thead><tr><th>Aspekt</th><th>Synchroniczna</th><th>Asynchroniczna</th></tr></thead>
+            <tbody>
+                <tr><td>Spojnosc</td><td>Natychmiastowa</td><td>Eventual</td></tr>
+                <tr><td>Wydajnosc</td><td>Nizsza</td><td>Wyzsza</td></tr>
+                <tr><td>Zlozonosc</td><td>Nizsza</td><td>Wyzsza</td></tr>
+                <tr><td>Skalowalnosc</td><td>Ograniczona</td><td>Wysoka</td></tr>
+                <tr><td>Niezawodnosc</td><td>Zapis i projekcja powiazane</td><td>Niezalezne</td></tr>
+            </tbody>
+        </table>
+
+        <h2>CQRS + Event Sourcing</h2>
+        <p>Naturalne polaczenie — Event Store jako zrodlo prawdy, projekcje jako modele odczytu:</p>
+
+<pre><code>┌─────────┐  Command   ┌──────────────┐
+│ Klient  │───────────►│   Command    │
+│         │            │   Handler    │
+│         │            └──────┬───────┘
+│         │                   │ append event
+│         │            ┌──────▼───────┐
+│         │            │  Event Store │ (zrodlo prawdy)
+│         │            └──────┬───────┘
+│         │                   │ events
+│         │            ┌──────▼───────┐
+│         │            │  Projection  │
+│         │            │  Builder     │
+│         │            └──────┬───────┘
+│         │  Query     ┌──────▼───────┐
+│         │◄───────────│  Read Model  │
+└─────────┘            └──────────────┘</code></pre>
+
+        <h3>Wiele Read Models z jednego Event Store</h3>
+<pre><code>Event Store (jedno zrodlo zdarzen):
+│
+├──► Projekcja 1: Lista zamowien (PostgreSQL)
+│    --► Widok tabeli z paginacja
+│
+├──► Projekcja 2: Wyszukiwarka (Elasticsearch)
+│    --► Full-text search, filtry, facety
+│
+├──► Projekcja 3: Dashboard (Redis)
+│    --► Statystyki w czasie rzeczywistym
+│
+└──► Projekcja 4: Raportowanie (ClickHouse)
+     --► Agregacje, wykresy, eksporty</code></pre>
+
+        <h2>Wzorzec Mediator (MediatR)</h2>
+<pre><code>// Rejestracja (C#/.NET)
+services.AddMediatR(cfg =&gt;
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
+// Command
+public record CreateOrderCommand(
+    string CustomerId,
+    List&lt;OrderItemDto&gt; Items
+) : IRequest&lt;OrderId&gt;;
+
+// Command Handler
+public class CreateOrderHandler
+    : IRequestHandler&lt;CreateOrderCommand, OrderId&gt;
+{
+    public async Task&lt;OrderId&gt; Handle(
+        CreateOrderCommand request, CancellationToken ct)
+    {
+        var order = Order.Create(request.CustomerId, request.Items);
+        await _repository.Save(order);
+        return order.Id;
+    }
+}
+
+// Query
+public record GetOrderQuery(string OrderId)
+    : IRequest&lt;OrderView&gt;;
+
+// Controller
+[HttpPost]
+public async Task&lt;ActionResult&gt; Create(CreateOrderRequest req)
+{
+    var id = await _mediator.Send(
+        new CreateOrderCommand(req.CustomerId, req.Items));
+    return CreatedAtAction(nameof(Get), new { id }, null);
+}
+
+[HttpGet("{id}")]
+public async Task&lt;OrderView&gt; Get(string id)
+{
+    return await _mediator.Send(new GetOrderQuery(id));
+}</code></pre>
+
+        <h2>Kiedy stosowac CQRS?</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Idealny dla</h3>
+                <ul>
+                    <li>Systemow z asymetria odczyt/zapis</li>
+                    <li>Zlozonych widokow raportowych</li>
+                    <li>Pelnotekstowego wyszukiwania</li>
+                    <li>Systemow z wieloma modelami odczytu</li>
+                    <li>Aplikacji event-driven + Event Sourcing</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Nie stosowac gdy</h3>
+                <ul>
+                    <li>Proste CRUD bez zlozonej logiki</li>
+                    <li>Maly zespol bez doswiadczenia</li>
+                    <li>Symetryczny odczyt/zapis</li>
+                    <li>Natychmiastowa spojnosc krytyczna</li>
+                    <li>Ograniczony budzet na infrastrukture</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Zalety i wady</h2>
+        <table>
+            <thead><tr><th>Zalety</th><th>Wady</th></tr></thead>
+            <tbody>
+                <tr><td>Niezalezna optymalizacja odczytu i zapisu</td><td>Zwiekszona zlozonosc kodu i infrastruktury</td></tr>
+                <tr><td>Skalowalnosc — osobne skalowanie modeli</td><td>Eventual consistency (przy async sync)</td></tr>
+                <tr><td>Wiele widokow z jednego zrodla danych</td><td>Wiecej kodu do utrzymania (dwa modele)</td></tr>
+                <tr><td>Lepsze separation of concerns</td><td>Duplikacja danych</td></tr>
+                <tr><td>Naturalnie wspolgra z Event Sourcing</td><td>Wymaga dyscypliny zespolu</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Podsumowanie</h2>
+        <p>CQRS to wzorzec, ktory <strong>rozwiazuje realny problem asymetrii odczytu i zapisu</strong>. Nie jest uniwersalnym rozwiazaniem — stosuj go tam, gdzie jeden model nie wystarcza. Najlepiej sprawdza sie w polaczeniu z Event Sourcing i architektura event-driven, ale mozna go wdrozyc rowniez samodzielnie z synchroniczna projekcja.</p>
+
+        <div class="nav-bottom">
+            <a href="02-04-event-driven.html">&larr; 02-04 Event-Driven Architecture</a>
+            <a href="02-06-architektura-heksagonalna.html">02-06 Architektura heksagonalna &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03-01 — Single Responsibility Principle</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="03-zasady-projektowania.html">03 — Zasady</a>
+        <span class="sep">/</span>
+        <span class="title">Single Responsibility Principle</span>
+    </div>
+    <div class="container">
+        <h1>Single Responsibility Principle (SRP)</h1>
+        <p class="subtitle">Klasa powinna miec tylko jeden powod do zmiany — jeden aktor, jedna odpowiedzialnosc.</p>
+
+        <h2>Czym jest SRP?</h2>
+        <p>Zasada pojedynczej odpowiedzialnosci mowi, ze <strong>klasa powinna byc odpowiedzialna wobec jednego i tylko jednego aktora</strong>. Sformulowal ja Robert C. Martin (Uncle Bob). SRP nie oznacza, ze klasa powinna robic "jedna rzecz" — chodzi o to, by zmiany wymagane przez jednego aktora nie wplywaly na logike potrzebna innemu aktorowi.</p>
+
+        <h2>Jak rozpoznac naruszenie SRP?</h2>
+        <div class="card">
+            <h3>Pytania diagnostyczne</h3>
+            <ul>
+                <li>Ile roznych powodow moze spowodowac zmiane tej klasy?</li>
+                <li>Ile roznych osob/zespolow mogloby poprosic o zmiane w tej klasie?</li>
+                <li>Czy opis klasy wymaga uzycia slowa "i" lub "lub"?</li>
+            </ul>
+            <h3>Sygnaly ostrzegawcze</h3>
+            <ul>
+                <li>Klasa ma wiele metod niepowiazanych ze soba</li>
+                <li>Klasa importuje zaleznosci z wielu roznych warstw</li>
+                <li>Testy klasy wymagaja mockowania wielu roznych zaleznosci</li>
+                <li>Klasa zmienia sie przy kazdym nowym wymaganiu, niezaleznie od jego natury</li>
+            </ul>
+        </div>
+
+        <h2>Przyklad 1: Klasa raportu</h2>
+        <h3>Zle — trzy odpowiedzialnosci w jednej klasie</h3>
+<pre><code>// Klasa odpowiada za obliczenia, formatowanie i zapis
+class EmployeeReport {
+    constructor(private db: Database) {}
+
+    calculatePay(employeeId: string): number {
+        const employee = this.db.find(employeeId);
+        const hours = this.db.getHours(employeeId);
+        if (employee.type === 'fulltime') {
+            return employee.salary / 12;
+        }
+        return hours * employee.hourlyRate;
+    }
+
+    formatAsHTML(employeeId: string): string {
+        const pay = this.calculatePay(employeeId);
+        return `&lt;div class="report"&gt;
+            &lt;h1&gt;Raport wynagrodzen&lt;/h1&gt;
+            &lt;p&gt;Kwota: ${pay} PLN&lt;/p&gt;
+        &lt;/div&gt;`;
+    }
+
+    saveToFile(employeeId: string, path: string): void {
+        const html = this.formatAsHTML(employeeId);
+        fs.writeFileSync(path, html);
+    }
+
+    sendByEmail(employeeId: string, email: string): void {
+        const html = this.formatAsHTML(employeeId);
+        this.mailer.send(email, 'Raport', html);
+    }
+}</code></pre>
+        <p>Aktorzy wymuszajacy zmiany: <strong>Dzial HR</strong> (obliczenia), <strong>Dzial IT/UX</strong> (format), <strong>Dzial operacyjny</strong> (zapis/wysylka).</p>
+
+        <h3>Dobrze — rozdzielone odpowiedzialnosci</h3>
+<pre><code>class PayCalculator {
+    constructor(private db: Database) {}
+
+    calculate(employeeId: string): Money {
+        const employee = this.db.find(employeeId);
+        const hours = this.db.getHours(employeeId);
+        if (employee.type === 'fulltime') {
+            return Money.of(employee.salary / 12);
+        }
+        return Money.of(hours * employee.hourlyRate);
+    }
+}
+
+class ReportFormatter {
+    formatAsHTML(data: ReportData): string {
+        return `&lt;div&gt;${data.title}: ${data.amount} PLN&lt;/div&gt;`;
+    }
+
+    formatAsPDF(data: ReportData): Buffer {
+        // generowanie PDF
+    }
+}
+
+class ReportDistributor {
+    constructor(
+        private fileSystem: FileSystem,
+        private mailer: Mailer
+    ) {}
+
+    saveToFile(content: string, path: string): void {
+        this.fileSystem.write(path, content);
+    }
+
+    sendByEmail(content: string, recipient: string): void {
+        this.mailer.send(recipient, 'Raport', content);
+    }
+}</code></pre>
+
+        <h2>Przyklad 2: Modul uzytkownika (Python)</h2>
+        <h3>Zle — trzy odpowiedzialnosci zmieszane</h3>
+<pre><code>class UserService:
+    def authenticate(self, username, password):
+        user = self.db.query("SELECT * FROM users WHERE ...")
+        return bcrypt.check(password, user.password_hash)
+
+    def update_profile(self, user_id, data):
+        if 'email' in data:
+            self._validate_email(data['email'])
+        self.db.execute("UPDATE users SET ...")
+        self._send_notification(user_id)
+
+    def generate_monthly_report(self, user_id):
+        activities = self.db.query("SELECT * FROM activities ...")
+        return self._format_report(activities)</code></pre>
+
+        <h3>Dobrze — oddzielne serwisy</h3>
+<pre><code>class AuthenticationService:
+    def __init__(self, user_repo, hasher):
+        self.user_repo = user_repo
+        self.hasher = hasher
+
+    def authenticate(self, username, password):
+        user = self.user_repo.find_by_username(username)
+        if not user:
+            return AuthResult.failed("Nie znaleziono uzytkownika")
+        if not self.hasher.verify(password, user.password_hash):
+            return AuthResult.failed("Nieprawidlowe haslo")
+        return AuthResult.success(user)
+
+class ProfileService:
+    def __init__(self, user_repo, validator, notifier):
+        self.user_repo = user_repo
+        self.validator = validator
+        self.notifier = notifier
+
+    def update(self, user_id, data):
+        self.validator.validate(data)
+        self.user_repo.update(user_id, data)
+        self.notifier.profile_updated(user_id)
+
+class ActivityReportService:
+    def __init__(self, activity_repo, formatter):
+        self.activity_repo = activity_repo
+        self.formatter = formatter
+
+    def generate_monthly(self, user_id, month):
+        activities = self.activity_repo.find_by_month(user_id, month)
+        return self.formatter.format(activities)</code></pre>
+
+        <h2>SRP na poziomie modulow</h2>
+<pre><code># ZLE — modul "utils" to worek na wszystko
+src/
+  utils/
+    string-helpers.ts
+    date-helpers.ts
+    http-client.ts
+    logger.ts
+    cache.ts
+
+# DOBRZE — moduly pogrupowane wedlug odpowiedzialnosci
+src/
+  formatting/
+    string-formatter.ts
+    date-formatter.ts
+  infrastructure/
+    http-client.ts
+    logger.ts
+    cache.ts
+  validation/
+    email-validator.ts
+    phone-validator.ts</code></pre>
+
+        <h2>Techniki refaktoryzacji ku SRP</h2>
+        <div class="card">
+            <h3>Extract Class</h3>
+            <p>Wydziel grupe powiazanych pol i metod do nowej klasy.</p>
+        </div>
+        <div class="card">
+            <h3>Fasada jako krok posredni</h3>
+            <p>Zachowaj stara klase jako fasade delegujaca do nowych — istniejacy kod kliencki nie wymaga zmian.</p>
+<pre><code>class EmployeeReport {
+    private calculator: PayCalculator;
+    private formatter: ReportFormatter;
+    private distributor: ReportDistributor;
+
+    // Stare metody deleguja
+    calculatePay(id: string) {
+        return this.calculator.calculate(id);
+    }
+
+    formatAsHTML(id: string) {
+        const data = this.buildReportData(id);
+        return this.formatter.formatAsHTML(data);
+    }
+}</code></pre>
+        </div>
+
+        <h2>Kiedy SRP jest stosowane zbyt agresywnie?</h2>
+<pre><code>// PRZESADA — kazda metoda w osobnej klasie
+class EmailValidator { validate(email) {} }
+class EmailSanitizer { sanitize(email) {} }
+class EmailNormalizer { normalize(email) {} }
+
+// ROZSADNIE — powiazane operacje w jednej klasie
+class EmailProcessor {
+    validate(email: string): ValidationResult { ... }
+    sanitize(email: string): string { ... }
+    normalize(email: string): string { ... }
+}</code></pre>
+        <p>Wszystkie te metody zmieniaja sie z tego samego powodu (zmiana wymagan dotyczacych emaili), wiec naturalnie naleza do jednej klasy.</p>
+
+        <div class="nav-bottom">
+            <a href="03-zasady-projektowania.html">&larr; Zasady projektowania</a>
+            <a href="03-02-open-closed.html">Open/Closed Principle &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

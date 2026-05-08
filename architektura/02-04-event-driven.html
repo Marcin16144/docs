@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02-04 — Event-Driven Architecture</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="02-wzorce-architektoniczne.html">02 — Wzorce</a>
+        <span class="sep">/</span>
+        <span class="title">Event-Driven Architecture</span>
+    </div>
+    <div class="container">
+        <h1>Architektura Event-Driven</h1>
+        <p class="subtitle">Zdarzenia jako glowny mechanizm komunikacji — reaktywne systemy o luznych powiazaniach.</p>
+
+        <h2>Czym jest architektura zdarzeniowa?</h2>
+        <p>Architektura Event-Driven (EDA) to wzorzec, w ktorym <strong>zdarzenia (events) sa glownym mechanizmem komunikacji</strong> miedzy komponentami systemu. Zamiast bezposrednich wywolan, komponenty publikuja zdarzenia i reaguja na zdarzenia innych komponentow.</p>
+
+<pre><code>┌──────────┐  event   ┌──────────────┐  event   ┌──────────┐
+│ Producent │────────►│ Event Broker  │────────►│ Konsument │
+│           │         │ (Kafka/RMQ)   │────────►│ B         │
+└──────────┘         └──────────────┘  event   └──────────┘
+                                       ────────►┌──────────┐
+                                                │ Konsument │
+                                                │ C         │
+                                                └──────────┘</code></pre>
+
+        <h2>Rodzaje zdarzen</h2>
+
+        <div class="card">
+            <h3>1. Event Notification</h3>
+            <p>Informacja, ze cos sie stalo — minimalny payload. Konsument musi pobrac szczegoly z serwisu zrodlowego.</p>
+<pre><code>{
+  "type": "OrderCreated",
+  "orderId": "abc-123",
+  "timestamp": "2024-01-15T10:30:00Z"
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>2. Event-Carried State Transfer</h3>
+            <p>Zdarzenie zawiera pelne dane potrzebne konsumentowi — jest samowystarczalny.</p>
+<pre><code>{
+  "type": "OrderCreated",
+  "orderId": "abc-123",
+  "customerId": "cust-456",
+  "items": [
+    { "productId": "prod-1", "quantity": 2, "price": 29.99 },
+    { "productId": "prod-2", "quantity": 1, "price": 49.99 }
+  ],
+  "totalAmount": 109.97,
+  "timestamp": "2024-01-15T10:30:00Z"
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>3. Domain Event</h3>
+            <p>Zdarzenie z kontekstu domenowego (DDD) — opisuje istotny fakt biznesowy:</p>
+<pre><code>{
+  "type": "PaymentFailed",
+  "aggregateId": "order-abc-123",
+  "reason": "INSUFFICIENT_FUNDS",
+  "attemptNumber": 3,
+  "occurredAt": "2024-01-15T10:35:00Z"
+}</code></pre>
+        </div>
+
+        <h2>Event Sourcing</h2>
+        <p>Zamiast przechowywac biezacy stan, zapisujemy <strong>sekwencje wszystkich zdarzen</strong>:</p>
+
+<pre><code>Tradycyjne podejscie (CRUD):
+┌─────────────────────────────────────┐
+│ Order #123                          │
+│ status: shipped                     │
+│ total: 109.97                       │
+│ updated_at: 2024-01-16              │
+└─────────────────────────────────────┘
+
+Event Sourcing:
+┌─────────────────────────────────────┐
+│ 1. OrderCreated    { total: 109.97 }│
+│ 2. PaymentReceived { amount: 109.97}│
+│ 3. OrderApproved   { approver: "A" }│
+│ 4. ItemShipped     { tracking: "X" }│
+└─────────────────────────────────────┘
+Stan = replay wszystkich zdarzen</code></pre>
+
+        <h3>Implementacja Event Store</h3>
+<pre><code>class EventStore:
+    def __init__(self):
+        self.events = []  # w produkcji: baza danych
+
+    def append(self, aggregate_id: str, event: dict):
+        self.events.append({
+            "aggregate_id": aggregate_id,
+            "event_type": event["type"],
+            "data": event,
+            "version": self._next_version(aggregate_id),
+            "timestamp": datetime.utcnow()
+        })
+
+    def get_events(self, aggregate_id: str) -&gt; list:
+        return [e for e in self.events
+                if e["aggregate_id"] == aggregate_id]
+
+class Order:
+    def __init__(self):
+        self.status = None
+        self.items = []
+        self.total = 0
+
+    @staticmethod
+    def rebuild(events: list) -&gt; "Order":
+        """Odbuduj stan z sekwencji zdarzen"""
+        order = Order()
+        for event in events:
+            order.apply(event)
+        return order
+
+    def apply(self, event: dict):
+        match event["type"]:
+            case "OrderCreated":
+                self.status = "created"
+                self.items = event["data"]["items"]
+                self.total = event["data"]["total"]
+            case "PaymentReceived":
+                self.status = "paid"
+            case "OrderShipped":
+                self.status = "shipped"</code></pre>
+
+        <h3>Zalety i wady Event Sourcing</h3>
+        <table>
+            <thead><tr><th>Zalety</th><th>Wady</th></tr></thead>
+            <tbody>
+                <tr><td>Pelna historia — audit log z natury</td><td>Zlozonosc — zmiana paradygmatu myslenia</td></tr>
+                <tr><td>Debugowanie — odtworzenie stanu w dowolnym momencie</td><td>Eventual consistency — projekcje moga byc nieaktualne</td></tr>
+                <tr><td>Temporal queries — zapytania historyczne</td><td>Schema evolution — migracje formatu zdarzen</td></tr>
+                <tr><td>Odpornosc — replay po awarii</td><td>Storage — rosnaca ilosc zdarzen (snapshoty pomagaja)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Eventual Consistency</h2>
+        <p>W systemach event-driven dane moga byc <strong>przejsciowo niespojne</strong>:</p>
+<pre><code>Czas ────────────────────────────────────────────►
+
+Serwis A:  [Zamowienie zlozone]
+                    │
+                    ▼ (event)
+Serwis B:          ···[Platnosc zainicjowana]
+                              │
+                              ▼ (event)
+Serwis C:                    ···[Magazyn zaktualizowany]
+
+Okno niespojnosci: │◄────────►│
+(milisekundy do sekund)</code></pre>
+
+        <h3>Strategie radzenia sobie</h3>
+        <ol>
+            <li><strong>UI Optimistic Updates</strong> — pokaz uzytkownikowi oczekiwany stan</li>
+            <li><strong>Polling / WebSocket</strong> — odswiez widok po potwierdzeniu</li>
+            <li><strong>Saga Pattern</strong> — koordynacja i kompensacja</li>
+            <li><strong>Idempotencja</strong> — bezpieczne ponowne przetworzenie eventu</li>
+        </ol>
+
+        <h2>Event Storming</h2>
+        <p>Technika <strong>warsztatowa</strong> sluzaca odkrywaniu procesow biznesowych w formie zdarzen:</p>
+
+<pre><code>Tablica Event Storming:
+
+┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+│ Klient   │  │ Zamowie. │  │ Platnosc │  │Zamowienie│
+│ zlozyl   │─►│ utworzone │─►│ otrzymana│─►│ wyslane  │
+│zamowienie│  │          │  │          │  │          │
+│(pomaranc)│  │(pomaranc)│  │(pomaranc)│  │(pomaranc)│
+└──────────┘  └──────────┘  └──────────┘  └──────────┘
+     ↑              ↑             ↑             ↑
+┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+│ Zloz     │  │ Utworz    │  │ Przyjmij │  │ Wyslij   │
+│zamowienie│  │zamowienie│  │ platnosc │  │zamowienie│
+│(niebieski)│ │(niebieski)│ │(niebieski)│ │(niebieski)│
+└──────────┘  └──────────┘  └──────────┘  └──────────┘
+  Komendy        Komendy       Komendy       Komendy</code></pre>
+
+        <div class="card">
+            <h3>Kolory kartek w Event Storming</h3>
+            <ul>
+                <li><strong>Pomaranczowy</strong> = Domain Event (co sie stalo)</li>
+                <li><strong>Niebieski</strong> = Command (polecenie)</li>
+                <li><strong>Zolty</strong> = Aggregate / Actor</li>
+                <li><strong>Rozowy</strong> = Hotspot / Problem</li>
+                <li><strong>Zielony</strong> = Read Model / View</li>
+            </ul>
+        </div>
+
+        <h3>Kroki Event Storming</h3>
+        <ol>
+            <li><strong>Big Picture</strong> — zbierz wszystkie zdarzenia na osi czasu</li>
+            <li><strong>Odkryj komendy</strong> — co powoduje kazde zdarzenie?</li>
+            <li><strong>Zidentyfikuj aggregaty</strong> — kto przetwarza komendy?</li>
+            <li><strong>Oznacz bounded contexts</strong> — granice mikroserwisow</li>
+            <li><strong>Znajdz hotspoty</strong> — problemy, pytania, konflikty</li>
+        </ol>
+
+        <h2>Choreografia vs Orkiestracja</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Choreografia</h3>
+                <p>Serwisy samodzielnie reaguja na zdarzenia — brak centralnego koordynatora.</p>
+<pre><code>OrderCreated
+  --► PaymentService
+PaymentCompleted
+  --► InventoryService
+InventoryReserved
+  --► ShippingService</code></pre>
+                <p><strong>Zalety:</strong> luzne powiazanie, latwe dodawanie konsumentow</p>
+                <p><strong>Wady:</strong> trudne sledzenie procesu</p>
+            </div>
+            <div class="card">
+                <h3>Orkiestracja</h3>
+                <p>Centralny koordynator (Saga) zarzadza procesem.</p>
+<pre><code>[Order Saga]
+1. ReserveInventory
+2. ProcessPayment
+3. ArrangeShipping
+4. SendConfirmation
+
+OnFailure:
+- CompensatePayment
+- ReleaseInventory</code></pre>
+                <p><strong>Zalety:</strong> jasny przeplyw, latwy debug</p>
+                <p><strong>Wady:</strong> centralny punkt, silniejsze powiazania</p>
+            </div>
+        </div>
+
+        <h3>Kiedy co wybrac?</h3>
+        <table>
+            <thead><tr><th>Aspekt</th><th>Choreografia</th><th>Orkiestracja</th></tr></thead>
+            <tbody>
+                <tr><td>Zlozonosc procesu</td><td>Prosta</td><td>Zlozony</td></tr>
+                <tr><td>Widocznosc</td><td>Rozproszona</td><td>Centralna</td></tr>
+                <tr><td>Coupling</td><td>Niski</td><td>Sredni</td></tr>
+                <tr><td>Kompensacja</td><td>Trudniejsza</td><td>Latwiejsza</td></tr>
+                <tr><td>Nowe kroki</td><td>Latwo dodac</td><td>Wymaga zmian w Sadze</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Narzedzia i technologie</h2>
+        <table>
+            <thead><tr><th>Narzedzie</th><th>Typ</th><th>Kiedy stosowac</th></tr></thead>
+            <tbody>
+                <tr><td>Apache Kafka</td><td>Event streaming</td><td>Duze wolumeny, replay, log</td></tr>
+                <tr><td>RabbitMQ</td><td>Message broker</td><td>Routing, priorytetyzacja</td></tr>
+                <tr><td>AWS EventBridge</td><td>Serverless events</td><td>Chmura AWS, integracje</td></tr>
+                <tr><td>NATS</td><td>Lightweight messaging</td><td>Niska latencja, IoT</td></tr>
+                <tr><td>EventStoreDB</td><td>Event store</td><td>Event sourcing natywne</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Zalety i wady EDA</h2>
+        <table>
+            <thead><tr><th>Zalety</th><th>Wady</th></tr></thead>
+            <tbody>
+                <tr><td>Luzne powiazania miedzy komponentami</td><td>Eventual consistency</td></tr>
+                <tr><td>Wysoka skalowalnosc i odpornosc</td><td>Trudniejsze debugowanie i testowanie</td></tr>
+                <tr><td>Naturalny audit trail</td><td>Zlozonosc infrastruktury</td></tr>
+                <tr><td>Latwe dodawanie nowych konsumentow</td><td>Ryzyko "event spaghetti"</td></tr>
+                <tr><td>Lepsze wykorzystanie zasobow</td><td>Duplikacja wymaga idempotencji</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Podsumowanie</h2>
+        <p>Architektura zdarzeniowa to potezny wzorzec dla systemow wymagajacych <strong>luznych powiazan, skalowalnosci i asynchronicznego przetwarzania</strong>. Wymaga dojrzalego zespolu, dobrego monitoringu i swiadomego podejscia do eventual consistency. Event Storming jest swietnym narzedziem do odkrywania zdarzen i granic kontekstow domenowych.</p>
+
+        <div class="nav-bottom">
+            <a href="02-03-mikroserwisy.html">&larr; 02-03 Mikroserwisy</a>
+            <a href="02-05-cqrs.html">02-05 CQRS &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>11-03 — Chaos Engineering</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}.card h3{margin-top:4px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="11-testowanie.html">11 — Testowanie</a>
+        <span class="sep">/</span>
+        <span class="title">Chaos Engineering</span>
+    </div>
+    <div class="container">
+        <h1>Chaos Engineering</h1>
+        <p class="subtitle">Celowe wprowadzanie awarii, steady state hypothesis, Chaos Monkey, Litmus, game days i blast radius.</p>
+
+        <h2>Dlaczego Chaos Engineering?</h2>
+<pre><code>Tradycyjne podejscie:
+  "Pewnie bedzie OK" → Awaria o 3 w nocy → 4h diagnostyki
+
+Chaos Engineering:
+  "Co sie stanie gdy baza padnie?" → Eksperyment
+  → Odkrycie: brak circuit breakera → Naprawa PRZED incydentem</code></pre>
+
+        <h2>Zasady</h2>
+        <ol>
+            <li><strong>Zdefiniuj steady state</strong> — metryki normalnego dzialania</li>
+            <li><strong>Sformuluj hipoteze</strong> — co powinno sie stac</li>
+            <li><strong>Wprowadz awarie</strong> — realistyczne scenariusze</li>
+            <li><strong>Probuj obalic hipoteze</strong> — czy steady state jest utrzymany</li>
+            <li><strong>Minimalizuj blast radius</strong> — zacznij od malego zakresu</li>
+        </ol>
+
+        <h2>Steady State Hypothesis</h2>
+<pre><code>Steady State:
+  - Czas odpowiedzi API &lt; 200ms (p99)
+  - Error rate &lt; 0.1%
+  - Throughput &gt; 1000 req/s
+  - Health checki zielone
+
+Hipoteza:
+  "Jesli jeden Node K8s ulegnie awarii,
+   system nadal odpowiada &lt; 500ms
+   z error rate &lt; 1%"</code></pre>
+
+        <h2>Typowe eksperymenty</h2>
+        <table>
+            <thead><tr><th>Scenariusz</th><th>Co testuje</th><th>Blast radius</th></tr></thead>
+            <tbody>
+                <tr><td>Kill pod</td><td>Auto-scaling, health checks</td><td>Niski</td></tr>
+                <tr><td>Latency 500ms do bazy</td><td>Circuit breaker, timeout</td><td>Sredni</td></tr>
+                <tr><td>Wylacz Redis</td><td>Fallback do bazy, degradacja</td><td>Sredni</td></tr>
+                <tr><td>Awaria jednej AZ</td><td>Multi-AZ redundancja</td><td>Wysoki</td></tr>
+                <tr><td>DNS failure</td><td>DNS cache, retry logic</td><td>Wysoki</td></tr>
+                <tr><td>Spike ruchu 10x</td><td>Auto-scaling, rate limiting</td><td>Sredni</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Narzedzia</h2>
+
+        <div class="card">
+            <h3>Chaos Monkey (Netflix)</h3>
+            <p>Losowo wylaczy instancje w srodowisku produkcyjnym. Zmusil zespoly Netflix do budowania odpornych systemow.</p>
+<pre><code>Simian Army:
+  Chaos Monkey   — zabija instancje
+  Latency Monkey — wprowadza opoznienia
+  Chaos Gorilla  — awaria calej strefy AZ
+  Chaos Kong     — awaria calego regionu</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Litmus (Kubernetes)</h3>
+<pre><code>apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: pod-kill-experiment
+spec:
+  appinfo:
+    appns: production
+    applabel: "app=order-service"
+  experiments:
+    - name: pod-delete
+      spec:
+        components:
+          env:
+            - name: TOTAL_CHAOS_DURATION
+              value: "30"
+            - name: CHAOS_INTERVAL
+              value: "10"
+            - name: FORCE
+              value: "true"</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Chaos Toolkit</h3>
+<pre><code>{
+  "title": "Network latency experiment",
+  "steady-state-hypothesis": {
+    "probes": [{
+      "name": "api-response-time",
+      "type": "probe",
+      "provider": {
+        "type": "http",
+        "url": "https://api.example.com/orders",
+        "timeout": 3
+      },
+      "tolerance": { "status": 200 }
+    }]
+  },
+  "method": [{
+    "type": "action",
+    "name": "inject-500ms-latency",
+    "provider": {
+      "type": "process",
+      "path": "tc",
+      "arguments": "qdisc add dev eth0 root netem delay 500ms"
+    }
+  }],
+  "rollbacks": [...]
+}</code></pre>
+        </div>
+
+        <h2>Game Days</h2>
+        <p>Zaplanowana sesja, podczas ktorej zespol celowo wprowadza awarie i obserwuje reakcje systemu i ludzi.</p>
+<pre><code>1. PLANOWANIE (1-2 tygodnie przed)
+   Wybierz scenariusz, zdefiniuj hypothesis
+   Okresl blast radius, przygotuj rollback
+
+2. PRZED EKSPERYMENTEM
+   Sprawdz steady state, uruchom monitoring
+   Przygotuj kanal komunikacji (Slack)
+
+3. EKSPERYMENT
+   Wprowadz awarie, obserwuj metryki
+   Jesli blast radius rosnie → rollback
+
+4. PO EKSPERYMENCIE
+   Retrospektywa: co odkrylismy?
+   Tickety na poprawki, zaplanuj nastepny</code></pre>
+
+        <h2>Blast Radius</h2>
+<pre><code>Poziom 1: Development     — pelna swoboda
+Poziom 2: Staging         — realistyczne dane
+Poziom 3: Production (1-5%) — canary, monitoring
+Poziom 4: Production (100%) — po sukcesie na nizszych</code></pre>
+
+        <h2>Dojrzalosc Chaos Engineering</h2>
+        <table>
+            <thead><tr><th>Poziom</th><th>Opis</th></tr></thead>
+            <tbody>
+                <tr><td><strong>0 — Brak</strong></td><td>"Mamy nadzieje ze dziala"</td></tr>
+                <tr><td><strong>1 — Ad-hoc</strong></td><td>Reczne eksperymenty, brak automatyzacji</td></tr>
+                <tr><td><strong>2 — Powtarzalne</strong></td><td>Zdefiniowane eksperymenty, Game Days kwartalnie</td></tr>
+                <tr><td><strong>3 — Automatyczne</strong></td><td>Eksperymenty w CI/CD, Game Days miesiecznie</td></tr>
+                <tr><td><strong>4 — Ciagly Chaos</strong></td><td>Chaos Monkey 24/7, kultura odpornosci</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kluczowe wnioski</h2>
+        <ol>
+            <li><strong>Steady state hypothesis</strong> — zdefiniuj co znaczy "normalnie"</li>
+            <li><strong>Zacznij od malego</strong> — dev/staging, jeden pod, niski blast radius</li>
+            <li><strong>Miej rollback plan</strong> — natychmiastowe przywrocenie</li>
+            <li><strong>Game Days</strong> buduja kulture odpornosci</li>
+            <li><strong>Automatyzuj</strong> eksperymenty — powtarzalne, regularne</li>
+            <li><strong>Chaos odkrywa niewiadome</strong> — problemy niewidoczne w unit testach</li>
+            <li><strong>Blast radius</strong> kontroluj starannie — eskaluj powoli</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="11-02-testy-kontraktowe.html">&larr; Testy kontraktowe</a>
+            <a href="11-testowanie.html">Testowanie &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02-02 — Architektura warstwowa</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="02-wzorce-architektoniczne.html">02 — Wzorce</a>
+        <span class="sep">/</span>
+        <span class="title">Architektura warstwowa</span>
+    </div>
+    <div class="container">
+        <h1>Architektura warstwowa (N-Tier)</h1>
+        <p class="subtitle">Podzial systemu na poziome warstwy z jasno okreslonymi odpowiedzialnosciami i kierunkiem zaleznosci.</p>
+
+        <h2>Czym jest architektura warstwowa?</h2>
+        <p>Architektura warstwowa to jeden z najstarszych i najczesciej stosowanych wzorcow architektonicznych. Polega na <strong>podziale aplikacji na poziome warstwy</strong>, z ktorych kazda odpowiada za okreslony aspekt funkcjonalnosci. Warstwy komunikuja sie ze soba w zdefiniowanym kierunku — zazwyczaj od gory do dolu.</p>
+
+<pre><code>┌──────────────────────────────────────┐
+│        Warstwa prezentacji           │  &lt;-- UI, API controllers
+├──────────────────────────────────────┤
+│        Warstwa logiki biznesowej     │  &lt;-- Reguly, walidacja, procesy
+├──────────────────────────────────────┤
+│        Warstwa dostepu do danych     │  &lt;-- Repozytoria, ORM
+├──────────────────────────────────────┤
+│        Baza danych                   │  &lt;-- SQL, NoSQL
+└──────────────────────────────────────┘</code></pre>
+
+        <h2>Rodzaje warstwowania</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Strict Layering (scisle)</h3>
+                <p>Warstwa moze komunikowac sie <strong>tylko z warstwa bezposrednio pod nia</strong>.</p>
+                <p>Zalety: silna enkapsulacja, latwosc wymiany warstw.</p>
+                <p>Wady: overhead — proste operacje CRUD przechodza przez wszystkie warstwy.</p>
+            </div>
+            <div class="card">
+                <h3>Relaxed Layering (luzne)</h3>
+                <p>Warstwa moze komunikowac sie z <strong>dowolna warstwa ponizej</strong>.</p>
+                <p>Zalety: wydajniejsze — unika niepotrzebnych posrednikow.</p>
+                <p>Wady: silniejsze powiazania, trudniejsza wymiana warstw.</p>
+            </div>
+        </div>
+
+<pre><code>Strict:   Prezentacja --► Logika biz. --► Dostep do danych --► BD
+          (nie mozna pominac warstwy)
+
+Relaxed:  Prezentacja --► Logika biz. --► Dostep do danych --► BD
+               │                                  ↑
+               └──────────────────────────────────┘
+               (dozwolone pominiecie warstwy)</code></pre>
+
+        <h2>Typowe warstwy w aplikacji webowej</h2>
+
+        <h3>4-warstwowy model klasyczny</h3>
+<pre><code>┌─────────────────────────────────────────────┐
+│  PRESENTATION LAYER                         │
+│  - Controllery HTTP (REST/GraphQL)          │
+│  - Walidacja wejscia (request DTO)          │
+│  - Serializacja/deserializacja              │
+│  - Obsluga bledow HTTP                      │
+├─────────────────────────────────────────────┤
+│  APPLICATION LAYER (Service Layer)          │
+│  - Orkiestracja procesow biznesowych        │
+│  - Koordynacja miedzy serwisami domenowymi  │
+│  - Transakcje                               │
+│  - Autoryzacja                              │
+├─────────────────────────────────────────────┤
+│  DOMAIN LAYER                               │
+│  - Encje biznesowe i Value Objects          │
+│  - Reguly biznesowe                         │
+│  - Interfejsy repozytoriow                  │
+│  - Zdarzenia domenowe                       │
+├─────────────────────────────────────────────┤
+│  INFRASTRUCTURE LAYER                       │
+│  - Implementacje repozytoriow               │
+│  - ORM / klient bazy danych                 │
+│  - Integracje zewnetrzne (HTTP, SMTP)       │
+│  - Konfiguracja, logowanie                  │
+└─────────────────────────────────────────────┘</code></pre>
+
+        <h3>Przyklad implementacji w .NET</h3>
+<pre><code>// === PRESENTATION LAYER ===
+[ApiController]
+[Route("api/[controller]")]
+public class OrdersController : ControllerBase
+{
+    private readonly IOrderService _orderService;
+
+    [HttpPost]
+    public async Task&lt;ActionResult&lt;OrderDto&gt;&gt; Create(
+        CreateOrderRequest request)
+    {
+        var command = request.ToCommand();
+        var result = await _orderService.CreateOrder(command);
+        return CreatedAtAction(nameof(GetById),
+            new { id = result.Id }, result);
+    }
+}
+
+// === APPLICATION LAYER ===
+public class OrderService : IOrderService
+{
+    private readonly IOrderRepository _orders;
+    private readonly IPaymentGateway _payments;
+    private readonly IUnitOfWork _unitOfWork;
+
+    public async Task&lt;OrderDto&gt; CreateOrder(CreateOrderCommand cmd)
+    {
+        var order = Order.Create(cmd.CustomerId, cmd.Items);
+        await _payments.AuthorizePayment(order.Total);
+        _orders.Add(order);
+        await _unitOfWork.SaveChanges();
+        return OrderDto.From(order);
+    }
+}
+
+// === DOMAIN LAYER ===
+public class Order
+{
+    public OrderId Id { get; private set; }
+    public CustomerId CustomerId { get; private set; }
+    public Money Total { get; private set; }
+    public OrderStatus Status { get; private set; }
+
+    public static Order Create(CustomerId customerId,
+        List&lt;OrderItem&gt; items)
+    {
+        if (!items.Any())
+            throw new DomainException("Order must have items");
+        return new Order(customerId, items);
+    }
+}
+
+// === INFRASTRUCTURE LAYER ===
+public class OrderRepository : IOrderRepository
+{
+    private readonly AppDbContext _context;
+
+    public async Task&lt;Order?&gt; GetById(OrderId id) =&gt;
+        await _context.Orders
+            .Include(o =&gt; o.Items)
+            .FirstOrDefaultAsync(o =&gt; o.Id == id);
+}</code></pre>
+
+        <h2>Reguly zaleznosci</h2>
+
+        <h3>Zasada odwrocenia zaleznosci (DIP)</h3>
+<pre><code>Klasyczne zaleznosci:          Z DIP (odwrocone):
+
+Prezentacja                   Prezentacja
+    │                             │
+    ▼                             ▼
+Logika biz.                   Logika biz. (definiuje interfejsy)
+    │                             ↑
+    ▼                             │
+Infrastruktura                Infrastruktura (implementuje)</code></pre>
+
+        <p><strong>Kluczowa zasada:</strong> warstwy wyzsze definiuja interfejsy (porty), warstwy nizsze je implementuja. Dzieki temu warstwa domenowa nie zalezy od infrastruktury.</p>
+
+<pre><code>// Domain Layer — definiuje interfejs
+public interface IOrderRepository
+{
+    Task&lt;Order?&gt; GetById(OrderId id);
+    void Add(Order order);
+}
+
+// Infrastructure Layer — implementuje
+public class SqlOrderRepository : IOrderRepository
+{
+    // implementacja z Entity Framework
+}</code></pre>
+
+        <h2>Fizyczny deployment — warianty N-Tier</h2>
+
+<pre><code>2-Tier (klient-serwer):
+┌───────────┐        ┌──────────────┐
+│  Klient   │──TCP──►│   Serwer BD  │
+│  (gruby)  │        │              │
+└───────────┘        └──────────────┘
+
+3-Tier (klasyczny web):
+┌──────────┐      ┌──────────────┐      ┌──────────┐
+│Przegla-  │ HTTP │   Serwer     │ SQL  │   Baza   │
+│darka     │─────►│   aplikacji  │─────►│  danych  │
+└──────────┘      └──────────────┘      └──────────┘
+
+4-Tier (z reverse proxy):
+┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────┐
+│Przegla-  │─►│  Nginx/  │─►│ App      │─►│  BD  │
+│darka     │  │  CDN     │  │ Server   │  │      │
+└──────────┘  └──────────┘  └──────────┘  └──────┘</code></pre>
+
+        <h2>Anty-wzorce architektury warstwowej</h2>
+
+        <div class="card">
+            <h3>1. Sinkhole Anti-Pattern</h3>
+            <p>Zadanie przechodzi przez wszystkie warstwy bez zadnej logiki — same "pass-through".</p>
+<pre><code>// ZLE — service layer nic nie robi
+public OrderDto GetOrder(int id) {
+    return _repository.GetById(id).ToDto();
+}
+
+// Rozwiazanie: jesli 80%+ metod to pass-through,
+// rozwaz relaxed layering lub CQRS</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>2. Leaking Abstractions</h3>
+            <p>Szczegoly warstwy nizszej "wyciekaja" do wyzszej:</p>
+<pre><code>// ZLE — controller zna szczegoly SQL
+[HttpGet]
+public async Task&lt;IActionResult&gt; Search(string query) {
+    var sql = $"SELECT * FROM orders WHERE name LIKE '%{query}%'";
+    var results = await _dbContext.Orders.FromSqlRaw(sql);
+    return Ok(results);
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>3. Circular Dependencies</h3>
+            <p>Warstwy zaleza od siebie nawzajem — naruszenie hierarchii:</p>
+<pre><code>Service A --► Repository B --► Service A   &lt;-- cykl!</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>4. God Layer</h3>
+            <p>Jedna warstwa (zwykle Service Layer) staje sie "boska" — zawiera zbyt wiele logiki, walidacji, regul biznesowych i koordynacji. Rozwiazaniem jest wlasciwy podzial odpowiedzialnosci.</p>
+        </div>
+
+        <h2>Porownanie z innymi podejsciami</h2>
+        <table>
+            <thead><tr><th>Aspekt</th><th>Warstwowa</th><th>Heksagonalna</th><th>Mikroserwisy</th></tr></thead>
+            <tbody>
+                <tr><td>Zlozonosc</td><td>Niska</td><td>Srednia</td><td>Wysoka</td></tr>
+                <tr><td>Testowalnosc</td><td>Srednia</td><td>Wysoka</td><td>Wysoka</td></tr>
+                <tr><td>Elastycznosc</td><td>Niska</td><td>Wysoka</td><td>Bardzo wysoka</td></tr>
+                <tr><td>Krzywa uczenia</td><td>Lagodna</td><td>Srednia</td><td>Stroma</td></tr>
+                <tr><td>Deployment</td><td>Jeden artefakt</td><td>Jeden artefakt</td><td>Wiele artefaktow</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kiedy stosowac?</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Idealna dla</h3>
+                <ul>
+                    <li>Aplikacji CRUD z prosta logika biznesowa</li>
+                    <li>Malych i srednich zespolow</li>
+                    <li>Projektow z ograniczonym czasem</li>
+                    <li>Systemow bez niezaleznego skalowania</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Nieodpowiednia dla</h3>
+                <ul>
+                    <li>Zlozonej logiki domenowej (lepiej: heksagonalna)</li>
+                    <li>Niezaleznego deploymentu (lepiej: mikroserwisy)</li>
+                    <li>Aplikacji event-driven</li>
+                    <li>Systemow z wieloma modelami odczytu/zapisu</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Podsumowanie</h2>
+        <p>Architektura warstwowa to doskonaly <strong>punkt wyjscia</strong> dla wielu projektow. Jest prosta, dobrze zrozumiana i sprawdza sie w aplikacjach o umiarkowanej zlozonosci. Kluczowe jest przestrzeganie zasad zaleznosci (DIP) i unikanie anty-wzorcow, ktore z czasem moga przeksztalcic czytelna strukture w trudny do utrzymania kod.</p>
+
+        <div class="nav-bottom">
+            <a href="02-01-architektura-monolityczna.html">&larr; 02-01 Architektura monolityczna</a>
+            <a href="02-03-mikroserwisy.html">02-03 Mikroserwisy &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

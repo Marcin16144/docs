@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06-06 — Circuit Breaker</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="06-komunikacja-i-integracja.html">06 — Komunikacja</a>
+        <span class="sep">/</span>
+        <span class="title">Circuit Breaker</span>
+    </div>
+    <div class="container">
+        <h1>Circuit Breaker i wzorce odpornosci</h1>
+        <p class="subtitle">Ochrona przed kaskadowymi awariami — circuit breaker, retry, bulkhead, timeout i fallback.</p>
+
+        <h2>Problem kaskadowych awarii</h2>
+<pre><code>Klient &rarr; Serwis A &rarr; Serwis B (awaria!)
+                      ↑ timeout 30s
+          Serwis A czeka... watki sie koncza...
+          Serwis A tez pada!
+
+Klient &rarr; Serwis C &rarr; Serwis A (nie odpowiada!)
+          Serwis C tez pada!
+
+Efekt domina — jedna awaria paralizuje caly system.</code></pre>
+
+        <h2>Circuit Breaker — 3 stany</h2>
+        <p>Wzorzec inspirowany bezpiecznikiem elektrycznym — przerywa komunikacje z niestabilnym serwisem.</p>
+<pre><code>                   sukces
+    ┌──────────── CLOSED &larr;──────────┐
+    │  (normalny ruch)               │
+    │                                │
+    │ prog bledow                    │ proba
+    │ przekroczony                   │ udana
+    ↓                                │
+   OPEN ──── timeout ────&rarr; HALF-OPEN
+(blokuje ruch)         (przepuszcza probne zadania)
+    ↑                        │
+    │     proba              │
+    └──── nieudana ──────────┘</code></pre>
+
+        <div class="card">
+            <h3>CLOSED (zamkniety — normalny)</h3>
+            <p>Zadania przechodza normalnie. Circuit breaker liczy bledy.</p>
+<pre><code>failureThreshold: 5, failureWindow: 60s
+
+Zadanie 1: sukces  (failures: 0)
+Zadanie 2: sukces  (failures: 0)
+Zadanie 3: BLAD    (failures: 1)
+Zadanie 5: BLAD    (failures: 2)
+Zadanie 6: BLAD    (failures: 3)
+Zadanie 7: BLAD    (failures: 4)
+Zadanie 8: BLAD    (failures: 5) &rarr; OTWORZ circuit!</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>OPEN (otwarty — blokujacy)</h3>
+            <p>Zadania natychmiast odrzucane bez proby polaczenia. Chroni zasoby i daje serwisowi czas na regeneracje.</p>
+<pre><code>Zadanie 9:  &rarr; natychmiast odrzucone
+Zadanie 10: &rarr; natychmiast odrzucone
+Zadanie 11: &rarr; natychmiast odrzucone
+
+Po uplywie openTimeout (np. 30s) &rarr; HALF-OPEN</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>HALF-OPEN (pol-otwarty — testowy)</h3>
+            <p>Przepuszcza ograniczona liczbe zadan testowych.</p>
+<pre><code>successThreshold: 3
+
+Zadanie testowe 1: sukces  &rarr; (1/3)
+Zadanie testowe 2: sukces  &rarr; (2/3)
+Zadanie testowe 3: sukces  &rarr; (3/3) &rarr; CLOSED!
+
+LUB:
+Zadanie testowe 1: sukces  &rarr; (1/3)
+Zadanie testowe 2: BLAD    &rarr; Powrot do OPEN</code></pre>
+        </div>
+
+        <h3>Implementacja (pseudokod)</h3>
+<pre><code>class CircuitBreaker:
+    def __init__(self, failure_threshold=5,
+                 open_timeout=30, success_threshold=3):
+        self.state = "CLOSED"
+        self.failure_count = 0
+        self.success_count = 0
+
+    def call(self, func, *args, **kwargs):
+        if self.state == "OPEN":
+            if self._timeout_expired():
+                self.state = "HALF_OPEN"
+                self.success_count = 0
+            else:
+                raise CircuitBreakerOpenError(
+                    "Circuit is OPEN")
+
+        try:
+            result = func(*args, **kwargs)
+            self._on_success()
+            return result
+        except Exception as e:
+            self._on_failure()
+            raise e
+
+    def _on_success(self):
+        if self.state == "HALF_OPEN":
+            self.success_count += 1
+            if self.success_count &gt;= self.success_threshold:
+                self.state = "CLOSED"
+                self.failure_count = 0
+
+    def _on_failure(self):
+        self.failure_count += 1
+        if self.state == "HALF_OPEN":
+            self.state = "OPEN"
+        elif self.failure_count &gt;= self.failure_threshold:
+            self.state = "OPEN"</code></pre>
+
+        <h2>Retry z Exponential Backoff</h2>
+        <p>Automatyczne ponawianie zadan z rosnacym opoznieniem.</p>
+<pre><code>Natychmiastowy retry (zle):
+Proba 1: BLAD &rarr; retry &rarr; BLAD &rarr; retry &rarr; BLAD...
+Serwer przeciazony, a my go bombardujemy!
+
+Exponential backoff (dobrze):
+Proba 1: BLAD &rarr; czekaj 1s
+Proba 2: BLAD &rarr; czekaj 2s
+Proba 3: BLAD &rarr; czekaj 4s
+Proba 4: BLAD &rarr; czekaj 8s
+Proba 5: sukces!
+
+Z jitter (losowe odchylenie):
+Proba 1: BLAD &rarr; czekaj 1s + random(0, 500ms)
+Jitter zapobiega thundering herd.</code></pre>
+
+        <h3>Ktore bledy ponawiac?</h3>
+        <div class="two-col">
+            <div class="card">
+                <h3>PONAWIAJ (transient)</h3>
+                <ul>
+                    <li>429 Too Many Requests</li>
+                    <li>500 Internal Server Error</li>
+                    <li>502 Bad Gateway</li>
+                    <li>503 Service Unavailable</li>
+                    <li>504 Gateway Timeout</li>
+                    <li>Connection timeout</li>
+                    <li>Network error</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>NIE PONAWIAJ (permanent)</h3>
+                <ul>
+                    <li>400 Bad Request</li>
+                    <li>401 Unauthorized</li>
+                    <li>403 Forbidden</li>
+                    <li>404 Not Found</li>
+                    <li>422 Validation Error</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Bulkhead Pattern (wzorzec grodzi)</h2>
+        <p>Izoluj zasoby — awaria jednego komponentu nie wplywa na reszte (jak grodzie na statku).</p>
+<pre><code>Problem: jedna pula watkow (100):
+  &rarr; Serwis B (wolny!) — 80 watkow zablokowanych
+  &rarr; Serwis C (OK)     — brak wolnych watkow!
+  &rarr; Serwis D (OK)     — brak wolnych watkow!
+
+Rozwiazanie: osobne pule
+  Pula dla B: [30 watkow] &rarr; max 30 zablokowanych
+  Pula dla C: [30 watkow] &rarr; dziala normalnie!
+  Pula dla D: [30 watkow] &rarr; dziala normalnie!</code></pre>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Thread Pool Isolation</h3>
+                <p>Osobna pula watkow per dependency.</p>
+<pre><code>// Resilience4j
+BulkheadConfig config =
+  BulkheadConfig.custom()
+    .maxConcurrentCalls(30)
+    .maxWaitDuration(
+      Duration.ofMillis(500))
+    .build();
+
+Bulkhead bulkhead =
+  Bulkhead.of("serviceB", config);</code></pre>
+            </div>
+            <div class="card">
+                <h3>Semaphore Isolation</h3>
+                <p>Ograniczenie rownoleglych wywolan bez osobnej puli.</p>
+<pre><code># Python asyncio
+semaphore = asyncio.Semaphore(30)
+
+async def call_service_b():
+    async with semaphore:
+        return await http_client.get(
+            "http://service-b/api")
+    # 30 w toku — nastepne czekaja</code></pre>
+            </div>
+        </div>
+
+        <h2>Timeout Pattern</h2>
+        <p>Maksymalny czas oczekiwania na odpowiedz. Prosty, ale krytyczny wzorzec.</p>
+<pre><code>import httpx
+
+response = httpx.get("http://service-b/api/data",
+    timeout=httpx.Timeout(
+        connect=2.0,    # max 2s na polaczenie
+        read=5.0,       # max 5s na odczyt
+        write=5.0,      # max 5s na zapis
+        pool=10.0       # max 10s na polaczenie z puli
+    )
+)</code></pre>
+        <div class="card">
+            <h3>Zasada timeoutow w lancuchu</h3>
+<pre><code>Klient &rarr; Serwis A &rarr; Serwis B &rarr; Serwis C
+
+Timeout klienta:  10s
+Timeout A &rarr; B:     5s  (mniejszy niz klienta!)
+Timeout B &rarr; C:     2s  (mniejszy niz A &rarr; B!)
+
+WAZNE: Timeout w lancuchu musi malec!</code></pre>
+        </div>
+
+        <h2>Fallback Pattern</h2>
+        <p>Zapasowe zachowanie, gdy glowna sciezka zawiedzie.</p>
+        <table>
+            <thead><tr><th>Strategia</th><th>Opis</th><th>Kiedy</th></tr></thead>
+            <tbody>
+                <tr><td>Cache fallback</td><td>Zwroc dane z cache (stale)</td><td>Dane moga byc nieaktualne</td></tr>
+                <tr><td>Default value</td><td>Zwroc wartosc domyslna</td><td>Brak danych akceptowalny</td></tr>
+                <tr><td>Backup service</td><td>Wywolaj zapasowy serwis</td><td>Gdy jest redundancja</td></tr>
+                <tr><td>Graceful degradation</td><td>Ogranicz funkcjonalnosc</td><td>Czesc systemu wystarczy</td></tr>
+                <tr><td>Fail fast</td><td>Natychmiast zwroc blad</td><td>Fallback nie istnieje</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Polly (.NET)</h2>
+        <p>Biblioteka odpornosci dla .NET — obsluguje wszystkie omawiane wzorce.</p>
+<pre><code>// Circuit Breaker + Retry + Timeout + Bulkhead
+var retryPolicy = Policy
+    .Handle&lt;HttpRequestException&gt;()
+    .WaitAndRetryAsync(3,
+        attempt =&gt; TimeSpan.FromSeconds(
+            Math.Pow(2, attempt)));  // 2s, 4s, 8s
+
+var circuitBreaker = Policy
+    .Handle&lt;HttpRequestException&gt;()
+    .CircuitBreakerAsync(
+        exceptionsAllowedBeforeBreaking: 5,
+        durationOfBreak: TimeSpan.FromSeconds(30));
+
+var timeout = Policy
+    .TimeoutAsync(TimeSpan.FromSeconds(5));
+
+var bulkhead = Policy
+    .BulkheadAsync(maxParallelization: 30);
+
+// Zlozenie polityk
+var policy = Policy.WrapAsync(
+    retryPolicy,      // zewnetrzna: retry
+    circuitBreaker,   // circuit breaker
+    bulkhead,         // bulkhead
+    timeout           // wewnetrzna: timeout
+);
+
+var result = await policy.ExecuteAsync(async () =&gt;
+    await httpClient.GetAsync("http://service-b/api"));</code></pre>
+
+        <h3>.NET 8+ (Microsoft.Extensions.Resilience)</h3>
+<pre><code>builder.Services.AddHttpClient("service-b")
+    .AddStandardResilienceHandler(options =&gt;
+    {
+        options.Retry.MaxRetryAttempts = 3;
+        options.Retry.BackoffType =
+            DelayBackoffType.Exponential;
+        options.CircuitBreaker.BreakDuration =
+            TimeSpan.FromSeconds(30);
+        options.AttemptTimeout.Timeout =
+            TimeSpan.FromSeconds(5);
+    });</code></pre>
+
+        <h2>Resilience4j (Java)</h2>
+<pre><code>// Circuit Breaker
+CircuitBreakerConfig cbConfig = CircuitBreakerConfig.custom()
+    .failureRateThreshold(50)
+    .slowCallDurationThreshold(Duration.ofSeconds(2))
+    .waitDurationInOpenState(Duration.ofSeconds(30))
+    .permittedNumberOfCallsInHalfOpenState(5)
+    .slidingWindowSize(10)
+    .build();
+
+CircuitBreaker cb = CircuitBreaker.of("serviceB", cbConfig);
+
+// Retry
+RetryConfig retryConfig = RetryConfig.custom()
+    .maxAttempts(3)
+    .waitDuration(Duration.ofMillis(500))
+    .retryExceptions(IOException.class)
+    .build();
+
+Retry retry = Retry.of("serviceB", retryConfig);
+
+// Zlozenie dekoratorow
+Supplier&lt;String&gt; decorated = Decorators
+    .ofSupplier(() -&gt; serviceB.call())
+    .withCircuitBreaker(cb)
+    .withRetry(retry)
+    .withFallback(Arrays.asList(
+        CallNotPermittedException.class),
+        e -&gt; "Fallback response")
+    .decorate();
+
+String result = decorated.get();</code></pre>
+
+        <h3>Spring Boot + Resilience4j</h3>
+<pre><code>@Service
+public class ProductService {
+
+    @CircuitBreaker(name = "inventory",
+        fallbackMethod = "fallback")
+    @Retry(name = "inventory")
+    @Bulkhead(name = "inventory")
+    public CompletableFuture&lt;Product&gt; getProduct(String id) {
+        return CompletableFuture.supplyAsync(
+            () -&gt; inventoryClient.getProduct(id));
+    }
+
+    public CompletableFuture&lt;Product&gt; fallback(
+            String id, Throwable t) {
+        return CompletableFuture.completedFuture(
+            Product.defaultProduct(id));
+    }
+}</code></pre>
+
+        <h2>Laczenie wzorcow — kolejnosc</h2>
+<pre><code>Zadanie wchodzi
+  ↓
+[1. Bulkhead]         — ogranicz rownoleglosc
+  ↓
+[2. Circuit Breaker]  — sprawdz czy otwarty
+  ↓
+[3. Retry]            — ponawiaj przy bledzie
+  ↓
+[4. Timeout]          — ogranicz czas
+  ↓
+Wlasciwe wywolanie serwisu
+  ↓
+Odpowiedz (lub Fallback)</code></pre>
+
+        <h2>Monitorowanie i metryki</h2>
+<pre><code>Circuit Breaker:
+  circuit_breaker_state{name="serviceB"} = closed/open/half_open
+  circuit_breaker_calls_total{result="success|failure"}
+  circuit_breaker_not_permitted_total
+
+Retry:
+  retry_calls_total{result="success|failure"}
+  retry_calls_total{retry_count="1|2|3"}
+
+Bulkhead:
+  bulkhead_concurrent_calls{name="serviceB"}
+  bulkhead_rejected_total{name="serviceB"}
+
+Timeout:
+  timeout_total{name="serviceB"}
+  call_duration_seconds{name="serviceB"}</code></pre>
+
+        <h2>Dobre praktyki</h2>
+        <ol>
+            <li><strong>Zawsze ustawiaj timeout</strong> — brak timeoutu = ryzyko wyczerpania zasobow</li>
+            <li><strong>Circuit breaker per dependency</strong> — osobny breaker dla kazdego serwisu</li>
+            <li><strong>Retry tylko dla transient errors</strong> — nie ponawiaj 400/404</li>
+            <li><strong>Jitter w backoff</strong> — zapobiegaj thundering herd</li>
+            <li><strong>Fallback zawsze dostepny</strong> — nawet jesli to domyslna wartosc</li>
+            <li><strong>Monitoruj stany</strong> — dashboard ze stanem circuit breakerow</li>
+            <li><strong>Chaos Engineering</strong> — symuluj awarie (Chaos Monkey, Toxiproxy)</li>
+            <li><strong>Lacz wzorce madrze</strong> — retry wewnatrz circuit breakera, nie odwrotnie</li>
+            <li><strong>Nie ukrywaj bledow</strong> — fallback loguj, alertuj, analizuj</li>
+            <li><strong>Dostosuj progi</strong> — za niski threshold otwiera zbyt latwo, za wysoki za pozno</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="06-05-saga-pattern.html">&larr; Saga Pattern</a>
+            <a href="06-komunikacja-i-integracja.html">Komunikacja i integracja &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

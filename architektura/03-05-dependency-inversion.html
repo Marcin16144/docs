@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03-05 — Dependency Inversion Principle</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="03-zasady-projektowania.html">03 — Zasady</a>
+        <span class="sep">/</span>
+        <span class="title">Dependency Inversion Principle</span>
+    </div>
+    <div class="container">
+        <h1>Dependency Inversion Principle (DIP)</h1>
+        <p class="subtitle">Moduly wysokiego poziomu nie powinny zalezec od modulow niskiego poziomu — oba powinny zalezec od abstrakcji.</p>
+
+        <h2>Dwie reguly DIP</h2>
+        <div class="card">
+            <ol>
+                <li><strong>Moduly wysokiego poziomu nie powinny zalezec od modulow niskiego poziomu</strong> — oba powinny zalezec od abstrakcji</li>
+                <li><strong>Abstrakcje nie powinny zalezec od szczegolow</strong> — szczegoly powinny zalezec od abstrakcji</li>
+            </ol>
+            <p>Tradycyjnie logika biznesowa zalezala od infrastruktury (baza, siec). DIP odwraca ten kierunek — to szczegoly implementacyjne dostosowuja sie do abstrakcji definiowanych przez logike biznesowa.</p>
+        </div>
+
+        <h2>Przyklad 1: Serwis zamowien</h2>
+        <h3>Zle — bezposrednie zaleznosci od infrastruktury</h3>
+<pre><code>class MySQLDatabase {
+    query(sql: string): any[] { /* MySQL */ }
+    execute(sql: string): void { /* MySQL */ }
+}
+
+class SmtpEmailSender {
+    send(to: string, subject: string, body: string): void { /* SMTP */ }
+}
+
+class StripePaymentGateway {
+    charge(token: string, amount: number): PaymentResult { /* Stripe */ }
+}
+
+// OrderService BEZPOSREDNIO zalezy od MySQL, SMTP, Stripe
+class OrderService {
+    private db = new MySQLDatabase();
+    private mailer = new SmtpEmailSender();
+    private payments = new StripePaymentGateway();
+
+    placeOrder(order: Order): void {
+        this.payments.charge(order.cardToken, order.total);
+        this.db.execute(`INSERT INTO orders VALUES (...)`);
+        this.mailer.send(order.email, 'Zamowienie', '...');
+    }
+}</code></pre>
+
+        <h3>Dobrze — zaleznosc od abstrakcji</h3>
+<pre><code>// Abstrakcje definiowane przez warstwe biznesowa
+interface OrderRepository {
+    save(order: Order): void;
+    findById(id: string): Order;
+}
+
+interface PaymentGateway {
+    charge(amount: Money, method: PaymentMethod): PaymentResult;
+}
+
+interface NotificationService {
+    sendOrderConfirmation(order: Order): void;
+}
+
+// Logika biznesowa zalezy TYLKO od abstrakcji
+class OrderService {
+    constructor(
+        private orders: OrderRepository,
+        private payments: PaymentGateway,
+        private notifications: NotificationService
+    ) {}
+
+    placeOrder(order: Order): OrderResult {
+        const payment = this.payments.charge(
+            order.total, order.paymentMethod
+        );
+        if (!payment.success) {
+            return OrderResult.paymentFailed(payment.error);
+        }
+        order.markAsPaid(payment.transactionId);
+        this.orders.save(order);
+        this.notifications.sendOrderConfirmation(order);
+        return OrderResult.success(order);
+    }
+}
+
+// Infrastruktura implementuje abstrakcje
+class PostgresOrderRepository implements OrderRepository {
+    constructor(private pool: Pool) {}
+    save(order: Order): void {
+        this.pool.query(
+            'INSERT INTO orders (id, total, status) VALUES ($1, $2, $3)',
+            [order.id, order.total.amount, order.status]
+        );
+    }
+    findById(id: string): Order {
+        const row = this.pool.query('SELECT * FROM orders WHERE id=$1', [id]);
+        return this.mapToOrder(row);
+    }
+}
+
+class StripePaymentGateway implements PaymentGateway {
+    charge(amount: Money, method: PaymentMethod): PaymentResult {
+        const result = stripe.charges.create({
+            amount: amount.toCents(),
+            currency: amount.currency,
+            source: method.token
+        });
+        return PaymentResult.from(result);
+    }
+}</code></pre>
+
+        <h2>Trzy formy Dependency Injection</h2>
+<pre><code>// 1. Constructor Injection (najczesciej stosowana)
+class OrderService {
+    constructor(
+        private repo: OrderRepository,
+        private payments: PaymentGateway
+    ) {}
+}
+
+// 2. Method Injection (zaleznosc potrzebna w jednej metodzie)
+class ReportGenerator {
+    generate(data: ReportData, formatter: ReportFormatter): string {
+        return formatter.format(data);
+    }
+}
+
+// 3. Property Injection (rzadko — trudne do kontrolowania)
+class NotificationService {
+    logger?: Logger;
+    notify(message: string): void {
+        this.logger?.log(`Wysylanie: ${message}`);
+    }
+}</code></pre>
+
+        <h2>Przyklad 2: DI Container (Python)</h2>
+<pre><code>class Container:
+    def __init__(self):
+        self._factories = {}
+        self._singletons = {}
+
+    def register(self, interface, factory, singleton=False):
+        self._factories[interface] = (factory, singleton)
+
+    def resolve(self, interface):
+        if interface in self._singletons:
+            return self._singletons[interface]
+        factory, is_singleton = self._factories[interface]
+        instance = factory(self)
+        if is_singleton:
+            self._singletons[interface] = instance
+        return instance
+
+# Rejestracja
+container = Container()
+container.register(OrderRepository,
+    lambda c: PostgresOrderRepository(db_pool), singleton=True)
+container.register(PaymentGateway,
+    lambda c: StripePaymentGateway(api_key), singleton=True)
+container.register(OrderService,
+    lambda c: OrderService(
+        c.resolve(OrderRepository),
+        c.resolve(PaymentGateway)
+    ))
+
+# Uzycie
+service = container.resolve(OrderService)</code></pre>
+
+        <h2>Architektura warstwowa z DIP</h2>
+<pre><code>BEZ DIP — zaleznosci plyna w dol:
+  Presentation  --&gt;  Business Logic  --&gt;  Data Access  --&gt;  DB
+
+Z DIP — abstrakcje naleza do warstwy biznesowej:
+  Presentation  --&gt;  Business Logic  &lt;--  Infrastructure
+                     (definiuje           (implementuje
+                      interfejsy)          interfejsy)
+
+Struktura katalogow:
+src/
+  domain/                  // ZERO zaleznosci zewnetrznych
+    entities/Order.ts
+    repositories/OrderRepository.ts    // interfejs
+    services/OrderService.ts
+
+  infrastructure/          // implementuje interfejsy z domain/
+    persistence/PostgresOrderRepository.ts
+    payments/StripePaymentGateway.ts
+    notifications/SendGridNotificationService.ts
+
+  application/             // kompozycja — laczy warstwy
+    config/container.ts</code></pre>
+
+        <h2>Testowanie dzieki DIP</h2>
+<pre><code>class InMemoryOrderRepository implements OrderRepository {
+    private orders = new Map&lt;string, Order&gt;();
+    save(order: Order): void { this.orders.set(order.id, order); }
+    findById(id: string): Order {
+        const o = this.orders.get(id);
+        if (!o) throw new NotFoundError(id);
+        return o;
+    }
+}
+
+class FakePaymentGateway implements PaymentGateway {
+    public lastCharge?: { amount: Money; method: PaymentMethod };
+    charge(amount: Money, method: PaymentMethod): PaymentResult {
+        this.lastCharge = { amount, method };
+        return PaymentResult.success('fake-tx-123');
+    }
+}
+
+describe('OrderService', () =&gt; {
+    let repo: InMemoryOrderRepository;
+    let payments: FakePaymentGateway;
+    let service: OrderService;
+
+    beforeEach(() =&gt; {
+        repo = new InMemoryOrderRepository();
+        payments = new FakePaymentGateway();
+        service = new OrderService(repo, payments, new SpyNotifier());
+    });
+
+    it('saves order after payment', () =&gt; {
+        const order = createTestOrder({ total: Money.of(100) });
+        service.placeOrder(order);
+
+        expect(repo.findById(order.id)).toBeDefined();
+        expect(payments.lastCharge?.amount).toEqual(Money.of(100));
+    });
+});</code></pre>
+
+        <h2>Abstrakcje vs konkrecje</h2>
+        <table>
+            <thead><tr><th>Zalez od abstrakcji</th><th>Nie zalez od konkrecji</th></tr></thead>
+            <tbody>
+                <tr><td><code>OrderRepository</code> (interfejs)</td><td><code>PostgresOrderRepository</code></td></tr>
+                <tr><td><code>Logger</code> (interfejs)</td><td><code>WinstonLogger</code></td></tr>
+                <tr><td><code>HttpClient</code> (interfejs)</td><td><code>AxiosHttpClient</code></td></tr>
+                <tr><td><code>Clock</code> (interfejs)</td><td><code>new Date()</code></td></tr>
+                <tr><td><code>FileStorage</code> (interfejs)</td><td><code>S3Storage</code></td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kiedy DIP jest zbedne?</h2>
+        <ul>
+            <li><strong>Proste skrypty</strong> — warstwa abstrakcji to przerost formy</li>
+            <li><strong>Stabilne zaleznosci</strong> — <code>String</code>, <code>Math</code>, standardowa biblioteka</li>
+            <li><strong>Value Objects</strong> — <code>Money</code>, <code>Email</code>, <code>Address</code> moga byc uzywane bezposrednio</li>
+        </ul>
+<pre><code>// NIE potrzebujesz interfejsu dla wszystkiego
+class OrderService {
+    // Money to Value Object — stabilna, nie potrzebuje abstrakcji
+    calculateDiscount(total: Money, pct: number): Money {
+        return total.multiply(pct / 100);
+    }
+}</code></pre>
+
+        <div class="nav-bottom">
+            <a href="03-04-interface-segregation.html">&larr; Interface Segregation</a>
+            <a href="03-06-dry-kiss-yagni.html">DRY / KISS / YAGNI &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

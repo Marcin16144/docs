@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>09 — Skalowalnosc i wydajnosc</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <span class="title">09 — Skalowalnosc i wydajnosc</span>
+    </div>
+    <div class="container">
+        <h1>Skalowalnosc i wydajnosc</h1>
+        <p class="subtitle">Jak budowac systemy, ktore radza sobie z rosnacym obciazeniem.</p>
+        <p class="subtitle"><strong>Aktualizacja: 2026</strong> — OpenTelemetry jako standard tracingu, edge computing (Cloudflare Workers KV, Fly.io, Vercel Edge) jako naturalna warstwa cache i obliczen blisko uzytkownika.</p>
+
+        <h2>Typy skalowania</h2>
+        <div class="two-col">
+            <div class="card">
+                <h3>Wertykalne (Scale Up)</h3>
+                <p>Zwiekszenie zasobow jednego serwera (CPU, RAM, dysk).</p>
+                <ul>
+                    <li>Prostsze w implementacji</li>
+                    <li>Ma fizyczny limit</li>
+                    <li>Jeden punkt awarii</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Horyzontalne (Scale Out)</h3>
+                <p>Dodanie kolejnych instancji serwera.</p>
+                <ul>
+                    <li>Teoretycznie nieograniczone</li>
+                    <li>Wymaga load balancera</li>
+                    <li>Zlozonosc przy stanie wspoldzielonym</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Load Balancing</h2>
+        <h3>Algorytmy</h3>
+        <ul>
+            <li><strong>Round Robin</strong> — po kolei do kazdej instancji</li>
+            <li><strong>Least Connections</strong> — do instancji z najmniejsza liczba polaczen</li>
+            <li><strong>IP Hash</strong> — staly serwer dla danego klienta</li>
+            <li><strong>Weighted</strong> — proporcjonalnie do wagi/mocy serwera</li>
+        </ul>
+        <p><strong>Narzedzia:</strong> Nginx, HAProxy, AWS ALB/NLB, Traefik</p>
+
+        <h2>Caching (Buforowanie)</h2>
+        <h3>Poziomy cache</h3>
+        <ol>
+            <li>Przegladarka — HTTP cache headers (Cache-Control, ETag)</li>
+            <li>CDN / Edge — Cloudflare CDN, Fastly, AWS CloudFront, Vercel Edge Network, Bunny CDN</li>
+            <li><strong>Edge KV / Edge runtime (2026):</strong> Cloudflare Workers KV / Durable Objects / Cache API, Vercel Edge Config / KV, Fly.io (regionalne instancje), Deno Deploy, AWS Lambda@Edge</li>
+            <li>API Gateway — cache odpowiedzi API</li>
+            <li>Aplikacja — Redis / Valkey, Memcached, Dragonfly, in-process cache (Caffeine, BigCache, ristretto)</li>
+            <li>Baza danych — query cache, materialized views, indexed views</li>
+        </ol>
+
+        <h3>Strategie cache</h3>
+        <table>
+            <thead>
+                <tr><th>Strategia</th><th>Opis</th><th>Uzycie</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Cache-Aside</strong></td><td>Aplikacja zarzadza cache</td><td>Ogolne zastosowanie</td></tr>
+                <tr><td><strong>Read-Through</strong></td><td>Cache sam pobiera z bazy</td><td>Czesty odczyt</td></tr>
+                <tr><td><strong>Write-Through</strong></td><td>Zapis do cache i bazy jednoczesnie</td><td>Spojnosc wazna</td></tr>
+                <tr><td><strong>Write-Behind</strong></td><td>Zapis do cache, async do bazy</td><td>Wydajnosc zapisu</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Cache Invalidation</h3>
+        <ul>
+            <li><strong>TTL (Time To Live)</strong> — automatyczne wygasniecie</li>
+            <li><strong>Event-based</strong> — invalidacja przy zmianie danych</li>
+            <li><strong>Version-based</strong> — nowa wersja = nowy klucz cache</li>
+        </ul>
+
+        <h2>Wzorce wydajnosciowe</h2>
+
+        <div class="card">
+            <h3>Async Processing</h3>
+            <p>Przetwarzanie zadan w tle — nie blokuj odpowiedzi API.</p>
+<pre><code>POST /api/reports → 202 Accepted { "jobId": "abc123" }
+GET  /api/reports/abc123/status → { "status": "processing" }
+GET  /api/reports/abc123/status → { "status": "completed", "url": "..." }</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Pagination</h3>
+            <p>Nigdy nie zwracaj wszystkich rekordow.</p>
+            <ul>
+                <li><strong>Offset-based:</strong> ?page=3&amp;limit=20</li>
+                <li><strong>Cursor-based:</strong> ?after=abc123&amp;limit=20 (wydajniejsze)</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>Connection Pooling, Indexing, Sharding, Read Replicas</h3>
+            <ul>
+                <li><strong>Connection Pooling</strong> — pula polaczen do bazy danych</li>
+                <li><strong>Database Indexing</strong> — indeksy na kolumnach w WHERE, JOIN, ORDER BY</li>
+                <li><strong>Sharding</strong> — podzial danych miedzy wiele instancji bazy</li>
+                <li><strong>Read Replicas</strong> — kopie bazy do odczytu</li>
+            </ul>
+        </div>
+
+        <h2>Monitoring wydajnosci</h2>
+        <h3>Kluczowe metryki</h3>
+        <ul>
+            <li><strong>Latency</strong> — czas odpowiedzi (p50, p95, p99)</li>
+            <li><strong>Throughput</strong> — zadania na sekunde (RPS)</li>
+            <li><strong>Error rate</strong> — procent blednych odpowiedzi</li>
+            <li><strong>Saturation</strong> — wykorzystanie zasobow</li>
+        </ul>
+
+        <h3>Narzedzia (2026)</h3>
+        <ul>
+            <li><strong>Standard instrumentacji: OpenTelemetry (OTel)</strong> — jednolite SDK i protokol (OTLP) dla traces, metrics, logs. Eliminuje vendor lock-in.</li>
+            <li><strong>APM:</strong> Datadog, New Relic, Honeycomb, Dynatrace, Grafana Cloud</li>
+            <li><strong>Metryki:</strong> Prometheus + Grafana, Mimir, VictoriaMetrics</li>
+            <li><strong>Logi:</strong> Grafana Loki, ELK Stack, OpenSearch, Vector (router logow)</li>
+            <li><strong>Tracing:</strong> Grafana Tempo, Jaeger, Zipkin, AWS X-Ray, Datadog APM</li>
+            <li><strong>Continuous profiling:</strong> Grafana Pyroscope, Polar Signals, Datadog Continuous Profiler</li>
+        </ul>
+
+        <h3>Edge computing dla wydajnosci</h3>
+        <p>Edge runtimes (Cloudflare Workers, Vercel Edge, Deno Deploy) pozwalaja wykonywac kod w setkach lokalizacji bliskich uzytkownikom — krytyczne dla aplikacji globalnych:</p>
+        <ul>
+            <li>Mniej hopow sieciowych = nizsze RTT</li>
+            <li>Cache stanu (Workers KV, Durable Objects) blisko uzytkownika</li>
+            <li>Personalizacja na edge bez round-tripa do origin</li>
+            <li>WASM jako format dla edge functions (Fastly Compute, Fermyon Spin)</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="08-bezpieczenstwo.html">&larr; Bezpieczenstwo</a>
+            <a href="10-devops-i-wdrazanie.html">DevOps i wdrazanie &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

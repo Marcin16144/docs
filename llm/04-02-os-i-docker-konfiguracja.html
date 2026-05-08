@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04-02 — OS i Docker dla LLM</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--red:#f87171;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-color:var(--green)}
+        .card.orange{border-color:var(--orange)}
+        .card.red{border-color:var(--red)}
+        .card h3{margin-top:4px}
+        .yes{color:var(--green);font-weight:600}
+        .warn{color:var(--orange);font-weight:600}
+        .no{color:var(--red);font-weight:600}
+        .star{color:var(--orange)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="04-lokalna-konfiguracja.html">04 — Lokalna konfiguracja</a>
+        <span class="sep">/</span>
+        <span class="title">OS i Docker dla LLM</span>
+    </div>
+    <div class="container">
+        <h1>OS i Docker dla LLM</h1>
+        <p class="subtitle">Mac vs Windows vs Linux — porownanie konfiguracji, narzedzi i kiedy uzyc Dockera (a kiedy nie).</p>
+
+        <h2>TL;DR — szybka rekomendacja</h2>
+        <table>
+            <thead>
+                <tr><th>System</th><th>Najlepszy stack</th><th>Docker?</th><th>Komentarz</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Mac (Apple Silicon)</strong></td><td>Ollama + LM Studio + MLX</td><td><span class="no">NIE dla LLM</span></td><td>Natywnie 2-5x szybciej niz Docker</td></tr>
+                <tr><td><strong>Windows + NVIDIA</strong></td><td>Ollama + WSL2 (opcjonalnie)</td><td><span class="warn">Tylko z WSL2</span></td><td>Natywne CUDA jest najszybsze</td></tr>
+                <tr><td><strong>Linux + NVIDIA</strong></td><td>Ollama lub vLLM</td><td><span class="yes">TAK</span></td><td>Najlepszy dla developerow ML</td></tr>
+                <tr><td><strong>Mac (Intel)</strong></td><td>Ollama (CPU)</td><td>Mozna</td><td>GPU juz niewspierane przez Apple</td></tr>
+                <tr><td><strong>Linux + AMD GPU</strong></td><td>Ollama z ROCm</td><td><span class="warn">Skomplikowane</span></td><td>Wymaga konfiguracji ROCm</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Porownanie narzedzi (2026)</h2>
+
+        <div class="card green">
+            <h3>Ollama <span class="star">★</span> (rekomendowany dla wiekszosci)</h3>
+            <p><strong>Co to:</strong> Najprostszy serwer LLM. CLI + API + biblioteka modeli.</p>
+            <p><strong>Plusy:</strong></p>
+            <ul>
+                <li>Zero konfiguracji — <code>ollama run llama3.3</code> i dziala</li>
+                <li>Auto-download modeli z biblioteki</li>
+                <li>API kompatybilne z OpenAI</li>
+                <li>Dziala na wszystkich OS (Mac, Win, Linux)</li>
+                <li>Auto GPU detection (CUDA, Metal, ROCm)</li>
+                <li>Aktywny rozwoj, ogromna spolecznosc</li>
+            </ul>
+            <p><strong>Minusy:</strong></p>
+            <ul>
+                <li>Mniej kontroli niz llama.cpp</li>
+                <li>Mniej parametrow konfiguracji niz vLLM</li>
+                <li>Brak tensor parallelism (multi-GPU dla jednego modelu)</li>
+            </ul>
+<pre><code># Instalacja
+brew install ollama              # Mac
+# Pobierz instalator z ollama.com  Windows
+curl -fsSL https://ollama.com/install.sh | sh   # Linux
+
+# Uzycie
+ollama pull llama3.3:70b
+ollama run llama3.3:70b
+ollama serve                    # API on localhost:11434</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>LM Studio <span class="star">★</span> (najlepszy GUI)</h3>
+            <p>Desktop GUI z chatem, biblioteka modeli, lokalnym serwerem API.</p>
+            <p><strong>Plusy:</strong> najlepsze GUI dla niezaawansowanych, wbudowane wyszukiwanie modeli z HuggingFace, visual chat (jak ChatGPT), API OpenAI-compat, profile inferencji, wsparcie multi-modal.</p>
+            <p><strong>Minusy:</strong> closed-source (free, ale nie open), ciezszy niz Ollama, mniej elastyczny dla automatyzacji.</p>
+            <p><strong>Najlepszy dla:</strong> osob ktore chca "kliknac i dziala".</p>
+        </div>
+
+        <div class="card">
+            <h3>llama.cpp (najwiecej kontroli)</h3>
+            <p>Niskopoziomowy serwer w C++. Ollama uzywa llama.cpp pod spodem.</p>
+            <p><strong>Plusy:</strong> najszybszy CPU inference, pelna kontrola, najmniejsze zuzycie pamieci, wsparcie Vulkan/Metal/CUDA/ROCm.</p>
+            <p><strong>Minusy:</strong> wymaga kompilacji, steeper learning curve.</p>
+<pre><code>git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+cmake -B build -DGGML_CUDA=ON   # NVIDIA
+# lub: -DGGML_METAL=ON           # Mac
+cmake --build build --config Release -j</code></pre>
+        </div>
+
+        <div class="card green">
+            <h3>vLLM <span class="star">★</span> (produkcja)</h3>
+            <p>Wysokowydajny serwer LLM od UC Berkeley.</p>
+            <p><strong>Plusy:</strong> najwyzszy throughput (2-10x szybszy niz Ollama dla wielu requestow), PagedAttention, continuous batching, OpenAI-compat API, tensor parallelism (multi-GPU), speculative decoding.</p>
+            <p><strong>Minusy:</strong> tylko Linux (oficjalnie), tylko NVIDIA, wymaga Pythona, wiecej setupu.</p>
+<pre><code>pip install vllm
+vllm serve meta-llama/Llama-3.3-70B-Instruct \
+    --gpu-memory-utilization 0.9 \
+    --quantization awq</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Inne narzedzia</h3>
+            <table>
+                <thead><tr><th>Narzedzie</th><th>Use case</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>MLX</strong> (Apple)</td><td>Trening na Mac — natywny framework Apple</td></tr>
+                    <tr><td><strong>Text Generation WebUI</strong></td><td>Power users, fine-tuning, character cards</td></tr>
+                    <tr><td><strong>Jan</strong></td><td>Open-source alternatywa LM Studio</td></tr>
+                    <tr><td><strong>GPT4All</strong></td><td>Bardzo prosty, dla poczatkujacych</td></tr>
+                    <tr><td><strong>MLC LLM</strong></td><td>Multi-platform: phone, browser, desktop</td></tr>
+                    <tr><td><strong>ExLlamaV2</strong></td><td>Najszybsza inference NVIDIA</td></tr>
+                    <tr><td><strong>TGI</strong> (HF)</td><td>Alternatywa vLLM</td></tr>
+                    <tr><td><strong>OpenWebUI</strong></td><td>Web GUI laczace sie z Ollama (jak ChatGPT)</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h2>Porownanie systemow operacyjnych</h2>
+
+        <h3>macOS (Apple Silicon M1-M4)</h3>
+        <div class="two-col">
+            <div class="card green">
+                <h4>Plusy</h4>
+                <ul>
+                    <li><strong>Unified memory</strong> — calosc RAM dla GPU bez transferu</li>
+                    <li>24-192 GB "VRAM" (zaleznie od modelu)</li>
+                    <li>Natywny Metal backend → swietna wydajnosc per Watt</li>
+                    <li>MLX framework — najszybszy na Apple Silicon</li>
+                    <li>Cichy, niski pobor energii (~30W idle)</li>
+                </ul>
+            </div>
+            <div class="card red">
+                <h4>Minusy</h4>
+                <ul>
+                    <li>Brak CUDA — niektore biblioteki niedostepne</li>
+                    <li>Wolniejsze pure throughput vs RTX 4090/5090</li>
+                    <li>Wiekszosc poradnikow zaklada NVIDIA</li>
+                    <li>Trening duzych modeli (&gt;13B) wolny</li>
+                </ul>
+            </div>
+        </div>
+
+        <p><strong>Wydajnosc Llama 3.1 8B Q4_K_M:</strong></p>
+        <table>
+            <thead><tr><th>Hardware</th><th>Tokens/s</th></tr></thead>
+            <tbody>
+                <tr><td>M1 (16GB)</td><td>~20 t/s</td></tr>
+                <tr><td>M2 Pro (32GB)</td><td>~30 t/s</td></tr>
+                <tr><td>M3 Max (64GB)</td><td>~45 t/s</td></tr>
+                <tr><td>M4 Max (128GB)</td><td>~55 t/s</td></tr>
+                <tr><td>M4 Ultra Studio (256GB)</td><td>~70 t/s</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Windows</h3>
+        <div class="two-col">
+            <div class="card green">
+                <h4>Plusy</h4>
+                <ul>
+                    <li>Natywne CUDA, najszybsze na NVIDIA</li>
+                    <li>Najlepszy hardware-to-price (RTX 4090 ~$1500)</li>
+                    <li>Gaming-tier sprzet dziala</li>
+                    <li>Dobry support narzedzi GUI</li>
+                </ul>
+            </div>
+            <div class="card red">
+                <h4>Minusy</h4>
+                <ul>
+                    <li>vLLM nie ma natywnego support (tylko WSL2)</li>
+                    <li>Path issues, Python issues</li>
+                    <li>Antywirus moze spowalniac</li>
+                </ul>
+            </div>
+        </div>
+
+<pre><code># Opcja A: Natywnie (Ollama)
+# Pobierz z ollama.com, run installer
+
+# Opcja B: WSL2 dla Linux-only tools (vLLM)
+wsl --install -d Ubuntu
+# W Ubuntu:
+curl -fsSL https://ollama.com/install.sh | sh
+nvidia-smi   # sprawdz GPU access</code></pre>
+
+        <p><strong>WSL2 tipy:</strong> Trzymaj pliki w <code>/home/user/</code>, nie <code>/mnt/c/</code>. Zwieksz pamiec w <code>~/.wslconfig</code>:</p>
+<pre><code>[wsl2]
+memory=64GB
+processors=12</code></pre>
+
+        <h3>Linux</h3>
+        <div class="two-col">
+            <div class="card green">
+                <h4>Plusy</h4>
+                <ul>
+                    <li><strong>Najlepsze wsparcie ML</strong> — wszystko dziala</li>
+                    <li>vLLM, Triton, TensorRT-LLM tylko tu</li>
+                    <li>Pelna kontrola nad systemem</li>
+                    <li>Najszybszy Docker (kontenery natywnie)</li>
+                </ul>
+            </div>
+            <div class="card red">
+                <h4>Minusy</h4>
+                <ul>
+                    <li>Wymaga doswiadczenia z Linuxem</li>
+                    <li>Driver issues (NVIDIA, CUDA versions)</li>
+                    <li>Setup zajmuje wiecej czasu</li>
+                </ul>
+            </div>
+        </div>
+
+        <p><strong>Setup Ubuntu 24.04 + NVIDIA:</strong></p>
+<pre><code>sudo ubuntu-drivers autoinstall
+sudo reboot
+
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+sudo apt update && sudo apt install -y cuda-toolkit-12-6
+
+curl -fsSL https://ollama.com/install.sh | sh</code></pre>
+
+        <h2>Docker dla LLM — kiedy uzywac?</h2>
+
+        <table>
+            <thead><tr><th>Platform</th><th>Docker dla LLM?</th><th>Uwagi</th></tr></thead>
+            <tbody>
+                <tr><td>Mac</td><td><span class="no">NIE</span></td><td>~30-50% spowolnienie, brak GPU access</td></tr>
+                <tr><td>Windows + WSL2</td><td><span class="warn">Mozna</span></td><td>W WSL2 OK, ale natywnie szybciej</td></tr>
+                <tr><td>Linux + NVIDIA</td><td><span class="yes">TAK</span></td><td>Marginalna utrata wydajnosci (~5%)</td></tr>
+            </tbody>
+        </table>
+
+        <div class="card red">
+            <h3>Dlaczego Docker na Mac to ZLY pomysl dla LLM?</h3>
+<pre><code>┌────────────────────────────────────┐
+│  Mac (Apple Silicon)                │
+│                                     │
+│  Docker Desktop:                    │
+│  ┌──────────────────────────────┐  │
+│  │  Linux VM (x86_64 emulation) │  │  ← Tu jest problem
+│  │  ┌────────────────────────┐  │  │
+│  │  │  Container             │  │  │  ← LLM tutaj
+│  │  └────────────────────────┘  │  │
+│  └──────────────────────────────┘  │
+│        ↑                            │
+│  Brak dostepu do Apple GPU/Metal!  │
+│  Brak unified memory!               │
+└────────────────────────────────────┘</code></pre>
+            <p><strong>Konsekwencje:</strong> brak Metal (GPU) → wszystko na CPU, emulacja x86 → kolejna degradacja, brak access do unified memory, 2-5x wolniej niz natywnie.</p>
+        </div>
+
+        <div class="card green">
+            <h3>Wyjatek: Docker na Mac OK dla...</h3>
+            <ul>
+                <li>Vector DB (Qdrant, Postgres) — lekki workload</li>
+                <li>API serwery (twoja aplikacja, nie LLM)</li>
+                <li>Web UI (Open WebUI laczace sie z natywnym Ollama)</li>
+            </ul>
+<pre><code># Praktyka na Mac:
+brew install ollama       # natywnie
+ollama serve
+
+# Web UI w Docker, laczy sie z natywnym Ollama:
+docker run -d -p 3000:8080 \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  ghcr.io/open-webui/open-webui:main</code></pre>
+        </div>
+
+        <h3>Docker na Linux <span class="star">★</span></h3>
+        <p><strong>Tu Docker shines.</strong> Marginalny overhead, pelny dostep do GPU.</p>
+
+<pre><code># NVIDIA Container Toolkit
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
+    sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+sudo apt update && sudo apt install -y nvidia-container-toolkit
+sudo systemctl restart docker
+
+# Test
+docker run --rm --gpus all nvidia/cuda:12.6.0-base-ubuntu24.04 nvidia-smi
+
+# Ollama w Docker
+docker run -d --gpus=all -v ollama:/root/.ollama \
+    -p 11434:11434 --name ollama ollama/ollama
+
+# vLLM w Docker
+docker run --gpus all \
+    -v ~/.cache/huggingface:/root/.cache/huggingface \
+    -p 8000:8000 --ipc=host \
+    vllm/vllm-openai:latest \
+    --model meta-llama/Llama-3.3-70B-Instruct</code></pre>
+
+        <h3>Docker Compose dla pelnego stacka (Linux + GPU)</h3>
+<pre><code>version: '3.8'
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports: ["11434:11434"]
+    volumes: [ollama:/root/.ollama]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    ports: ["3000:8080"]
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on: [ollama]
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports: ["6333:6333"]
+
+volumes:
+  ollama:
+  qdrant:</code></pre>
+
+        <h2>Praktyczne setupy</h2>
+
+        <div class="card">
+            <h3>Setup #1: Mac dla developera (M2/M3/M4)</h3>
+<pre><code># 1. Ollama natywnie
+brew install ollama
+
+# 2. Open WebUI (chat) - via Docker
+docker run -d -p 3000:8080 \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  ghcr.io/open-webui/open-webui:main
+
+# 3. Modele
+ollama pull llama3.3:70b      # ~40GB, 64GB+ Mac
+ollama pull qwen2.5-coder:7b  # do kodu
+ollama pull deepseek-r1:8b    # reasoning
+
+# 4. Use:
+open http://localhost:3000</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Setup #2: Windows + RTX 4090</h3>
+<pre><code># Opcja A: Ollama natywnie (najprostsze)
+# Pobierz z ollama.com
+ollama pull llama3.1:8b
+ollama run llama3.1:8b
+
+# Opcja B: WSL2 dla pelnego Linux stacka
+wsl --install -d Ubuntu
+# W Ubuntu:
+curl -fsSL https://ollama.com/install.sh | sh
+nvidia-smi   # GPU access via WSL CUDA</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Setup #3: Linux serwer produkcyjny (vLLM)</h3>
+<pre><code>sudo apt install -y docker.io nvidia-container-toolkit
+sudo systemctl restart docker
+
+docker run -d --gpus all \
+    -v ~/.cache/huggingface:/root/.cache/huggingface \
+    -p 8000:8000 --ipc=host \
+    --name vllm --restart unless-stopped \
+    -e HUGGING_FACE_HUB_TOKEN=$HF_TOKEN \
+    vllm/vllm-openai:latest \
+    --model meta-llama/Llama-3.3-70B-Instruct-AWQ \
+    --quantization awq \
+    --max-model-len 8192</code></pre>
+        </div>
+
+        <h2>Optymalizacje per OS</h2>
+
+        <div class="card">
+            <h3>Mac (Apple Silicon)</h3>
+<pre><code># Maks GPU layers
+./llama-cli -m model.gguf -ngl 999
+
+# MLX (najszybsze)
+pip install mlx-lm
+python -m mlx_lm.generate \
+    --model mlx-community/Llama-3.3-70B-Instruct-4bit \
+    --prompt "Hello"
+
+# Wylacz Spotlight indexing dla folderu modeli
+sudo mdutil -i off ~/Models</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Windows</h3>
+<pre><code># High priority
+$ollamaProcess = Get-Process ollama
+$ollamaProcess.PriorityClass = "High"
+
+# Wylacz Defender skanowanie
+Add-MpPreference -ExclusionPath "C:\Users\$env:USERNAME\.ollama"</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Linux</h3>
+<pre><code># Pin do GPU
+CUDA_VISIBLE_DEVICES=0,1 ollama serve
+
+# KV cache w int8
+OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve
+
+# Monitor GPU
+nvtop  # apt install nvtop</code></pre>
+        </div>
+
+        <h2>Ile RAM/VRAM potrzebujesz?</h2>
+        <table>
+            <thead><tr><th>Model (Q4_K_M)</th><th>VRAM</th><th>Hardware</th></tr></thead>
+            <tbody>
+                <tr><td>Llama 3.2 1B</td><td>~1 GB</td><td>laptop, smartphone</td></tr>
+                <tr><td>Llama 3.2 3B</td><td>~2 GB</td><td>laptop, mini PC</td></tr>
+                <tr><td>Llama 3.1 8B</td><td>~5 GB</td><td>8GB GPU, M1 8GB</td></tr>
+                <tr><td>Llama 13B</td><td>~8 GB</td><td>12GB GPU, M2 16GB</td></tr>
+                <tr><td>Mixtral 8x7B</td><td>~26 GB</td><td>32GB GPU, M3 Pro 36GB</td></tr>
+                <tr><td>Llama 70B</td><td>~40 GB</td><td>2x RTX 4090 lub M3 Max 64GB</td></tr>
+                <tr><td>Llama 405B</td><td>~230 GB</td><td>klaster lub Mac Studio Ultra 256GB</td></tr>
+                <tr><td>DeepSeek R1</td><td>~400 GB</td><td>klaster (multi-host)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Czeste bledy konfiguracji</h2>
+        <ul>
+            <li><span class="no">✗</span> <strong>Docker dla LLM na Macu</strong> — 2-5x wolniej, brak GPU</li>
+            <li><span class="no">✗</span> <strong>WSL1 zamiast WSL2</strong> — brak GPU access</li>
+            <li><span class="no">✗</span> <strong>Modele w <code>/mnt/c/</code> w WSL2</strong> — wolny disk I/O</li>
+            <li><span class="no">✗</span> <strong>Brak NVIDIA drivers</strong> przed Docker</li>
+            <li><span class="no">✗</span> <strong>Antywirus skanujacy modele</strong> — wylacz exclusion</li>
+            <li><span class="no">✗</span> <strong>CPU model na laptop dla 70B</strong> — 0.5 t/s, nieuzywalne</li>
+            <li><span class="no">✗</span> <strong>Mac Mini 16GB dla 70B</strong> — OOM</li>
+            <li><span class="no">✗</span> <strong>Cudnn/CUDA mismatch</strong> — uzywaj nvidia-docker</li>
+        </ul>
+
+        <h2>Stack rekomendacje 2026</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Solo dev, M3 Max 64GB</h3>
+                <ul>
+                    <li>Ollama (natywnie)</li>
+                    <li>Open WebUI (Docker)</li>
+                    <li>Qdrant (Docker)</li>
+                    <li>Continue.dev w VS Code</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Solo dev, RTX 4090 Win</h3>
+                <ul>
+                    <li>Ollama (natywnie) lub LM Studio</li>
+                    <li>Continue / Cursor / Claude Code</li>
+                    <li>WSL2 + vLLM jesli multi-GPU</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Male biuro, Linux serwer</h3>
+                <ul>
+                    <li>vLLM w Docker, Llama 3.3 70B AWQ</li>
+                    <li>Open WebUI dla zespolu</li>
+                    <li>Qdrant dla RAG</li>
+                    <li>nginx + Authentik (SSO)</li>
+                    <li>Langfuse (observability)</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Privacy-first, no internet</h3>
+                <ul>
+                    <li>Mac Studio M4 Ultra 256GB</li>
+                    <li>lub Linux + RTX 6000 Ada 48GB</li>
+                    <li>Ollama z 70B modelami</li>
+                    <li>LlamaIndex + Chroma RAG</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Linki i zasoby</h2>
+        <ul>
+            <li><strong>Ollama</strong>: ollama.com</li>
+            <li><strong>LM Studio</strong>: lmstudio.ai</li>
+            <li><strong>Jan</strong>: jan.ai (open source LM Studio)</li>
+            <li><strong>Open WebUI</strong>: github.com/open-webui/open-webui</li>
+            <li><strong>vLLM docs</strong>: docs.vllm.ai</li>
+            <li><strong>llama.cpp</strong>: github.com/ggml-org/llama.cpp</li>
+            <li><strong>MLX</strong>: github.com/ml-explore/mlx (Apple)</li>
+            <li><strong>r/LocalLLaMA</strong>: najlepsza spolecznosc</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="04-lokalna-konfiguracja.html">&larr; Lokalna konfiguracja</a>
+            <a href="04-01-apple-m2-max-32gb-training.html">Apple M2 Max training &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

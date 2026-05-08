@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>07 — Fine-tuning i adaptacja modeli</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<span class="title">07 — Fine-tuning</span>
+</div>
+<div class="container">
+<h1>Fine-tuning i adaptacja modeli</h1>
+<p class="subtitle">Hierarchia adaptacji modeli — od promptowania po pelny fine-tuning, z naciskiem na LoRA i QLoRA.</p>
+
+<h2>Kiedy fine-tunowac?</h2>
+<p><strong>Fine-tuning to NIE pierwsza rzecz, ktora powinienes sprobowac.</strong> Hierarchia:</p>
+<pre><code>1. Prompt engineering          → sprobuj najpierw
+2. Few-shot prompting          → daj przyklady w prompcie
+3. RAG                         → gdy brakuje wiedzy
+4. Fine-tuning (LoRA/QLoRA)    → gdy pierwsze 3 nie wystarcza
+5. Full fine-tuning            → bardzo rzadko potrzebny
+6. Trening od zera             → nigdy (chyba ze jestes OpenAI)</code></pre>
+
+<div class="card">
+<p><strong>Fine-tuning ma sens gdy:</strong></p>
+<ul>
+<li>Potrzebujesz <strong>specyficznego stylu</strong> (glos marki, format)</li>
+<li>Pracujesz w <strong>waskiej domenie</strong> (medycyna, prawo, finanse)</li>
+<li>Masz <strong>nietypowy format</strong> wyjscia (specjalna skladnia, struktury)</li>
+<li>Chcesz <strong>mniejszy/szybszy model</strong> osiagajacy wyniki wiekszego</li>
+<li>Potrzebujesz <strong>prywatnosci</strong> (nie chcesz wysylac danych do API)</li>
+</ul>
+
+<p><strong>Fine-tuning NIE pomoze gdy:</strong></p>
+<ul>
+<li>Potrzebujesz aktualnych informacji → RAG</li>
+<li>Model nie wie czegos jednorazowego → wloz w prompt</li>
+<li>Model "halucynuje" → lepszy prompting + RAG</li>
+<li>Chcesz nauczyc modelu nowych faktow → continued pre-training, nie SFT</li>
+</ul>
+</div>
+
+<h2>Pelny fine-tuning vs PEFT</h2>
+
+<h3>Full fine-tuning (FFT)</h3>
+<p>Trenujemy <strong>wszystkie parametry</strong> modelu.</p>
+<p><strong>Wymagania VRAM:</strong></p>
+<pre><code>Llama 8B FFT:  ~80 GB VRAM   (parametry + gradienty + Adam)
+Llama 70B FFT: ~700 GB VRAM  (klaster GPU)</code></pre>
+<p>Wymaga ogromnych zasobow. Stosowany rzadko, glownie dla foundation models.</p>
+
+<h3>PEFT — Parameter Efficient Fine-Tuning</h3>
+<p>Zamiast trenowac wszystkie parametry, trenujemy <strong>mala czesc</strong> (1-5%).</p>
+<table>
+<thead>
+<tr><th>Metoda</th><th>% trenowanych</th><th>Jakosc</th><th>Pamiec</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>LoRA</strong></td><td>~1%</td><td>~95% FFT</td><td>25% FFT</td></tr>
+<tr><td><strong>QLoRA</strong></td><td>~1%</td><td>~93% FFT</td><td>10% FFT</td></tr>
+<tr><td><strong>Adapters</strong></td><td>~3%</td><td>~95% FFT</td><td>30% FFT</td></tr>
+<tr><td><strong>Prompt tuning</strong></td><td>&lt;0.1%</td><td>~85% FFT</td><td>5% FFT</td></tr>
+<tr><td><strong>DoRA</strong></td><td>~1%</td><td>~97% FFT</td><td>25% FFT</td></tr>
+</tbody>
+</table>
+<p><strong>LoRA i QLoRA</strong> to obecnie standard.</p>
+
+<h2>LoRA (Low-Rank Adaptation)</h2>
+
+<h3>Idea matematyczna</h3>
+<p>Zamiast trenowac cala macierz wag W (np. 4096×4096), dodajemy niewielka "delta" rozlozona na dwie male macierze:</p>
+<pre><code>W_new = W_oryginalne + B · A
+
+gdzie:
+- W: 4096 × 4096 = 16M params (zamrozone)
+- A: 4096 × r (np. r=8)
+- B: r × 4096
+- Trenujemy tylko A i B → 65k params (250× mniej!)
+
+r (rank): 8, 16, 32, 64 — wiekszy = bardziej "pojemny"</code></pre>
+
+<h3>Zalety LoRA</h3>
+<ul>
+<li><strong>Mala pamiec</strong> — adapter to ~50-200 MB zamiast GB</li>
+<li><strong>Szybki trening</strong> — 5-10× szybszy niz FFT</li>
+<li><strong>Wiele adapterow</strong> — przelaczasz miedzy nimi runtime</li>
+<li><strong>Mozna laczyc</strong> — adapter A + adapter B</li>
+<li><strong>Mergowalny</strong> — mozesz wmergowac w bazowy model</li>
+</ul>
+
+<h3>Konfiguracja LoRA</h3>
+<pre><code>from peft import LoraConfig, get_peft_model
+
+config = LoraConfig(
+    r=16,                    # rank
+    lora_alpha=32,           # skalowanie (zwykle 2*r)
+    target_modules=[         # ktore warstwy adaptowac
+        "q_proj", "k_proj", "v_proj", "o_proj",  # attention
+        "gate_proj", "up_proj", "down_proj"       # FFN
+    ],
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM"
+)
+
+model = get_peft_model(base_model, config)
+model.print_trainable_parameters()
+# trainable: 41,943,040 || all: 8,072,204,288 || trainable%: 0.52</code></pre>
+
+<h2>QLoRA — LoRA z kwantyzacja</h2>
+<p>QLoRA = Quantized LoRA. Bazowy model w 4-bit, adapter w pelnej precyzji.</p>
+<pre><code>Pamiec:
+- Llama 8B FFT:    ~80 GB VRAM
+- Llama 8B LoRA:   ~20 GB VRAM
+- Llama 8B QLoRA:  ~6 GB VRAM   ← na konsumenckim GPU!
+- Llama 70B QLoRA: ~48 GB VRAM  ← jedna RTX 6000 Ada</code></pre>
+<p>QLoRA pozwala fine-tunowac 70B model na pojedynczej duzej karcie.</p>
+<pre><code>from transformers import BitsAndBytesConfig
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",          # NormalFloat4
+    bnb_4bit_compute_dtype=torch.bfloat16,
+    bnb_4bit_use_double_quant=True
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-3.1-8B-Instruct",
+    quantization_config=bnb_config,
+    device_map="auto"
+)
+
+# Nastepnie LoRA jak wczesniej</code></pre>
+
+<h2>Pipeline fine-tuningu (krok po kroku)</h2>
+
+<h3>1. Przygotuj dataset</h3>
+<p>Format <strong>chat template</strong> dla SFT:</p>
+<pre><code>{
+  "messages": [
+    {"role": "system", "content": "Jestes prawnikiem."},
+    {"role": "user", "content": "Czy moge odstapic od umowy?"},
+    {"role": "assistant", "content": "W przypadku umow konsumenckich..."}
+  ]
+}</code></pre>
+
+<div class="card">
+<p><strong>Reguly dobrego datasetu:</strong></p>
+<ul>
+<li><strong>Quality &gt; Quantity</strong> — 1000 swietnych przykladow &gt; 100k mediocre</li>
+<li><strong>Diversity</strong> — rozne typy zapytan/odpowiedzi</li>
+<li><strong>Format spojny</strong> — wszystkie przyklady w tym samym stylu</li>
+<li><strong>No data leakage</strong> — eval set ≠ train set</li>
+<li><strong>Decontamination</strong> — usun przyklady z public benchmarkow</li>
+</ul>
+
+<p><strong>Ile danych?</strong></p>
+<ul>
+<li>LoRA dla malych zmian: 100-1000 przykladow</li>
+<li>LoRA dla nowego stylu/domeny: 1k-10k</li>
+<li>LoRA dla nowej umiejetnosci: 10k-100k</li>
+<li>Full fine-tuning: 100k+</li>
+</ul>
+</div>
+
+<h3>2. Wybierz model bazowy</h3>
+<table>
+<thead>
+<tr><th>Cel</th><th>Polecane bazowe modele (2026)</th></tr>
+</thead>
+<tbody>
+<tr><td>Ogolny chat</td><td>Llama 4 Instruct, Qwen 3 Chat</td></tr>
+<tr><td>Coding</td><td>Qwen 2.5 Coder, DeepSeek Coder</td></tr>
+<tr><td>Reasoning</td><td>DeepSeek R1, Qwen QwQ</td></tr>
+<tr><td>Multilingual</td><td>Qwen, Mistral Large</td></tr>
+<tr><td>Maly i szybki</td><td>Llama 3.2 3B, Phi-4</td></tr>
+<tr><td>Vision</td><td>Llama 3.2 Vision, Qwen 2.5 VL</td></tr>
+</tbody>
+</table>
+<p><strong>Zawsze wybieraj wersje <code>Instruct</code>/<code>Chat</code></strong> jako baze dla fine-tuningu, nie base model — chyba ze robisz continued pre-training.</p>
+
+<h3>3. Trening — przyklad z Unsloth</h3>
+<p><strong>Unsloth</strong> to najszybsze narzedzie do LoRA/QLoRA — 2-5× szybszy niz HF:</p>
+<pre><code>from unsloth import FastLanguageModel
+import torch
+
+# Zaladuj model w 4-bit
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name="unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
+    max_seq_length=4096,
+    dtype=None,
+    load_in_4bit=True,
+)
+
+# Dodaj LoRA
+model = FastLanguageModel.get_peft_model(
+    model,
+    r=16,
+    lora_alpha=32,
+    lora_dropout=0,
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
+                     "gate_proj", "up_proj", "down_proj"],
+    use_gradient_checkpointing="unsloth",
+)
+
+# Dataset (chat format)
+from datasets import load_dataset
+dataset = load_dataset("json", data_files="train.jsonl")
+
+def format_chat(example):
+    return {"text": tokenizer.apply_chat_template(
+        example["messages"],
+        tokenize=False,
+        add_generation_prompt=False
+    )}
+
+dataset = dataset.map(format_chat)
+
+# Trening
+from trl import SFTTrainer
+from transformers import TrainingArguments
+
+trainer = SFTTrainer(
+    model=model,
+    tokenizer=tokenizer,
+    train_dataset=dataset["train"],
+    dataset_text_field="text",
+    max_seq_length=4096,
+    args=TrainingArguments(
+        per_device_train_batch_size=2,
+        gradient_accumulation_steps=4,
+        warmup_steps=100,
+        num_train_epochs=3,
+        learning_rate=2e-4,
+        bf16=True,
+        logging_steps=10,
+        optim="adamw_8bit",
+        weight_decay=0.01,
+        lr_scheduler_type="cosine",
+        seed=42,
+        output_dir="./outputs",
+    ),
+)
+
+trainer.train()
+
+# Zapisz adapter
+model.save_pretrained("my_lora_adapter")
+
+# Lub merge z bazowym modelem dla latwiejszej inferencji
+model.save_pretrained_merged("my_merged_model", tokenizer, save_method="merged_16bit")</code></pre>
+
+<h3>4. Hyperparameters — typowe wartosci</h3>
+<pre><code># LoRA hyperparameters
+r = 16                # 8-64, wiekszy = bardziej pojemny
+lora_alpha = 32       # zwykle 2*r
+lora_dropout = 0.05   # 0-0.1
+
+# Training
+learning_rate = 2e-4  # LoRA moze miec wyzszy LR niz FFT
+                      # FFT: 1e-5 do 5e-5
+batch_size = 4        # globalny
+epochs = 3            # 1-5 typowo
+warmup_steps = 100    # 100-500</code></pre>
+
+<h3>5. Merge i deploy</h3>
+<pre><code># Merge LoRA z bazowym modelem
+from peft import PeftModel
+
+base = AutoModelForCausalLM.from_pretrained("base_model")
+model = PeftModel.from_pretrained(base, "my_lora_adapter")
+merged = model.merge_and_unload()
+merged.save_pretrained("merged_model")
+
+# Konwersja do GGUF dla Ollama/llama.cpp
+# (zewnetrzne narzedzia: llama.cpp convert.py)</code></pre>
+
+<h2>DPO i preference fine-tuning</h2>
+<p>Po SFT mozna dodac <strong>preference optimization</strong> — uczy model preferowac lepsze odpowiedzi.</p>
+
+<h3>Dataset DPO</h3>
+<pre><code>{
+  "prompt": "Wyjasnij rekurencje",
+  "chosen": "Rekurencja to technika...(dobra odpowiedz)",
+  "rejected": "Rekurencja jest...(slaba odpowiedz)"
+}</code></pre>
+<pre><code>from trl import DPOTrainer, DPOConfig
+
+trainer = DPOTrainer(
+    model=model,
+    ref_model=None,  # automatyczne dla LoRA
+    args=DPOConfig(
+        beta=0.1,                # KL regularization
+        learning_rate=5e-7,      # nizszy niz SFT!
+        num_train_epochs=1,
+        per_device_train_batch_size=2,
+        ...
+    ),
+    train_dataset=dpo_dataset,
+    tokenizer=tokenizer,
+)
+trainer.train()</code></pre>
+
+<h3>Inne preference methods (2026)</h3>
+<ul>
+<li><strong>DPO</strong> — najpopularniejsza, prosta</li>
+<li><strong>KTO</strong> — dziala z pojedynczymi przykladami (good/bad)</li>
+<li><strong>ORPO</strong> — laczy SFT i DPO w jeden krok</li>
+<li><strong>GRPO</strong> — Group Relative Policy Optimization (DeepSeek R1)</li>
+<li><strong>SimPO</strong> — uproszczona DPO bez ref model</li>
+</ul>
+
+<h2>Narzedzia do fine-tuningu</h2>
+
+<h3>Open source</h3>
+
+<div class="card">
+<p><strong>Unsloth</strong> — najszybsze</p>
+<ul>
+<li>2-5× szybszy niz HF Transformers</li>
+<li>Mniej VRAM</li>
+<li>Latwy w uzyciu</li>
+<li>github.com/unslothai/unsloth</li>
+</ul>
+
+<p><strong>Axolotl</strong> — najpopularniejsze</p>
+<ul>
+<li>Konfiguracja YAML</li>
+<li>Wsparcie wielu metod (LoRA, QLoRA, FFT, DPO, ORPO)</li>
+<li>Cloud-friendly</li>
+<li>github.com/axolotl-ai-cloud/axolotl</li>
+</ul>
+
+<p><strong>LLaMA Factory</strong> — z GUI</p>
+<ul>
+<li>WebUI do fine-tuningu</li>
+<li>Wsparcie 100+ modeli</li>
+<li>Latwe dla poczatkujacych</li>
+</ul>
+
+<p><strong>TRL</strong> (Hugging Face) — bibliotek niskopoziomowa</p>
+<ul>
+<li>SFTTrainer, DPOTrainer, GRPOTrainer</li>
+<li>Bardziej kontroli, wiecej kodu</li>
+</ul>
+
+<p><strong>Torchtune</strong> (Meta) — natywny PyTorch</p>
+<ul>
+<li>Bez warstw abstrakcji</li>
+<li>Distributed training</li>
+</ul>
+</div>
+
+<h3>Komercyjne / Cloud</h3>
+<ul>
+<li><strong>Anthropic Fine-tuning</strong> (via AWS Bedrock) — fine-tune Claude Haiku, Custom modele dla enterprise</li>
+<li><strong>OpenAI Fine-tuning</strong> — GPT-4o, GPT-4o-mini. Latwe via API: <code>client.fine_tuning.jobs.create(...)</code></li>
+<li><strong>Together AI</strong> — fine-tune Llama, Mistral, Qwen w chmurze. Latwiejsze niz wlasna infrastruktura</li>
+<li><strong>Predibase / Modal / Replicate</strong> — Cloud platforms do fine-tuningu, GPU on-demand</li>
+<li><strong>Vertex AI</strong> (Google) — fine-tune Gemini</li>
+<li><strong>Azure AI Foundry</strong> — fine-tune wielu modeli</li>
+</ul>
+
+<h2>Pulapki i typowe bledy</h2>
+
+<ol>
+<li><strong>Catastrophic forgetting</strong> — model zapomina jak rozmawiac. Mituj przez:
+<ul>
+<li>Mieszanie z generic SFT data</li>
+<li>Niski learning rate</li>
+<li>LoRA zamiast FFT</li>
+</ul>
+</li>
+<li><strong>Overfitting</strong> — model uczy sie doslownie. Mituj przez:
+<ul>
+<li>Walidacje na hold-out set</li>
+<li>Early stopping</li>
+<li>Mniej epok (1-3)</li>
+<li>Augmentacja danych</li>
+</ul>
+</li>
+<li><strong>Format leakage</strong> — model dodaje artefakty z trainingu (np. dziwne tokeny).
+<ul>
+<li>Sprawdz template!</li>
+<li>Inferencja w tym samym formacie co trening</li>
+</ul>
+</li>
+<li><strong>Zle dane</strong> — garbage in, garbage out.
+<ul>
+<li>Manualnie przejrzyj 100 losowych przykladow</li>
+<li>Usun duplikaty</li>
+<li>Sprawdz jakosc odpowiedzi</li>
+</ul>
+</li>
+<li><strong>Brak ewaluacji</strong> — fine-tunujesz w ciemno.
+<ul>
+<li>Ustaw eval dataset PRZED treningiem</li>
+<li>Mierz: jakosc + brak regresji w ogolnych zadaniach</li>
+</ul>
+</li>
+</ol>
+
+<h2>Koszty (2026)</h2>
+<pre><code>LoRA fine-tuning Llama 8B (lokalnie):
+  - 1 epoch na 10k przykladach
+  - RTX 4090 24GB
+  - ~2-4 godziny
+  - Koszt: prad (~$0.50)
+
+QLoRA fine-tuning Llama 70B (cloud):
+  - 1 epoch na 50k przykladach
+  - 1× H100 80GB
+  - ~24 godziny
+  - Koszt: ~$50-100 (np. RunPod, Lambda)
+
+Anthropic / OpenAI fine-tuning:
+  - Per token: $5-25 / 1M tokenow (training)
+  - Per inference: 2-5× drozszy niz base model</code></pre>
+
+<h2>Workflow w 2026</h2>
+<pre><code>1. Walidacja: czy fine-tuning to right tool?
+   ↓ TAK
+2. Zbierz 1k high-quality examples (manual labeling)
+   ↓
+3. Quick LoRA na malym modelu (Llama 3B)
+   ↓
+4. Eval — czy dziala? Iteruj na danych.
+   ↓
+5. Skaluj — wiekszy model + wiecej danych
+   ↓
+6. DPO/ORPO — preference tuning
+   ↓
+7. Eval (benchmarks + human eval)
+   ↓
+8. Deploy (vLLM, Ollama, lub managed serving)</code></pre>
+
+<div class="nav-bottom">
+<a href="06-projektowanie-modelu.html">← 06 — Projektowanie modelu</a>
+<a href="08-prompt-engineering.html">08 — Prompt engineering →</a>
+</div>
+</div>
+</body>
+</html>

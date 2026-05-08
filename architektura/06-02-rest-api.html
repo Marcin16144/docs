@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06-02 — REST API</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="06-komunikacja-i-integracja.html">06 — Komunikacja</a>
+        <span class="sep">/</span>
+        <span class="title">REST API</span>
+    </div>
+    <div class="container">
+        <h1>REST API</h1>
+        <p class="subtitle">Representational State Transfer — najpopularniejszy styl architektoniczny do budowy API.</p>
+
+        <h2>6 ograniczen REST</h2>
+        <ol>
+            <li><strong>Client-Server</strong> — separacja odpowiedzialnosci, niezalezny rozwoj</li>
+            <li><strong>Stateless</strong> — kazde zadanie zawiera wszystkie informacje do przetworzenia</li>
+            <li><strong>Cacheable</strong> — odpowiedzi musza definiowac mozliwosc cachowania</li>
+            <li><strong>Uniform Interface</strong> — jednolity interfejs (zasoby, reprezentacje, HATEOAS)</li>
+            <li><strong>Layered System</strong> — klient nie wie, czy komunikuje sie z serwerem czy posrednikiem</li>
+            <li><strong>Code on Demand</strong> (opcjonalne) — serwer moze wyslac kod wykonywalny</li>
+        </ol>
+
+        <h2>Richardson Maturity Model</h2>
+        <p>Model dojrzalosci REST wg Leonarda Richardsona — 4 poziomy od RPC do hipermediow.</p>
+
+        <div class="card">
+            <h3>Poziom 0 — The Swamp of POX</h3>
+            <p>Jeden endpoint, jeden verb (POST). HTTP jako transport.</p>
+<pre><code>POST /api
+{ "action": "getUser", "userId": 123 }
+
+POST /api
+{ "action": "createOrder", "items": [...] }</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Poziom 1 — Resources</h3>
+            <p>Osobne URI dla zasobow, ale nadal jeden verb.</p>
+<pre><code>POST /users/123
+{ "action": "get" }
+
+POST /orders
+{ "action": "create", "items": [...] }</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Poziom 2 — HTTP Verbs</h3>
+            <p>Poprawne uzycie metod HTTP i kodow statusu. Wiekszosc "RESTful" API operuje na tym poziomie.</p>
+<pre><code>GET    /users/123          &rarr; 200 OK
+POST   /orders             &rarr; 201 Created
+PUT    /users/123          &rarr; 200 OK
+DELETE /orders/456         &rarr; 204 No Content</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Poziom 3 — HATEOAS</h3>
+            <p>Odpowiedz zawiera linki do powiazanych zasobow i dostepnych akcji. Klient nawiguje po linkach.</p>
+<pre><code>{
+  "id": 123,
+  "name": "Jan Kowalski",
+  "_links": {
+    "self":   { "href": "/users/123" },
+    "orders": { "href": "/users/123/orders" },
+    "edit":   { "href": "/users/123", "method": "PUT" },
+    "delete": { "href": "/users/123", "method": "DELETE" }
+  }
+}</code></pre>
+            <p>Jesli uzytkownik nie ma uprawnien do usuniecia, link "delete" nie pojawi sie w odpowiedzi.</p>
+        </div>
+
+        <h2>Metody HTTP — semantyka</h2>
+        <table>
+            <thead><tr><th>Metoda</th><th>Cel</th><th>Idempotentna</th><th>Body</th></tr></thead>
+            <tbody>
+                <tr><td><strong>GET</strong></td><td>Pobranie zasobu</td><td>Tak</td><td>Nie</td></tr>
+                <tr><td><strong>POST</strong></td><td>Utworzenie zasobu</td><td>Nie</td><td>Tak</td></tr>
+                <tr><td><strong>PUT</strong></td><td>Zastapienie zasobu (caly)</td><td>Tak</td><td>Tak</td></tr>
+                <tr><td><strong>PATCH</strong></td><td>Czesciowa aktualizacja</td><td>Nie*</td><td>Tak</td></tr>
+                <tr><td><strong>DELETE</strong></td><td>Usuniecie zasobu</td><td>Tak</td><td>Nie</td></tr>
+                <tr><td><strong>HEAD</strong></td><td>Jak GET, bez body</td><td>Tak</td><td>Nie</td></tr>
+                <tr><td><strong>OPTIONS</strong></td><td>Dostepne metody</td><td>Tak</td><td>Nie</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Roznica PUT vs PATCH</h3>
+<pre><code>PUT /users/123
+{
+  "name": "Jan Kowalski",
+  "email": "jan@example.com",
+  "phone": "+48 123 456 789",
+  "address": "Warszawa"
+}
+&rarr; Zastepuje CALY zasob (wszystkie pola wymagane)
+
+PATCH /users/123
+{
+  "phone": "+48 999 888 777"
+}
+&rarr; Zmienia TYLKO podane pole</code></pre>
+
+        <h2>Kody statusu HTTP</h2>
+
+        <h3>2xx — Sukces</h3>
+        <table>
+            <thead><tr><th>Kod</th><th>Nazwa</th><th>Kiedy uzywac</th></tr></thead>
+            <tbody>
+                <tr><td>200</td><td>OK</td><td>Domyslny sukces (GET, PUT, PATCH)</td></tr>
+                <tr><td>201</td><td>Created</td><td>Zasob utworzony (POST), Location header</td></tr>
+                <tr><td>202</td><td>Accepted</td><td>Asynchroniczne przetwarzanie</td></tr>
+                <tr><td>204</td><td>No Content</td><td>Sukces bez body (DELETE)</td></tr>
+            </tbody>
+        </table>
+
+        <h3>4xx — Blad klienta</h3>
+        <table>
+            <thead><tr><th>Kod</th><th>Nazwa</th><th>Kiedy uzywac</th></tr></thead>
+            <tbody>
+                <tr><td>400</td><td>Bad Request</td><td>Niepoprawne dane wejsciowe</td></tr>
+                <tr><td>401</td><td>Unauthorized</td><td>Brak uwierzytelnienia</td></tr>
+                <tr><td>403</td><td>Forbidden</td><td>Brak uprawnien (uwierzytelniony, bez dostepu)</td></tr>
+                <tr><td>404</td><td>Not Found</td><td>Zasob nie istnieje</td></tr>
+                <tr><td>409</td><td>Conflict</td><td>Konflikt (np. duplikat email)</td></tr>
+                <tr><td>422</td><td>Unprocessable Entity</td><td>Walidacja nie przeszla</td></tr>
+                <tr><td>429</td><td>Too Many Requests</td><td>Rate limit przekroczony</td></tr>
+            </tbody>
+        </table>
+
+        <h3>5xx — Blad serwera</h3>
+        <table>
+            <thead><tr><th>Kod</th><th>Nazwa</th><th>Kiedy uzywac</th></tr></thead>
+            <tbody>
+                <tr><td>500</td><td>Internal Server Error</td><td>Nieoczekiwany blad serwera</td></tr>
+                <tr><td>502</td><td>Bad Gateway</td><td>Blad upstream serwisu</td></tr>
+                <tr><td>503</td><td>Service Unavailable</td><td>Serwis tymczasowo niedostepny</td></tr>
+                <tr><td>504</td><td>Gateway Timeout</td><td>Timeout od upstream</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Idempotentnosc</h2>
+        <p>Operacja jest idempotentna, gdy wielokrotne wykonanie daje ten sam rezultat co jednokrotne.</p>
+<pre><code>GET /users/123        &rarr; Zawsze ten sam wynik (idempotentne)
+DELETE /users/123     &rarr; Za pierwszym razem usuwa, potem 404 (idempotentne)
+PUT /users/123 {...}  &rarr; Zawsze ustawia te same dane (idempotentne)
+POST /orders {...}    &rarr; Kazde wywolanie tworzy nowe! (NIE idempotentne)</code></pre>
+
+        <h3>Wymuszanie idempotentnosci dla POST</h3>
+<pre><code>POST /orders
+Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+{
+  "items": [{ "productId": "prod_1", "quantity": 2 }]
+}
+
+&rarr; 1. wywolanie: tworzy zamowienie, 201 Created
+&rarr; 2. wywolanie (ten sam klucz): zwraca istniejace, 200 OK</code></pre>
+
+        <h2>Wersjonowanie API</h2>
+
+        <div class="card">
+            <h3>W URL (najpopularniejsza)</h3>
+<pre><code>GET /api/v1/users/123
+GET /api/v2/users/123</code></pre>
+            <p>Proste, jasne, latwe w routingu. Wada: zmiana URL lamie kontrakt.</p>
+        </div>
+
+        <div class="card">
+            <h3>W naglowku (Accept header)</h3>
+<pre><code>GET /api/users/123
+Accept: application/vnd.myapi.v2+json</code></pre>
+            <p>URL sie nie zmienia. Wada: trudniejsze w testowaniu.</p>
+        </div>
+
+        <div class="card">
+            <h3>Query parameter</h3>
+<pre><code>GET /api/users/123?version=2</code></pre>
+            <p>Proste w uzyciu. Wada: cache moze nie uwzglednic.</p>
+        </div>
+
+        <div class="card">
+            <h3>Ewolucja bez wersjonowania</h3>
+<pre><code>// v1 — oryginalne pole
+{ "name": "Jan Kowalski" }
+
+// v2 — dodaj nowe, zachowaj stare
+{ "name": "Jan Kowalski", "firstName": "Jan", "lastName": "Kowalski" }
+
+// v3 — usun stare po czasie
+{ "firstName": "Jan", "lastName": "Kowalski" }</code></pre>
+        </div>
+
+        <h2>OpenAPI / Swagger</h2>
+        <p>Standard opisu REST API w formacie YAML/JSON. Umozliwia automatyczna dokumentacje, generowanie kodu klientow, walidacje i mockowanie.</p>
+<pre><code>openapi: 3.0.3
+info:
+  title: User API
+  version: 1.0.0
+
+paths:
+  /users/{id}:
+    get:
+      summary: Pobierz uzytkownika
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Sukces
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Nie znaleziono
+
+components:
+  schemas:
+    User:
+      type: object
+      required: [id, name, email]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email</code></pre>
+
+        <h2>Paginacja</h2>
+        <div class="two-col">
+            <div class="card">
+                <h3>Offset-based</h3>
+<pre><code>GET /api/users?page=3&amp;limit=20
+
+{
+  "data": [...],
+  "pagination": {
+    "page": 3,
+    "limit": 20,
+    "total": 150,
+    "totalPages": 8
+  }
+}</code></pre>
+                <p>Prosta. Wada: niestabilna przy zmianach danych, wolna dla duzych offsetow.</p>
+            </div>
+            <div class="card">
+                <h3>Cursor-based (zalecana)</h3>
+<pre><code>GET /api/users?limit=20
+  &amp;cursor=eyJpZCI6MTAwfQ==
+
+{
+  "data": [...],
+  "pagination": {
+    "nextCursor": "eyJpZCI6M...",
+    "hasMore": true
+  }
+}</code></pre>
+                <p>Stabilna, wydajna. Wada: brak skoku do konkretnej strony.</p>
+            </div>
+        </div>
+
+        <h2>Rate Limiting</h2>
+<pre><code>HTTP/1.1 200 OK
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 997
+X-RateLimit-Reset: 1609459200
+
+--- Po przekroczeniu limitu ---
+
+HTTP/1.1 429 Too Many Requests
+Retry-After: 60
+{
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Przekroczono limit 1000 zapytan na minute",
+    "retryAfter": 60
+  }
+}</code></pre>
+        <p><strong>Strategie:</strong> Fixed window, Sliding window, Token bucket, Leaky bucket.</p>
+
+        <h2>Najlepsze praktyki</h2>
+
+        <h3>Nazewnictwo zasobow</h3>
+<pre><code>DOBRZE:
+GET    /users                 &rarr; lista uzytkownikow
+GET    /users/123             &rarr; konkretny uzytkownik
+GET    /users/123/orders      &rarr; zamowienia uzytkownika
+POST   /users/123/orders      &rarr; nowe zamowienie
+
+ZLE:
+GET    /getUser?id=123
+POST   /createNewOrder
+DELETE /removeUserFromSystem/123
+GET    /user/123              &rarr; brak liczby mnogiej</code></pre>
+
+        <h3>Spojny format bledow</h3>
+<pre><code>{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Walidacja nie powiodla sie",
+    "details": [
+      { "field": "email", "message": "Niepoprawny format email" },
+      { "field": "age", "message": "Wiek musi byc wiekszy niz 0" }
+    ]
+  }
+}</code></pre>
+
+        <h3>Filtrowanie, sortowanie, wyszukiwanie</h3>
+<pre><code>GET /api/products?category=electronics&amp;price_min=100&amp;price_max=500
+GET /api/products?sort=-created_at,name
+GET /api/products?search=laptop
+GET /api/products?fields=id,name,price</code></pre>
+
+        <div class="nav-bottom">
+            <a href="06-01-graphql.html">&larr; GraphQL</a>
+            <a href="06-03-grpc.html">gRPC &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>09-02 — Load Balancing</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}.card h3{margin-top:4px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="09-skalowalnosc-i-wydajnosc.html">09 — Skalowalnosc</a>
+        <span class="sep">/</span>
+        <span class="title">Load Balancing</span>
+    </div>
+    <div class="container">
+        <h1>Load Balancing</h1>
+        <p class="subtitle">Algorytmy rozkladania ruchu, health checks, session affinity, L4 vs L7, auto-scaling.</p>
+
+        <h2>L4 vs L7</h2>
+        <table>
+            <thead><tr><th>Cecha</th><th>L4 (Transport)</th><th>L7 (Application)</th></tr></thead>
+            <tbody>
+                <tr><td>Warstwa</td><td>TCP/UDP</td><td>HTTP/HTTPS</td></tr>
+                <tr><td>Widzi</td><td>IP + port</td><td>URL, headers, cookies</td></tr>
+                <tr><td>Wydajnosc</td><td>Wyzsza</td><td>Nizsza (parsuje HTTP)</td></tr>
+                <tr><td>SSL termination</td><td>Nie</td><td>Tak</td></tr>
+                <tr><td>Routing</td><td>Prosty (IP)</td><td>Zaawansowany (URL, path)</td></tr>
+                <tr><td>Przyklad</td><td>AWS NLB, HAProxy TCP</td><td>Nginx, ALB, HAProxy HTTP</td></tr>
+            </tbody>
+        </table>
+<pre><code>L7 routing:
+  /api/*     → backend-pool
+  /static/*  → cdn-pool
+  /ws/*      → websocket-pool
+  /admin/*   → admin-pool (tylko VPN)</code></pre>
+
+        <h2>Algorytmy</h2>
+
+        <div class="card">
+            <h3>Round Robin</h3>
+            <p>Kolejne requesty do kolejnych serwerow w kolko. Prosty, rownomierny, ale nie uwzglednia obciazenia.</p>
+        </div>
+
+        <div class="card">
+            <h3>Weighted Round Robin</h3>
+<pre><code>Serwer A: waga 5 (mocny)   → 50% ruchu
+Serwer B: waga 3 (sredni)  → 30% ruchu
+Serwer C: waga 2 (slaby)   → 20% ruchu</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Least Connections</h3>
+            <p>Request trafia do serwera z <strong>najmniejsza liczba aktywnych polaczen</strong>. Najlepszy algorytm ogolnego przeznaczenia.</p>
+        </div>
+
+        <div class="card">
+            <h3>IP Hash</h3>
+            <p>Hash IP klienta determinuje serwer — ten sam klient zawsze trafia do tego samego serwera. Prosta session affinity.</p>
+        </div>
+
+        <div class="card">
+            <h3>Least Response Time</h3>
+            <p>Request do serwera z najkrotszym srednim czasem odpowiedzi.</p>
+        </div>
+
+        <h2>Health Checks</h2>
+
+        <div class="card">
+            <h3>Passive — monitorowanie odpowiedzi</h3>
+<pre><code># Nginx — 3 bledy w 30s = serwer down
+upstream backend {
+  server 10.0.0.1:8080 max_fails=3 fail_timeout=30s;
+  server 10.0.0.2:8080 max_fails=3 fail_timeout=30s;
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Active — regularne zapytania</h3>
+<pre><code># HAProxy — sprawdzaj /healthz co 5s
+backend app_servers
+  option httpchk GET /healthz
+  http-check expect status 200
+  server srv1 10.0.0.1:8080 check inter 5s fall 3 rise 2
+  server srv2 10.0.0.2:8080 check inter 5s fall 3 rise 2
+
+# fall 3 = 3 bledy → down
+# rise 2 = 2 sukcesy → zdrowy</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Health Endpoint</h3>
+<pre><code>app.get('/healthz', async (req, res) =&gt; {
+  try {
+    await db.query('SELECT 1');
+    await redis.ping();
+    res.status(200).json({
+      status: 'healthy',
+      uptime: process.uptime()
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'unhealthy',
+      error: err.message
+    });
+  }
+});</code></pre>
+        </div>
+
+        <h2>Session Affinity</h2>
+        <p>Problem: uzytkownik zalogowany na Serwerze A — nastepny request trafia do B (brak sesji).</p>
+
+        <div class="card">
+            <h3>Lepsze rozwiazanie: externalizacja sesji</h3>
+<pre><code># Zamiast sticky sessions — sesje w Redis
+Klient → [LB] → Serwer A ──→ Redis (sesja)
+                 Serwer B ──→ Redis (sesja)
+                 Serwer C ──→ Redis (sesja)
+# Kazdy serwer ma dostep do tej samej sesji</code></pre>
+<pre><code>const session = require('express-session');
+const RedisStore = require('connect-redis')(session);
+
+app.use(session({
+  store: new RedisStore({ client: redisClient }),
+  secret: 'session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: true, httpOnly: true }
+}));</code></pre>
+        </div>
+
+        <h2>Konfiguracja Nginx</h2>
+<pre><code>upstream backend {
+  least_conn;
+  server 10.0.0.1:8080 weight=5;
+  server 10.0.0.2:8080 weight=3;
+  server 10.0.0.3:8080 weight=2;
+  server 10.0.0.4:8080 backup;
+}
+
+server {
+  listen 443 ssl http2;
+  server_name api.example.com;
+
+  location /api/ {
+    proxy_pass http://backend;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For
+      $proxy_add_x_forwarded_for;
+
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 30s;
+    proxy_next_upstream error timeout http_502 http_503;
+    proxy_next_upstream_tries 2;
+  }
+}</code></pre>
+
+        <h2>Cloud Load Balancers</h2>
+        <table>
+            <thead><tr><th>Usluga</th><th>Typ</th><th>Cecha</th></tr></thead>
+            <tbody>
+                <tr><td><strong>AWS ALB</strong></td><td>L7</td><td>HTTP/HTTPS, path routing, WAF</td></tr>
+                <tr><td><strong>AWS NLB</strong></td><td>L4</td><td>TCP/UDP, ultra niska latencja</td></tr>
+                <tr><td><strong>GCP Cloud LB</strong></td><td>L4/L7</td><td>Globalny, anycast IP</td></tr>
+                <tr><td><strong>Azure App Gateway</strong></td><td>L7</td><td>WAF, SSL, URL routing</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Auto-scaling</h2>
+<pre><code>Ruch rosnie → CPU &gt; 70%
+  → Auto-scaler dodaje instancje
+  → LB dodaje je do puli
+  → Health check OK → ruch kierowany
+
+Ruch spada → CPU &lt; 30%
+  → Auto-scaler oznacza instancje jako "draining"
+  → LB nie kieruje NOWYCH requestow
+  → Czeka na zakonczenie istniejacych (30s)
+  → Usuwa instancje</code></pre>
+        <p><strong>Connection draining</strong> — przed usunieciem instancji, dokoncz istniejace requesty. Zapobiega blednym odpowiedziom.</p>
+
+        <h2>Kluczowe wnioski</h2>
+        <ol>
+            <li><strong>L7</strong> dla HTTP (routing po URL) — <strong>L4</strong> dla TCP/UDP (wydajnosc)</li>
+            <li><strong>Least Connections</strong> — najczesciej najlepszy algorytm ogolnego przeznaczenia</li>
+            <li><strong>Health checks</strong> sa obowiazkowe — active + passive</li>
+            <li><strong>Unikaj sticky sessions</strong> — externalizuj sesje do Redis</li>
+            <li><strong>Auto-scaling</strong> z LB = elastycznosc kosztowa i wydajnosciowa</li>
+            <li><strong>Connection draining</strong> zapobiega blednym odpowiedziom</li>
+            <li>W chmurze uzywaj <strong>managed LB</strong> — mniej operacji</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="09-01-caching.html">&larr; Strategie cachowania</a>
+            <a href="09-skalowalnosc-i-wydajnosc.html">Skalowalnosc i wydajnosc &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

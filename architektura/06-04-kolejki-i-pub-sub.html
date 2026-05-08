@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06-04 — Kolejki i Pub/Sub</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="06-komunikacja-i-integracja.html">06 — Komunikacja</a>
+        <span class="sep">/</span>
+        <span class="title">Kolejki i Pub/Sub</span>
+    </div>
+    <div class="container">
+        <h1>Kolejki wiadomosci i Pub/Sub</h1>
+        <p class="subtitle">Komunikacja asynchroniczna — RabbitMQ, Apache Kafka, semantyki dostarczania i wzorce niezawodnosci.</p>
+
+        <h2>Message Queue vs Pub/Sub</h2>
+        <table>
+            <thead><tr><th>Cecha</th><th>Message Queue</th><th>Pub/Sub</th></tr></thead>
+            <tbody>
+                <tr><td>Model dostarczania</td><td>Punkt-punkt (1 konsument)</td><td>Jeden-do-wielu</td></tr>
+                <tr><td>Wiadomosc konsumowana</td><td>Dokladnie jednego konsumenta</td><td>Wszystkich subskrybentow</td></tr>
+                <tr><td>Przyklad</td><td>Zadanie do przetworzenia</td><td>Zdarzenie do powiadomienia</td></tr>
+                <tr><td>Narzedzia</td><td>RabbitMQ, SQS, ActiveMQ</td><td>Kafka, Google Pub/Sub, SNS</td></tr>
+            </tbody>
+        </table>
+
+        <h2>RabbitMQ</h2>
+        <p>Popularny broker wiadomosci implementujacy protokol AMQP (Advanced Message Queuing Protocol).</p>
+<pre><code>Architektura:
+
+Producer &rarr; Exchange &rarr; Binding &rarr; Queue &rarr; Consumer
+
+[Producer A] --&rarr; [Exchange] --&rarr; [Queue 1] --&rarr; [Consumer X]
+[Producer B] --&rarr;            --&rarr; [Queue 2] --&rarr; [Consumer Y]
+                              --&rarr; [Queue 3] --&rarr; [Consumer Z]</code></pre>
+
+        <h3>Typy Exchange</h3>
+
+        <div class="card">
+            <h3>1. Direct Exchange</h3>
+            <p>Routuje wiadomosc do kolejki po dokladnym dopasowaniu routing key.</p>
+<pre><code>routing_key = "order.created"
+
+Exchange (direct)
+  ├── "order.created"  &rarr; Queue: order-processing  ✓
+  ├── "order.shipped"  &rarr; Queue: shipping-notify   ✗
+  └── "user.created"   &rarr; Queue: welcome-email     ✗</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>2. Fanout Exchange</h3>
+            <p>Wysyla wiadomosc do WSZYSTKICH powiazanych kolejek (ignoruje routing key).</p>
+<pre><code>Exchange (fanout)
+  ├── Queue: audit-log         ✓
+  ├── Queue: notification      ✓
+  └── Queue: analytics         ✓</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>3. Topic Exchange</h3>
+            <p>Routuje po wzorcach — <code>*</code> (jedno slowo), <code>#</code> (zero lub wiecej slow).</p>
+<pre><code>routing_key = "order.created.eu"
+
+Exchange (topic)
+  ├── "order.created.*"  &rarr; Queue: order-processing  ✓
+  ├── "order.#"          &rarr; Queue: order-audit        ✓
+  ├── "*.created.*"      &rarr; Queue: creation-log       ✓
+  └── "user.#"           &rarr; Queue: user-events        ✗</code></pre>
+        </div>
+
+        <h3>Przyklad RabbitMQ (Python)</h3>
+<pre><code>import pika
+
+# Producent
+connection = pika.BlockingConnection(
+    pika.ConnectionParameters('localhost'))
+channel = connection.channel()
+
+channel.exchange_declare(exchange='orders', exchange_type='topic')
+channel.queue_declare(queue='order-processing', durable=True)
+channel.queue_bind(
+    exchange='orders',
+    queue='order-processing',
+    routing_key='order.created.*'
+)
+
+# Wyslanie wiadomosci (persistent)
+channel.basic_publish(
+    exchange='orders',
+    routing_key='order.created.eu',
+    body='{"orderId": 123, "total": 99.99}',
+    properties=pika.BasicProperties(delivery_mode=2)
+)
+
+# Konsument
+def callback(ch, method, properties, body):
+    print(f"Otrzymano: {body}")
+    ch.basic_ack(delivery_tag=method.delivery_tag)
+
+channel.basic_qos(prefetch_count=1)
+channel.basic_consume(
+    queue='order-processing', on_message_callback=callback)
+channel.start_consuming()</code></pre>
+
+        <h3>Potwierdzenia (Acknowledgements)</h3>
+<pre><code>1. Broker &rarr; Consumer: dostarcza wiadomosc
+2. Consumer przetwarza wiadomosc
+3. Consumer &rarr; Broker: ACK (sukces) lub NACK (blad)
+
+ACK  &rarr; Broker usuwa wiadomosc z kolejki
+NACK &rarr; requeue=true  → ponowne dostarczenie
+       requeue=false → przeniesienie do Dead Letter Queue</code></pre>
+
+        <h2>Apache Kafka</h2>
+        <p>Rozproszona platforma streamingowa. W przeciwienstwie do tradycyjnych kolejek, Kafka przechowuje wiadomosci na dysku i pozwala na wielokrotne czytanie.</p>
+
+        <h3>Architektura</h3>
+<pre><code>Producer &rarr; Topic &rarr; Partition &rarr; Consumer Group &rarr; Consumer
+
+Topic: "orders" (3 partycje)
+┌──────────────────────────────────────────────────┐
+│ Partition 0: [msg0] [msg3] [msg6] [msg9]         │
+│ Partition 1: [msg1] [msg4] [msg7] [msg10]        │
+│ Partition 2: [msg2] [msg5] [msg8] [msg11]        │
+└──────────────────────────────────────────────────┘</code></pre>
+
+        <div class="card">
+            <h3>Partycje i klucze</h3>
+            <p>Partycja to uporzadkowany, niezmienny log wiadomosci z unikalnym offsetem. Wiadomosci z tym samym kluczem trafiaja do tej samej partycji — gwarantuje to kolejnosc per klucz.</p>
+<pre><code>Partition 0:
+Offset:  0    1    2    3    4    5    6
+       [msg] [msg] [msg] [msg] [msg] [msg] [msg] &rarr;
+
+Klucz partycjonowania = userId
+&rarr; Wszystkie zdarzenia user-123 w jednej partycji
+&rarr; Kolejnosc gwarantowana dla tego uzytkownika</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Consumer Groups</h3>
+            <p>Kazda partycja przypisana do dokladnie jednego konsumenta w grupie. Kazda grupa czyta WSZYSTKIE wiadomosci niezaleznie.</p>
+<pre><code>Topic "orders" (3 partycje)
+
+Grupa "order-service" (3 konsumenty):
+  Consumer A &larr; Partition 0
+  Consumer B &larr; Partition 1
+  Consumer C &larr; Partition 2
+
+Grupa "analytics" (2 konsumenty):
+  Consumer X &larr; Partition 0, Partition 1
+  Consumer Y &larr; Partition 2</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Offsets</h3>
+            <p>Pozycja konsumenta w partycji. Kafka przechowuje offset per consumer group per partition.</p>
+<pre><code>[0] [1] [2] [3] [4] [5] [6] [7] [8] [9]
+                        ^               ^
+            committed offset     latest offset
+            (przetworzone)       (najnowsza)
+
+Consumer moze czytac od:
+  - committed offset (domyslnie)
+  - poczatku (earliest)
+  - konca (latest)
+  - dowolnego offsetu (seek)</code></pre>
+        </div>
+
+        <h3>Przyklad Kafka (Java)</h3>
+<pre><code>// Producent
+Properties props = new Properties();
+props.put("bootstrap.servers", "localhost:9092");
+props.put("key.serializer",
+    "org.apache.kafka...StringSerializer");
+props.put("value.serializer",
+    "org.apache.kafka...StringSerializer");
+
+Producer&lt;String, String&gt; producer = new KafkaProducer&lt;&gt;(props);
+
+producer.send(new ProducerRecord&lt;&gt;(
+    "orders",           // topic
+    "user-123",         // key (partition key)
+    "{\"orderId\": 456}" // value
+));
+
+// Konsument
+Properties cProps = new Properties();
+cProps.put("bootstrap.servers", "localhost:9092");
+cProps.put("group.id", "order-service");
+cProps.put("auto.offset.reset", "earliest");
+cProps.put("enable.auto.commit", "false");
+
+Consumer&lt;String, String&gt; consumer = new KafkaConsumer&lt;&gt;(cProps);
+consumer.subscribe(Arrays.asList("orders"));
+
+while (true) {
+    ConsumerRecords&lt;String, String&gt; records =
+        consumer.poll(Duration.ofMillis(100));
+    for (ConsumerRecord&lt;String, String&gt; record : records) {
+        System.out.printf("offset=%d, key=%s, value=%s%n",
+            record.offset(), record.key(), record.value());
+    }
+    consumer.commitSync(); // reczny commit offsetu
+}</code></pre>
+
+        <h2>RabbitMQ vs Kafka</h2>
+        <table>
+            <thead><tr><th>Cecha</th><th>RabbitMQ</th><th>Kafka</th></tr></thead>
+            <tbody>
+                <tr><td>Model</td><td>Broker kolejek (AMQP)</td><td>Rozproszony log</td></tr>
+                <tr><td>Przechowywanie</td><td>Usuwane po ACK</td><td>Przechowywane (retention)</td></tr>
+                <tr><td>Kolejnosc</td><td>W ramach kolejki</td><td>W ramach partycji</td></tr>
+                <tr><td>Przepustowosc</td><td>Tysiace msg/s</td><td>Miliony msg/s</td></tr>
+                <tr><td>Routing</td><td>Zaawansowany (exchange)</td><td>Prosty (topic/partition)</td></tr>
+                <tr><td>Replay</td><td>Nie</td><td>Tak (dowolny offset)</td></tr>
+                <tr><td>Uzycie</td><td>Kolejkowanie zadan, RPC</td><td>Event streaming, logi</td></tr>
+                <tr><td>Opoznienie</td><td>Bardzo niskie</td><td>Niskie (batch)</td></tr>
+                <tr><td>Zlozonosc ops</td><td>Umiarkowana</td><td>Wysoka</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Dead Letter Queue (DLQ)</h2>
+        <p>Kolejka, do ktorej trafiaja wiadomosci, ktorych nie udalo sie przetworzyc po wyczerpaniu prob.</p>
+<pre><code>Normalna kolejka               Dead Letter Queue
+┌───────────────────────┐       ┌───────────────────────┐
+│ [msg1] [msg2] [msg3]  │ ───&rarr; │ [msg_failed_1]        │
+└───────────────────────┘       │ [msg_failed_2]        │
+  Consumer przetwarza           └───────────────────────┘
+  msg2 &rarr; blad!                  DLQ Consumer analizuje
+  Retry 1 &rarr; blad                i naprawia problemy
+  Retry 2 &rarr; blad
+  Retry 3 &rarr; DLQ</code></pre>
+
+<pre><code># RabbitMQ — deklaracja kolejki z DLQ
+channel.queue_declare(
+    queue='orders',
+    durable=True,
+    arguments={
+        'x-dead-letter-exchange': 'dlx',
+        'x-dead-letter-routing-key': 'orders.dlq',
+        'x-message-ttl': 60000,         # TTL: 60s
+        'x-max-delivery-count': 3       # Max 3 proby
+    }
+)
+
+channel.queue_declare(queue='orders.dlq', durable=True)
+channel.queue_bind(exchange='dlx', queue='orders.dlq',
+    routing_key='orders.dlq')</code></pre>
+
+        <h2>Semantyki dostarczania</h2>
+
+        <div class="card">
+            <h3>At-most-once (co najwyzej raz)</h3>
+            <p>Wiadomosc moze zostac utracona, ale nigdy zduplikowana. Fire-and-forget.</p>
+            <p><strong>Uzycie:</strong> metryki, logi (utrata akceptowalna).</p>
+        </div>
+
+        <div class="card">
+            <h3>At-least-once (co najmniej raz)</h3>
+            <p>Wiadomosc nigdy nie zginie, ale moze byc zduplikowana. ACK po przetworzeniu.</p>
+            <p><strong>Uzycie:</strong> wiekszosc przypadkow (z idempotentnym konsumentem).</p>
+        </div>
+
+        <div class="card">
+            <h3>Exactly-once (dokladnie raz)</h3>
+            <p>Najtrudniejsza — wiadomosc dostarczona i przetworzona dokladnie raz. Kafka Transactions umozliwiaja to w ramach Kafka &rarr; Kafka. Dla systemow zewnetrznych — wymagana idempotentnosc.</p>
+<pre><code>Kafka Transactions:
+1. Producer: beginTransaction()
+2. Producer: send(msg) &rarr; Broker
+3. Producer: commitTransaction()
+
+Consumer z read_committed:
+  Widzi tylko committed transakcje</code></pre>
+        </div>
+
+        <h2>Gwarancje kolejnosci</h2>
+        <div class="two-col">
+            <div class="card">
+                <h3>RabbitMQ</h3>
+                <p>Kolejnosc gwarantowana w ramach jednej kolejki, jednego producenta, jednego konsumenta. Competing consumers — brak gwarancji globalnej.</p>
+            </div>
+            <div class="card">
+                <h3>Kafka</h3>
+                <p>Kolejnosc gwarantowana w ramach partycji. Partition key = gwarancja kolejnosci per klucz. Wiecej partycji = wieksza przepustowosc.</p>
+            </div>
+        </div>
+
+        <h2>Backpressure</h2>
+        <p>Mechanizm ochrony konsumenta przed przeciazeniem.</p>
+        <ul>
+            <li><strong>Prefetch count</strong> (RabbitMQ) — konsument pobiera max N wiadomosci naraz</li>
+            <li><strong>Consumer lag monitoring</strong> (Kafka) — monitoruj lag = latest offset - committed offset</li>
+            <li><strong>Rate limiting</strong> — ogranicz predkosc konsumpcji</li>
+            <li><strong>Batching</strong> — zbieraj wiadomosci w paczki przed przetworzeniem</li>
+        </ul>
+
+        <h2>Dobre praktyki</h2>
+        <ol>
+            <li><strong>Idempotentny konsument</strong> — zawsze, duplikaty sa nieuniknione</li>
+            <li><strong>Dead Letter Queue</strong> — zawsze konfiguruj DLQ</li>
+            <li><strong>Monitoruj lag</strong> — alertuj gdy konsument nie nadaza</li>
+            <li><strong>Schema Registry</strong> — wersjonuj format wiadomosci (Avro, Protobuf)</li>
+            <li><strong>Retry z backoff</strong> — nie ponawiaj natychmiast</li>
+            <li><strong>Correlation ID</strong> — w kazdej wiadomosci dla debugowania</li>
+            <li><strong>Odpowiedni retention</strong> — jak dlugo Kafka trzyma wiadomosci</li>
+            <li><strong>Testuj awarie</strong> — co sie stanie, gdy broker/konsument padnie?</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="06-03-grpc.html">&larr; gRPC</a>
+            <a href="06-05-saga-pattern.html">Saga Pattern &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

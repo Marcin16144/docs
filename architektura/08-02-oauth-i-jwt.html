@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>08-02 — OAuth 2.0 i JWT</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}.card h3{margin-top:4px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="08-bezpieczenstwo.html">08 — Bezpieczenstwo</a>
+        <span class="sep">/</span>
+        <span class="title">OAuth 2.0 i JWT</span>
+    </div>
+    <div class="container">
+        <h1>OAuth 2.0 i JWT</h1>
+        <p class="subtitle">Protokol autoryzacji i standard tokenow — flows, walidacja, rotacja kluczy i bezpieczne przechowywanie.</p>
+
+        <h2>Role w OAuth 2.0</h2>
+        <table>
+            <thead><tr><th>Rola</th><th>Opis</th><th>Przyklad</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Resource Owner</strong></td><td>Uzytkownik posiadajacy dane</td><td>Uzytkownik Google</td></tr>
+                <tr><td><strong>Client</strong></td><td>Aplikacja chcaca uzyskac dostep</td><td>Twoja aplikacja</td></tr>
+                <tr><td><strong>Authorization Server</strong></td><td>Wydaje tokeny po autoryzacji</td><td>Google OAuth, Auth0</td></tr>
+                <tr><td><strong>Resource Server</strong></td><td>Serwer z chronionymi zasobami</td><td>Google API, Twoje API</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Authorization Code Flow (+ PKCE)</h2>
+        <p>Najbezpieczniejszy flow — zalecany dla aplikacji webowych i mobilnych. PKCE chroni przed przechwyceniem kodu autoryzacyjnego.</p>
+<pre><code>1. Klient generuje code_verifier i code_challenge
+   code_verifier  = losowy_string(43-128 znakow)
+   code_challenge = BASE64URL(SHA256(code_verifier))
+
+2. Przekierowanie do Authorization Server:
+   GET /authorize?
+     response_type=code
+     &amp;client_id=my-app
+     &amp;redirect_uri=https://myapp.com/callback
+     &amp;scope=openid profile email
+     &amp;state=random_csrf_token
+     &amp;code_challenge=E9Melhoa2OwvFrEMTJ...
+     &amp;code_challenge_method=S256
+
+3. Uzytkownik loguje sie i wyrazenia zgode
+
+4. Redirect z kodem:
+   GET /callback?code=AUTH_CODE_xyz&amp;state=random_csrf_token
+
+5. Wymiana kodu na token (server-side):
+   POST /token
+   { "grant_type": "authorization_code",
+     "code": "AUTH_CODE_xyz",
+     "code_verifier": "original_code_verifier" }
+
+6. Odpowiedz:
+   { "access_token": "eyJhbG...",
+     "refresh_token": "dGhpc...",
+     "expires_in": 3600,
+     "id_token": "eyJhbG..." }</code></pre>
+
+        <h2>Client Credentials Flow</h2>
+        <p>Dla komunikacji server-to-server (bez uzytkownika):</p>
+<pre><code>POST /token
+{
+  "grant_type": "client_credentials",
+  "client_id": "order-service",
+  "client_secret": "super_secret_key",
+  "scope": "inventory:read orders:write"
+}
+
+Odpowiedz:
+{
+  "access_token": "eyJhbGciOi...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+
+Uzycie:
+GET /api/inventory
+Authorization: Bearer eyJhbGciOi...</code></pre>
+
+        <h2>Device Authorization Flow</h2>
+        <p>Dla urzadzen bez przegladarki (Smart TV, CLI, IoT):</p>
+<pre><code>1. Urzadzenie prosi o kod:
+   POST /device/code → { "user_code": "WDJB-MJHT",
+     "verification_uri": "https://auth.example.com/device" }
+
+2. Uzytkownik wchodzi na URL i wpisuje kod na telefonie
+
+3. Urzadzenie polluje co 5s az dostanie token</code></pre>
+
+        <h2>Struktura JWT</h2>
+        <p>JWT sklada sie z trzech czesci: <strong>HEADER.PAYLOAD.SIGNATURE</strong></p>
+
+        <div class="card">
+            <h3>Header</h3>
+<pre><code>{
+  "alg": "RS256",
+  "typ": "JWT",
+  "kid": "key-2025-03"
+}</code></pre>
+            <p>Algorytmy: <strong>HS256</strong> (symetryczny), <strong>RS256</strong> (asymetryczny, zalecany), <strong>ES256</strong> (ECDSA, mniejsze tokeny).</p>
+        </div>
+
+        <div class="card">
+            <h3>Payload (Claims)</h3>
+<pre><code>{
+  "sub": "user-123",
+  "name": "Jan Kowalski",
+  "role": "admin",
+  "permissions": ["orders:read", "orders:write"],
+  "iss": "https://auth.example.com",
+  "aud": "https://api.example.com",
+  "iat": 1709816000,
+  "exp": 1709819600,
+  "jti": "unique-token-id"
+}</code></pre>
+            <table>
+                <thead><tr><th>Claim</th><th>Opis</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>sub</strong></td><td>Subject — identyfikator uzytkownika</td></tr>
+                    <tr><td><strong>iss</strong></td><td>Issuer — kto wydal token</td></tr>
+                    <tr><td><strong>aud</strong></td><td>Audience — dla kogo przeznaczony</td></tr>
+                    <tr><td><strong>exp</strong></td><td>Expiration — czas wygasniecia</td></tr>
+                    <tr><td><strong>iat</strong></td><td>Issued At — czas wydania</td></tr>
+                    <tr><td><strong>jti</strong></td><td>JWT ID — unikalny identyfikator</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h2>Walidacja JWT</h2>
+<pre><code>const jwt = require('jsonwebtoken');
+const jwksClient = require('jwks-rsa');
+
+const client = jwksClient({
+  jwksUri: 'https://auth.example.com/.well-known/jwks.json',
+  cache: true,
+  cacheMaxAge: 600000
+});
+
+async function validateToken(token) {
+  const decoded = jwt.decode(token, { complete: true });
+  if (!decoded) throw new Error('Invalid token');
+
+  const key = await client.getSigningKey(decoded.header.kid);
+  const publicKey = key.getPublicKey();
+
+  return jwt.verify(token, publicKey, {
+    algorithms: ['RS256'],
+    issuer: 'https://auth.example.com',
+    audience: 'https://api.example.com'
+  });
+}</code></pre>
+
+        <h3>Checklist walidacji</h3>
+        <ol>
+            <li>Weryfikacja <strong>podpisu</strong> kluczem publicznym</li>
+            <li>Sprawdzenie <strong>exp</strong> — czy token nie wygasl</li>
+            <li>Sprawdzenie <strong>iss</strong> — czy wydawca jest zaufany</li>
+            <li>Sprawdzenie <strong>aud</strong> — czy token jest dla tego serwisu</li>
+            <li>Sprawdzenie <strong>nbf</strong> — czy token jest juz wazny</li>
+            <li>Sprawdzenie wymaganych claims (role, permissions)</li>
+        </ol>
+
+        <h2>Rotacja kluczy (JWKS)</h2>
+<pre><code>JWKS Endpoint: /.well-known/jwks.json
+{
+  "keys": [
+    { "kid": "key-2025-03", ... },  // aktualny
+    { "kid": "key-2025-01", ... }   // poprzedni
+  ]
+}
+
+Procedura rotacji:
+1. Wygeneruj nowy klucz
+2. Dodaj do JWKS obok starego
+3. Podpisuj nowe tokeny nowym kluczem
+4. Poczekaj az stare tokeny wygasna
+5. Usun stary klucz z JWKS</code></pre>
+
+        <h2>Refresh Tokens</h2>
+<pre><code>Access Token:  krotki zycia (15 min), w kazdym requeście
+Refresh Token: dlugi zycia (7 dni), tylko do odswiezenia
+
+1. Login → access_token (15 min) + refresh_token (7 dni)
+2. API request → Authorization: Bearer access_token
+3. 401 Unauthorized (token wygasl)
+4. POST /token { grant_type: "refresh_token", ... }
+5. Nowy access_token + nowy refresh_token</code></pre>
+
+        <div class="card">
+            <h3>Refresh Token Rotation</h3>
+            <p>Kazde uzycie generuje nowy refresh token — stary jest uniewazniany. Ponowne uzycie starego tokena = wykrycie kradziezi.</p>
+<pre><code>async function refreshTokens(refreshToken) {
+  const stored = await db.refreshTokens.findOne({
+    token: refreshToken
+  });
+
+  if (!stored) throw new Error('Token not found');
+  if (stored.revoked) {
+    // Ponowne uzycie — uniewaznij cala rodzine!
+    await db.refreshTokens.revokeFamily(stored.familyId);
+    throw new Error('Refresh token reuse detected');
+  }
+
+  await db.refreshTokens.revoke(stored.id);
+  const newAccess = generateAccessToken(stored.userId);
+  const newRefresh = generateRefreshToken(
+    stored.userId, stored.familyId
+  );
+  return { accessToken: newAccess, refreshToken: newRefresh };
+}</code></pre>
+        </div>
+
+        <h2>Przechowywanie tokenow</h2>
+        <table>
+            <thead><tr><th>Metoda</th><th>Bezpieczenstwo</th><th>Uzycie</th></tr></thead>
+            <tbody>
+                <tr><td><strong>httpOnly cookie</strong></td><td>Najlepsze — niedostepny z JS</td><td>Aplikacje webowe</td></tr>
+                <tr><td><strong>Memory</strong></td><td>Dobre — ginie po odswiezeniu</td><td>SPA (krotka sesja)</td></tr>
+                <tr><td><strong>sessionStorage</strong></td><td>Srednie — dostepny z JS</td><td>SPA</td></tr>
+                <tr><td><strong>localStorage</strong></td><td>Niskie — XSS moze wykrasc</td><td>Unikaj</td></tr>
+            </tbody>
+        </table>
+
+        <div class="card">
+            <h3>BFF Pattern (zalecane)</h3>
+<pre><code>Przegladarka          BFF (Backend)          API
+    |                      |                    |
+    |-- Login ----------&gt;|                    |
+    |                     |-- Auth Code ------&gt;|
+    |                     |&lt;-- tokens ---------|
+    |                     | (sesja server-side) |
+    |&lt;-- httpOnly cookie -|                    |
+    |                      |                    |
+    |-- Request + cookie -&gt;|                    |
+    |                     |-- Bearer token ---&gt;|
+    |&lt;-- dane ------------|&lt;-- dane ------------|
+
+Tokeny NIGDY nie trafiaja do przegladarki.
+Cookie: httpOnly + Secure + SameSite=Strict</code></pre>
+        </div>
+
+        <h2>Bezpieczenstwo JWT — czeste bledy</h2>
+        <ol>
+            <li><strong>Brak weryfikacji podpisu</strong> — zawsze weryfikuj!</li>
+            <li><strong>Algorytm "none"</strong> — nigdy nie akceptuj <code>alg: none</code></li>
+            <li><strong>Zbyt dlugi czas zycia</strong> — max 15-30 minut dla access token</li>
+            <li><strong>Wrazliwe dane w payload</strong> — JWT jest base64, nie zaszyfrowany</li>
+            <li><strong>Brak walidacji iss/aud</strong> — umozliwia cross-service token reuse</li>
+        </ol>
+
+        <h2>Kluczowe wnioski</h2>
+        <ol>
+            <li><strong>Authorization Code + PKCE</strong> to zalecany flow dla web i mobile</li>
+            <li><strong>Client Credentials</strong> dla komunikacji server-to-server</li>
+            <li><strong>RS256 &gt; HS256</strong> — asymetryczne klucze bezpieczniejsze w systemach rozproszonych</li>
+            <li><strong>Access token krotki</strong> (15 min), refresh token z rotacja</li>
+            <li><strong>httpOnly cookies</strong> lub BFF pattern do przechowywania w przegladarce</li>
+            <li><strong>Rotacja kluczy</strong> przez JWKS — utrzymuj stary klucz do wygasniecia tokenow</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="08-01-zero-trust-architecture.html">&larr; Zero Trust Architecture</a>
+            <a href="08-03-owasp-top-10.html">OWASP Top 10 &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

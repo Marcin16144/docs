@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10-02 — Docker i Kubernetes</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}.card h3{margin-top:4px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="10-devops-i-wdrazanie.html">10 — DevOps</a>
+        <span class="sep">/</span>
+        <span class="title">Docker i Kubernetes</span>
+    </div>
+    <div class="container">
+        <h1>Docker i Kubernetes</h1>
+        <p class="subtitle">Dockerfile best practices, multi-stage builds, K8s obiekty, Helm charts i resource limits.</p>
+
+        <h2>Docker — konteneryzacja</h2>
+<pre><code>VM:                          Kontener:
+┌──────┐ ┌──────┐           ┌──────┐ ┌──────┐
+│App+OS│ │App+OS│           │ App  │ │ App  │
+└──┬───┘ └──┬───┘           └──┬───┘ └──┬───┘
+┌──┴────────┴───┐           ┌──┴────────┴───┐
+│  Hypervisor   │           │ Docker Engine  │
+│  Host OS      │           │ Host OS (kernel│
+└───────────────┘           └────────────────┘
+Ciezkie (GB), wolny start   Lekkie (MB), szybki start</code></pre>
+
+        <h2>Dockerfile — multi-stage build</h2>
+<pre><code># Stage 1: Build
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Stage 2: Production
+FROM node:20-alpine AS production
+WORKDIR /app
+RUN addgroup -S appgroup &amp;&amp; adduser -S appuser -G appgroup
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY package*.json ./
+
+USER appuser
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD wget -qO- http://localhost:3000/healthz || exit 1
+CMD ["node", "dist/server.js"]</code></pre>
+
+        <table>
+            <thead><tr><th>Praktyka</th><th>Dlaczego</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Multi-stage builds</strong></td><td>Mniejszy obraz — tylko runtime</td></tr>
+                <tr><td><strong>Alpine base</strong></td><td>~5 MB zamiast ~900 MB</td></tr>
+                <tr><td><strong>COPY package*.json najpierw</strong></td><td>Cache warstw zaleznosci</td></tr>
+                <tr><td><strong>npm ci</strong></td><td>Deterministyczna instalacja</td></tr>
+                <tr><td><strong>USER non-root</strong></td><td>Bezpieczenstwo</td></tr>
+                <tr><td><strong>HEALTHCHECK</strong></td><td>Sprawdzanie zdrowia kontenera</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Docker Compose</h2>
+<pre><code>services:
+  app:
+    build: { context: ., target: production }
+    ports: ["3000:3000"]
+    environment:
+      DATABASE_URL: postgresql://postgres:secret@db:5432/myapp
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db: { condition: service_healthy }
+
+  db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: myapp, POSTGRES_PASSWORD: secret }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+
+  redis:
+    image: redis:7-alpine
+
+volumes:
+  pgdata:</code></pre>
+
+        <h2>Kubernetes — obiekty</h2>
+
+        <div class="card">
+            <h3>Pod</h3>
+            <p>Najmniejsza jednostka K8s — jeden lub wiecej kontenerow wspoldzielacych siec i storage.</p>
+<pre><code>apiVersion: v1
+kind: Pod
+metadata:
+  name: my-app
+spec:
+  containers:
+    - name: app
+      image: ghcr.io/org/my-app:1.2.3
+      ports: [{ containerPort: 3000 }]
+      resources:
+        requests: { memory: "128Mi", cpu: "100m" }
+        limits:   { memory: "256Mi", cpu: "500m" }
+      livenessProbe:
+        httpGet: { path: /healthz, port: 3000 }
+      readinessProbe:
+        httpGet: { path: /readyz, port: 3000 }</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Deployment</h3>
+            <p>Zarzadza replikami Podow — rolling updates, rollback.</p>
+<pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: my-app }
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0     # zero-downtime
+  template:
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/org/my-app:1.2.3
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: database-url</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Service</h3>
+            <p>Stabilny endpoint sieciowy (DNS + load balancing wewnatrz clustra).</p>
+<pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-service
+spec:
+  selector: { app: my-app }
+  ports: [{ port: 80, targetPort: 3000 }]
+  type: ClusterIP</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Ingress</h3>
+            <p>Routing HTTP z zewnatrz — L7 load balancer z TLS.</p>
+<pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+    - hosts: [api.example.com]
+      secretName: api-tls
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: my-app-service
+                port: { number: 80 }</code></pre>
+        </div>
+
+        <h2>Resource Limits</h2>
+        <table>
+            <thead><tr><th>Parametr</th><th>Opis</th><th>Efekt przekroczenia</th></tr></thead>
+            <tbody>
+                <tr><td><strong>requests.memory</strong></td><td>Gwarantowane minimum RAM</td><td>Scheduler uzywa do planowania</td></tr>
+                <tr><td><strong>limits.memory</strong></td><td>Maksimum RAM</td><td>OOMKill (restart poda)</td></tr>
+                <tr><td><strong>requests.cpu</strong></td><td>Gwarantowane minimum CPU</td><td>Scheduler uzywa do planowania</td></tr>
+                <tr><td><strong>limits.cpu</strong></td><td>Maksimum CPU</td><td>Throttling (spowolnienie)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Helm Charts</h2>
+<pre><code># values.yaml
+replicaCount: 3
+image:
+  repository: ghcr.io/org/my-app
+  tag: "1.2.3"
+resources:
+  requests: { memory: "128Mi", cpu: "100m" }
+  limits:   { memory: "256Mi", cpu: "500m" }
+ingress:
+  enabled: true
+  host: api.example.com</code></pre>
+<pre><code># Komendy Helm
+helm install my-app ./charts/my-app -f values-prod.yaml
+helm upgrade my-app ./charts/my-app --set image.tag=1.2.4
+helm rollback my-app 1
+helm history my-app</code></pre>
+
+        <h2>Przydatne komendy kubectl</h2>
+<pre><code>kubectl get pods / deployments / services / ingress
+kubectl logs -f deployment/my-app
+kubectl describe pod my-app-pod-abc123
+kubectl exec -it my-app-pod -- /bin/sh
+kubectl scale deployment my-app --replicas=5
+kubectl set image deployment/my-app app=ghcr.io/org/app:1.2.4
+kubectl rollout status deployment/my-app
+kubectl rollout undo deployment/my-app</code></pre>
+
+        <h2>Kluczowe wnioski</h2>
+        <ol>
+            <li><strong>Multi-stage builds</strong> — mniejsze obrazy, szybsze wdrozenia</li>
+            <li><strong>Alpine base + non-root</strong> — minimalizuj powierzchnie ataku</li>
+            <li><strong>Deployment, nie Pod</strong> — deklaratywne, rolling updates, rollback</li>
+            <li><strong>Requests i Limits</strong> — zawsze ustawiaj zasoby</li>
+            <li><strong>Liveness + Readiness probes</strong> — K8s musi wiedziec czy Pod jest zdrowy</li>
+            <li><strong>Helm</strong> do zarzadzania konfiguracja — szablony per srodowisko</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="10-01-ci-cd.html">&larr; CI/CD Pipelines</a>
+            <a href="10-03-infrastructure-as-code.html">Infrastructure as Code &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

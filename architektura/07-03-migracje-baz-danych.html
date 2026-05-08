@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>07-03 — Migracje baz danych</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}.card h3{margin-top:4px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="07-bazy-danych-i-persystencja.html">07 — Bazy danych</a>
+        <span class="sep">/</span>
+        <span class="title">Migracje baz danych</span>
+    </div>
+    <div class="container">
+        <h1>Migracje baz danych</h1>
+        <p class="subtitle">Kontrolowane, wersjonowane zmiany schematu bazy — zero-downtime, expand-contract i narzedzia.</p>
+
+        <h2>Dlaczego migracje sa wazne?</h2>
+        <ul>
+            <li><strong>Powtarzalnosc</strong> — ten sam schemat na kazdym srodowisku</li>
+            <li><strong>Historia zmian</strong> — kto, kiedy i dlaczego zmienil schemat</li>
+            <li><strong>Automatyzacja</strong> — migracje w pipeline CI/CD</li>
+            <li><strong>Wspolpraca</strong> — wielu developerow bez konfliktow</li>
+            <li><strong>Rollback</strong> — mozliwosc cofniecia zmian</li>
+        </ul>
+
+        <h2>Podstawowa struktura migracji</h2>
+
+        <div class="card">
+            <h3>Numerowane migracje SQL (Flyway)</h3>
+<pre><code>migrations/
+  V001__create_users_table.sql
+  V002__add_email_to_users.sql
+  V003__create_orders_table.sql
+  V004__add_index_on_orders_user_id.sql</code></pre>
+<pre><code>-- V001__create_users_table.sql
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- V002__add_email_to_users.sql
+ALTER TABLE users ADD COLUMN email VARCHAR(255);
+UPDATE users SET email = 'unknown@example.com'
+  WHERE email IS NULL;
+ALTER TABLE users ALTER COLUMN email SET NOT NULL;
+ALTER TABLE users ADD CONSTRAINT users_email_unique
+  UNIQUE(email);</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Prisma Migrate</h3>
+<pre><code>// schema.prisma
+model User {
+  id     String  @id @default(uuid())
+  name   String
+  email  String  @unique
+  orders Order[]
+}
+
+model Order {
+  id     String @id @default(uuid())
+  total  Float
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}</code></pre>
+<pre><code># Generowanie migracji z modelu
+npx prisma migrate dev --name add_orders_table
+
+# Zastosowanie na produkcji
+npx prisma migrate deploy</code></pre>
+        </div>
+
+        <h2>Zero-Downtime Migrations</h2>
+        <p>Migracje bez przerwy w dzialaniu systemu. Glowna zasada: <strong>nigdy nie lamiemy kompatybilnosci wstecznej</strong> w jednym kroku.</p>
+
+        <div class="card">
+            <h3>Problem</h3>
+<pre><code>Scenariusz 1:
+  Deploy nowego kodu (uzywa nowej kolumny)
+  Migracja bazy (dodaje kolumne)
+  BLAD! Kod szuka kolumny, ktorej jeszcze nie ma
+
+Scenariusz 2:
+  Migracja bazy (usuwa stara kolumne)
+  Deploy nowego kodu (nie uzywa starej kolumny)
+  BLAD! Stary kod szuka kolumny, ktora usunieto</code></pre>
+        </div>
+
+        <h2>Expand-Contract Pattern</h2>
+        <p>Kazda niebezpieczna zmiana rozbita na bezpieczne kroki:</p>
+<pre><code>Faza 1: EXPAND (rozszerzenie)
+  Dodaj nowa kolumne/tabele
+  Stary kod dziala bez zmian
+
+Faza 2: MIGRATE (migracja danych)
+  Przepisz dane do nowej struktury
+  Nowy kod pisze do obu miejsc (dual write)
+
+Faza 3: CONTRACT (skurcz)
+  Usun stara kolumne/tabele
+  Tylko po pelnym przejsciu na nowy kod</code></pre>
+
+        <div class="card">
+            <h3>Przyklad: zmiana nazwy kolumny</h3>
+<pre><code>-- ZLE: lamie kompatybilnosc
+ALTER TABLE users RENAME COLUMN name TO full_name;
+
+-- DOBRZE: 3 bezpieczne kroki
+
+-- Krok 1: EXPAND
+ALTER TABLE users ADD COLUMN full_name VARCHAR(100);
+UPDATE users SET full_name = name;
+CREATE TRIGGER sync_name_to_fullname
+  BEFORE INSERT OR UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION sync_columns();
+
+-- Krok 2: DEPLOY nowy kod (uzywa full_name)
+-- stary kod dalej dziala — kolumna name istnieje
+
+-- Krok 3: CONTRACT
+DROP TRIGGER sync_name_to_fullname ON users;
+ALTER TABLE users DROP COLUMN name;</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Przyklad: zmiana typu kolumny</h3>
+<pre><code>-- Krok 1: EXPAND
+ALTER TABLE orders ADD COLUMN total_v2 BIGINT;
+UPDATE orders SET total_v2 = CAST(total * 100 AS BIGINT);
+
+-- Krok 2: DEPLOY nowy kod (pisze do obu kolumn)
+-- INSERT INTO orders (total, total_v2)
+--   VALUES (19.99, 1999);
+
+-- Krok 3: CONTRACT
+ALTER TABLE orders DROP COLUMN total;
+ALTER TABLE orders RENAME COLUMN total_v2 TO total;</code></pre>
+        </div>
+
+        <h2>Backward Compatible Changes</h2>
+
+        <table>
+            <thead><tr><th>Zmiana</th><th>Bezpieczna?</th><th>Uwagi</th></tr></thead>
+            <tbody>
+                <tr><td>Dodanie tabeli</td><td><strong>Tak</strong></td><td>Nie wplywa na istniejacy kod</td></tr>
+                <tr><td>Dodanie kolumny nullable</td><td><strong>Tak</strong></td><td>Stary kod ignoruje nowa kolumne</td></tr>
+                <tr><td>Dodanie indeksu CONCURRENTLY</td><td><strong>Tak</strong></td><td>Nie blokuje tabeli</td></tr>
+                <tr><td>Zmiana nazwy kolumny</td><td>Nie</td><td>Wymaga expand-contract</td></tr>
+                <tr><td>Usuwanie kolumny</td><td>Nie</td><td>Wymaga expand-contract</td></tr>
+                <tr><td>Dodanie NOT NULL</td><td>Nie</td><td>Stary kod moze nie wysylac wartosci</td></tr>
+                <tr><td>Zmiana typu kolumny</td><td>Nie</td><td>Wymaga expand-contract</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Indeksy bez downtime</h2>
+<pre><code>-- ZLE: blokuje tabele na czas tworzenia
+CREATE INDEX idx_users_email ON users(email);
+
+-- DOBRZE: nie blokuje tabeli (PostgreSQL)
+CREATE INDEX CONCURRENTLY idx_users_email ON users(email);
+
+-- Uwaga: CONCURRENTLY nie dziala w transakcji
+-- Flyway: ustaw executeInTransaction=false</code></pre>
+
+        <h2>Narzedzia do migracji</h2>
+
+        <div class="card">
+            <h3>Flyway</h3>
+<pre><code># Zastosuj migracje
+flyway migrate
+
+# Sprawdz status
+flyway info
+
+# Waliduj migracje
+flyway validate</code></pre>
+            <p><strong>Zalety:</strong> Prosty, SQL-native, szeroka adopcja.<br>
+            <strong>Wady:</strong> Brak automatycznego rollbacka (community edition).</p>
+        </div>
+
+        <div class="card">
+            <h3>Liquibase</h3>
+<pre><code># changelog.yaml
+databaseChangeLog:
+  - changeSet:
+      id: 001
+      author: jan
+      changes:
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+                  constraints:
+                    unique: true
+      rollback:
+        - dropTable:
+            tableName: users</code></pre>
+            <p><strong>Zalety:</strong> Wiele formatow, automatyczny rollback, diff miedzy bazami.<br>
+            <strong>Wady:</strong> Bardziej skomplikowany niz Flyway.</p>
+        </div>
+
+        <div class="card">
+            <h3>Prisma Migrate</h3>
+<pre><code>npx prisma migrate dev --name init     # tworzenie
+npx prisma migrate deploy              # produkcja
+npx prisma migrate reset               # reset (dev)
+npx prisma migrate status              # status</code></pre>
+            <p><strong>Zalety:</strong> Integracja z Prisma ORM, deklaratywny model, TypeScript.<br>
+            <strong>Wady:</strong> Tylko ekosystem Prisma, mniejsza kontrola nad SQL.</p>
+        </div>
+
+        <h2>Porownanie narzedzi</h2>
+        <table>
+            <thead><tr><th>Cecha</th><th>Flyway</th><th>Liquibase</th><th>Prisma</th></tr></thead>
+            <tbody>
+                <tr><td>Jezyk migracji</td><td>SQL</td><td>XML/YAML/SQL</td><td>Deklaratywny model</td></tr>
+                <tr><td>Rollback</td><td>Reczny</td><td>Automatyczny</td><td>Reczny</td></tr>
+                <tr><td>Ekosystem</td><td>Java, .NET, CLI</td><td>Java, CLI</td><td>Node.js / TS</td></tr>
+                <tr><td>Diff schematu</td><td>Nie</td><td>Tak</td><td>Tak</td></tr>
+                <tr><td>Krzywa uczenia</td><td>Niska</td><td>Srednia</td><td>Niska</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Dobre praktyki</h2>
+        <ol>
+            <li><strong>Jedna migracja = jedna zmiana</strong> — latwiejszy rollback i debugging</li>
+            <li><strong>Migracje sa niezmienne</strong> — raz zastosowanej nigdy nie edytuj</li>
+            <li><strong>Testuj na kopii produkcji</strong> — nie na pustej bazie</li>
+            <li><strong>Monitoruj czas</strong> — dlugie migracje moga blokowac tabele</li>
+            <li><strong>Backupuj przed migracja</strong> — szczegolnie na produkcji</li>
+            <li><strong>Uzywaj transakcji</strong> — jesli baza to wspiera</li>
+            <li><strong>Code review migracji</strong> — traktuj jak kazdy inny kod</li>
+        </ol>
+
+        <h2>Kluczowe wnioski</h2>
+        <ol>
+            <li><strong>Migracje to wersjonowanie schematu</strong> — traktuj je jak kod</li>
+            <li><strong>Zero-downtime</strong> wymaga expand-contract — nigdy nie lam kompatybilnosci w jednym kroku</li>
+            <li><strong>Backward compatible changes</strong> sa zawsze bezpieczne</li>
+            <li><strong>CONCURRENTLY</strong> dla indeksow — unikaj lockow na duzych tabelach</li>
+            <li><strong>Wybor narzedzia</strong> zalezy od ekosystemu — Flyway, Liquibase, Prisma</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="07-02-event-sourcing.html">&larr; Event Sourcing</a>
+            <a href="07-bazy-danych-i-persystencja.html">Bazy danych i persystencja &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

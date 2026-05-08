@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04-03 — Builder</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="04-wzorce-projektowe.html">04 — Wzorce projektowe</a>
+        <span class="sep">/</span>
+        <span class="title">Builder</span>
+    </div>
+    <div class="container">
+        <h1>Wzorzec Builder</h1>
+        <p class="subtitle">Krokowe konstruowanie zlozonych obiektow z czytelnym, plynnym API.</p>
+
+        <h2>Problem — konstruktor z wieloma parametrami</h2>
+        <p>Gdy klasa ma wiele opcjonalnych parametrow, konstruktor staje sie nieczytelny. Ten anty-wzorzec nazywany jest "telescoping constructor".</p>
+<pre><code>// Anty-wzorzec: telescoping constructor
+const report = new Report(
+    'Raport sprzedazy',     // title
+    'pdf',                   // format
+    true,                    // includeCharts
+    false,                   // includeSummary
+    'monthly',               // period
+    new Date('2024-01-01'),  // startDate
+    new Date('2024-12-31'),  // endDate
+    ['sales', 'marketing'],  // departments
+    true,                    // landscape
+    null,                    // watermark — nie chcemy, ale musimy przekazac
+    'A4'                     // pageSize
+);
+// Co oznacza trzeci true? Czwarty false? Niemozliwe do odczytania.</code></pre>
+
+        <h2>Rozwiazanie z Builderem</h2>
+        <p>Builder daje kazdemu parametrowi nazwana metode. Kazda metoda zwraca <code>this</code>, co pozwala na lancuchowanie wywolan.</p>
+<pre><code>class ReportBuilder {
+    private config: Partial&lt;ReportConfig&gt; = {};
+
+    setTitle(title: string): ReportBuilder {
+        this.config.title = title;
+        return this;
+    }
+
+    setFormat(format: ReportConfig['format']): ReportBuilder {
+        this.config.format = format;
+        return this;
+    }
+
+    withCharts(): ReportBuilder {
+        this.config.includeCharts = true;
+        return this;
+    }
+
+    withSummary(): ReportBuilder {
+        this.config.includeSummary = true;
+        return this;
+    }
+
+    forPeriod(period: string, start: Date, end: Date): ReportBuilder {
+        this.config.period = period;
+        this.config.startDate = start;
+        this.config.endDate = end;
+        return this;
+    }
+
+    forDepartments(...departments: string[]): ReportBuilder {
+        this.config.departments = departments;
+        return this;
+    }
+
+    build(): Report {
+        if (!this.config.title) throw new Error('Tytul jest wymagany');
+        if (!this.config.format) throw new Error('Format jest wymagany');
+        return new Report(this.config as ReportConfig);
+    }
+}</code></pre>
+
+        <h2>Fluent API — lancuchowanie metod</h2>
+        <p>Kod czyta sie jak zdanie w jezyku naturalnym. Opcjonalne parametry po prostu sie pomija, a kolejnosc wywolan nie ma znaczenia.</p>
+<pre><code>const report = new ReportBuilder()
+    .setTitle('Raport sprzedazy Q4')
+    .setFormat('pdf')
+    .withCharts()
+    .withSummary()
+    .forPeriod('quarterly', new Date('2024-10-01'), new Date('2024-12-31'))
+    .forDepartments('sales', 'marketing')
+    .landscape()
+    .pageSize('A3')
+    .build();</code></pre>
+
+        <h2>Wzorzec Director</h2>
+        <p>Director to opcjonalna klasa definiujaca kolejnosc krokow budowania. Enkapsuluje typowe konfiguracje, ktore powtarzaja sie w kodzie.</p>
+<pre><code>class ReportDirector {
+    constructor(private builder: ReportBuilder) {}
+
+    buildMonthlyDepartmentReport(
+        department: string, month: Date
+    ): Report {
+        const startOfMonth = new Date(
+            month.getFullYear(), month.getMonth(), 1
+        );
+        const endOfMonth = new Date(
+            month.getFullYear(), month.getMonth() + 1, 0
+        );
+
+        return this.builder
+            .setTitle(`Raport miesieczny — ${department}`)
+            .setFormat('pdf')
+            .withCharts()
+            .withSummary()
+            .forPeriod('monthly', startOfMonth, endOfMonth)
+            .forDepartments(department)
+            .pageSize('A4')
+            .build();
+    }
+
+    buildQuickCsvExport(
+        departments: string[], start: Date, end: Date
+    ): Report {
+        return this.builder
+            .setTitle('Eksport danych')
+            .setFormat('csv')
+            .forPeriod('daily', start, end)
+            .forDepartments(...departments)
+            .build();
+    }
+}
+
+// Uzycie
+const director = new ReportDirector(new ReportBuilder());
+const report = director.buildMonthlyDepartmentReport('sales', new Date());</code></pre>
+
+        <h2>Builder vs Constructor Overloading</h2>
+        <table>
+            <thead><tr><th>Cecha</th><th>Constructor overloading</th><th>Builder</th></tr></thead>
+            <tbody>
+                <tr><td>Czytelnosc</td><td>Niska przy wielu parametrach</td><td>Wysoka — nazwy metod</td></tr>
+                <tr><td>Opcjonalne parametry</td><td>null/undefined placeholdery</td><td>Po prostu pominiete</td></tr>
+                <tr><td>Walidacja</td><td>W konstruktorze, trudna</td><td>W build(), czysta</td></tr>
+                <tr><td>Niemutowalnosc</td><td>Latwa (readonly)</td><td>Latwa (build() tworzy frozen obiekt)</td></tr>
+                <tr><td>Zlozonosc kodu</td><td>Niska</td><td>Srednia (dodatkowa klasa)</td></tr>
+                <tr><td>Warianty obiektow</td><td>Wiele konstruktorow</td><td>Jeden builder, rozne sciezki</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Builder dla niemutowalnych obiektow</h2>
+        <p>Builder szczegolnie dobrze pasuje do tworzenia niemutowalnych obiektow — wszystkie pola ustawiane sa przed wywolaniem <code>build()</code>, a wynikowy obiekt jest zamrozony.</p>
+<pre><code>class HttpRequest {
+    readonly method: string;
+    readonly url: string;
+    readonly headers: Readonly&lt;Record&lt;string, string&gt;&gt;;
+    readonly body: string | null;
+    readonly timeout: number;
+
+    static builder(method: string, url: string): HttpRequestBuilder {
+        return new HttpRequestBuilder(method, url);
+    }
+}
+
+// Uzycie
+const request = HttpRequest.builder('POST', '/api/orders')
+    .header('Authorization', 'Bearer token123')
+    .jsonBody({ productId: 'abc', quantity: 2 })
+    .withTimeout(5000)
+    .build();</code></pre>
+
+        <h2>Praktyczne zastosowania</h2>
+        <p>Builder jest naturalnym wyborem w wielu bibliotekach i frameworkach:</p>
+        <ul>
+            <li><strong>Query builders</strong> — Knex.js, TypeORM QueryBuilder, Prisma</li>
+            <li><strong>Konfiguracja testow</strong> — budowanie fixtures, test data builders</li>
+            <li><strong>HTTP klienty</strong> — budowanie requestow z naglowkami, body, timeoutem</li>
+            <li><strong>Walidacja</strong> — lancuchowe definiowanie regul (Zod, Joi, Yup)</li>
+        </ul>
+
+        <div class="card">
+            <h3>Test Data Builder</h3>
+<pre><code>class UserBuilder {
+    private data = {
+        name: 'Jan Kowalski',
+        email: 'jan@example.com',
+        role: 'user' as const,
+        active: true,
+    };
+
+    withName(name: string) { this.data.name = name; return this; }
+    withEmail(email: string) { this.data.email = email; return this; }
+    asAdmin() { this.data.role = 'admin'; return this; }
+    inactive() { this.data.active = false; return this; }
+
+    build(): User { return new User({ ...this.data }); }
+}
+
+// W testach — czytelne i zwiezle
+const admin = new UserBuilder().asAdmin().withName('Anna Nowak').build();
+const inactiveUser = new UserBuilder().inactive().build();</code></pre>
+        </div>
+
+        <h2>Kiedy stosowac, a kiedy nie?</h2>
+        <div class="card">
+            <h3>Stosuj gdy:</h3>
+            <ul>
+                <li>Obiekt ma wiecej niz 4-5 parametrow konstruktora</li>
+                <li>Wiele parametrow jest opcjonalnych</li>
+                <li>Obiekt moze byc tworzony w roznych konfiguracjach</li>
+                <li>Potrzebujesz walidacji kompletnosci przed utworzeniem</li>
+                <li>Chcesz wymusic niemutowalnosc wynikowego obiektu</li>
+            </ul>
+            <h3>Nie stosuj gdy:</h3>
+            <ul>
+                <li>Obiekt ma 2-3 proste parametry — Builder to przerost formy</li>
+                <li>Obiekt jest mutowalny i modyfikowany po utworzeniu</li>
+                <li>Proste DTO/POJO bez walidacji</li>
+            </ul>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="04-02-factory.html">&larr; Factory Method &amp; Abstract Factory</a>
+            <a href="04-04-adapter-facade-decorator.html">Adapter, Facade, Decorator &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

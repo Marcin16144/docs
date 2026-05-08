@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03 - Trening modeli LLM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<span class="title">03 - Trening modeli LLM</span>
+</div>
+<div class="container">
+<h1>Trening modeli LLM</h1>
+<p class="subtitle">Pre-training, supervised fine-tuning, RLHF, DPO i nowoczesne metody alignment.</p>
+
+<h2>Etapy treningu nowoczesnego LLM</h2>
+<pre><code>+------------------+
+|  1. Pre-training |  &lt;- Najdrozszy etap (~95% kosztu)
+|   (next token    |     Trenuje na ogromnych korpusach
+|    prediction)   |     Daje "base model"
++--------|---------+
+         |
++--------v---------+
+|  2. Supervised   |  &lt;- Uczenie odpowiadania na instrukcje
+|   Fine-Tuning    |     Dataset: pary (prompt, response)
+|      (SFT)       |     Daje "instruct model"
++--------|---------+
+         |
++--------v---------+
+|  3. Preference   |  &lt;- RLHF / DPO
+|   Optimization   |     Uczy sie preferencji ludzkich
+|   (RLHF / DPO)   |     Daje "chat/aligned model"
++------------------+</code></pre>
+
+<h2>1. Pre-training</h2>
+
+<h3>Cel</h3>
+<p>Nauczyc model przewidywania <strong>nastepnego tokenu</strong> na podstawie poprzednich.</p>
+<pre><code>Input:  "Stolica Polski jest"
+Target: " Warszawa"
+
+Loss: -log P("Warszawa" | "Stolica Polski jest")</code></pre>
+
+<h3>Datasets</h3>
+<p>Modele trenuje sie na <strong>bilionach tokenow</strong> z roznorodnych zrodel:</p>
+<table>
+<thead>
+<tr><th>Zrodlo</th><th>Rozmiar</th><th>Uwagi</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Common Crawl</strong></td><td>Petabajty</td><td>Web scraping, wymaga deduplikacji i filtrowania</td></tr>
+<tr><td><strong>Wikipedia</strong></td><td>~30GB</td><td>Wysoka jakosc, wszystkie jezyki</td></tr>
+<tr><td><strong>Books</strong></td><td>Setki GB</td><td>Books3, Project Gutenberg</td></tr>
+<tr><td><strong>Code</strong></td><td>TB+</td><td>GitHub, StackOverflow</td></tr>
+<tr><td><strong>ArXiv</strong></td><td>~100GB</td><td>Papers naukowe</td></tr>
+<tr><td><strong>Reddit</strong></td><td>TB</td><td>Dialogi, Q&amp;A</td></tr>
+</tbody>
+</table>
+
+<h3>Skala obliczeniowa</h3>
+<table>
+<thead>
+<tr><th>Model</th><th>Parametry</th><th>Tokeny</th><th>GPU-godziny</th></tr>
+</thead>
+<tbody>
+<tr><td>GPT-3</td><td>175B</td><td>300B</td><td>~3.6M (V100)</td></tr>
+<tr><td>Llama 2 70B</td><td>70B</td><td>2T</td><td>~1.7M (A100)</td></tr>
+<tr><td>Llama 3 70B</td><td>70B</td><td>15T</td><td>~6.4M (H100)</td></tr>
+<tr><td>Llama 3.1 405B</td><td>405B</td><td>15T</td><td>~30M+ (H100)</td></tr>
+</tbody>
+</table>
+<p>Koszt treningu: dziesiatki milionow do setek milionow USD.</p>
+
+<h3>Compute clusters</h3>
+<div class="card">
+<p>Trening wymaga tysiecy GPU polaczonych szybkim interconnectem (np. NVLink, InfiniBand):</p>
+<ul>
+<li>Meta wytrenowala Llama 3 na klastrze 24 000 GPU H100</li>
+<li>xAI Grok-3 trenowano na klastrze 100 000+ GPU</li>
+<li>OpenAI/Microsoft uzywaja klastrow Azure</li>
+</ul>
+</div>
+
+<h2>2. Supervised Fine-Tuning (SFT)</h2>
+
+<h3>Cel</h3>
+<p>Nauczyc model <strong>odpowiadania na instrukcje</strong>. Base model po pre-trainingu nie umie rozmawiac - kontynuuje tekst.</p>
+
+<h3>Format danych</h3>
+<pre><code>{
+  "messages": [
+    {"role": "system", "content": "Jestes pomocnym asystentem."},
+    {"role": "user", "content": "Jakie sa stolice Skandynawii?"},
+    {"role": "assistant", "content": "Stolicami Skandynawii sa:\n- Oslo (Norwegia)\n- Sztokholm (Szwecja)\n- Kopenhaga (Dania)\n- Helsinki (Finlandia, choc Finlandia bywa kategoryzowana osobno)\n- Reykjavik (Islandia, jesli wliczamy)"}
+  ]
+}</code></pre>
+
+<h3>Popularne datasety SFT</h3>
+<table>
+<thead>
+<tr><th>Dataset</th><th>Rozmiar</th><th>Charakterystyka</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>OpenAssistant</strong></td><td>~160k</td><td>Multilingual, open source</td></tr>
+<tr><td><strong>ShareGPT</strong></td><td>~90k</td><td>Konwersacje z ChatGPT</td></tr>
+<tr><td><strong>Alpaca</strong></td><td>52k</td><td>Wygenerowane przez GPT-3.5</td></tr>
+<tr><td><strong>Dolly 15k</strong></td><td>15k</td><td>Hand-written przez Databricks</td></tr>
+<tr><td><strong>UltraChat</strong></td><td>1.5M</td><td>Wielotorowe rozmowy</td></tr>
+</tbody>
+</table>
+
+<h3>Chat templates</h3>
+<p>Kazdy model ma swoj format konwersacji:</p>
+
+<p><strong>Llama 3:</strong></p>
+<pre><code>&lt;|begin_of_text|&gt;&lt;|start_header_id|&gt;system&lt;|end_header_id|&gt;
+You are helpful.&lt;|eot_id|&gt;
+&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;
+Hi!&lt;|eot_id|&gt;
+&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;</code></pre>
+
+<p><strong>Anthropic Claude:</strong></p>
+<p>Format konwersacji obslugiwany jest przez API - wiadomosci jako struktura JSON.</p>
+
+<p><strong>ChatML (OpenAI, wiekszosc modeli open):</strong></p>
+<pre><code>&lt;|im_start|&gt;system
+You are helpful.&lt;|im_end|&gt;
+&lt;|im_start|&gt;user
+Hi!&lt;|im_end|&gt;
+&lt;|im_start|&gt;assistant</code></pre>
+
+<h2>3. Preference Optimization</h2>
+
+<h3>Po co?</h3>
+<div class="card">
+<p>SFT daje model, ktory odpowiada - ale niekoniecznie w sposob, ktory ludzie preferuja. Moze byc:</p>
+<ul>
+<li>Zbyt zwiezly lub zbyt rozwlekly</li>
+<li>Niepomocny ("nie wiem")</li>
+<li>Niebezpieczny (instruktaz jak cos szkodliwego)</li>
+<li>Niezgodny z oczekiwaniami</li>
+</ul>
+</div>
+
+<h3>RLHF (Reinforcement Learning from Human Feedback)</h3>
+<p>Klasyczna metoda OpenAI:</p>
+<pre><code>1. Zbierz preferencje:
+   Pokaz 2 odpowiedzi -&gt; czlowiek wybiera lepsza
+
+2. Wytrenuj reward model (RM):
+   RM(prompt, response) -&gt; score (1 liczba)
+
+3. Optymalizuj LLM:
+   PPO maksymalizuje RM(prompt, LLM(prompt))
+   z regularyzacja KL od bazowego modelu</code></pre>
+
+<h3>DPO (Direct Preference Optimization)</h3>
+<p>Nowsza, prostsza metoda - pomija osobny reward model:</p>
+<pre><code>Dataset: (prompt, chosen, rejected)
+
+Loss bezposrednio uczy:
+- zwiekszac P(chosen | prompt)
+- zmniejszac P(rejected | prompt)</code></pre>
+<p>DPO jest <strong>latwiejszy w implementacji</strong> i czesto osiaga porownywalne wyniki do RLHF.</p>
+
+<h3>Inne metody</h3>
+<ul>
+<li><strong>RLAIF</strong> - AI zamiast czlowieka oznacza preferencje (Constitutional AI od Anthropic)</li>
+<li><strong>KTO</strong> - Kahneman-Tversky Optimization</li>
+<li><strong>IPO</strong> - Identity Preference Optimization</li>
+<li><strong>ORPO</strong> - laczy SFT i DPO w jeden krok</li>
+</ul>
+
+<h2>Constitutional AI (Anthropic)</h2>
+<p>Anthropic wprowadzilo <strong>Constitutional AI</strong> - metode treningu, w ktorej model uczy sie samodzielnie krytykowac i poprawiac swoje odpowiedzi zgodnie z zestawem zasad ("konstytucja").</p>
+<pre><code>1. Model generuje odpowiedz
+2. Model krytykuje wlasna odpowiedz pod katem zasad konstytucji
+3. Model poprawia odpowiedz
+4. Trenujemy model na poprawionych odpowiedziach</code></pre>
+<p>To pozwala uniknac kosztownego recznego oznaczania preferencji.</p>
+
+<h2>Reasoning models (2025+)</h2>
+<p>Najnowsza generacja modeli (OpenAI o1/o3, DeepSeek R1, Claude z extended thinking) uzywa <strong>trening na rozumowaniu</strong>:</p>
+<pre><code>1. Model generuje dlugi "lancuch mysli" (chain of thought)
+2. Sprawdzamy poprawnosc koncowej odpowiedzi
+3. Wzmacniamy lancuchy prowadzace do poprawnych odpowiedzi</code></pre>
+<p>Efekt: znacznie lepsza wydajnosc na zadaniach matematycznych, kodowych, naukowych.</p>
+
+<h2>Distributed Training</h2>
+
+<h3>Strategie rownoleglosci</h3>
+
+<div class="card">
+<p><strong>Data Parallelism</strong> - kopia modelu na kazdym GPU, rozne batche:</p>
+<pre><code>GPU 0: model + batch 1
+GPU 1: model + batch 2
+GPU 2: model + batch 3
+GPU 3: model + batch 4
+-&gt; Sumowanie gradientow (all-reduce)</code></pre>
+</div>
+
+<div class="card">
+<p><strong>Tensor Parallelism</strong> - pojedyncza warstwa rozdzielona miedzy GPU:</p>
+<pre><code>GPU 0: pierwsza polowa W
+GPU 1: druga polowa W
+-&gt; Komunikacja przy kazdej warstwie</code></pre>
+</div>
+
+<div class="card">
+<p><strong>Pipeline Parallelism</strong> - rozne warstwy na roznych GPU:</p>
+<pre><code>GPU 0: warstwy 1-8
+GPU 1: warstwy 9-16
+GPU 2: warstwy 17-24
+GPU 3: warstwy 25-32</code></pre>
+</div>
+
+<p><strong>3D Parallelism</strong> - kombinacja powyzszych dla najwiekszych modeli.</p>
+
+<h3>Frameworks</h3>
+<ul>
+<li><strong>DeepSpeed</strong> (Microsoft) - ZeRO optimizer</li>
+<li><strong>Megatron-LM</strong> (NVIDIA) - tensor + pipeline parallelism</li>
+<li><strong>FSDP</strong> (PyTorch) - Fully Sharded Data Parallel</li>
+<li><strong>JAX</strong> - Google, uzywany w PaLM, Gemini</li>
+</ul>
+
+<h2>Mixed Precision Training</h2>
+<p>Trenowanie w <strong>FP16</strong> lub <strong>BF16</strong> zamiast FP32 - 2x szybciej, 2x mniej pamieci:</p>
+<ul>
+<li><strong>FP16</strong> - szybkie, ale wymaga "loss scaling" przeciw underflow</li>
+<li><strong>BF16</strong> - szerszy zakres, latwiejsze w uzyciu (preferowane na H100/TPU)</li>
+<li><strong>FP8</strong> - najnowsze GPU (H100), uzywane w Llama 3 405B</li>
+</ul>
+
+<h2>Optimizery</h2>
+<table>
+<thead>
+<tr><th>Optimizer</th><th>Charakterystyka</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>AdamW</strong></td><td>Standard dla LLM, wymaga 2x pamieci modelu na stany</td></tr>
+<tr><td><strong>Adafactor</strong></td><td>Mniej pamieci niz AdamW (stosowany w T5)</td></tr>
+<tr><td><strong>Lion</strong></td><td>Nowszy, prostszy, czasem lepszy</td></tr>
+<tr><td><strong>Sophia</strong></td><td>Eksperymentalny, drugiego rzedu</td></tr>
+</tbody>
+</table>
+
+<h2>Hyperparameters</h2>
+<p>Typowe wartosci dla pre-trainingu:</p>
+<pre><code>Learning rate:    1e-4 do 3e-4 (peak)
+Schedule:         cosine z warmup (~2000 krokow)
+Batch size:       4M tokenow (globalny)
+Weight decay:     0.1
+Gradient clip:    1.0
+Adam beta:        (0.9, 0.95)
+Sequence length:  2048 - 8192 podczas pre-trainingu
+                  potem rozszerzane do 32k - 200k</code></pre>
+
+<h2>Koszt vs jakosc</h2>
+<pre><code>1B params, 20B tokens   -&gt;  ~$1k        (laptop research)
+7B params, 1T tokens    -&gt;  ~$100k      (mala firma)
+70B params, 15T tokens  -&gt;  ~$10M+      (duza firma)
+405B params, 15T tokens -&gt;  ~$60M+      (Big Tech)</code></pre>
+<p>Koszty spadaja - Llama 3.1 405B kosztowal podobno mniej niz GPT-3 (175B) pare lat wczesniej.</p>
+
+<div class="nav-bottom">
+<a href="02-architektura-transformerow.html">&larr; 02 - Architektura Transformerow</a>
+<a href="04-lokalna-konfiguracja.html">04 - Lokalna konfiguracja &rarr;</a>
+</div>
+</div>
+</body>
+</html>

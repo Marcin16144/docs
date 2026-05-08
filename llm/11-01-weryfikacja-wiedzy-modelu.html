@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>11.01 — Weryfikacja wiedzy modelu</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<a href="11-ewaluacja.html">11 — Ewaluacja</a>
+<span class="sep">/</span>
+<span class="title">Weryfikacja wiedzy modelu</span>
+</div>
+
+<div class="container">
+<h1>Weryfikacja wiedzy modelu</h1>
+<p class="subtitle">Jak sprawdzic co model wie i jaka uzyc baze danych</p>
+
+<h2>Dlaczego weryfikacja wiedzy jest trudna?</h2>
+<p>LLM wyglada jakby "wszystko wiedzial", ale to iluzja. Faktycznie:</p>
+<ul>
+<li>Wiedza jest <strong>rozproszona</strong> w miliardach parametrow</li>
+<li>Brakuje <strong>niezawodnego mechanizmu retrieval</strong> — model nie zawsze "pamieta" to co umie</li>
+<li><strong>Halucynacje</strong> — model produkuje wiarygodnie brzmiace, ale falszywe info</li>
+<li><strong>Cutoff date</strong> — wiedza zatrzymuje sie na pewnej dacie</li>
+<li><strong>Bias</strong> — popularne fakty znane lepiej niz niszowe</li>
+<li><strong>Inconsistency</strong> — ten sam fakt moze byc pamietany roznie w zaleznosci od pytania</li>
+</ul>
+
+<h2>Metody weryfikacji wiedzy modelu</h2>
+
+<div class="card">
+<h3>1. Testy faktualne</h3>
+<p>Uloz dataset par (pytanie, prawidlowa odpowiedz) z domeny.</p>
+<pre><code>test_set = [
+    {
+        "question": "Kto byl premierem Polski w 2024?",
+        "expected": ["Donald Tusk", "Tusk"],
+        "category": "polityka_polska",
+        "year": 2024
+    },
+    {
+        "question": "Jaka jest stolica Burkina Faso?",
+        "expected": ["Wagadugu", "Ouagadougou"],
+        "category": "geografia",
+        "domain": "general"
+    },
+    # ... 100-1000 przykladow
+]
+
+# Pomiar
+correct = 0
+for item in test_set:
+    response = llm.ask(item["question"])
+    if any(exp.lower() in response.lower() for exp in item["expected"]):
+        correct += 1
+
+accuracy = correct / len(test_set)</code></pre>
+</div>
+
+<div class="card">
+<h3>2. Closed-book vs Open-book QA</h3>
+<pre><code># Closed-book: tylko model
+closed_response = llm.ask(question)
+
+# Open-book: model + RAG
+docs = retrieve(question)
+open_response = llm.ask(question, context=docs)
+
+# Porownaj — gdzie open-book znacznie lepszy = tam model NIE WIE</code></pre>
+</div>
+
+<div class="card">
+<h3>3. Confidence calibration</h3>
+<p>Pytaj modelu o jego <strong>pewnosc</strong>:</p>
+<pre><code>prompt = f"""
+Pytanie: {question}
+
+Odpowiedz w formacie:
+ODPOWIEDZ: [twoja odpowiedz]
+PEWNOSC: [0-100%]
+ZRODLO: [skad to wiesz]
+"""
+
+response = llm.ask(prompt)
+# Sprawdz korelacje: gdy model mowi 90%+, jak czesto ma racje?</code></pre>
+<p>Dobrze skalibrowany model: gdy mowi 90% pewny, ma racje w 90% przypadkow.</p>
+</div>
+
+<div class="card">
+<h3>4. Probing — sprawdzanie konkretnych faktow</h3>
+<pre><code># Sprawdz czy model "zna" konkretne fakty z bazy
+fact = "Krakow byl stolica Polski do 1596 roku"
+
+# Test 1: bezposrednio
+q1 = "Do ktorego roku Krakow byl stolica Polski?"
+# expected: 1596
+
+# Test 2: posrednio
+q2 = "Kiedy Warszawa zostala stolica Polski?"
+# expected: 1596 (lub przyblizone)
+
+# Test 3: counterfactual
+q3 = "Czy Krakow jest stolica Polski?"
+# expected: NIE (test przeciwko halucynacji)</code></pre>
+</div>
+
+<div class="card">
+<h3>5. Log-prob analysis (dla open-source)</h3>
+<p>Dla otwartych modeli mozesz badac prawdopodobienstwa:</p>
+<pre><code># Sprawdz jak pewny jest model roznych odpowiedzi
+import torch
+
+prompt = "Stolica Francji to"
+candidates = ["Paryz", "Londyn", "Berlin"]
+
+logits = model(prompt).logits[-1]
+probs = torch.softmax(logits, dim=-1)
+
+for cand in candidates:
+    token_id = tokenizer.encode(cand)[0]
+    print(f"{cand}: {probs[token_id]:.4f}")
+
+# Paryz: 0.9234
+# Londyn: 0.0012
+# Berlin: 0.0008</code></pre>
+</div>
+
+<div class="card">
+<h3>6. Knowledge cutoff testing</h3>
+<pre><code>events = [
+    {"event": "Wybory w USA 2024", "expected_year": 2024},
+    {"event": "Premiera Llama 3", "expected_year": 2024},
+    {"event": "Claude 4 release", "expected_year": 2025},
+]
+
+for event in events:
+    response = llm.ask(f"Czy znasz: {event['event']}? Co o tym wiesz?")
+    # Analiza: czy model zna? Halucynuje? Mowi "po cutoff"?</code></pre>
+</div>
+
+<div class="card">
+<h3>7. Hallucination detection</h3>
+<pre><code># Pytania o nie-istniejace rzeczy (test halucynacji)
+trick_questions = [
+    "Opowiedz o piesni 'Niewidzialny Czerwony Slon' Czeslawa Niemena",
+    "Kim byla dr Anna Kowalska, polska noblistka z chemii 2019?",
+    "Jakie sa zasady gry w karty 'Polska Polka 2025'?",
+]
+
+for q in trick_questions:
+    response = llm.ask(q)
+    # Dobry model: "Nie znam takiego..."
+    # Zly model: zmysla szczegolowe wymyslone info</code></pre>
+</div>
+
+<div class="card">
+<h3>8. Cross-validation z innymi modelami</h3>
+<pre><code>def consensus_check(question, models=["claude-opus", "gpt-5", "gemini-pro"]):
+    answers = [m.ask(question) for m in models]
+    # Jesli wszystkie zgadzaja sie → prawdopodobnie prawda
+    # Jesli rozne → niepewne, sprawdz recznie</code></pre>
+</div>
+
+<h2>RAG jako rozwiazanie problemu wiedzy</h2>
+<p>Jesli weryfikacja pokazuje, ze <strong>model nie wie</strong> lub <strong>halucynuje</strong> w Twojej domenie — uzyj RAG zamiast polegac na wiedzy parametrycznej.</p>
+
+<pre><code>LLM tylko z parametrami:
+- Stala wiedza z cutoff date
+- Halucynacje gdy nie wie
+- Brak zrodel
+- Kosztowna aktualizacja (retraining)
+
+LLM + RAG:
+- Aktualna wiedza (dodajesz dokumenty)
+- Mniej halucynacji (model widzi prawdziwe info)
+- Cytowanie zrodel
+- Latwa aktualizacja</code></pre>
+
+<h2>Wybor bazy danych dla wiedzy</h2>
+
+<h3>Pytania pomocnicze</h3>
+<ol>
+<li><strong>Jaki typ danych?</strong> Tekst / strukturyzowane / mieszane / multimedia</li>
+<li><strong>Jaka skala?</strong> MB / GB / TB / PB</li>
+<li><strong>Czestosc aktualizacji?</strong> Static / daily / real-time</li>
+<li><strong>Latency requirements?</strong> ms / s / minuty</li>
+<li><strong>Budzet?</strong> $0 / $100/mc / $10k+/mc</li>
+<li><strong>Ilosc zapytan?</strong> 100/dzien / 100k/dzien / 100M/dzien</li>
+<li><strong>Privacy?</strong> Public / private / regulated</li>
+</ol>
+
+<h3>Macierz decyzyjna</h3>
+<pre><code>                  Tekst        Strukturyzowane    Hybrid
+                  niestruktury   (relacyjne)
+                  zowane
+
+Mala skala       Chroma         SQLite + FTS5    Postgres + pgvector
+(< 1 GB)         (lokalnie)     (lokalnie)       (jeden serwer)
+
+Srednia skala    Qdrant         Postgres         Postgres + pgvector
+(1-100 GB)       (self-host)    (RDS, Aurora)    + Redis cache
+
+Duza skala       Pinecone       Postgres        Multi-system
+(> 100 GB)       Weaviate       (sharded)        (specialized per type)
+                 Milvus</code></pre>
+
+<h2>Vector databases (dla RAG / semantic search)</h2>
+
+<div class="card">
+<h3>Chroma — start tutaj</h3>
+<pre><code># pip install chromadb
+import chromadb
+client = chromadb.PersistentClient(path="./db")
+collection = client.create_collection("docs")
+collection.add(
+    documents=["text1", "text2"],
+    metadatas=[{"source": "..."}],
+    ids=["1", "2"]
+)
+results = collection.query(query_texts=["query"], n_results=5)</code></pre>
+<p><strong>Pros:</strong> Najprostsza, lokalna, free, zero ops</p>
+<p><strong>Cons:</strong> Nie skaluje sie powyzej kilku GB</p>
+<p><strong>Use case:</strong> Prototypy, lokalne aplikacje, &lt; 100k chunks</p>
+</div>
+
+<div class="card">
+<h3>Qdrant — production sweet spot</h3>
+<pre><code># docker run -p 6333:6333 qdrant/qdrant
+from qdrant_client import QdrantClient
+client = QdrantClient("localhost", port=6333)</code></pre>
+<p><strong>Pros:</strong> Rust → bardzo szybki, hybrid search wbudowany, scalable</p>
+<p><strong>Cons:</strong> Self-hosted = wiecej ops (ale jest tez cloud)</p>
+<p><strong>Use case:</strong> Produkcja, 100k - 100M chunks, kontrola wlasna</p>
+<p><strong>Cena:</strong> Free (self-host) lub $25-1000+/mc cloud</p>
+</div>
+
+<div class="card">
+<h3>Pinecone — managed leader</h3>
+<pre><code>from pinecone import Pinecone
+pc = Pinecone(api_key="...")
+index = pc.Index("docs")
+index.upsert(vectors=[...])</code></pre>
+<p><strong>Pros:</strong> Zero ops, najlatwiejsze, swietna performance</p>
+<p><strong>Cons:</strong> Vendor lock-in, drogie przy skali</p>
+<p><strong>Use case:</strong> Startup z budzetem, fast time-to-market</p>
+<p><strong>Cena:</strong> $0 (free tier 100k vectors) → $70+/mc serverless</p>
+</div>
+
+<div class="card">
+<h3>Weaviate</h3>
+<p><strong>Pros:</strong> GraphQL, multi-tenancy, modules (rerankers, generators)</p>
+<p><strong>Cons:</strong> Bardziej zlozone, mniejsza spolecznosc niz Pinecone</p>
+<p><strong>Use case:</strong> Enterprise z complex requirements</p>
+</div>
+
+<div class="card">
+<h3>Milvus / Zilliz Cloud</h3>
+<p><strong>Pros:</strong> Skala (miliardy wektorow), enterprise features</p>
+<p><strong>Cons:</strong> Skomplikowany self-host</p>
+<p><strong>Use case:</strong> Bardzo duza skala (&gt;100M vectors)</p>
+</div>
+
+<div class="card">
+<h3>pgvector (PostgreSQL extension)</h3>
+<pre><code>CREATE EXTENSION vector;
+CREATE TABLE docs (id bigserial, embedding vector(1536), content text);
+CREATE INDEX ON docs USING hnsw (embedding vector_cosine_ops);
+
+SELECT content FROM docs ORDER BY embedding &lt;=&gt; '[...]' LIMIT 5;</code></pre>
+<p><strong>Pros:</strong> Juz masz Postgres? Reuzyj. Latwe joiny z relational data.</p>
+<p><strong>Cons:</strong> Wolniejsze od dedykowanych vector DB przy duzej skali</p>
+<p><strong>Use case:</strong> Aplikacje Postgres-first, &lt; 10M vectors</p>
+</div>
+
+<div class="card">
+<h3>Turbopuffer (2024+ rising star)</h3>
+<p><strong>Pros:</strong> Object storage backend → bardzo tanie</p>
+<p><strong>Cons:</strong> Nowsze, mniej tooling</p>
+<p><strong>Use case:</strong> Cost-sensitive, large scale</p>
+</div>
+
+<div class="card">
+<h3>LanceDB</h3>
+<p><strong>Pros:</strong> Plikowa (jak SQLite dla wektorow), multimodalna</p>
+<p><strong>Cons:</strong> Embedded, nie skaluje sie horyzontalnie</p>
+<p><strong>Use case:</strong> Local apps, AI-powered desktop tools</p>
+</div>
+
+<h2>Bazy relacyjne (dla strukturyzowanej wiedzy)</h2>
+
+<h3>PostgreSQL — uniwersalny standard</h3>
+<ul>
+<li>Pelnotekstowe wyszukiwanie (tsvector, FTS5)</li>
+<li>Vector search (pgvector)</li>
+<li>JSON support (jsonb)</li>
+<li>Hosted: AWS RDS, Aurora, Neon, Supabase</li>
+</ul>
+
+<h3>MySQL / MariaDB</h3>
+<ul>
+<li>Mniej zaawansowane niz Postgres dla AI</li>
+<li>Ale jesli masz, mozna</li>
+</ul>
+
+<h3>SQLite + FTS5</h3>
+<ul>
+<li>Embedded, plikowe</li>
+<li>Swietne dla malych aplikacji</li>
+<li>FTS5 = full-text search wbudowany</li>
+</ul>
+
+<h2>Wyspecjalizowane bazy</h2>
+
+<h3>Elasticsearch / OpenSearch</h3>
+<ul>
+<li>Pelnotekstowe wyszukiwanie king</li>
+<li>Skala TB+</li>
+<li>Vector search od ES 8.0</li>
+<li>Drogie self-host (operacyjnie)</li>
+</ul>
+
+<h3>Typesense / Meilisearch</h3>
+<ul>
+<li>Szybsze, prostsze niz ES dla malych zastosowan</li>
+<li>Open source</li>
+<li>Swietne do search-as-you-type</li>
+</ul>
+
+<h3>Apache Solr</h3>
+<ul>
+<li>Klasyk, mniej popularne dzis</li>
+<li>Enterprise-friendly</li>
+</ul>
+
+<h2>Knowledge graphs</h2>
+
+<h3>Neo4j</h3>
+<ul>
+<li>Najpopularniejszy graph DB</li>
+<li>Cypher query language</li>
+<li>Swietny dla relacji encji</li>
+</ul>
+
+<h3>AWS Neptune, ArangoDB</h3>
+<ul>
+<li>Alternatywy</li>
+</ul>
+
+<p><strong>GraphRAG (Microsoft, 2024)</strong> — laczy graph DB z RAG, lepsze dla "global queries" o calym korpusie.</p>
+
+<h2>Time-series / Logs</h2>
+<p>Jesli wiedza to zdarzenia w czasie:</p>
+<ul>
+<li><strong>TimescaleDB</strong> (Postgres extension)</li>
+<li><strong>InfluxDB</strong></li>
+<li><strong>ClickHouse</strong> (analytics scale)</li>
+</ul>
+
+<h2>Architektury wiedzy dla LLM</h2>
+
+<div class="card">
+<h3>Architektura 1: Single Vector DB (najprostsza)</h3>
+<pre><code>Dokumenty → Embeddings → Qdrant → Retrieval → LLM</code></pre>
+<p><strong>Kiedy:</strong> Mala/srednia skala, jeden typ danych</p>
+<p><strong>Komponenty:</strong> Qdrant + LangChain/LlamaIndex + Claude/GPT</p>
+</div>
+
+<div class="card">
+<h3>Architektura 2: Hybrid Search</h3>
+<pre><code>Dokumenty → ┬→ BM25 (keyword) ─┐
+            └→ Embeddings ─────┴→ RRF fusion → Rerank → LLM
+                  ↓
+              Qdrant</code></pre>
+<p><strong>Kiedy:</strong> Mieszane queries (nazwy wlasne + semantyczne)</p>
+<p><strong>Komponenty:</strong> Elasticsearch/Qdrant (hybrid) + Cohere Rerank + LLM</p>
+</div>
+
+<div class="card">
+<h3>Architektura 3: Multi-source</h3>
+<pre><code>Vector DB (text)     ─┐
+SQL DB (structured)  ─┼→ LLM jako orchestrator → Final answer
+Graph DB (relations) ─┘</code></pre>
+<p><strong>Kiedy:</strong> Zlozona domena, rozne typy wiedzy</p>
+<p><strong>Komponenty:</strong> Qdrant + Postgres + Neo4j + LLM agent</p>
+</div>
+
+<div class="card">
+<h3>Architektura 4: Tiered (cost optimization)</h3>
+<pre><code>Hot tier:    Cache (Redis) ────┐
+Warm tier:   Vector DB ─────────┼→ LLM
+Cold tier:   Object storage ────┘  (z dynamicznym ladowaniem)</code></pre>
+<p><strong>Kiedy:</strong> Ogromna skala, koszt jest priorytetem</p>
+</div>
+
+<h2>Przyklad end-to-end weryfikacji wiedzy + RAG</h2>
+
+<pre><code>class KnowledgeVerifiedLLM:
+    def __init__(self, llm, vector_db, eval_dataset):
+        self.llm = llm
+        self.db = vector_db
+        self.eval = eval_dataset
+
+    def ask(self, question: str) -> dict:
+        # 1. RAG retrieval
+        chunks = self.db.search(question, k=5)
+
+        # 2. Generate with context
+        prompt = f"""
+        Odpowiedz na pytanie uzywajac WYLACZNIE zrodel ponizej.
+        Jesli zrodla nie zawieraja odpowiedzi: "Nie wiem".
+
+        ZRODLA:
+        {chunks}
+
+        PYTANIE: {question}
+        """
+        answer = self.llm.generate(prompt)
+
+        # 3. Faithfulness check
+        faithfulness = self.check_faithfulness(answer, chunks)
+
+        # 4. Citation
+        sources = [c.source for c in chunks]
+
+        return {
+            "answer": answer,
+            "sources": sources,
+            "faithfulness": faithfulness,  # 0-1
+            "confidence": self.estimate_confidence(question)
+        }
+
+    def check_faithfulness(self, answer, chunks):
+        """Czy odpowiedz wynika ze zrodel?"""
+        prompt = f"""
+        Czy ponizsza ODPOWIEDZ wynika ze ZRODEL?
+        Odpowiedz: 0 (nie), 0.5 (czesciowo), 1 (tak)
+
+        ZRODLA: {chunks}
+        ODPOWIEDZ: {answer}
+        """
+        score = float(self.llm.generate(prompt))
+        return score
+
+    def evaluate(self):
+        """Run eval dataset"""
+        results = []
+        for item in self.eval:
+            response = self.ask(item["question"])
+            correct = self.check_correct(response["answer"], item["expected"])
+            results.append({**item, **response, "correct": correct})
+        accuracy = sum(r["correct"] for r in results) / len(results)
+        return {"accuracy": accuracy, "details": results}</code></pre>
+
+<h2>Rekomendacja stacku — 2026</h2>
+
+<div class="card">
+<h3>Dla startupu (szybki time-to-market)</h3>
+<pre><code>- Embeddings: Voyage AI voyage-3-large (lub OpenAI)
+- Vector DB: Pinecone Serverless ($0 starter)
+- LLM: Claude Sonnet 4.6 + Haiku 4.5 (fallback)
+- Reranker: Cohere Rerank v3.5
+- Framework: LlamaIndex
+- Monitor: Langfuse (free open source)
+
+Koszt startowy: ~$50-200/mc dla pierwszych 10k users</code></pre>
+</div>
+
+<div class="card">
+<h3>Dla enterprise (kontrola, prywatnosc)</h3>
+<pre><code>- Embeddings: BGE-M3 (self-host)
+- Vector DB: Qdrant cluster (self-host na K8s)
+- LLM: Claude API (lub self-host Llama 4 70B)
+- Reranker: bge-reranker-v2-m3 (self-host)
+- Postgres: dla strukturyzowanych danych
+- Framework: LangGraph + custom orchestration
+- Monitor: Langfuse self-hosted + Prometheus
+
+Koszt: $5-20k/mc fixed + cloud GPU</code></pre>
+</div>
+
+<div class="card">
+<h3>Dla aplikacji local-first / privacy</h3>
+<pre><code>- Embeddings: Nomic Embed v2 (lokalnie)
+- Vector DB: Chroma (embedded)
+- LLM: Ollama z Llama 3.1 8B / 70B Q4
+- Wszystko offline
+- Postgres lokalnie / SQLite
+
+Koszt: $0/mc + jednorazowy hardware</code></pre>
+</div>
+
+<h2>Praktyczna sciezka</h2>
+<pre><code>1. Zacznij od weryfikacji: czy LLM faktycznie wie?
+   ↓
+2. Jesli nie wie / halucynuje → zbuduj RAG
+   ↓
+3. Wybierz embeddings (Voyage AI lub BGE-M3)
+   ↓
+4. Zacznij od Chroma (proste) → upgrade do Qdrant gdy skalujesz
+   ↓
+5. Dodaj reranking (Cohere lub bge-reranker)
+   ↓
+6. Zbuduj eval dataset → mierz faithfulness
+   ↓
+7. Iteruj na chunking strategy
+   ↓
+8. W produkcji: monitor Langfuse + alerty na regresje</code></pre>
+
+<h2>Najczestsze pulapki</h2>
+<ol>
+<li><strong>"LLM zna wszystko"</strong> — nie zna. Sprawdz konkretne fakty.</li>
+<li><strong>"Wiekszy model = mniej halucynacji"</strong> — czesciowo prawda, ale nadal halucynuje</li>
+<li><strong>"RAG rozwiaze wszystko"</strong> — tylko jesli dobrze zbudowany (chunking, hybrid, rerank)</li>
+<li><strong>Wybor bazy bez testow</strong> — zacznij od prostej, skaluj gdy potrzeba</li>
+<li><strong>Brak ewaluacji</strong> — bez eval datasetu nie wiesz czy poprawiasz</li>
+<li><strong>Cutoff awareness</strong> — pamietaj ze wiedza modelu sie starzeje</li>
+<li><strong>Citation manipulation</strong> — zawsze pokazuj zrodla userowi</li>
+</ol>
+
+<div class="nav-bottom">
+<a href="11-ewaluacja.html">← 11 — Ewaluacja</a>
+<a href="index.html">Spis tresci →</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>09 — RAG (Retrieval Augmented Generation)</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<span class="title">09 — RAG (Retrieval Augmented Generation)</span>
+</div>
+
+<div class="container">
+<h1>RAG — Retrieval Augmented Generation</h1>
+<p class="subtitle">Dynamiczne laczenie wyszukiwania z generowaniem przez LLM</p>
+
+<h2>Czym jest RAG?</h2>
+<p><strong>RAG</strong> to technika laczaca wyszukiwanie (retrieval) z generowaniem przez LLM. Zamiast polegac tylko na wiedzy modelu (ktora jest statyczna i ograniczona), RAG dynamicznie pobiera odpowiednie informacje z bazy wiedzy i wkleja je do promptu.</p>
+
+<pre><code>┌─────────┐    ┌──────────┐    ┌──────────┐    ┌─────────┐
+│ Pytanie │───→│  Search  │───→│ Top-K    │───→│   LLM   │
+│ usera   │    │ (vector  │    │ chunks   │    │+ chunki │
+└─────────┘    │  + BM25) │    │z bazy    │    │ + query │
+               └──────────┘    └──────────┘    └────┬────┘
+                                                     │
+                                              ┌──────▼──────┐
+                                              │  Answer +   │
+                                              │  zrodla     │
+                                              └─────────────┘</code></pre>
+
+<h2>Po co RAG?</h2>
+
+<h3>Problemy LLM, ktore RAG rozwiazuje:</h3>
+<ol>
+<li><strong>Aktualnosc</strong> — model ma cutoff date, nie zna najnowszych info</li>
+<li><strong>Wiedza domenowa</strong> — Twoje dokumenty firmowe nie sa w danych treningowych</li>
+<li><strong>Halucynacje</strong> — bez konkretnych danych model zmysla</li>
+<li><strong>Cytowanie zrodel</strong> — mozesz pokazac skad info pochodzi</li>
+<li><strong>Aktualizacja bez retreningu</strong> — dodajesz dokumenty, nie zmieniasz modelu</li>
+</ol>
+
+<h3>RAG vs fine-tuning vs long context</h3>
+<table>
+<tr><th>Aspekt</th><th>RAG</th><th>Fine-tuning</th><th>Long context</th></tr>
+<tr><td>Aktualizacja</td><td>Latwa (dodaj dok.)</td><td>Wymaga retreningu</td><td>Kazdorazowo</td></tr>
+<tr><td>Koszt</td><td>$ (tylko inference)</td><td>$$$ (training)</td><td>$$ (dlugie prompty)</td></tr>
+<tr><td>Wiedza domenowa</td><td>Dobre</td><td>Najlepsze</td><td>ad-hoc</td></tr>
+<tr><td>Cytowanie zrodel</td><td>Tak</td><td>Nie</td><td>Trudne</td></tr>
+<tr><td>Skalowalnosc danych</td><td>TB+</td><td>GB-TB</td><td>MB (limit kontekstu)</td></tr>
+<tr><td>Zlozonosc</td><td>Srednia</td><td>Wysoka</td><td>Niska</td></tr>
+<tr><td>Kiedy uzywac</td><td>Dynamiczna wiedza</td><td>Styl, format</td><td>Male dokumenty</td></tr>
+</table>
+
+<p>W 2026, z modelami 1M+ kontekstu (Gemini, Claude), pojawia sie pytanie czy RAG jest jeszcze potrzebny. <strong>Odpowiedz: tak</strong>, dla duzych korpusow (&gt;10MB) RAG jest tanszy i szybszy.</p>
+
+<h2>Komponenty RAG</h2>
+
+<div class="card">
+<h3>1. Document Loaders</h3>
+<p>Pobieranie danych z roznych zrodel.</p>
+<pre><code># LlamaIndex
+from llama_index.core import SimpleDirectoryReader
+docs = SimpleDirectoryReader("./docs").load_data()
+
+# Web pages
+from llama_index.readers.web import SimpleWebPageReader
+docs = SimpleWebPageReader().load_data(["https://anthropic.com"])
+
+# PDF
+from llama_index.readers.file import PDFReader
+docs = PDFReader().load_data("manual.pdf")
+
+# Notion, Slack, Google Drive — gotowe loadery w llamaindex i langchain</code></pre>
+</div>
+
+<div class="card">
+<h3>2. Chunking — kluczowy krok!</h3>
+<p>Dokumenty trzeba podzielic na kawalki (chunks). <strong>Strategia chunkowania ma ogromny wplyw na jakosc RAG.</strong></p>
+
+<h4>Strategie chunkowania</h4>
+
+<p><strong>Fixed-size chunking</strong> (najprostszy):</p>
+<pre><code>chunk_size = 512  # tokeny
+chunk_overlap = 50
+
+# Tnij co 512 tokenow z overlap 50</code></pre>
+
+<p><strong>Recursive character splitting:</strong></p>
+<pre><code>from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200,
+    separators=["\n\n", "\n", ". ", " ", ""]
+)
+chunks = splitter.split_documents(docs)</code></pre>
+
+<p><strong>Semantic chunking</strong> (lepszy): Tnij na granicach semantycznych (gdy embedding zmienia sie znaczaco).</p>
+
+<p><strong>Document structure chunking</strong> (najlepszy dla strukturyzowanych dokumentow):</p>
+<ul>
+<li>Markdown → po naglowkach (<code>MarkdownHeaderTextSplitter</code>)</li>
+<li>Code → po funkcjach/klasach</li>
+<li>HTML → po sekcjach</li>
+</ul>
+
+<p><strong>Late chunking</strong> (2024 trend): Embedduj caly dokument, dopiero potem chunkuj embeddingi.</p>
+</div>
+
+<div class="card">
+<h3>3. Embeddings</h3>
+<p>Konwersja tekstu na wektory.</p>
+<pre><code>from openai import OpenAI
+client = OpenAI()
+
+response = client.embeddings.create(
+    model="text-embedding-3-large",
+    input="Hello world"
+)
+vector = response.data[0].embedding  # [0.123, -0.456, ...] (3072 wymiarow)</code></pre>
+
+<h4>Najlepsze modele embeddingowe (2026)</h4>
+<table>
+<tr><th>Model</th><th>Wymiary</th><th>Koszt</th><th>Multilingual</th><th>Open Source</th></tr>
+<tr><td><strong>OpenAI text-embedding-3-large</strong></td><td>3072</td><td>$$$</td><td>Tak</td><td>Nie</td></tr>
+<tr><td><strong>Voyage AI voyage-3-large</strong></td><td>1024</td><td>$$</td><td>Tak</td><td>Nie</td></tr>
+<tr><td><strong>Cohere embed-v4</strong></td><td>1536</td><td>$$</td><td>Tak (100+ lang)</td><td>Nie</td></tr>
+<tr><td><strong>BGE-M3</strong></td><td>1024</td><td>$0</td><td>Tak</td><td>Tak</td></tr>
+<tr><td><strong>Jina embeddings v3</strong></td><td>1024</td><td>$/+</td><td>Tak</td><td>Tak</td></tr>
+<tr><td><strong>Nomic Embed v2</strong></td><td>768</td><td>$0</td><td>Tak</td><td>Tak</td></tr>
+<tr><td><strong>mxbai-embed-large</strong></td><td>1024</td><td>$0</td><td>Czesciowo</td><td>Tak</td></tr>
+</table>
+<p><strong>Wybor:</strong> Voyage AI dla komercyjnych, BGE-M3 dla open source/local.</p>
+</div>
+
+<div class="card">
+<h3>4. Vector Database</h3>
+<table>
+<tr><th>Baza</th><th>Hosting</th><th>Charakterystyka</th><th>Cena</th></tr>
+<tr><td><strong>Chroma</strong></td><td>Self-hosted, embedded</td><td>Najprostsza, lokalna</td><td>Free</td></tr>
+<tr><td><strong>Qdrant</strong></td><td>Self-hosted lub cloud</td><td>Rust, bardzo szybka</td><td>Free + cloud</td></tr>
+<tr><td><strong>Weaviate</strong></td><td>Self-hosted lub cloud</td><td>GraphQL API, hybrid search</td><td>Free + cloud</td></tr>
+<tr><td><strong>Pinecone</strong></td><td>SaaS only</td><td>Najpopularniejsza komercyjna</td><td>$$</td></tr>
+<tr><td><strong>Milvus</strong></td><td>Self-hosted lub Zilliz cloud</td><td>Skalowalna, enterprise</td><td>Free + cloud</td></tr>
+<tr><td><strong>pgvector</strong></td><td>PostgreSQL extension</td><td>W istniejacej Postgres</td><td>Free</td></tr>
+<tr><td><strong>Turbopuffer</strong></td><td>SaaS</td><td>Ekstremalnie tania, wydajna</td><td>$</td></tr>
+<tr><td><strong>LanceDB</strong></td><td>Embedded</td><td>Plikowa, multimodal</td><td>Free</td></tr>
+</table>
+
+<pre><code># Qdrant przyklad
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
+
+client = QdrantClient(":memory:")  # lub url="http://localhost:6333"
+
+client.create_collection(
+    collection_name="docs",
+    vectors_config=VectorParams(size=1024, distance=Distance.COSINE)
+)
+
+client.upsert(
+    collection_name="docs",
+    points=[
+        PointStruct(id=1, vector=embed("...")[0], payload={"text": "..."}),
+        ...
+    ]
+)
+
+# Search
+results = client.search(
+    collection_name="docs",
+    query_vector=embed("query")[0],
+    limit=5
+)</code></pre>
+</div>
+
+<div class="card">
+<h3>5. Retrieval</h3>
+<pre><code>def retrieve(query: str, top_k: int = 5):
+    # 1. Embed query
+    query_embedding = embed_model.encode(query)
+
+    # 2. Search vector DB
+    results = vector_db.search(
+        query_vector=query_embedding,
+        top_k=top_k
+    )
+
+    # 3. Return chunks
+    return [r.payload["text"] for r in results]</code></pre>
+</div>
+
+<div class="card">
+<h3>6. Augmented Generation</h3>
+<pre><code>def rag_query(question: str):
+    # 1. Retrieve
+    chunks = retrieve(question, top_k=5)
+
+    # 2. Build prompt
+    context = "\n\n".join([f"[{i+1}] {c}" for i, c in enumerate(chunks)])
+
+    prompt = f"""Odpowiedz na pytanie uzywajac WYLACZNIE ponizszych zrodel.
+Cytuj numery zrodel w odpowiedzi (np. [1], [2]).
+Jesli odpowiedz nie znajduje sie w zrodlach, powiedz "Nie wiem".
+
+ZRODLA:
+{context}
+
+PYTANIE: {question}
+
+ODPOWIEDZ:"""
+
+    # 3. Generate
+    response = llm.generate(prompt)
+    return response</code></pre>
+</div>
+
+<h2>Hybrid Search — zawsze lepszy</h2>
+<p>Polaczenie <strong>vector search</strong> (semantic) z <strong>BM25</strong> (keyword) daje znacznie lepsze wyniki niz samo vector search.</p>
+
+<pre><code># Reciprocal Rank Fusion
+def hybrid_search(query: str, top_k: int = 10):
+    vector_results = vector_search(query, k=20)  # semantyczne
+    keyword_results = bm25_search(query, k=20)   # keywords
+
+    # Laczenie wynikow (RRF)
+    scores = {}
+    for rank, doc in enumerate(vector_results):
+        scores[doc.id] = scores.get(doc.id, 0) + 1 / (rank + 60)
+    for rank, doc in enumerate(keyword_results):
+        scores[doc.id] = scores.get(doc.id, 0) + 1 / (rank + 60)
+
+    # Top K
+    return sorted(scores.items(), key=lambda x: -x[1])[:top_k]</code></pre>
+
+<p>Wiekszosc vector DB ma wbudowany hybrid search (Weaviate, Qdrant, Pinecone).</p>
+
+<h2>Reranking — kluczowy boost</h2>
+<p>Po retrieval pobierz top-50, potem <strong>rerankuj</strong> modelem reranker do top-5.</p>
+
+<pre><code># Cohere Rerank
+import cohere
+co = cohere.Client()
+
+results = co.rerank(
+    model="rerank-v3.5",
+    query=query,
+    documents=initial_results,  # 50 chunks
+    top_n=5
+)</code></pre>
+
+<p><strong>Rerankery:</strong></p>
+<ul>
+<li><strong>Cohere Rerank v3.5</strong> ($$) — komercyjny standard</li>
+<li><strong>Voyage AI Rerank-2</strong> ($$) — partner Anthropic</li>
+<li><strong>bge-reranker-v2-m3</strong> (free) — open source, dobry</li>
+<li><strong>mxbai-rerank-large-v1</strong> (free) — open source</li>
+</ul>
+
+<p>Reranking to <strong>drugi etap</strong> — najczesciej daje +20-30% jakosci RAG.</p>
+
+<h2>Zaawansowane techniki RAG</h2>
+
+<div class="card">
+<h3>HyDE (Hypothetical Document Embeddings)</h3>
+<p>Zamiast embeddowac pytanie, embedduj <strong>wygenerowana hipotetyczna odpowiedz</strong>:</p>
+<pre><code>def hyde_search(query):
+    # 1. Generuj hipotetyczna odpowiedz
+    hypothetical = llm.generate(f"Odpowiedz na: {query}")
+
+    # 2. Embedduj odpowiedz (nie pytanie!)
+    embedding = embed_model.encode(hypothetical)
+
+    # 3. Search
+    return vector_db.search(embedding)</code></pre>
+<p>Dziala lepiej dla skomplikowanych pytan.</p>
+</div>
+
+<div class="card">
+<h3>Multi-query / Query expansion</h3>
+<pre><code>def multi_query(query):
+    # Wygeneruj 3 wariacje pytania
+    variations = llm.generate(f"""Wygeneruj 3 wariacje pytania:
+    {query}""")
+
+    # Search kazdej, pomerguj wyniki
+    all_results = []
+    for q in variations:
+        all_results.extend(vector_search(q))
+
+    return deduplicate(all_results)</code></pre>
+</div>
+
+<div class="card">
+<h3>Contextual chunking (Anthropic)</h3>
+<p>Przed embedingiem chunka, dodaj kontekst gdzie chunk sie znajduje w dokumencie:</p>
+<pre><code>chunk_with_context = f"""
+Dokument: {doc_title}
+Sekcja: {section}
+Kontekst: {summary_of_surrounding_text}
+
+{chunk_text}
+"""</code></pre>
+<p>Anthropic pokazal +35% jakosci tylko z tym trickiem.</p>
+</div>
+
+<div class="card">
+<h3>Self-RAG / Corrective RAG</h3>
+<p>Model sam decyduje:</p>
+<ol>
+<li>Czy w ogole potrzebuje wyszukiwac</li>
+<li>Czy wyniki sa dobre</li>
+<li>Czy wygenerowac nowy query</li>
+</ol>
+</div>
+
+<div class="card">
+<h3>GraphRAG (Microsoft)</h3>
+<p>Buduj graf wiedzy z dokumentow (encje + relacje), pozwala na global queries (nie tylko lokalne).</p>
+<pre><code>Pytanie: "Jakie sa glowne tematy w korpusie dokumentow?"
+
+Standard RAG: nie poradzi sobie (kazdy chunk widzi maly fragment)
+GraphRAG: agreguje encje i relacje z calego korpusu</code></pre>
+</div>
+
+<h2>Architektury RAG</h2>
+
+<h3>Naive RAG</h3>
+<pre><code>Query → Retrieve → Generate</code></pre>
+<p>Dziala dla prostych przypadkow.</p>
+
+<h3>Advanced RAG</h3>
+<pre><code>Query → Query rewriting → Hybrid search → Rerank → Generate
+                                    ↓
+                            HyDE / Multi-query</code></pre>
+
+<h3>Modular / Agentic RAG (2025-2026 trend)</h3>
+<p>Agent decyduje jakie narzedzia uzyc:</p>
+<pre><code>User question
+  ↓
+Agent: "Czy potrzebuje search?"
+  ↓ TAK
+  ├─→ Search docs
+  ├─→ Search web
+  ├─→ Query SQL database
+  └─→ Compute (calculator)
+  ↓
+Agent laczy wyniki
+  ↓
+Final answer with citations</code></pre>
+
+<h2>Frameworki RAG</h2>
+
+<h3>LlamaIndex — RAG-first</h3>
+<pre><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+docs = SimpleDirectoryReader("./docs").load_data()
+index = VectorStoreIndex.from_documents(docs)
+
+query_engine = index.as_query_engine(
+    similarity_top_k=5,
+    response_mode="tree_summarize"
+)
+response = query_engine.query("Co to jest CAP theorem?")</code></pre>
+
+<h3>LangChain</h3>
+<pre><code>from langchain.chains import RetrievalQA
+qa = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
+response = qa.run("query")</code></pre>
+
+<h3>Haystack</h3>
+<p>Niemiecki framework, mocny w produkcyjnym deployu.</p>
+
+<h3>txtai</h3>
+<p>Lekki, embedded RAG.</p>
+
+<h2>Ewaluacja RAG</h2>
+<p><strong>Bez ewaluacji RAG to slepa droga.</strong></p>
+
+<h3>Metryki</h3>
+<ul>
+<li><strong>Context Recall</strong> — czy retrieval znalazl wlasciwe info?</li>
+<li><strong>Context Precision</strong> — czy info jest na temat?</li>
+<li><strong>Faithfulness</strong> — czy odpowiedz wynika ze zrodel?</li>
+<li><strong>Answer Relevance</strong> — czy odpowiada na pytanie?</li>
+</ul>
+
+<h3>Narzedzia</h3>
+<ul>
+<li><strong>Ragas</strong> — najpopularniejszy framework eval RAG</li>
+<li><strong>DeepEval</strong> — pytest-style testing</li>
+<li><strong>TruLens</strong> — observability + eval</li>
+<li><strong>Langfuse / LangSmith</strong> — tracing + eval</li>
+<li><strong>Phoenix</strong> (Arize) — open source</li>
+</ul>
+
+<pre><code># Ragas
+from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy, context_recall
+
+result = evaluate(
+    dataset=eval_dataset,  # questions, contexts, answers, ground_truth
+    metrics=[faithfulness, answer_relevancy, context_recall]
+)</code></pre>
+
+<h2>Pulapki produkcyjne</h2>
+<ol>
+<li><strong>Slabe chunki</strong> — najczestszy problem. Eksperymentuj ze strategiami.</li>
+<li><strong>Brak rerankingu</strong> — naive search to za malo.</li>
+<li><strong>Brak hybrid search</strong> — tylko vector to slepa uliczka dla nazw, ID, kodow.</li>
+<li><strong>Stale embeddings</strong> — gdy zmienisz model embeddingowy, musisz reembedowac wszystko.</li>
+<li><strong>Out-of-domain queries</strong> — RAG odpowiada na pytania spoza bazy → halucynacje.</li>
+<li><strong>Brak monitoringu</strong> — nie wiesz co user pyta, jakie chunki sa zwracane.</li>
+<li><strong>PII w bazie</strong> — wyciek danych osobowych przez context.</li>
+</ol>
+
+<h2>Cost optimization</h2>
+<pre><code>Koszt RAG = embedding_cost + storage_cost + inference_cost
+
+Dla 1M dokumentow ~500 slow kazdy:
+- Embedding (one-time): ~$50-200 (OpenAI/Voyage)
+- Storage: ~$50-200/mc (Pinecone) lub $0 (self-hosted Qdrant)
+- Inference per query: ~$0.001-0.01
+
+Dla skali milionow queries/mc → self-host vector DB!</code></pre>
+
+<h2>Stack RAG w 2026 — rekomendacja</h2>
+
+<div class="card">
+<h3>Startup (szybko, niska skala)</h3>
+<pre><code>Documents → LlamaIndex → Pinecone → Voyage embeddings → Claude/GPT
+                                                  ↓
+                                         Cohere Rerank → Answer</code></pre>
+</div>
+
+<div class="card">
+<h3>Enterprise (kontrola, skala)</h3>
+<pre><code>Documents → Custom pipeline → Qdrant (self-host) → BGE-M3 embeddings
+                              ↓
+                       BM25 + Vector hybrid → bge-reranker → Claude
+                                                                ↓
+                                                          Langfuse monitor</code></pre>
+</div>
+
+<div class="card">
+<h3>Lokalny / privacy-first</h3>
+<pre><code>Docs → LlamaIndex → Chroma (lokalnie) → Nomic Embed → Llama 3 8B (Ollama)
+                                              ↓
+                                    bge-reranker (lokalnie)</code></pre>
+</div>
+
+<div class="nav-bottom">
+<a href="08-prompt-engineering.html">← 08 — Prompt Engineering</a>
+<a href="10-agents-i-tools.html">10 — Agenci LLM i Tools →</a>
+</div>
+</div>
+</body>
+</html>

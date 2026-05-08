@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>05-03 — Agregaty, Encje, Value Objects</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="05-domain-driven-design.html">05 — DDD</a>
+        <span class="sep">/</span>
+        <span class="title">Agregaty, Encje, Value Objects</span>
+    </div>
+    <div class="container">
+        <h1>Agregaty, Encje i Value Objects</h1>
+        <p class="subtitle">Taktyczne building blocks DDD — tozsamosc, niemutowalnosc i granice spojnosci.</p>
+
+        <h2>Entity — tozsamosc ma znaczenie</h2>
+        <p>Encja to obiekt identyfikowany przez swoja tozsamosc, nie przez atrybuty. Dwie encje z identycznymi atrybutami, ale roznymi identyfikatorami, to dwa rozne obiekty.</p>
+
+<pre><code>class Order {
+    private _id: OrderId;
+    private _status: OrderStatus;
+    private _items: OrderItem[];
+    private _placedAt: Date;
+    private _domainEvents: DomainEvent[] = [];
+
+    get id(): OrderId { return this._id; }
+
+    // Encja ma zachowania biznesowe, nie tylko dane
+    addItem(product: ProductId, quantity: number, price: Money): void {
+        if (this._status !== OrderStatus.Draft) {
+            throw new OrderAlreadyPlacedError(this._id);
+        }
+        this._items.push(new OrderItem(product, quantity, price));
+    }
+
+    place(): void {
+        if (this._items.length === 0) {
+            throw new EmptyOrderError(this._id);
+        }
+        this._status = OrderStatus.Placed;
+        this._placedAt = new Date();
+        this._domainEvents.push(
+            new OrderPlacedEvent(this._id, this.totalAmount())
+        );
+    }
+
+    cancel(reason: CancellationReason): void {
+        if (this._status === OrderStatus.Shipped) {
+            throw new CannotCancelShippedOrderError(this._id);
+        }
+        this._status = OrderStatus.Cancelled;
+        this._domainEvents.push(
+            new OrderCancelledEvent(this._id, reason)
+        );
+    }
+
+    // Rownosc encji — porownujemy TYLKO tozsamosc
+    equals(other: Order): boolean {
+        return this._id.equals(other._id);
+    }
+}</code></pre>
+
+        <h2>Value Object — atrybuty maja znaczenie</h2>
+        <p>Value Object to obiekt bez tozsamosci, definiowany wylacznie przez swoje atrybuty. Dwa Value Objects z identycznymi atrybutami sa uwazane za identyczne — jak dwie banknoty 100 zl.</p>
+
+        <div class="card">
+            <h3>Kluczowe cechy Value Objects</h3>
+            <ul>
+                <li><strong>Niemutowalnosc</strong> — po utworzeniu nie mozna zmienic zadnego atrybutu</li>
+                <li><strong>Rownosc strukturalna</strong> — porownywane przez wartosci atrybutow, nie referencje</li>
+                <li><strong>Samowalidacja</strong> — Value Object jest zawsze w poprawnym stanie</li>
+                <li><strong>Brak efektow ubocznych</strong> — operacje zwracaja nowe instancje</li>
+            </ul>
+        </div>
+
+<pre><code>class Money {
+    private constructor(
+        readonly amount: number,
+        readonly currency: Currency,
+    ) {
+        // Samowalidacja — niemozliwe do stworzenia w zlym stanie
+        if (amount &lt; 0) throw new NegativeAmountError(amount);
+        if (!currency) throw new MissingCurrencyError();
+    }
+
+    static of(amount: number, currency: Currency): Money {
+        return new Money(amount, currency);
+    }
+
+    static zero(currency: Currency): Money {
+        return new Money(0, currency);
+    }
+
+    // Operacje zwracaja NOWE instancje (niemutowalnosc)
+    add(other: Money): Money {
+        this.ensureSameCurrency(other);
+        return new Money(this.amount + other.amount, this.currency);
+    }
+
+    subtract(other: Money): Money {
+        this.ensureSameCurrency(other);
+        return new Money(this.amount - other.amount, this.currency);
+    }
+
+    multiply(factor: number): Money {
+        return new Money(
+            Math.round(this.amount * factor * 100) / 100,
+            this.currency,
+        );
+    }
+
+    // Rownosc strukturalna
+    equals(other: Money): boolean {
+        return this.amount === other.amount
+            &amp;&amp; this.currency === other.currency;
+    }
+
+    private ensureSameCurrency(other: Money): void {
+        if (this.currency !== other.currency)
+            throw new CurrencyMismatchError(this.currency, other.currency);
+    }
+}</code></pre>
+
+        <h3>Wiecej przykladow Value Objects</h3>
+<pre><code>class EmailAddress {
+    readonly value: string;
+
+    constructor(email: string) {
+        const normalized = email.trim().toLowerCase();
+        if (!this.isValid(normalized))
+            throw new InvalidEmailError(email);
+        this.value = normalized;
+    }
+
+    private isValid(email: string): boolean {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    get domain(): string { return this.value.split('@')[1]; }
+
+    equals(other: EmailAddress): boolean {
+        return this.value === other.value;
+    }
+}
+
+class DateRange {
+    constructor(readonly from: Date, readonly to: Date) {
+        if (from &gt;= to)
+            throw new InvalidDateRangeError(from, to);
+    }
+
+    contains(date: Date): boolean {
+        return date &gt;= this.from &amp;&amp; date &lt;= this.to;
+    }
+
+    overlaps(other: DateRange): boolean {
+        return this.from &lt; other.to &amp;&amp; this.to &gt; other.from;
+    }
+
+    get durationInDays(): number {
+        const ms = this.to.getTime() - this.from.getTime();
+        return Math.ceil(ms / (1000 * 60 * 60 * 24));
+    }
+
+    equals(other: DateRange): boolean {
+        return this.from.getTime() === other.from.getTime()
+            &amp;&amp; this.to.getTime() === other.to.getTime();
+    }
+}</code></pre>
+
+        <h3>Entity vs Value Object</h3>
+        <table>
+            <thead><tr><th>Cecha</th><th>Entity</th><th>Value Object</th></tr></thead>
+            <tbody>
+                <tr><td>Tozsamosc</td><td>Ma unikalny identyfikator</td><td>Brak — definiowany przez atrybuty</td></tr>
+                <tr><td>Rownosc</td><td>Porownanie po ID</td><td>Porownanie po wszystkich atrybutach</td></tr>
+                <tr><td>Mutowalnosc</td><td>Moze sie zmieniac (cykl zycia)</td><td>Niemutowalny (nowa instancja)</td></tr>
+                <tr><td>Przyklady</td><td>Order, Customer, Account</td><td>Money, Address, EmailAddress</td></tr>
+                <tr><td>Persystencja</td><td>Wlasna tabela z kluczem glownym</td><td>Osadzone w encji lub osobna tabela</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Aggregate — granica spojnosci</h2>
+        <p>Agregat to klaster powiazanych encji i value objects, traktowanych jako jednostka do celow zmian danych. Ma korzen agregatu (Aggregate Root), przez ktory odbywa sie cala komunikacja zewnetrzna.</p>
+
+        <div class="card">
+            <h3>Reguly projektowania agregatow</h3>
+            <ol>
+                <li><strong>Zewnetrzne obiekty odwoluja sie tylko do korzenia</strong> — nie do wewnetrznych encji</li>
+                <li><strong>Korzen odpowiada za spojnosc</strong> — wszystkie invarianty wymuszane przez korzen</li>
+                <li><strong>Agregaty odwoluja sie do siebie przez ID</strong> — nie przez referencje obiektowe</li>
+                <li><strong>Jedna transakcja = jeden agregat</strong> — nie modyfikuj wielu agregatow naraz</li>
+            </ol>
+        </div>
+
+<pre><code>// Aggregate Root
+class Order {
+    private _id: OrderId;
+    private _customerId: CustomerId; // Referencja przez ID
+    private _items: OrderItem[] = [];
+    private _status: OrderStatus = OrderStatus.Draft;
+    private _totalLimit: Money;
+
+    // Korzen kontroluje dodawanie (invariant: max 50 pozycji)
+    addItem(
+        productId: ProductId, quantity: Quantity, unitPrice: Money
+    ): void {
+        if (this._items.length &gt;= 50)
+            throw new OrderItemLimitExceededError(this._id);
+
+        const existing = this._items.find(
+            i =&gt; i.productId.equals(productId)
+        );
+        if (existing) {
+            existing.increaseQuantity(quantity);
+        } else {
+            this._items.push(new OrderItem(productId, quantity, unitPrice));
+        }
+        this.validateTotalLimit();
+    }
+
+    // Invariant wymuszany przez korzen
+    private validateTotalLimit(): void {
+        const total = this._items.reduce(
+            (sum, item) =&gt; sum.add(item.lineTotal()),
+            Money.zero('PLN'),
+        );
+        if (total.isGreaterThan(this._totalLimit))
+            throw new OrderTotalExceededError(this._id, total);
+    }
+}
+
+// Wewnetrzna encja — niedostepna z zewnatrz
+class OrderItem {
+    constructor(
+        readonly productId: ProductId,
+        private _quantity: Quantity,
+        private _unitPrice: Money,
+    ) {}
+
+    increaseQuantity(additional: Quantity): void {
+        this._quantity = this._quantity.add(additional);
+    }
+
+    lineTotal(): Money {
+        return this._unitPrice.multiply(this._quantity.value);
+    }
+}</code></pre>
+
+        <h2>Zasada malych agregatow</h2>
+        <p>Duze agregaty tworza problemy z wydajnoscia i wspolbieznoscia. Preferuj male agregaty z jedna encja jako korzeniem.</p>
+
+<pre><code>// ZLE: za duzy agregat — Customer zawiera wszystko
+class Customer {
+    orders: Order[];           // Setki zamowien
+    addresses: Address[];      // Wiele adresow
+    paymentMethods: Payment[]; // Metody platnosci
+    loyaltyPoints: Points;     // Punkty lojalnosciowe
+    // Kazda zmiana blokuje caly agregat!
+}
+
+// DOBRZE: male, niezalezne agregaty
+class Customer {              // Agregat 1: dane podstawowe
+    id: CustomerId;
+    name: CustomerName;
+    email: EmailAddress;
+    tier: CustomerTier;
+}
+
+class ShippingProfile {       // Agregat 2: adresy
+    id: ShippingProfileId;
+    customerId: CustomerId;   // Referencja przez ID
+    addresses: Address[];
+    defaultAddress: Address;
+}
+
+class LoyaltyAccount {        // Agregat 3: punkty
+    id: LoyaltyAccountId;
+    customerId: CustomerId;   // Referencja przez ID
+    points: Points;
+    transactions: PointTransaction[];
+}</code></pre>
+
+        <h2>Praktyczne wskazowki</h2>
+        <ul>
+            <li><strong>Domyslnie tworz Value Object</strong> — encja tylko gdy naprawde potrzebujesz tozsamosci</li>
+            <li><strong>Value Objects eliminuja prymitywna obsesje</strong> — zamiast <code>string</code> dla emaila, uzyj <code>EmailAddress</code></li>
+            <li><strong>Agregat = granica transakcji</strong> — jedna operacja biznesowa modyfikuje jeden agregat</li>
+            <li><strong>Miedzy agregatami: eventual consistency</strong> — komunikacja przez zdarzenia domenowe</li>
+            <li><strong>Jesli agregat rosnie, rozwaz rozbicie</strong> — duzy agregat to sygnal problemu projektowego</li>
+            <li><strong>Testuj invarianty agregatu</strong> — to kluczowa logika biznesowa wymagajaca pokrycia testami</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="05-02-bounded-context.html">&larr; Bounded Context</a>
+            <a href="05-04-domain-events-i-serwisy.html">Domain Events &amp; Domain Services &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

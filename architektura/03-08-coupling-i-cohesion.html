@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03-08 — Coupling i Cohesion</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="03-zasady-projektowania.html">03 — Zasady</a>
+        <span class="sep">/</span>
+        <span class="title">Coupling i Cohesion</span>
+    </div>
+    <div class="container">
+        <h1>Coupling i Cohesion</h1>
+        <p class="subtitle">Niskie sprzezenie miedzy modulami, wysoka spojnosc wewnatrz — fundament dobrej architektury.</p>
+
+        <h2>Definicje</h2>
+        <div class="card">
+            <p><strong>Coupling (sprzezenie)</strong> — stopien, w jakim moduly zaleza od siebie. Im wyzsze, tym trudniejsza zmiana jednego modulu bez wplywu na inne.</p>
+            <p><strong>Cohesion (spojnosc)</strong> — stopien, w jakim elementy wewnatrz modulu sa ze soba powiazane. Im wyzsza, tym bardziej modul skupia sie na jednym zadaniu.</p>
+        </div>
+
+        <h2>Typy sprzezenia (od najgorszego)</h2>
+
+        <h3>1. Content Coupling — najgorsze</h3>
+        <p>Modul bezposrednio odwoluje sie do wewnetrznych danych innego modulu.</p>
+<pre><code>// ZLE — bezposredni dostep do pol prywatnych
+class OrderProcessor {
+    process(cart: ShoppingCart): void {
+        for (let i = 0; i &lt; cart._items.length; i++) {
+            cart._items[i]._price *= 0.9;
+        }
+        cart._totalCalculated = false;
+    }
+}
+
+// DOBRZE — publiczne API
+class OrderProcessor {
+    process(cart: ShoppingCart): void {
+        cart.applyDiscount(0.1);
+    }
+}</code></pre>
+
+        <h3>2. Common Coupling</h3>
+        <p>Moduly dziela globalny stan (zmienne globalne, mutowalne singletony).</p>
+<pre><code># ZLE — globalny stan dzielony miedzy modulami
+_current_user = None
+
+class AuthService:
+    def login(self, username, password):
+        global _current_user
+        _current_user = self.db.find(username)
+
+class OrderService:
+    def create_order(self, items):
+        global _current_user
+        return Order(customer=_current_user, items=items)
+
+# DOBRZE — jawne przekazywanie
+class OrderService:
+    def create_order(self, customer: Customer, items: list) -&gt; Order:
+        return Order(customer=customer, items=items)</code></pre>
+
+        <h3>3. Control Coupling</h3>
+        <p>Modul przekazuje flage sterujaca logika innego modulu.</p>
+<pre><code>// ZLE — flagi steruja logika
+class UserService {
+    getUser(id: string, includeOrders: boolean,
+            includeAddress: boolean,
+            formatForAPI: boolean): any {
+        const user = this.repo.find(id);
+        if (includeOrders) { user.orders = this.orderRepo.find(id); }
+        if (includeAddress) { user.address = this.addrRepo.find(id); }
+        if (formatForAPI) { return this.formatForAPI(user); }
+        return user;
+    }
+}
+
+// DOBRZE — oddzielne metody
+class UserService {
+    getUser(id: string): User {
+        return this.repo.find(id);
+    }
+    getUserWithOrders(id: string): UserWithOrders {
+        const user = this.repo.find(id);
+        const orders = this.orderRepo.find(id);
+        return { ...user, orders };
+    }
+    getUserForAPI(id: string): UserDTO {
+        return UserDTO.from(this.repo.find(id));
+    }
+}</code></pre>
+
+        <h3>4. Stamp Coupling</h3>
+        <p>Modul otrzymuje wiecej danych niz potrzebuje.</p>
+<pre><code>// ZLE — caly User, ale potrzebne tylko email i name
+function sendWelcomeEmail(user: User): void {
+    mailer.send(user.email, `Witaj ${user.name}!`);
+}
+
+// DOBRZE — dokladnie to, co potrzebne
+interface EmailRecipient {
+    email: string;
+    name: string;
+}
+
+function sendWelcomeEmail(recipient: EmailRecipient): void {
+    mailer.send(recipient.email, `Witaj ${recipient.name}!`);
+}</code></pre>
+
+        <h3>5. Data Coupling — najlepsze</h3>
+<pre><code>// DOBRZE — proste parametry
+function calculateTax(amount: number, taxRate: number): number {
+    return amount * taxRate;
+}
+
+function formatCurrency(amount: number, currency: string): string {
+    return `${amount.toFixed(2)} ${currency}`;
+}</code></pre>
+
+        <h3>Podsumowanie typow sprzezenia</h3>
+        <table>
+            <thead><tr><th>Typ</th><th>Opis</th><th>Poziom</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Content</strong></td><td>Dostep do wnetrza innego modulu</td><td>Najgorsze</td></tr>
+                <tr><td><strong>Common</strong></td><td>Wspoldzielony globalny stan</td><td>Zle</td></tr>
+                <tr><td><strong>Control</strong></td><td>Flagi sterujace logika</td><td>Problematyczne</td></tr>
+                <tr><td><strong>Stamp</strong></td><td>Przekazywanie zbyt wielu danych</td><td>Akceptowalne</td></tr>
+                <tr><td><strong>Data</strong></td><td>Komunikacja prostymi danymi</td><td>Najlepsze</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Typy spojnosci (od najgorszej)</h2>
+
+        <h3>1. Coincidental — najgorsza</h3>
+<pre><code>// ZLE — "utils" to worek na wszystko
+class Utils {
+    static formatDate(date: Date): string { /* ... */ }
+    static calculateDistance(a: Point, b: Point): number { /* ... */ }
+    static compressImage(img: Buffer): Buffer { /* ... */ }
+    static validateEmail(email: string): boolean { /* ... */ }
+    static generatePDF(data: any): Buffer { /* ... */ }
+}</code></pre>
+
+        <h3>2. Temporal — slaba</h3>
+<pre><code>// ZLE — pogrupowane bo uruchamiaja sie jednoczesnie
+class ApplicationStartup {
+    initialize(): void {
+        this.connectToDatabase();
+        this.loadConfiguration();
+        this.initializeCache();
+        this.startMessageBroker();
+        this.warmUpMLModels();
+    }
+}
+
+// DOBRZE — osobne moduly, orkiestrator je laczy
+class Application {
+    constructor(
+        private db: DatabaseConnection,
+        private config: ConfigLoader,
+        private cache: CacheManager,
+        private broker: MessageBroker
+    ) {}
+
+    async start(): Promise&lt;void&gt; {
+        await this.config.load();
+        await this.db.connect();
+        await this.cache.initialize();
+        await this.broker.start();
+    }
+}</code></pre>
+
+        <h3>5. Functional — najlepsza</h3>
+<pre><code>// Wszystko sluzy jednemu celowi: zarzadzanie koszykiem
+class ShoppingCart {
+    private items: CartItem[] = [];
+
+    addItem(product: Product, quantity: number): void {
+        const existing = this.findItem(product.id);
+        if (existing) {
+            existing.increaseQuantity(quantity);
+        } else {
+            this.items.push(new CartItem(product, quantity));
+        }
+    }
+
+    removeItem(productId: string): void {
+        this.items = this.items.filter(i =&gt; i.productId !== productId);
+    }
+
+    calculateTotal(): Money {
+        return this.items.reduce(
+            (sum, item) =&gt; sum.add(item.getSubtotal()),
+            Money.zero()
+        );
+    }
+
+    isEmpty(): boolean {
+        return this.items.length === 0;
+    }
+
+    private findItem(id: string): CartItem | undefined {
+        return this.items.find(i =&gt; i.productId === id);
+    }
+}</code></pre>
+
+        <table>
+            <thead><tr><th>Typ spojnosci</th><th>Opis</th><th>Poziom</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Coincidental</strong></td><td>Brak logicznego zwiazku</td><td>Najgorsza</td></tr>
+                <tr><td><strong>Logical</strong></td><td>Podobne operacje, niezalezne</td><td>Slaba</td></tr>
+                <tr><td><strong>Temporal</strong></td><td>Wykonuja sie w tym samym czasie</td><td>Slaba</td></tr>
+                <tr><td><strong>Sequential</strong></td><td>Pipeline: wyjscie jednego = wejscie drugiego</td><td>Dobra</td></tr>
+                <tr><td><strong>Functional</strong></td><td>Jedna dobrze zdefiniowana funkcja</td><td>Najlepsza</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Praktyczna refaktoryzacja</h2>
+        <h3>Przed — niska spojnosc, wysokie sprzezenie</h3>
+<pre><code>class ECommerceService:
+    def __init__(self):
+        self.db = MySQLConnection()
+        self.mailer = SmtpClient()
+        self.stripe = StripeAPI()
+        self.redis = RedisClient()
+
+    def place_order(self, user_id, cart_items):
+        # walidacja, obliczenia, platnosc, zapis, cache, email
+        # — szesc odpowiedzialnosci w jednej metodzie
+        user = self.db.query("SELECT * FROM users ...")
+        total = 0
+        for item in cart_items:
+            product = self.db.query("SELECT * FROM products ...")
+            total += product[0]['price'] * item['quantity']
+        tax = total * 0.23
+        self.stripe.charge(user['card_token'], total + tax)
+        self.db.execute("INSERT INTO orders ...")
+        self.redis.delete(f"cart:{user_id}")
+        self.mailer.send(user['email'], "Zamowienie", "...")</code></pre>
+
+        <h3>Po — wysoka spojnosc, niskie sprzezenie</h3>
+<pre><code>class OrderService:
+    """Orkiestracja zamowienia — jedna odpowiedzialnosc."""
+    def __init__(self, validator, calculator, payments, repo, notifier):
+        self.validator = validator
+        self.calculator = calculator
+        self.payments = payments
+        self.repo = repo
+        self.notifier = notifier
+
+    def place_order(self, customer, items):
+        self.validator.validate(customer, items)
+        pricing = self.calculator.calculate(items)
+        payment = self.payments.charge(customer, pricing.total)
+        order = Order.create(customer, items, pricing, payment)
+        self.repo.save(order)
+        self.notifier.order_placed(order)
+        return order
+
+class PriceCalculator:
+    """Tylko obliczenia cenowe."""
+    def calculate(self, items) -&gt; Pricing:
+        subtotal = sum(i.price * i.quantity for i in items)
+        discount = self.discount_svc.calculate(items)
+        tax = self.tax_svc.calculate(subtotal - discount)
+        return Pricing(subtotal, discount, tax)
+
+class OrderValidator:
+    """Tylko walidacja zamowienia."""
+    def validate(self, customer, items):
+        if not self.customer_repo.exists(customer.id):
+            raise CustomerNotFoundError(customer.id)
+        for item in items:
+            if not self.inventory.is_available(item.product_id, item.qty):
+                raise OutOfStockError(item.product_id)</code></pre>
+
+        <h2>Metryki</h2>
+        <div class="card">
+            <p><strong>Afferent Coupling (Ca)</strong> — ile modulow zalezy ode mnie? Wysoki Ca = zmiana jest ryzykowna.</p>
+            <p><strong>Efferent Coupling (Ce)</strong> — od ilu modulow ja zaleze? Wysoki Ce = modul jest kruchy.</p>
+            <p><strong>Instability (I) = Ce / (Ca + Ce)</strong> — I=0 calkowicie stabilny, I=1 calkowicie niestabilny.</p>
+        </div>
+        <table>
+            <thead><tr><th>Jezyk</th><th>Narzedzie</th><th>Co mierzy</th></tr></thead>
+            <tbody>
+                <tr><td>Java</td><td>JDepend, SonarQube</td><td>Ca, Ce, Instability</td></tr>
+                <tr><td>.NET</td><td>NDepend</td><td>Coupling, cohesion, dependency graphs</td></tr>
+                <tr><td>JavaScript</td><td>dependency-cruiser</td><td>Circular dependencies, coupling</td></tr>
+                <tr><td>Python</td><td>radon, pylint</td><td>Complexity, module dependencies</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Wskazowki na co dzien</h2>
+        <ul>
+            <li><strong>Klasa "Utils"</strong> to sygnal alarmowy — podziel na moduly tematyczne</li>
+            <li>Jesli zmiana w module A wymaga zmian w B, C, D — za wysokie sprzezenie</li>
+            <li>Jesli nazwa klasy wymaga "Manager", "Handler", "Utils" — za niska spojnosc</li>
+            <li><strong>Cykliczne zaleznosci (A &rarr; B &rarr; C &rarr; A)</strong> — najgorszy rodzaj sprzezenia, eliminuj natychmiast</li>
+            <li>Interfejsy redukuja coupling — zalez od abstrakcji</li>
+            <li>Eventy/wiadomosci daja luzniejsze sprzezenie niz bezposrednie wywolania</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="03-07-prawo-demeter.html">&larr; Prawo Demeter</a>
+            <a href="03-zasady-projektowania.html">Zasady projektowania &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

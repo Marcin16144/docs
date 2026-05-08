@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04-01 - Apple M2 Max 32GB</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<a href="04-lokalna-konfiguracja.html">04 - Lokalna konfiguracja</a>
+<span class="sep">/</span>
+<span class="title">Apple M2 Max 32GB</span>
+</div>
+<div class="container">
+<h1>Trenowanie LLM na Apple M2 Max 32GB</h1>
+<p class="subtitle">Praktyczny przewodnik - co mozesz uruchomic, fine-tunowac i jakie sa realne ograniczenia.</p>
+
+<h2>Twoja konfiguracja - co masz do dyspozycji</h2>
+
+<div class="card">
+<p><strong>Apple M2 Max</strong> (rok 2023):</p>
+<ul>
+<li><strong>CPU</strong>: 12-rdzeniowy (8 wydajnych + 4 oszczednych)</li>
+<li><strong>GPU</strong>: 30 lub 38 rdzeni (model M2 Max)</li>
+<li><strong>Neural Engine</strong>: 16 rdzeni, 15.8 TOPS</li>
+<li><strong>Memory bandwidth</strong>: ~400 GB/s (unified memory!)</li>
+<li><strong>RAM</strong>: 32 GB ujednolicone (dzielone CPU/GPU)</li>
+<li><strong>Realna VRAM dla ML</strong>: ~24 GB (system zostawia ~8 GB)</li>
+</ul>
+</div>
+
+<h3>Co to znaczy dla LLM?</h3>
+<pre><code>Plus (vs PC z RTX 4070 12GB):
++ Wiecej "VRAM" (24 GB vs 12 GB) -&gt; wieksze modele
++ Unified memory -&gt; brak transferu CPU&lt;-&gt;GPU
++ Cichy, niski pobor energii (~30W idle)
++ Swietny do inferencji modeli 7B-13B w pelnej precyzji
++ Modele 30B w Q4 dzialaja komfortowo
+
+Minus (vs RTX 4090):
+- Wolniejszy w treningu (~3-5x wolniejszy niz RTX 4090)
+- Brak CUDA - nie wszystkie biblioteki dzialaja
+- Wiekszosc poradnikow jest pod NVIDIA
+- Trening duzych modeli (&gt;13B) bardzo wolny</code></pre>
+
+<h2>Realny zasieg - co mozesz zrobic?</h2>
+
+<h3>Inferencja (uruchamianie modeli)</h3>
+<table>
+<thead>
+<tr><th>Model</th><th>Format</th><th>Dziala?</th><th>Tokens/s</th></tr>
+</thead>
+<tbody>
+<tr><td>Llama 3.2 1B</td><td>FP16</td><td>Tak</td><td>~80 t/s</td></tr>
+<tr><td>Llama 3.2 3B</td><td>FP16</td><td>Tak</td><td>~50 t/s</td></tr>
+<tr><td>Llama 3.1 8B</td><td>FP16</td><td>Tak</td><td>~25 t/s</td></tr>
+<tr><td>Llama 3.1 8B</td><td>Q4_K_M</td><td>Tak</td><td>~45 t/s</td></tr>
+<tr><td>Mistral 7B</td><td>Q4_K_M</td><td>Tak</td><td>~50 t/s</td></tr>
+<tr><td>Llama 3 70B</td><td>Q4_K_M</td><td>Tak ale wolno</td><td>~3-5 t/s</td></tr>
+<tr><td>Llama 3 70B</td><td>Q5_K_M</td><td>Brak pamieci</td><td>-</td></tr>
+</tbody>
+</table>
+
+<h3>Fine-tuning (z LoRA/QLoRA)</h3>
+<table>
+<thead>
+<tr><th>Model</th><th>Metoda</th><th>Dziala?</th><th>Czas (10k examples, 3 epoki)</th></tr>
+</thead>
+<tbody>
+<tr><td>Llama 3.2 1B</td><td>LoRA</td><td>Tak</td><td>~2-3h</td></tr>
+<tr><td>Llama 3.2 3B</td><td>LoRA</td><td>Tak</td><td>~6-8h</td></tr>
+<tr><td>Llama 3.1 8B</td><td>QLoRA</td><td>Tak</td><td>~12-20h</td></tr>
+<tr><td>Llama 3.1 8B</td><td>LoRA</td><td>Ledwo</td><td>~24h+</td></tr>
+<tr><td>Mistral 7B</td><td>QLoRA</td><td>Tak</td><td>~10-15h</td></tr>
+<tr><td>Llama 13B</td><td>QLoRA</td><td>Ledwo</td><td>30h+</td></tr>
+</tbody>
+</table>
+
+<h3>Czego NIE zrobisz</h3>
+<div class="card">
+<ul>
+<li>Trening modeli od zera (&gt;1B parametrow) - za malo mocy</li>
+<li>Fine-tuning modeli 70B - zbyt wolne (tygodnie)</li>
+<li>Trening RLHF na duzych modelach</li>
+<li>Trening reasoning models (R1-style RL)</li>
+</ul>
+</div>
+
+<h2>Stack technologiczny dla M2 Max</h2>
+
+<h3>MLX - kluczowy framework (Apple-native)</h3>
+<p><strong>MLX</strong> to natywny framework od Apple, zaprojektowany dla Apple Silicon. <strong>Najszybsza opcja</strong> treningu i inferencji na M2/M3/M4.</p>
+
+<pre><code>pip install mlx mlx-lm</code></pre>
+
+<p><strong>Inferencja:</strong></p>
+<pre><code>from mlx_lm import load, generate
+
+model, tokenizer = load("mlx-community/Llama-3.1-8B-Instruct-4bit")
+response = generate(
+    model, tokenizer,
+    prompt="Wyjasnij CAP theorem",
+    max_tokens=512,
+    temp=0.7
+)
+print(response)</code></pre>
+
+<p><strong>Fine-tuning z LoRA w MLX:</strong></p>
+<pre><code># 1. Pobierz model w formacie MLX
+huggingface-cli download mlx-community/Llama-3.2-3B-Instruct-4bit
+
+# 2. Przygotuj dane (JSONL z polami: messages)
+# train.jsonl, valid.jsonl
+
+# 3. Trenuj LoRA
+python -m mlx_lm.lora \
+    --model mlx-community/Llama-3.2-3B-Instruct-4bit \
+    --train \
+    --data ./my_data \
+    --iters 1000 \
+    --batch-size 4 \
+    --lora-layers 16 \
+    --learning-rate 1e-5
+
+# 4. Merge i konwertuj
+python -m mlx_lm.fuse \
+    --model mlx-community/Llama-3.2-3B-Instruct-4bit \
+    --adapter-path adapters \
+    --save-path my_finetuned_model</code></pre>
+
+<div class="card">
+<p><strong>Plus MLX:</strong></p>
+<ul>
+<li>Zoptymalizowane pod Apple Silicon (50-100% szybsze niz PyTorch MPS)</li>
+<li>Lazy evaluation, automatyczna optymalizacja</li>
+<li>Unified memory bezposrednio</li>
+<li>Latwa konwersja modeli z HF</li>
+<li>mlx-community na HF z setkami modeli</li>
+</ul>
+</div>
+
+<h3>PyTorch z MPS backend - alternatywa</h3>
+<p>PyTorch wspiera Apple GPU przez <strong>MPS</strong> (Metal Performance Shaders), ale jest wolniejszy niz MLX i czasem niestabilny.</p>
+
+<pre><code>import torch
+
+device = "mps" if torch.backends.mps.is_available() else "cpu"
+model.to(device)</code></pre>
+
+<div class="card">
+<p><strong>Problemy z MPS:</strong></p>
+<ul>
+<li>Niektore operacje brakuja (fallback na CPU = wolno)</li>
+<li>Niektore featery (np. flash-attention) niedostepne</li>
+<li>bitsandbytes (quantization) nie dziala natywnie</li>
+<li>Czasami crash na duzych modelach</li>
+</ul>
+<p><strong>Workaround</strong>: uzyj <code>PYTORCH_ENABLE_MPS_FALLBACK=1</code> dla brakujacych operacji.</p>
+</div>
+
+<h3>llama.cpp - najszybszy do inferencji GGUF</h3>
+<pre><code># Build z Metal
+git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+cmake -B build -DGGML_METAL=ON
+cmake --build build --config Release
+
+# Inferencja
+./build/bin/llama-cli \
+    -m models/llama-3.1-8b-instruct-q4_k_m.gguf \
+    -p "Hello" -n 200 -ngl 999  # ngl=999 -&gt; wszystko na GPU</code></pre>
+
+<h3>Ollama - najprostsze uzycie</h3>
+<pre><code>brew install ollama
+ollama pull llama3.2:3b
+ollama run llama3.2:3b</code></pre>
+<p>Ollama uzywa llama.cpp pod spodem z optymalizacjami Metal. Zero konfiguracji.</p>
+
+<h2>Krok po kroku: fine-tuning Llama 3.2 3B</h2>
+<p>Najbardziej praktyczny scenariusz dla M2 Max 32GB.</p>
+
+<h3>Krok 1: Setup srodowiska</h3>
+<pre><code># Python 3.11+ (lepiej z conda/mamba)
+brew install miniconda
+conda create -n llm python=3.11
+conda activate llm
+
+# Zainstaluj MLX
+pip install mlx mlx-lm
+
+# Zainstaluj HF CLI
+pip install huggingface_hub
+huggingface-cli login  # token z huggingface.co</code></pre>
+
+<h3>Krok 2: Przygotuj dataset</h3>
+<pre><code># prepare_data.py
+import json
+import random
+
+# Twoje dane - przyklad: pary instrukcja-odpowiedz
+data = [
+    {
+        "messages": [
+            {"role": "user", "content": "Co to jest mikroserwis?"},
+            {"role": "assistant", "content": "Mikroserwis to..."}
+        ]
+    },
+    # ... wiecej przykladow (min. 500-1000)
+]
+
+random.shuffle(data)
+split = int(0.95 * len(data))
+train, valid = data[:split], data[split:]
+
+import os
+os.makedirs("my_data", exist_ok=True)
+
+with open("my_data/train.jsonl", "w") as f:
+    for ex in train:
+        f.write(json.dumps(ex, ensure_ascii=False) + "\n")
+
+with open("my_data/valid.jsonl", "w") as f:
+    for ex in valid:
+        f.write(json.dumps(ex, ensure_ascii=False) + "\n")</code></pre>
+
+<h3>Krok 3: Pobierz model</h3>
+<pre><code># Llama 3.2 3B w 4-bit (~2 GB)
+huggingface-cli download mlx-community/Llama-3.2-3B-Instruct-4bit \
+    --local-dir models/llama-3.2-3b-mlx</code></pre>
+
+<h3>Krok 4: Konfiguracja treningu</h3>
+<pre><code># lora_config.yaml
+model: "models/llama-3.2-3b-mlx"
+data: "my_data"
+train: true
+iters: 1000
+batch_size: 4
+val_batches: 25
+learning_rate: 1.0e-5
+lora_layers: 16
+adapter_path: "adapters/my_lora"
+save_every: 100
+test: false</code></pre>
+
+<h3>Krok 5: Trenowanie</h3>
+<pre><code>python -m mlx_lm.lora --config lora_config.yaml</code></pre>
+
+<p>Co zobaczysz:</p>
+<pre><code>Iter 1: Train loss 2.456, Iter time 2.341s
+Iter 10: Train loss 1.987, Iter time 2.298s
+Iter 100: Val loss 1.654, Val time 12.1s
+...</code></pre>
+
+<p><strong>Czas dla 1000 iteracji: ~2-3 godziny</strong> dla 3B modelu z batch 4.</p>
+
+<h3>Krok 6: Test inferencji z adapterem</h3>
+<pre><code>from mlx_lm import load, generate
+
+model, tokenizer = load(
+    "models/llama-3.2-3b-mlx",
+    adapter_path="adapters/my_lora"
+)
+
+response = generate(
+    model, tokenizer,
+    prompt="Co to jest mikroserwis?",
+    max_tokens=200,
+    verbose=True
+)</code></pre>
+
+<h3>Krok 7: Merge adaptera (opcjonalnie)</h3>
+<pre><code>python -m mlx_lm.fuse \
+    --model models/llama-3.2-3b-mlx \
+    --adapter-path adapters/my_lora \
+    --save-path models/my-finetuned-llama-3b \
+    --de-quantize  # opcjonalnie - de-quantize do FP16</code></pre>
+
+<h3>Krok 8: Konwertuj do GGUF dla Ollama</h3>
+<pre><code># llama.cpp ma skrypt convert_hf_to_gguf.py
+python llama.cpp/convert_hf_to_gguf.py \
+    models/my-finetuned-llama-3b \
+    --outfile my-model.gguf \
+    --outtype q4_k_m
+
+# Zaimportuj do Ollama
+echo "FROM ./my-model.gguf" &gt; Modelfile
+ollama create my-model -f Modelfile
+ollama run my-model</code></pre>
+
+<h2>Optymalizacje wydajnosci na M2 Max</h2>
+
+<h3>1. Batch size - kluczowe dla unified memory</h3>
+<pre><code># Dla M2 Max 32GB
+# Llama 3B LoRA: batch_size=4-8
+# Llama 8B QLoRA: batch_size=1-2
+# Wiekszy batch = lepsze gradient signal, ale wiecej RAM</code></pre>
+
+<h3>2. Gradient accumulation</h3>
+<p>Zamiast wiekszego batcha - symuluj:</p>
+<pre><code># Effective batch = batch_size * grad_accum_steps
+batch_size = 2
+grad_accum_steps = 4
+# Effective batch = 8, ale RAM jak dla 2</code></pre>
+
+<h3>3. Sequence length</h3>
+<p>Krotsze sekwencje = mniej RAM:</p>
+<pre><code>max_seq_len = 1024  # zamiast 4096 dla malych zadan</code></pre>
+
+<h3>4. Frequency monitoring</h3>
+<pre><code># Monitor w innym oknie
+sudo powermetrics --samplers gpu_power -i 1000
+
+# RAM
+top -o MEM
+# lub Activity Monitor</code></pre>
+
+<h3>5. Wylacz inne aplikacje</h3>
+<p>Chrome z 50 zakladkami zjada 8GB. Wylacz wszystko podczas treningu.</p>
+
+<h3>6. Termal throttling</h3>
+<p>M2 Max moze throttlowac sie przy dlugim obciazeniu. Monitoruj <code>pmset -g thermlog</code>.</p>
+<p><strong>Tip</strong>: Ustaw laptop na podstawce z dobra wentylacja. MacBook Pro vs Studio: Studio ma lepsze chlodzenie.</p>
+
+<h2>Co mozesz zrobic - realistyczne scenariusze</h2>
+
+<div class="card">
+<h3>Scenariusz 1: Asystent dla wlasnej dokumentacji</h3>
+<pre><code>Cel: Fine-tune Llama 3.2 3B na 500 przykladach Q&amp;A
+     z dokumentacja Twojej firmy
+
+Czas: 4-6 godzin treningu
+Koszt: prad (~$1)
+Efekt: Model ktory zna Twoja dokumentacje
+
+Alternatywa: RAG zamiast fine-tuningu (szybsze, latwiej aktualizowac)</code></pre>
+</div>
+
+<div class="card">
+<h3>Scenariusz 2: Specyficzny styl/format odpowiedzi</h3>
+<pre><code>Cel: Model odpowiadajacy w specyficznym stylu marki
+     (np. krotko, profesjonalnie, bez emoji)
+
+Dane: 300-1000 przykladow
+Czas: 2-4 godziny
+Model: Llama 3.2 3B + LoRA</code></pre>
+</div>
+
+<div class="card">
+<h3>Scenariusz 3: Klasyfikator tekstu</h3>
+<pre><code>Cel: Klasyfikuj tickety supportowe na 10 kategorii
+
+Dane: 1000-5000 przykladow
+Czas: 3-6 godzin
+Model: Llama 3.2 1B + LoRA
+
+Alternatywa: BERT-based encoder (DistilBERT, RoBERTa)
+            - mniejszy, szybszy, lepszy do klasyfikacji</code></pre>
+</div>
+
+<div class="card">
+<h3>Scenariusz 4: Tlumacz domeny (np. medycyna)</h3>
+<pre><code>Cel: Tlumaczenie EN-PL specjalistycznych tekstow medycznych
+
+Dane: 5000-20000 par
+Czas: 12-24 godziny
+Model: Mistral 7B + QLoRA lub Llama 3 8B + QLoRA
+
+Alternatywa: uzyj Claude/GPT przez API - czesto tansze</code></pre>
+</div>
+
+<div class="card">
+<h3>Scenariusz 5: Coding assistant dla swojego frameworka</h3>
+<pre><code>Cel: Asystent generujacy kod w Twoim wewnetrznym frameworku
+
+Dane: 2000-10000 przykladow (issue + PR + kod)
+Czas: 8-15 godzin
+Model: Qwen 2.5 Coder 7B + QLoRA</code></pre>
+</div>
+
+<h2>Czego unikac</h2>
+<div class="card">
+<ul>
+<li><strong>Nie probuj trenowac modeli &gt;13B</strong> - za wolno, niestabilne</li>
+<li><strong>Nie uzywaj bitsandbytes</strong> - nie dziala natywnie na MPS</li>
+<li><strong>Nie laduj kilku duzych modeli naraz</strong> - OOM</li>
+<li><strong>Nie zostawiaj treningu bez monitoringu na laptopie</strong> - overheating</li>
+</ul>
+</div>
+
+<h2>Tools cheatsheet</h2>
+<pre><code># Inferencja
+brew install ollama         # najprostsze
+pip install mlx-lm          # najszybsze (Apple-native)
+pip install transformers    # uniwersalne (przez MPS, wolniejsze)
+
+# Fine-tuning
+pip install mlx-lm          # glowny wybor dla M-series
+pip install transformers peft trl    # alternatywa (PyTorch + MPS)
+
+# GUI
+# LM Studio (lmstudio.ai) - desktop app
+# Ollama + Open WebUI
+
+# Monitoring
+sudo powermetrics --samplers gpu_power
+top
+htop  # brew install htop</code></pre>
+
+<h2>Realny benchmark: Llama 3 8B inferencja</h2>
+<pre><code>M2 Max 32GB (38-core GPU):
+  llama.cpp + Q4_K_M: ~28 t/s
+  MLX + 4-bit:        ~32 t/s
+  PyTorch + MPS FP16: ~14 t/s
+
+vs:
+
+RTX 4090 24GB:
+  llama.cpp + Q4_K_M: ~120 t/s
+  ExLlamaV2:          ~150 t/s
+
+RTX 4070 12GB:
+  llama.cpp + Q4_K_M: ~60 t/s</code></pre>
+<p>M2 Max jest ~3-5x wolniejszy od RTX 4090, ale ~2x szybszy od RTX 3060.</p>
+
+<h2>Kiedy M2 Max NIE wystarczy</h2>
+<p>Jesli potrzebujesz:</p>
+<ul>
+<li>Szybszego treningu -&gt; cloud GPU (RunPod, Vast.ai, Lambda)</li>
+<li>Wiekszych modeli (70B+) -&gt; cloud z H100/A100</li>
+<li>Trening RLHF/GRPO -&gt; dedykowane GPU farm</li>
+</ul>
+
+<div class="card">
+<p><strong>Cloud alternatywy ($$):</strong></p>
+<ul>
+<li><strong>RunPod</strong> - RTX 4090 ~$0.4/h, A100 ~$1.2/h, H100 ~$2.5/h</li>
+<li><strong>Vast.ai</strong> - czesto taniej, mniej stabilne</li>
+<li><strong>Lambda Labs</strong> - $1.2-3/h, latwy interfejs</li>
+<li><strong>Modal</strong> - pay-per-second, swietne do okazjonalnych zadan</li>
+</ul>
+</div>
+
+<div class="card">
+<p><strong>Hybrid workflow:</strong></p>
+<ol>
+<li>Eksperymentuj lokalnie na M2 Max (male modele, walidacja kodu)</li>
+<li>Skaluj na cloud GPU dla finalnych runow</li>
+<li>Hostuj final model lokalnie na M2 Max do inferencji</li>
+</ol>
+</div>
+
+<div class="nav-bottom">
+<a href="04-lokalna-konfiguracja.html">&larr; 04 - Lokalna konfiguracja</a>
+<a href="05-frameworki-i-narzedzia.html">05 - Frameworki i narzedzia &rarr;</a>
+</div>
+</div>
+</body>
+</html>

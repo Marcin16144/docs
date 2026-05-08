@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06-03 — gRPC</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="06-komunikacja-i-integracja.html">06 — Komunikacja</a>
+        <span class="sep">/</span>
+        <span class="title">gRPC</span>
+    </div>
+    <div class="container">
+        <h1>gRPC</h1>
+        <p class="subtitle">Wydajny framework RPC od Google — Protocol Buffers, streaming i generowanie kodu.</p>
+
+        <h2>gRPC vs REST</h2>
+        <table>
+            <thead><tr><th>Cecha</th><th>REST</th><th>gRPC</th></tr></thead>
+            <tbody>
+                <tr><td>Format danych</td><td>JSON (tekstowy)</td><td>Protocol Buffers (binarny)</td></tr>
+                <tr><td>Protokol</td><td>HTTP/1.1 lub HTTP/2</td><td>HTTP/2 (wymagany)</td></tr>
+                <tr><td>Kontrakt</td><td>OpenAPI (opcjonalny)</td><td>.proto (wymagany)</td></tr>
+                <tr><td>Generowanie kodu</td><td>Opcjonalne</td><td>Wbudowane</td></tr>
+                <tr><td>Streaming</td><td>Ograniczony</td><td>Natywny (4 typy)</td></tr>
+                <tr><td>Rozmiar wiadomosci</td><td>Wiekszy (~JSON)</td><td>~10x mniejszy</td></tr>
+                <tr><td>Szybkosc serializacji</td><td>Wolniejsza</td><td>~5-10x szybsza</td></tr>
+                <tr><td>Obsluga przegladarek</td><td>Natywna</td><td>Wymaga gRPC-Web</td></tr>
+                <tr><td>Debugowanie</td><td>Proste (JSON)</td><td>Trudniejsze (binarny)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Protocol Buffers — definicja typow</h2>
+<pre><code>syntax = "proto3";
+package ecommerce;
+
+message User {
+  int32 id = 1;               // numer pola (nie wartosc!)
+  string name = 2;
+  string email = 3;
+  UserRole role = 4;
+  repeated Order orders = 5;  // lista
+  optional string phone = 6;  // opcjonalne
+}
+
+enum UserRole {
+  USER_ROLE_UNSPECIFIED = 0;  // zawsze 0 jako domyslna
+  USER_ROLE_USER = 1;
+  USER_ROLE_ADMIN = 2;
+  USER_ROLE_MODERATOR = 3;
+}
+
+message Order {
+  int32 id = 1;
+  int32 user_id = 2;
+  repeated OrderItem items = 3;
+  double total = 4;
+  OrderStatus status = 5;
+}
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;
+  ORDER_STATUS_SHIPPED = 3;
+  ORDER_STATUS_DELIVERED = 4;
+  ORDER_STATUS_CANCELLED = 5;
+}</code></pre>
+
+        <h3>Reguly numeracji pol</h3>
+        <ul>
+            <li>Numery pol to identyfikatory binarne — <strong>nigdy ich nie zmieniaj</strong> po wdrozeniu</li>
+            <li>Numery 1-15 zajmuja 1 bajt (uzywaj dla czestych pol)</li>
+            <li>Numery 16-2047 zajmuja 2 bajty</li>
+            <li>Usuniete pola oznacz jako <code>reserved</code></li>
+        </ul>
+
+        <h2>Definicja serwisu (.proto)</h2>
+<pre><code>service UserService {
+  // Unary — request/response
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+
+  // Server streaming — serwer wysyla strumien
+  rpc ListUsers(ListUsersRequest) returns (stream User);
+
+  // Client streaming — klient wysyla strumien
+  rpc UploadPhotos(stream UploadPhotoRequest)
+      returns (UploadPhotoResponse);
+
+  // Bidirectional streaming
+  rpc Chat(stream ChatMessage) returns (stream ChatMessage);
+}
+
+message GetUserRequest { int32 id = 1; }
+message GetUserResponse { User user = 1; }
+message ListUsersRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}</code></pre>
+
+        <h2>Generowanie kodu</h2>
+<pre><code># Go
+protoc --go_out=. --go-grpc_out=. proto/user.proto
+
+# Python
+protoc --python_out=. --grpc_python_out=. proto/user.proto
+
+# C#
+protoc --csharp_out=. --grpc_csharp_out=. proto/user.proto
+
+# Java
+protoc --java_out=. --grpc_java_out=. proto/user.proto</code></pre>
+        <p>Kompilator <code>protoc</code> generuje klasy klienta i serwera z pliku <code>.proto</code> — zapewnia spojnosc kontraktu miedzy jezykami.</p>
+
+        <h2>4 typy komunikacji (streaming)</h2>
+
+        <div class="card">
+            <h3>1. Unary RPC (Request-Response)</h3>
+            <p>Klient wysyla jedno zadanie, serwer zwraca jedna odpowiedz.</p>
+<pre><code>// Serwer (Go)
+func (s *server) GetUser(ctx context.Context,
+    req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
+    user, err := s.db.FindUser(req.Id)
+    if err != nil {
+        return nil, status.Errorf(codes.NotFound,
+            "user %d not found", req.Id)
+    }
+    return &amp;pb.GetUserResponse{User: user}, nil
+}
+
+// Klient
+resp, err := client.GetUser(ctx, &amp;pb.GetUserRequest{Id: 123})
+fmt.Println(resp.User.Name)</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>2. Server Streaming</h3>
+            <p>Klient wysyla jedno zadanie, serwer odpowiada strumieniem wiadomosci.</p>
+<pre><code>// Serwer
+func (s *server) ListUsers(req *pb.ListUsersRequest,
+    stream pb.UserService_ListUsersServer) error {
+    users, _ := s.db.GetAllUsers(req.Filter)
+    for _, user := range users {
+        if err := stream.Send(user); err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+// Klient
+stream, _ := client.ListUsers(ctx, req)
+for {
+    user, err := stream.Recv()
+    if err == io.EOF { break }
+    fmt.Println(user.Name)
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>3. Client Streaming</h3>
+            <p>Klient wysyla strumien wiadomosci, serwer odpowiada jedna odpowiedzia.</p>
+<pre><code>// Serwer
+func (s *server) UploadPhotos(
+    stream pb.UserService_UploadPhotosServer) error {
+    var totalSize int64
+    for {
+        photo, err := stream.Recv()
+        if err == io.EOF {
+            return stream.SendAndClose(
+                &amp;pb.UploadPhotoResponse{Count: totalSize})
+        }
+        totalSize += int64(len(photo.Data))
+        s.storage.Save(photo)
+    }
+}
+
+// Klient
+stream, _ := client.UploadPhotos(ctx)
+for _, photo := range photos {
+    stream.Send(&amp;pb.UploadPhotoRequest{Data: photo})
+}
+resp, _ := stream.CloseAndRecv()</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>4. Bidirectional Streaming</h3>
+            <p>Klient i serwer wysylaja strumienie niezaleznie — idealny dla czatu, danych real-time.</p>
+<pre><code>// Serwer
+func (s *server) Chat(
+    stream pb.UserService_ChatServer) error {
+    for {
+        msg, err := stream.Recv()
+        if err == io.EOF { return nil }
+        response := processMessage(msg)
+        stream.Send(response)
+    }
+}
+
+// Klient — odczyt i zapis rownolegle
+stream, _ := client.Chat(ctx)
+go func() {
+    for _, msg := range messages {
+        stream.Send(msg)
+    }
+    stream.CloseSend()
+}()
+for {
+    resp, err := stream.Recv()
+    if err == io.EOF { break }
+    fmt.Println(resp.Text)
+}</code></pre>
+        </div>
+
+        <h2>Deadlines i Timeouts</h2>
+        <p>gRPC uzywa deadlines zamiast timeoutow — deadline to absolutny punkt w czasie, ktory propaguje sie w lancuchu wywolan.</p>
+<pre><code>// Klient ustawia deadline (5 sekund)
+ctx, cancel := context.WithTimeout(
+    context.Background(), 5*time.Second)
+defer cancel()
+
+resp, err := client.GetUser(ctx, req)
+if err != nil {
+    st, _ := status.FromError(err)
+    if st.Code() == codes.DeadlineExceeded {
+        log.Println("Timeout — serwer nie odpowiedzial w 5s")
+    }
+}
+
+// Deadline propaguje sie: A &rarr; B &rarr; C
+// Jesli A ustawil 5s, B i C znaja pozostaly czas</code></pre>
+
+        <h2>Metadata (naglowki)</h2>
+<pre><code>// Klient — wysylanie metadata
+md := metadata.New(map[string]string{
+    "authorization": "Bearer token123",
+    "x-request-id":  "abc-def-123",
+})
+ctx := metadata.NewOutgoingContext(ctx, md)
+resp, err := client.GetUser(ctx, req)
+
+// Serwer — odczyt metadata
+func (s *server) GetUser(ctx context.Context,
+    req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
+    md, ok := metadata.FromIncomingContext(ctx)
+    token := md.Get("authorization")
+    // walidacja tokenu...
+}</code></pre>
+
+        <h2>Obsluga bledow</h2>
+        <table>
+            <thead><tr><th>Kod</th><th>Nazwa</th><th>Odpowiednik HTTP</th></tr></thead>
+            <tbody>
+                <tr><td>0</td><td>OK</td><td>200</td></tr>
+                <tr><td>3</td><td>INVALID_ARGUMENT</td><td>400</td></tr>
+                <tr><td>4</td><td>DEADLINE_EXCEEDED</td><td>408</td></tr>
+                <tr><td>5</td><td>NOT_FOUND</td><td>404</td></tr>
+                <tr><td>6</td><td>ALREADY_EXISTS</td><td>409</td></tr>
+                <tr><td>7</td><td>PERMISSION_DENIED</td><td>403</td></tr>
+                <tr><td>13</td><td>INTERNAL</td><td>500</td></tr>
+                <tr><td>14</td><td>UNAVAILABLE</td><td>503</td></tr>
+                <tr><td>16</td><td>UNAUTHENTICATED</td><td>401</td></tr>
+            </tbody>
+        </table>
+<pre><code>// Zwracanie bledu
+return nil, status.Errorf(codes.NotFound,
+    "uzytkownik %d nie istnieje", req.Id)
+
+// Obsluga bledu
+resp, err := client.GetUser(ctx, req)
+if err != nil {
+    st, _ := status.FromError(err)
+    switch st.Code() {
+    case codes.NotFound:
+        log.Printf("Nie znaleziono: %s", st.Message())
+    case codes.InvalidArgument:
+        log.Printf("Bledne dane: %s", st.Message())
+    }
+}</code></pre>
+
+        <h2>Load Balancing w gRPC</h2>
+        <p>HTTP/2 multipleksuje wiele zadan na jednym polaczeniu TCP — L4 load balancer widzi jedno polaczenie. Potrzebny jest <strong>L7 load balancer</strong> (Envoy, Nginx) rozumiejacy ramki HTTP/2.</p>
+
+        <div class="card">
+            <h3>Strategie</h3>
+            <ol>
+                <li><strong>Proxy-based (L7)</strong> — Envoy/Nginx terminuje gRPC, tworzy nowe polaczenia do backendu</li>
+                <li><strong>Client-side</strong> — klient zna liste serwerow, sam rozdziela zadania (round-robin)</li>
+                <li><strong>Look-aside</strong> — klient odpytuje service discovery (Consul, etcd)</li>
+            </ol>
+        </div>
+
+        <h2>gRPC-Web dla przegladarek</h2>
+<pre><code>Architektura:
+
+Przegladarka (gRPC-Web klient)
+    |
+    | HTTP/1.1 lub HTTP/2 (bez trailerow)
+    v
+Envoy Proxy (translacja)
+    |
+    | gRPC natywny (HTTP/2)
+    v
+gRPC Serwer</code></pre>
+        <p><strong>Ograniczenia:</strong> brak client streaming i bidirectional, wymaga proxy (Envoy).</p>
+
+        <h2>Kiedy uzywac gRPC vs REST?</h2>
+        <div class="two-col">
+            <div class="card">
+                <h3>Uzywaj gRPC:</h3>
+                <ul>
+                    <li>Komunikacja wewnetrzna (mikroserwisy)</li>
+                    <li>Wysoka wydajnosc, niskie opoznienia</li>
+                    <li>Streaming danych real-time</li>
+                    <li>Scisly kontrakt API</li>
+                    <li>Wiele jezykow programowania</li>
+                    <li>Duze wolumeny danych</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Uzywaj REST:</h3>
+                <ul>
+                    <li>API publiczne</li>
+                    <li>Aplikacje przegladarkowe (bez proxy)</li>
+                    <li>Proste operacje CRUD</li>
+                    <li>Latwe debugowanie (JSON)</li>
+                    <li>Zespol nie zna gRPC</li>
+                    <li>Caching HTTP krytyczny</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Podejscie hybrydowe</h3>
+<pre><code>[Przegladarka] &rarr; REST  &rarr; [API Gateway] &rarr; gRPC &rarr; [Serwis A]
+[Mobile App]   &rarr; REST  &rarr; [API Gateway] &rarr; gRPC &rarr; [Serwis B]
+                                              &rarr; gRPC &rarr; [Serwis C]
+
+REST na zewnatrz (latwosc), gRPC wewnatrz (wydajnosc)</code></pre>
+        </div>
+
+        <h2>Dobre praktyki</h2>
+        <ol>
+            <li><strong>Projektuj API-first</strong> — .proto jest kontraktem, projektuj swiadomie</li>
+            <li><strong>Wersjonuj .proto</strong> — uzywaj package versioning (v1, v2)</li>
+            <li><strong>Nigdy nie zmieniaj numerow pol</strong> — dodawaj nowe, stare oznacz jako reserved</li>
+            <li><strong>Ustawiaj deadlines</strong> — zawsze, na kazdym poziomie lancucha</li>
+            <li><strong>Uzywaj interceptorow</strong> — middleware dla logowania, auth, metryk</li>
+            <li><strong>Health checking</strong> — standard gRPC Health Checking Protocol</li>
+            <li><strong>Monitoruj</strong> — Prometheus + gRPC metrics</li>
+            <li><strong>Uzywaj reflection</strong> — ulatwia debugging (grpcurl)</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="06-02-rest-api.html">&larr; REST API</a>
+            <a href="06-04-kolejki-i-pub-sub.html">Kolejki i Pub/Sub &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

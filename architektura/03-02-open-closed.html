@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03-02 — Open/Closed Principle</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="03-zasady-projektowania.html">03 — Zasady</a>
+        <span class="sep">/</span>
+        <span class="title">Open/Closed Principle</span>
+    </div>
+    <div class="container">
+        <h1>Open/Closed Principle (OCP)</h1>
+        <p class="subtitle">Otwarte na rozszerzanie, zamkniete na modyfikacje — dodawaj nowy kod zamiast zmieniac istniejacy.</p>
+
+        <h2>Czym jest OCP?</h2>
+        <p>Zasada otwarte/zamkniete mowi, ze <strong>klasy powinny byc otwarte na rozszerzanie, ale zamkniete na modyfikacje</strong>. Gdy pojawia sie nowe wymaganie, powinienes moc dodac nowy kod bez zmiany istniejacego, przetestowanego kodu.</p>
+        <p>Dlaczego to wazne: zmiana istniejacego kodu moze wprowadzic regresje, wymaga ponownego testowania i w duzych systemach kaskadowo wplywa na wiele komponentow.</p>
+
+        <h2>Przyklad 1: Kalkulator znizek</h2>
+        <h3>Zle — kazda nowa znizka modyfikuje istniejacy kod</h3>
+<pre><code>class DiscountCalculator {
+    calculate(order: Order): number {
+        let discount = 0;
+
+        if (order.customer.type === 'vip') {
+            discount = order.total * 0.15;
+        } else if (order.customer.type === 'regular'
+                   &amp;&amp; order.total &gt; 500) {
+            discount = order.total * 0.05;
+        } else if (order.customer.type === 'employee') {
+            discount = order.total * 0.30;
+        }
+        // Kazda nowa znizka = modyfikacja tej metody
+        return discount;
+    }
+}</code></pre>
+
+        <h3>Dobrze — wzorzec Strategy</h3>
+<pre><code>interface DiscountStrategy {
+    isApplicable(order: Order): boolean;
+    calculate(order: Order): number;
+}
+
+class VipDiscount implements DiscountStrategy {
+    isApplicable(order: Order): boolean {
+        return order.customer.type === 'vip';
+    }
+    calculate(order: Order): number {
+        return order.total * 0.15;
+    }
+}
+
+class BulkOrderDiscount implements DiscountStrategy {
+    isApplicable(order: Order): boolean {
+        return order.total &gt; 500;
+    }
+    calculate(order: Order): number {
+        return order.total * 0.05;
+    }
+}
+
+// Kalkulator ZAMKNIETY na modyfikacje
+class DiscountCalculator {
+    constructor(private strategies: DiscountStrategy[]) {}
+
+    calculate(order: Order): number {
+        return this.strategies
+            .filter(s =&gt; s.isApplicable(order))
+            .reduce((sum, s) =&gt; sum + s.calculate(order), 0);
+    }
+}
+
+// Nowa znizka = nowa klasa, ZERO zmian w kalkulatorze
+class SeasonalDiscount implements DiscountStrategy {
+    isApplicable(order: Order): boolean {
+        return new Date().getMonth() === 11; // grudzien
+    }
+    calculate(order: Order): number {
+        return order.total * 0.10;
+    }
+}</code></pre>
+
+        <h2>Przyklad 2: Eksporter danych (Python)</h2>
+        <h3>Zle — rozgalezienia dla kazdego formatu</h3>
+<pre><code>class DataExporter:
+    def export(self, data, format):
+        if format == 'json':
+            return json.dumps(data)
+        elif format == 'csv':
+            # logika CSV...
+            pass
+        elif format == 'xml':
+            # logika XML...
+            pass
+        else:
+            raise ValueError(f"Nieznany format: {format}")</code></pre>
+
+        <h3>Dobrze — architektura pluginow</h3>
+<pre><code>from abc import ABC, abstractmethod
+
+class Exporter(ABC):
+    @abstractmethod
+    def export(self, data: list) -&gt; str:
+        pass
+
+class JsonExporter(Exporter):
+    def export(self, data: list) -&gt; str:
+        return json.dumps(data, indent=2)
+
+class CsvExporter(Exporter):
+    def export(self, data: list) -&gt; str:
+        output = StringIO()
+        writer = csv.DictWriter(output, fieldnames=data[0].keys())
+        writer.writeheader()
+        writer.writerows(data)
+        return output.getvalue()
+
+# Rejestr pluginow
+class ExporterRegistry:
+    def __init__(self):
+        self._exporters = {}
+
+    def register(self, name: str, exporter: Exporter):
+        self._exporters[name] = exporter
+
+    def get(self, name: str) -&gt; Exporter:
+        if name not in self._exporters:
+            raise ValueError(f"Brak eksportera: {name}")
+        return self._exporters[name]
+
+# Dodanie YAML — zero zmian w istniejacym kodzie
+class YamlExporter(Exporter):
+    def export(self, data: list) -&gt; str:
+        return yaml.dump(data, allow_unicode=True)
+
+registry.register('yaml', YamlExporter())</code></pre>
+
+        <h2>Przyklad 3: Wzorzec Decorator</h2>
+<pre><code>interface Logger {
+    log(message: string): void;
+}
+
+class ConsoleLogger implements Logger {
+    log(message: string): void {
+        console.log(message);
+    }
+}
+
+// Dekoratory rozszerzaja BEZ modyfikacji bazowej klasy
+class TimestampLogger implements Logger {
+    constructor(private inner: Logger) {}
+    log(message: string): void {
+        const ts = new Date().toISOString();
+        this.inner.log(`[${ts}] ${message}`);
+    }
+}
+
+class JsonLogger implements Logger {
+    constructor(private inner: Logger) {}
+    log(message: string): void {
+        this.inner.log(JSON.stringify({
+            message, level: 'info', service: 'app'
+        }));
+    }
+}
+
+// Kompozycja dekoratorow
+const logger = new TimestampLogger(
+    new JsonLogger(
+        new ConsoleLogger()
+    )
+);</code></pre>
+
+        <h2>Techniki realizacji OCP</h2>
+        <table>
+            <thead><tr><th>Technika</th><th>Kiedy stosowac</th><th>Przyklad</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Strategy</strong></td><td>Wymienne algorytmy</td><td>Sortowanie, walidacja, kalkulacje</td></tr>
+                <tr><td><strong>Decorator</strong></td><td>Dodawanie zachowan</td><td>Logowanie, cache, autoryzacja</td></tr>
+                <tr><td><strong>Plugin/Registry</strong></td><td>Dynamiczne rozszerzanie</td><td>Formaty eksportu, providery</td></tr>
+                <tr><td><strong>Template Method</strong></td><td>Wspolny szkielet, rozne kroki</td><td>Procesy ETL, generatory raportow</td></tr>
+                <tr><td><strong>Observer/Events</strong></td><td>Reakcja na zdarzenia</td><td>Notyfikacje, audyt, metryki</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kiedy OCP jest niepraktyczne?</h2>
+        <ul>
+            <li><strong>Proste aplikacje CRUD</strong> — nadmiarowa abstrakcja spowalnia rozwoj</li>
+            <li><strong>Prototypy</strong> — zbyt wczesne zamykanie ogranicza eksploracje</li>
+            <li><strong>Gdy nie wiadomo, co sie zmieni</strong> — stosuj Rule of Three (zamknij po trzeciej zmianie tego samego miejsca)</li>
+        </ul>
+<pre><code>// Jezeli zmodyfikowales ten sam if/switch 3 razy
+// — czas na refaktoryzacje ku OCP
+// Nie rob tego profilaktycznie przy pierwszym if-ie</code></pre>
+
+        <div class="nav-bottom">
+            <a href="03-01-single-responsibility.html">&larr; Single Responsibility</a>
+            <a href="03-03-liskov-substitution.html">Liskov Substitution &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

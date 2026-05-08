@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04-04 — Adapter, Facade, Decorator</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="04-wzorce-projektowe.html">04 — Wzorce projektowe</a>
+        <span class="sep">/</span>
+        <span class="title">Adapter, Facade, Decorator</span>
+    </div>
+    <div class="container">
+        <h1>Wzorce strukturalne</h1>
+        <p class="subtitle">Adapter, Facade i Decorator — trzy kluczowe wzorce do kompozycji i izolacji klas.</p>
+
+        <h2>Adapter — opakowywanie zewnetrznych API</h2>
+        <p>Adapter tworzy warstwe posredniczaca, ktora tlumaczy jeden interfejs na drugi. Dzieki temu wymiana dostawcy (np. z SendGrid na AWS SES) wymaga tylko nowego adaptera, bez zmian w reszcie kodu.</p>
+<pre><code>// Twoj wewnetrzny interfejs
+interface EmailService {
+    send(to: string, subject: string, body: string): Promise&lt;void&gt;;
+    sendBulk(messages: EmailMessage[]): Promise&lt;BulkResult&gt;;
+}
+
+// Zewnetrzne API (SendGrid) — inny ksztalt interfejsu
+class SendGridClient {
+    sendMail(params: {
+        to: { email: string }[];
+        subject: string;
+        content: { type: string; value: string }[];
+    }): Promise&lt;SendGridResponse&gt; { /* ... */ }
+}
+
+// Adapter tlumaczy Twoj interfejs na API SendGrid
+class SendGridAdapter implements EmailService {
+    constructor(private client: SendGridClient) {}
+
+    async send(to: string, subject: string, body: string): Promise&lt;void&gt; {
+        await this.client.sendMail({
+            to: [{ email: to }],
+            subject,
+            content: [{ type: 'text/html', value: body }],
+        });
+    }
+
+    async sendBulk(messages: EmailMessage[]): Promise&lt;BulkResult&gt; {
+        const results = await Promise.allSettled(
+            messages.map(msg =&gt;
+                this.client.sendMail({
+                    to: [{ email: msg.to }],
+                    subject: msg.subject,
+                    content: [{ type: 'text/html', value: msg.body }],
+                })
+            )
+        );
+        return {
+            sent: results.filter(r =&gt; r.status === 'fulfilled').length,
+            failed: results.filter(r =&gt; r.status === 'rejected').length,
+        };
+    }
+}</code></pre>
+
+        <h3>Wymiana implementacji</h3>
+<pre><code>// Nowy adapter — zero zmian w reszcie systemu
+class AwsSesAdapter implements EmailService {
+    constructor(private ses: SESClient) {}
+
+    async send(to: string, subject: string, body: string): Promise&lt;void&gt; {
+        await this.ses.send(new SendEmailCommand({
+            Destination: { ToAddresses: [to] },
+            Message: {
+                Subject: { Data: subject },
+                Body: { Html: { Data: body } },
+            },
+            Source: 'noreply@example.com',
+        }));
+    }
+
+    async sendBulk(messages: EmailMessage[]): Promise&lt;BulkResult&gt; {
+        // Implementacja z uzyciem SES batch API
+    }
+}
+
+// Konfiguracja DI — zmiana dostawcy w jednym miejscu
+container.register&lt;EmailService&gt;(
+    'EmailService',
+    process.env.EMAIL_PROVIDER === 'ses'
+        ? new AwsSesAdapter(sesClient)
+        : new SendGridAdapter(sendGridClient)
+);</code></pre>
+
+        <h2>Facade — upraszczanie podsystemow</h2>
+        <p>Facade zapewnia uproszczony interfejs do zlozonego podsystemu. Nie ukrywa podsystemu — nadal mozna korzystac z poszczegolnych klas bezposrednio — ale oferuje wygodny skrot dla typowych operacji.</p>
+<pre><code>// Zlozony podsystem zamowien (4 serwisy, kazdy z wlasnym API)
+class InventoryService { /* checkStock, reserveStock, releaseReservation */ }
+class PricingService   { /* calculatePrice, applyDiscount */ }
+class PaymentService   { /* authorize, capture, void */ }
+class ShippingService  { /* calculateShipping, createShipment */ }
+
+// Facade — uproszczony interfejs
+class OrderFacade {
+    constructor(
+        private inventory: InventoryService,
+        private pricing: PricingService,
+        private payment: PaymentService,
+        private shipping: ShippingService,
+    ) {}
+
+    async placeOrder(request: PlaceOrderRequest): Promise&lt;OrderResult&gt; {
+        // 1. Sprawdz dostepnosc
+        for (const item of request.items) {
+            const stock = await this.inventory.checkStock(item.productId);
+            if (stock &lt; item.quantity)
+                throw new InsufficientStockError(item.productId);
+        }
+
+        // 2. Rezerwuj towary
+        const reservations = [];
+        for (const item of request.items) {
+            const resId = await this.inventory.reserveStock(
+                item.productId, item.quantity
+            );
+            reservations.push(resId);
+        }
+
+        try {
+            // 3. Oblicz cene
+            let price = await this.pricing.calculatePrice(request.items);
+            if (request.discountCode) {
+                price = await this.pricing.applyDiscount(
+                    request.discountCode, price
+                );
+            }
+
+            // 4. Autoryzuj i potwierdz platnosc
+            const auth = await this.payment.authorize(
+                price.total, request.paymentMethod
+            );
+            await this.payment.capture(auth.authorizationId);
+
+            return { orderId: generateOrderId(), total: price.total };
+        } catch (error) {
+            // Cofnij rezerwacje w razie bledu
+            for (const resId of reservations) {
+                await this.inventory.releaseReservation(resId);
+            }
+            throw error;
+        }
+    }
+}</code></pre>
+
+        <h3>Facade vs Adapter</h3>
+        <table>
+            <thead><tr><th>Cecha</th><th>Adapter</th><th>Facade</th></tr></thead>
+            <tbody>
+                <tr><td>Cel</td><td>Konwersja interfejsu</td><td>Uproszczenie interfejsu</td></tr>
+                <tr><td>Obiekty za fasada</td><td>Jeden (opakowywany)</td><td>Wiele (caly podsystem)</td></tr>
+                <tr><td>Istniejacy interfejs</td><td>Zmienia na kompatybilny</td><td>Upraszcza na wygodniejszy</td></tr>
+                <tr><td>Klient moze pominac?</td><td>Nie — potrzebuje kompatybilnosci</td><td>Tak — moze uzyc podsystemu bezposrednio</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Decorator — lancuchy middleware</h2>
+        <p>Decorator opakowuje obiekt implementujac ten sam interfejs i delegujac wywolanie do opakowywanego obiektu, dodajac wlasne zachowanie przed lub po.</p>
+<pre><code>// Bazowy interfejs
+interface HttpClient {
+    request(config: RequestConfig): Promise&lt;Response&gt;;
+}
+
+// Podstawowa implementacja
+class FetchHttpClient implements HttpClient {
+    async request(config: RequestConfig): Promise&lt;Response&gt; {
+        return fetch(config.url, {
+            method: config.method,
+            headers: config.headers,
+            body: config.body,
+        });
+    }
+}
+
+// Decorator: logowanie
+class LoggingHttpClient implements HttpClient {
+    constructor(private inner: HttpClient) {}
+
+    async request(config: RequestConfig): Promise&lt;Response&gt; {
+        console.log(`-&gt; ${config.method} ${config.url}`);
+        const start = Date.now();
+        const response = await this.inner.request(config);
+        console.log(`&lt;- ${response.status} (${Date.now() - start}ms)`);
+        return response;
+    }
+}
+
+// Decorator: retry z exponential backoff
+class RetryHttpClient implements HttpClient {
+    constructor(private inner: HttpClient, private maxRetries = 3) {}
+
+    async request(config: RequestConfig): Promise&lt;Response&gt; {
+        let lastError: Error;
+        for (let attempt = 0; attempt &lt;= this.maxRetries; attempt++) {
+            try {
+                return await this.inner.request(config);
+            } catch (error) {
+                lastError = error as Error;
+                if (attempt &lt; this.maxRetries) {
+                    await new Promise(r =&gt;
+                        setTimeout(r, Math.pow(2, attempt) * 1000)
+                    );
+                }
+            }
+        }
+        throw lastError!;
+    }
+}
+
+// Decorator: cache dla GET
+class CachingHttpClient implements HttpClient {
+    private cache = new Map&lt;string, { response: Response; expires: number }&gt;();
+
+    constructor(private inner: HttpClient, private ttlMs = 60000) {}
+
+    async request(config: RequestConfig): Promise&lt;Response&gt; {
+        if (config.method !== 'GET') return this.inner.request(config);
+
+        const cached = this.cache.get(config.url);
+        if (cached &amp;&amp; cached.expires &gt; Date.now()) {
+            return cached.response.clone();
+        }
+        const response = await this.inner.request(config);
+        this.cache.set(config.url, {
+            response: response.clone(),
+            expires: Date.now() + this.ttlMs,
+        });
+        return response;
+    }
+}</code></pre>
+
+        <h3>Kompozycja dekoratorow</h3>
+        <p>Sila wzorca lezy w komponowaniu — kazdy dekorator dodaje jedna odpowiedzialnosc, a lancuch mozna skladac dowolnie.</p>
+<pre><code>// Skladanie lancucha dekoratorow
+const httpClient: HttpClient =
+    new LoggingHttpClient(           // 3. Loguj request/response
+        new RetryHttpClient(          // 2. Ponow w razie bledu
+            new CachingHttpClient(    // 1. Sprawdz cache
+                new FetchHttpClient() // 0. Wykonaj request
+            ),
+            3
+        )
+    );
+
+// Kolejnosc ma znaczenie!
+// Logging -&gt; Retry -&gt; Cache -&gt; Fetch</code></pre>
+
+        <h3>Decorator vs Dziedziczenie</h3>
+        <table>
+            <thead><tr><th>Cecha</th><th>Dziedziczenie</th><th>Decorator</th></tr></thead>
+            <tbody>
+                <tr><td>Dodawanie cech</td><td>Statyczne (kompilacja)</td><td>Dynamiczne (runtime)</td></tr>
+                <tr><td>Kombinacje</td><td>Eksplozja klas (2^n)</td><td>Dowolna kompozycja</td></tr>
+                <tr><td>Single Responsibility</td><td>Trudne do utrzymania</td><td>Naturalnie wymuszone</td></tr>
+                <tr><td>Usuwanie cech</td><td>Nowa hierarchia</td><td>Usuniecie z lancucha</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kiedy stosowac ktory wzorzec?</h2>
+        <div class="card">
+            <ul>
+                <li><strong>Adapter</strong> — gdy integrujesz sie z zewnetrznym API/biblioteka i chcesz odizolowac swoj kod od jej interfejsu</li>
+                <li><strong>Facade</strong> — gdy podsystem jest zlozony i klienci potrzebuja prostego API dla typowych operacji</li>
+                <li><strong>Decorator</strong> — gdy chcesz dynamicznie dodawac cross-cutting concerns (logowanie, cache, retry, metryki) bez modyfikacji istniejacego kodu</li>
+            </ul>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="04-03-builder.html">&larr; Builder</a>
+            <a href="04-05-observer-strategy-command.html">Observer, Strategy, Command &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

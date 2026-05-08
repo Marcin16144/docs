@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04-02 — Factory Method &amp; Abstract Factory</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="04-wzorce-projektowe.html">04 — Wzorce projektowe</a>
+        <span class="sep">/</span>
+        <span class="title">Factory Method &amp; Abstract Factory</span>
+    </div>
+    <div class="container">
+        <h1>Factory Method &amp; Abstract Factory</h1>
+        <p class="subtitle">Tworzenie obiektow bez specyfikowania dokladnej klasy — od prostej fabryki do rodzin produktow.</p>
+
+        <h2>Idea wzorcow fabrykujacych</h2>
+        <p>Wzorce fabrykujace rozwiazuja problem tworzenia obiektow bez koniecznosci specyfikowania dokladnej klasy. Zamiast wywolywac <code>new KonkretnaKlasa()</code> w kodzie klienta, delegujemy decyzje o typie tworzonego obiektu do wyspecjalizowanej fabryki.</p>
+
+        <h2>Simple Factory (prosta fabryka)</h2>
+        <p>Najprostsze podejscie — statyczna metoda lub klasa, ktora na podstawie parametru tworzy odpowiedni obiekt. Nie jest formalnym wzorcem GoF, ale jest powszechnie stosowana.</p>
+<pre><code>interface PaymentProcessor {
+    charge(amount: number): Promise&lt;PaymentResult&gt;;
+    refund(transactionId: string): Promise&lt;void&gt;;
+}
+
+class StripeProcessor implements PaymentProcessor {
+    async charge(amount: number) { /* ... */ }
+    async refund(transactionId: string) { /* ... */ }
+}
+
+class PayPalProcessor implements PaymentProcessor {
+    async charge(amount: number) { /* ... */ }
+    async refund(transactionId: string) { /* ... */ }
+}
+
+// Simple Factory
+class PaymentProcessorFactory {
+    static create(type: string): PaymentProcessor {
+        switch (type) {
+            case 'stripe': return new StripeProcessor();
+            case 'paypal': return new PayPalProcessor();
+            default: throw new Error(`Nieznany procesor: ${type}`);
+        }
+    }
+}
+
+const processor = PaymentProcessorFactory.create('stripe');</code></pre>
+        <p><strong>Zalety:</strong> prostosc, centralizacja logiki tworzenia.<br>
+        <strong>Wady:</strong> kazdy nowy typ wymaga modyfikacji fabryki (lamie Open/Closed Principle).</p>
+
+        <h2>Factory Method (metoda fabrykujaca)</h2>
+        <p>Definiuje interfejs do tworzenia obiektu, ale pozwala podklasom zdecydowac, ktora klase instancjonowac. Tworzenie obiektow delegowane jest do podklas.</p>
+<pre><code>// Abstrakcyjna klasa z metoda fabrykujaca
+abstract class NotificationService {
+    // Factory Method — podklasy decyduja co tworzyc
+    protected abstract createSender(): NotificationSender;
+
+    async sendNotification(userId: string, message: string): Promise&lt;void&gt; {
+        const sender = this.createSender();
+        const user = await this.getUser(userId);
+        await sender.send(user.contact, message);
+        await this.logNotification(userId, message);
+    }
+}
+
+// Konkretne implementacje
+class EmailNotificationService extends NotificationService {
+    protected createSender(): NotificationSender {
+        return new EmailSender(this.smtpConfig);
+    }
+}
+
+class SmsNotificationService extends NotificationService {
+    protected createSender(): NotificationSender {
+        return new SmsSender(this.smsGatewayConfig);
+    }
+}
+
+class PushNotificationService extends NotificationService {
+    protected createSender(): NotificationSender {
+        return new PushSender(this.firebaseConfig);
+    }
+}</code></pre>
+        <p><strong>Kluczowa roznica od Simple Factory:</strong> logika tworzenia jest w podklasach, nie w jednej metodzie z switchem. Dodanie nowego typu = nowa podklasa, bez modyfikacji istniejacego kodu.</p>
+
+        <h2>Abstract Factory (fabryka abstrakcyjna)</h2>
+        <p>Zapewnia interfejs do tworzenia rodzin powiazanych obiektow bez specyfikowania ich konkretnych klas. Uzywana gdy system musi byc niezalezny od sposobu tworzenia swoich produktow.</p>
+<pre><code>// Rodzina powiazanych produktow
+interface Button { render(): void; onClick(handler: () =&gt; void): void; }
+interface TextInput { render(): void; getValue(): string; }
+interface Modal { open(): void; close(): void; }
+
+// Fabryka abstrakcyjna
+interface UIComponentFactory {
+    createButton(label: string): Button;
+    createTextInput(placeholder: string): TextInput;
+    createModal(title: string): Modal;
+}
+
+// Konkretna fabryka — Material Design
+class MaterialUIFactory implements UIComponentFactory {
+    createButton(label: string): Button {
+        return new MaterialButton(label);
+    }
+    createTextInput(placeholder: string): TextInput {
+        return new MaterialTextInput(placeholder);
+    }
+    createModal(title: string): Modal {
+        return new MaterialModal(title);
+    }
+}
+
+// Konkretna fabryka — Bootstrap
+class BootstrapUIFactory implements UIComponentFactory {
+    createButton(label: string): Button {
+        return new BootstrapButton(label);
+    }
+    createTextInput(placeholder: string): TextInput {
+        return new BootstrapTextInput(placeholder);
+    }
+    createModal(title: string): Modal {
+        return new BootstrapModal(title);
+    }
+}
+
+// Kod klienta — niezalezny od konkretnej biblioteki UI
+class LoginForm {
+    constructor(private uiFactory: UIComponentFactory) {}
+
+    render() {
+        const emailInput = this.uiFactory.createTextInput('Email');
+        const passwordInput = this.uiFactory.createTextInput('Haslo');
+        const submitBtn = this.uiFactory.createButton('Zaloguj');
+    }
+}</code></pre>
+
+        <h2>System pluginow z fabrykami</h2>
+        <p>Fabryki doskonale sprawdzaja sie w systemach pluginow, gdzie nowe rozszerzenia moga byc dodawane bez modyfikacji kodu bazowego.</p>
+<pre><code>type PluginFactory = () =&gt; ExportPlugin;
+
+class ExportPluginRegistry {
+    private factories = new Map&lt;string, PluginFactory&gt;();
+
+    register(format: string, factory: PluginFactory): void {
+        this.factories.set(format, factory);
+    }
+
+    create(format: string): ExportPlugin {
+        const factory = this.factories.get(format);
+        if (!factory) {
+            throw new Error(`Nieznany format eksportu: ${format}`);
+        }
+        return factory();
+    }
+
+    getAvailableFormats(): string[] {
+        return Array.from(this.factories.keys());
+    }
+}
+
+// Rejestracja pluginow — moze byc w osobnych modulach
+const registry = new ExportPluginRegistry();
+registry.register('pdf', () =&gt; new PdfExporter());
+registry.register('csv', () =&gt; new CsvExporter());
+registry.register('xlsx', () =&gt; new ExcelExporter());
+
+// Nowy plugin nie wymaga zmiany istniejacego kodu
+registry.register('parquet', () =&gt; new ParquetExporter());</code></pre>
+
+        <h2>Porownanie trzech podejsc</h2>
+        <table>
+            <thead><tr><th>Cecha</th><th>Simple Factory</th><th>Factory Method</th><th>Abstract Factory</th></tr></thead>
+            <tbody>
+                <tr><td>Zlozonosc</td><td>Niska</td><td>Srednia</td><td>Wysoka</td></tr>
+                <tr><td>Open/Closed</td><td>Lamie (switch)</td><td>Respektuje</td><td>Respektuje</td></tr>
+                <tr><td>Liczba produktow</td><td>Jeden typ</td><td>Jeden typ</td><td>Rodzina typow</td></tr>
+                <tr><td>Rozszerzalnosc</td><td>Modyfikacja fabryki</td><td>Nowa podklasa</td><td>Nowa fabryka</td></tr>
+                <tr><td>Kiedy stosowac</td><td>Proste przypadki</td><td>Jeden produkt, wiele wariantow</td><td>Rodziny powiazanych produktow</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Praktyczne wskazowki</h2>
+        <ul>
+            <li><strong>Zacznij od Simple Factory</strong> — refaktoruj do Factory Method gdy pojawi sie potrzeba rozszerzalnosci</li>
+            <li><strong>Abstract Factory</strong> stosuj gdy masz rodziny powiazanych obiektow (np. caly zestaw UI, konfiguracja srodowiska)</li>
+            <li>Fabryki dobrze lacza sie z <strong>Dependency Injection</strong> — kontener DI sam jest rodzajem fabryki</li>
+            <li>Unikaj fabryk dla prostych obiektow — nie kazde <code>new</code> wymaga fabryki</li>
+            <li>Preferuj <strong>kompozycje i interfejsy</strong> nad hierarchie dziedziczenia w fabrykach</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="04-01-singleton.html">&larr; Singleton</a>
+            <a href="04-03-builder.html">Builder &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

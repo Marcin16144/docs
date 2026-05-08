@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02-07 — Serverless</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="02-wzorce-architektoniczne.html">02 — Wzorce</a>
+        <span class="sep">/</span>
+        <span class="title">Serverless</span>
+    </div>
+    <div class="container">
+        <h1>Architektura Serverless</h1>
+        <p class="subtitle">Funkcje uruchamiane na zadanie, automatyczne skalowanie i platnosc za uzycie — architektura bez zarzadzania serwerami.</p>
+
+        <h2>Czym jest Serverless?</h2>
+        <p>Serverless to model architektury, w ktorym <strong>zarzadzanie serwerami jest w pelni delegowane do dostawcy chmury</strong>. Deweloper pisze wylacznie kod funkcji biznesowych, a infrastruktura (serwery, skalowanie, patching) jest zarzadzana automatycznie. Placisz tylko za faktyczne wykorzystanie zasobow.</p>
+
+<pre><code>Tradycyjne podejscie:                Serverless:
+
+┌──────────────────────┐             ┌──────────────┐
+│  Twoj serwer 24/7    │             │  Funkcja A   │ &lt;-- na zadanie
+│  (placisz za czas)   │             └──────────────┘
+│                      │             ┌──────────────┐
+│  ┌────────────────┐  │             │  Funkcja B   │ &lt;-- na zadanie
+│  │  Twoja         │  │             └──────────────┘
+│  │  aplikacja     │  │             ┌──────────────┐
+│  └────────────────┘  │             │  Funkcja C   │ &lt;-- na zadanie
+│                      │             └──────────────┘
+│  OS, runtime,        │
+│  patching, scaling   │             Placisz: per wywolanie
+└──────────────────────┘
+  Placisz: zawsze</code></pre>
+
+        <h2>Dwa filary Serverless</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>FaaS — Function as a Service</h3>
+                <p>Kod uruchamiany w odpowiedzi na zdarzenia:</p>
+                <ul>
+                    <li>AWS Lambda</li>
+                    <li>Azure Functions</li>
+                    <li>Google Cloud Functions</li>
+                    <li>Cloudflare Workers</li>
+                    <li>Vercel Edge Functions</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>BaaS — Backend as a Service</h3>
+                <p>Gotowe uslugi backendowe dostepne przez API:</p>
+                <ul>
+                    <li>Auth (Cognito, Auth0)</li>
+                    <li>Database (DynamoDB, Firestore)</li>
+                    <li>Storage (S3, Cloud Storage)</li>
+                    <li>Search (Algolia, OpenSearch)</li>
+                    <li>Push / Notifications (SNS)</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Anatomia funkcji serverless</h2>
+
+        <h3>AWS Lambda — Python</h3>
+<pre><code>import json
+import boto3
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('Orders')
+
+def handler(event, context):
+    """
+    event   — dane wejsciowe (HTTP request, SQS message, etc.)
+    context — metadane runtime (timeout, memory, request ID)
+    """
+
+    # Parsowanie requestu z API Gateway
+    body = json.loads(event['body'])
+
+    # Logika biznesowa
+    order_id = create_order(body)
+
+    # Zapis do DynamoDB
+    table.put_item(Item={
+        'orderId': order_id,
+        'customerId': body['customerId'],
+        'items': body['items'],
+        'status': 'created'
+    })
+
+    return {
+        'statusCode': 201,
+        'body': json.dumps({'orderId': order_id}),
+        'headers': {'Content-Type': 'application/json'}
+    }</code></pre>
+
+        <h3>Azure Functions — C#</h3>
+<pre><code>[Function("CreateOrder")]
+public async Task&lt;HttpResponseData&gt; CreateOrder(
+    [HttpTrigger(AuthorizationLevel.Function, "post")]
+    HttpRequestData req)
+{
+    var body = await req.ReadFromJsonAsync&lt;CreateOrderRequest&gt;();
+
+    var order = new Order(body.CustomerId, body.Items);
+    await _orderRepository.Save(order);
+
+    var response = req.CreateResponse(HttpStatusCode.Created);
+    await response.WriteAsJsonAsync(new { order.Id });
+    return response;
+}</code></pre>
+
+        <h2>Cold Start — problem zimnego startu</h2>
+<pre><code>Pierwsze wywolanie (Cold Start):
+┌─────────┐  ┌───────────┐  ┌──────────┐  ┌──────────┐
+│ Download│─►│ Init      │─►│ Bootstrap│─►│ Execute  │
+│ code    │  │ container │  │ runtime  │  │ function │
+│ ~50ms   │  │ ~200ms    │  │ ~300ms   │  │ ~100ms   │
+└─────────┘  └───────────┘  └──────────┘  └──────────┘
+                                          Total: ~650ms
+
+Kolejne wywolania (Warm Start):
+                                         ┌──────────┐
+                               ─────────►│ Execute  │
+                                         │ function │
+                                         │ ~100ms   │
+                                         └──────────┘
+                                          Total: ~100ms</code></pre>
+
+        <h3>Typowe czasy Cold Start</h3>
+        <table>
+            <thead><tr><th>Runtime</th><th>Cold Start</th><th>Warm</th></tr></thead>
+            <tbody>
+                <tr><td>Python</td><td>200-500ms</td><td>5-50ms</td></tr>
+                <tr><td>Node.js</td><td>150-400ms</td><td>5-50ms</td></tr>
+                <tr><td>Go</td><td>50-150ms</td><td>1-10ms</td></tr>
+                <tr><td>Java (JVM)</td><td>1-5s</td><td>10-50ms</td></tr>
+                <tr><td>.NET</td><td>500ms-2s</td><td>10-50ms</td></tr>
+                <tr><td>Rust</td><td>30-100ms</td><td>1-5ms</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Strategie minimalizacji Cold Start</h3>
+        <ol>
+            <li><strong>Provisioned Concurrency</strong> (AWS) — instancje zawsze gotowe</li>
+            <li><strong>Warmup triggers</strong> — cykliczne pingowanie funkcji</li>
+            <li><strong>Mniejsze pakiety</strong> — mniej kodu = szybszy start</li>
+            <li><strong>Lazy initialization</strong> — polaczenia inicjalizowane gdy potrzebne</li>
+            <li><strong>SnapStart</strong> (Java/AWS) — snapshot JVM po inicjalizacji</li>
+            <li><strong>Lekkie runtime'y</strong> — Go, Rust zamiast Java, .NET</li>
+        </ol>
+
+        <h2>Limity wykonania</h2>
+        <div class="card">
+<pre><code>Typowe limity FaaS (AWS Lambda):
+
+Timeout:           max 15 min
+Pamiec:            128 MB — 10 GB
+Payload:           6 MB sync, 256 KB async
+Concurrent:        1000 domyslnie (zwiekszalne)
+Temp storage:      512 MB — 10 GB (/tmp)
+Deploy package:    50 MB (zip), 250 MB (unzipped)</code></pre>
+            <p><strong>Implikacje:</strong> dlugie procesy wymagaja Step Functions, duze pliki — streaming do S3, stan — w DynamoDB/Redis, polaczenia DB — przez RDS Proxy.</p>
+        </div>
+
+        <h2>Model kosztow</h2>
+
+<pre><code>Koszt = (Liczba wywolan x Cena/wywolanie)
+      + (GB-sekundy x Cena/GB-s)
+
+Przyklad AWS Lambda:
+- $0.20 / milion wywolan
+- $0.0000166667 / GB-sekunda
+
+Obliczenie (1 mln wywolan/mies, 256 MB, 200ms):
+Koszt = $0.20 + (1M x 0.256GB x 0.2s x $0.0000166667)
+      = $0.20 + $0.85
+      = ~$1.05 / miesiac
+
+vs EC2 t3.micro: ~$7.50 / miesiac (zawsze wlaczony)</code></pre>
+
+<pre><code>Koszt vs ruch:
+
+  Koszt
+    ↑
+    │        ╱ EC2 / Kontenery (staly + rosnie wolniej)
+    │       ╱
+    │      ╱    ╱ Serverless (brak stalego, rosnie liniowo)
+    │     ╱   ╱
+    │    ╱  ╱
+    │   ╱ ╱
+    │  ╱╱
+    │ ╱
+    └──────────────────────────► Ruch
+
+Niski ruch: Serverless wygrywa
+Wysoki staly ruch: EC2/kontenery wygrywaja</code></pre>
+
+        <h2>Event Triggers — zrodla zdarzen</h2>
+        <div class="card">
+<pre><code>Zrodla zdarzen (AWS):
+
+HTTP:        API Gateway --► Lambda
+Queue:       SQS --► Lambda
+Stream:      Kinesis / DynamoDB Streams --► Lambda
+Storage:     S3 (upload/delete) --► Lambda
+Schedule:    EventBridge (cron) --► Lambda
+Database:    DynamoDB --► Lambda
+Auth:        Cognito triggers --► Lambda
+IoT:         IoT Core --► Lambda
+CDN:         CloudFront (Lambda@Edge)</code></pre>
+        </div>
+
+        <h3>Przykladowe scenariusze</h3>
+<pre><code>1. Przetwarzanie obrazow:
+   S3 upload --► Lambda (resize) --► S3 (thumbnails)
+
+2. Webhook processing:
+   API Gateway --► Lambda --► DynamoDB + SQS
+
+3. Scheduled reports:
+   EventBridge (cron: 0 8 * * MON) --► Lambda --► SES (email)
+
+4. Real-time stream:
+   Kinesis --► Lambda --► Elasticsearch + S3
+
+5. API backend:
+   API Gateway --► Lambda --► DynamoDB / RDS Proxy</code></pre>
+
+        <h2>Orkiestracja — Step Functions</h2>
+        <p>Dla zlozonych workflow'ow przekraczajacych limity pojedynczej funkcji:</p>
+<pre><code>AWS Step Functions (Saga):
+
+  ┌─────────┐    ┌─────────┐    ┌─────────┐
+  │ Waliduj │───►│ Pobierz │───►│ Nalicz  │
+  │zamowienie│    │ platnosc│    │ punkty  │
+  └─────────┘    └────┬────┘    └────┬────┘
+                      │ fail         │
+                 ┌────▼────┐    ┌────▼────┐
+                 │ Anuluj  │    │ Wyslij  │
+                 │zamowienie│    │ email   │
+                 └─────────┘    └─────────┘</code></pre>
+
+        <h3>Definicja Step Functions (ASL)</h3>
+<pre><code>{
+  "StartAt": "ValidateOrder",
+  "States": {
+    "ValidateOrder": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:...:ValidateOrder",
+      "Next": "ProcessPayment",
+      "Catch": [{
+        "ErrorEquals": ["ValidationError"],
+        "Next": "OrderFailed"
+      }]
+    },
+    "ProcessPayment": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:...:ProcessPayment",
+      "Next": "SendConfirmation",
+      "Catch": [{
+        "ErrorEquals": ["PaymentError"],
+        "Next": "CancelOrder"
+      }]
+    },
+    "SendConfirmation": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:...:SendEmail",
+      "End": true
+    }
+  }
+}</code></pre>
+
+        <h2>Vendor Lock-in</h2>
+<pre><code>Problem:
+Twoj kod ──► AWS Lambda API
+                │
+                ├── event format (specyficzny AWS)
+                ├── context object (specyficzny AWS)
+                ├── IAM permissions (specyficzny AWS)
+                ├── DynamoDB SDK (specyficzny AWS)
+                └── S3 integration (specyficzny AWS)
+
+Migracja do Azure/GCP = przepisanie znacznej czesci kodu</code></pre>
+
+        <h3>Strategie minimalizacji lock-in</h3>
+        <ol>
+            <li><strong>Architektura heksagonalna</strong> — izolacja logiki biznesowej od providerow</li>
+            <li><strong>Serverless Framework / SST</strong> — abstrakcja nad providerami</li>
+            <li><strong>Kontenery</strong> — AWS Fargate, Cloud Run jako middle-ground</li>
+            <li><strong>Standardy</strong> — CloudEvents format dla zdarzen</li>
+        </ol>
+
+        <h3>Porownanie platform</h3>
+        <table>
+            <thead><tr><th>Aspekt</th><th>AWS Lambda</th><th>Azure Functions</th><th>GCP Cloud Functions</th></tr></thead>
+            <tbody>
+                <tr><td>Max timeout</td><td>15 min</td><td>10 min (Consumption)</td><td>60 min (2nd gen)</td></tr>
+                <tr><td>Max pamiec</td><td>10 GB</td><td>1.5 GB (Consumption)</td><td>32 GB (2nd gen)</td></tr>
+                <tr><td>Orkiestracja</td><td>Step Functions</td><td>Durable Functions</td><td>Workflows</td></tr>
+                <tr><td>Cold start fix</td><td>Provisioned Concurrency</td><td>Premium plan</td><td>Min instances</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Wzorce serverless</h2>
+
+        <div class="card">
+            <h3>API Backend</h3>
+<pre><code>CloudFront --► API Gateway --► Lambda --► DynamoDB
+                                       --► RDS Proxy --► PostgreSQL</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Event Processing Pipeline</h3>
+<pre><code>SQS (queue) --► Lambda (process) --► DynamoDB (store)
+                                  --► SNS (notify)
+                                  --► S3 (archive)</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Scheduled Jobs</h3>
+<pre><code>EventBridge (cron) --► Lambda --► External API
+                              --► S3 (raport CSV)
+                              --► SES (email z raportem)</code></pre>
+        </div>
+
+        <h2>Zalety i wady</h2>
+        <table>
+            <thead><tr><th>Zalety</th><th>Wady</th></tr></thead>
+            <tbody>
+                <tr><td>Zero zarzadzania serwerami</td><td>Cold start — opoznienia</td></tr>
+                <tr><td>Automatyczne skalowanie (0 do tysiecy)</td><td>Limity wykonania (timeout, pamiec)</td></tr>
+                <tr><td>Pay-per-use — brak kosztow bez ruchu</td><td>Vendor lock-in</td></tr>
+                <tr><td>Szybki time-to-market</td><td>Trudniejsze testowanie lokalne</td></tr>
+                <tr><td>Wbudowana odpornosc i HA</td><td>Debugowanie wymaga specjalizacji</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kiedy stosowac Serverless?</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Idealny dla</h3>
+                <ul>
+                    <li>Nieregularnego ruchu (spiky traffic)</li>
+                    <li>API z niskim/srednim ruchem</li>
+                    <li>Przetwarzania zdarzen (event processing)</li>
+                    <li>Automatyzacji (scheduled tasks, cron)</li>
+                    <li>MVP i prototypow</li>
+                    <li>Microservices z prosta logika</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Nieodpowiedni dla</h3>
+                <ul>
+                    <li>Stalego, wysokiego ruchu (drozszy)</li>
+                    <li>Ultra-niskiej latencji (cold start)</li>
+                    <li>Dlugotrwalych procesow (&gt; 15 min)</li>
+                    <li>Aplikacji wymagajacych duzego RAM/CPU</li>
+                    <li>Systemow z stalymi polaczeniami (WebSocket)</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Podsumowanie</h2>
+        <p>Serverless to potezny model dla scenariuszy z <strong>nieregularnym ruchem, event processing i szybkim prototypowaniem</strong>. Kluczowe jest zrozumienie limitow (cold start, timeout, vendor lock-in) i swiadome projektowanie — izolacja logiki biznesowej od providerow (architektura heksagonalna) znaczaco ulatwia przyszla migracje i testowanie.</p>
+
+        <div class="nav-bottom">
+            <a href="02-06-architektura-heksagonalna.html">&larr; 02-06 Architektura heksagonalna</a>
+            <a href="02-08-modular-monolith.html">02-08 Modular Monolith &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

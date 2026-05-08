@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>08-02 — Prompty dla CMS plugin-based</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--red:#f87171;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-color:var(--green)}
+        .card.red{border-color:var(--red)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="08-prompt-engineering.html">08 — Prompt Engineering</a>
+        <span class="sep">/</span>
+        <span class="title">CMS plugin-based</span>
+    </div>
+    <div class="container">
+        <h1>Prompty dla CMS plugin-based</h1>
+        <p class="subtitle">Core CMS + dodawanie rozszerzen jako pluginy — od projektowania API po dystrybucje.</p>
+
+        <h2>Dlaczego plugin architecture?</h2>
+        <p><strong>Tradycyjny CMS:</strong> wszystko wbudowane, customizacja = forking core.</p>
+        <p><strong>Plugin-based CMS:</strong> maly stabilny core + funkcje jako pluginy, marketplace, niezalezny lifecycle.</p>
+
+        <h3>Przyklady systemow plugin-based</h3>
+        <table>
+            <thead><tr><th>System</th><th>Jezyk</th><th>Plugin model</th><th>Ekosystem</th></tr></thead>
+            <tbody>
+                <tr><td><strong>WordPress</strong></td><td>PHP</td><td>Hooks (actions/filters)</td><td>60k+ plugins</td></tr>
+                <tr><td><strong>Drupal</strong></td><td>PHP</td><td>Modules + Hooks</td><td>40k+ modules</td></tr>
+                <tr><td><strong>Statamic</strong></td><td>Laravel</td><td>Addons (Composer)</td><td>200+ addons</td></tr>
+                <tr><td><strong>OctoberCMS</strong></td><td>Laravel</td><td>Plugins</td><td>1k+ plugins</td></tr>
+                <tr><td><strong>Strapi</strong></td><td>Node.js</td><td>Plugins</td><td>500+</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Architektura plugin systems</h2>
+<pre><code>┌──────────────────────────────────────────┐
+│              CORE CMS                     │
+│  ┌─────────────────────────────────────┐ │
+│  │  Plugin Manager (discover, load)     │ │
+│  │  Event Bus (hooks, filters)          │ │
+│  │  Service Container (DI)              │ │
+│  │  Public API (interfaces)             │ │
+│  │  Admin Panel + UI extensions         │ │
+│  └─────────────────────────────────────┘ │
+└─────────────────┬────────────────────────┘
+                  │ Plugin API
+   ┌──────────────┼──────────────────────┐
+   ▼              ▼                      ▼
+┌────────┐   ┌──────────┐          ┌──────────┐
+│ Plugin │   │ Plugin   │          │ Plugin   │
+│  SEO   │   │ Comments │          │  Shop    │
+└────────┘   └──────────┘          └──────────┘</code></pre>
+
+        <p><strong>Koncepty:</strong></p>
+        <ol>
+            <li><strong>Hooks (actions/filters)</strong> — punkty rozszerzen w core</li>
+            <li><strong>Service Container</strong> — DI rejestrowane przez pluginy</li>
+            <li><strong>Event Bus</strong> — pub/sub dla pluginow (luzny coupling)</li>
+            <li><strong>Plugin Manifest</strong> — metadata (version, dependencies, hooks)</li>
+            <li><strong>Public API</strong> — stabilne interfejsy zachowywane przez core</li>
+            <li><strong>Lifecycle hooks</strong> — install, activate, deactivate, uninstall</li>
+        </ol>
+
+        <h2>Lancuch promptow: budowa CMS plugin-based</h2>
+
+        <div class="card">
+            <h3>KROK 1: Wybor modelu plugin</h3>
+<pre><code>ROLA: Senior architect z doswiadczeniem w plugin-based systems.
+
+KONTEKST: Buduje CMS w PHP (Symfony 7) dla klientow elastycznego systemu.
+
+ZADANIE: Zaproponuj model plugin architecture:
+1. Porownaj 3 podejscia:
+   a) Hook-based (jak WordPress) — actions/filters
+   b) Bundle-based (Symfony Bundles) — autonomous modules
+   c) Service Container + Events (Laravel-style)
+
+2. Dla kazdego: plusy, minusy, target audience
+3. Rekomendacja uwzgledniajaca:
+   - Latwosc pisania pluginow (DX dla 3rd party)
+   - Bezpieczenstwo (sandboxing, permissions)
+   - Wydajnosc (lazy loading, caching)
+   - Stabilnosc API (BC compatibility)
+4. Pokaz strukture folderow dla rekomendacji.
+
+Bez kodu jeszcze. Skupiamy sie na architekturze.</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>KROK 2: Definicja Plugin API</h3>
+<pre><code>ZADANIE: Zaprojektuj Plugin API (kontrakt core ↔ plugin).
+
+1. INTERFEJS PluginInterface
+   - Lifecycle: install(), uninstall(), activate(), deactivate()
+   - Metadata: getName(), getVersion(), getDependencies()
+   - Permissions: getRequiredPermissions()
+
+2. PLUGIN MANIFEST (plugin.yaml)
+   - name, version, author, license
+   - core_version_constraint (^2.0)
+   - dependencies (other plugins)
+   - permissions (db.write, http.outbound...)
+   - hooks (ktore rejestruje)
+
+3. HOOK SYSTEM
+   - Action hooks: void, side effects
+   - Filter hooks: zwracaja zmodyfikowana wartosc
+   - Priority (0-100, lower = first)
+
+4. EXTENSION POINTS
+   - Admin menu items
+   - Routes (frontend + admin)
+   - Twig templates / template overrides
+   - CLI commands
+   - Database migrations (per plugin schema)
+
+5. EVENTS (oficjalne wydarzenia core)
+   - Article: BeforePublish, AfterPublish, BeforeDelete
+   - User: AfterRegister, AfterLogin
+   - System: PluginActivated, PluginDeactivated
+
+Output: Markdown z PHP interfejsami i przykladowym manifest.</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>KROK 3: Plugin Manager (core component)</h3>
+<pre><code>PLIK: src/Core/Plugin/PluginManager.php
+
+ZADANIE: Implementuj PluginManager — serce systemu pluginow.
+
+ODPOWIEDZIALNOSCI:
+1. Discovery — skanowanie folderu plugins/ dla plugin.yaml
+2. Validation — sprawdzanie manifestu (semver, dependencies, signature)
+3. Loading — kolejnosc wg dependency graph (topological sort)
+4. Lifecycle — install/activate/deactivate/uninstall
+5. Permission check — czy plugin ma uprawnienia do operacji
+6. Health check — czy plugin nie crashuje
+7. Dependency resolution — graph + cycle detection
+8. State management — ktory plugin jest active w DB
+
+WYMAGANIA:
+- Lazy loading — plugin tylko gdy potrzebny
+- Cached registry (Redis/file)
+- Atomic operations — install/uninstall jako transakcja
+- Rollback — gdy install fails
+
+INTERFEJS:
+class PluginManager {
+    public function discover(): array;
+    public function install(string $pluginId): InstallResult;
+    public function activate(string $pluginId): void;
+    public function deactivate(string $pluginId): void;
+    public function uninstall(string $pluginId): void;
+    public function getActive(): array;
+    public function isCompatible(Plugin $plugin): bool;
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>KROK 4: Hook System</h3>
+<pre><code>ZADANIE: Implementuj hook system inspirowany WordPress (actions + filters).
+
+WYMAGANIA:
+
+1. ACTION HOOKS (void, side effects)
+   $hooks-&gt;doAction('article.published', $article);
+
+   Plugin rejestruje:
+   $hooks-&gt;addAction('article.published',
+       [$emailNotifier, 'send'], priority: 10);
+
+2. FILTER HOOKS (zwracaja zmodyfikowana wartosc)
+   $title = $hooks-&gt;applyFilter('article.title', $rawTitle);
+
+3. PRIORITY (0-100, lower = wczesniej)
+
+4. NAMESPACING ('system.article.published', 'plugin.seo.metaTags')
+
+5. WILDCARD: 'article.*' lapie wszystkie article events
+
+6. PERFORMANCE
+   - Skompilowany registry
+   - Brak refleksji w runtime
+   - Lazy listeners
+
+7. INTEGRACJA Z SYMFONY EVENTS
+   - HookManager wraps EventDispatcher</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>KROK 5: Pierwszy plugin (SEO)</h3>
+<pre><code>STRUKTURA PLUGINU:
+plugins/seo-plugin/
+├── plugin.yaml              # Manifest
+├── composer.json
+├── src/
+│   ├── SeoPlugin.php        # implements PluginInterface
+│   ├── EventListener/
+│   ├── Service/
+│   ├── Twig/Extension/
+│   └── Repository/
+├── config/
+│   ├── routes.yaml
+│   └── services.yaml
+├── migrations/
+├── templates/admin/seo/
+└── tests/
+
+PLUGIN dodaje:
+- Meta tags (description, og:image, twitter:card)
+- Sitemap.xml (auto-generated)
+- robots.txt control
+- Canonical URLs
+- Schema.org JSON-LD
+- Redirect manager (301/302)
+
+WYGENERUJ:
+1. plugin.yaml manifest
+2. SeoPlugin.php (main class)
+3. Listener: ArticlePublishedListener
+4. Filter: ArticleTitleFilter
+5. Twig Extension (seo_meta, seo_jsonld)
+6. Admin route + controller
+7. CLI command: seo:sitemap:regenerate
+
+Pokaz plik po pliku.</code></pre>
+        </div>
+
+        <h2>Przykladowy plugin manifest (plugin.yaml)</h2>
+<pre><code>name: my-vendor/seo-plugin
+display_name: SEO Tools
+version: 1.2.0
+author:
+  name: My Vendor
+  email: hello@myvendor.com
+
+license: MIT
+
+core:
+  min_version: 2.0
+  max_version: 2.999
+
+php_version: ^8.3
+
+dependencies:
+  required:
+    - my-vendor/cms-core: ^2.0
+  optional:
+    - my-vendor/analytics-plugin: ^1.0
+
+permissions:
+  - db.write
+  - admin.menu
+  - cache.write
+  - http.outbound
+
+hooks:
+  listens:
+    - article.published
+    - article.title
+    - admin.dashboard.widgets
+  emits:
+    - seo.sitemap.regenerated
+
+routes:
+  admin: routes/admin.yaml
+
+migrations:
+  path: migrations/
+
+assets:
+  admin:
+    - assets/admin/seo.js
+    - assets/admin/seo.css
+
+settings:
+  schema: config/settings_schema.yaml
+  default: config/settings_default.yaml</code></pre>
+
+        <h2>Przykladowa implementacja Plugin main class</h2>
+<pre><code>final class SeoPlugin extends AbstractPlugin
+{
+    public function getName(): string { return 'seo-plugin'; }
+    public function getVersion(): string { return '1.2.0'; }
+
+    public function install(InstallContext $ctx): void
+    {
+        $ctx-&gt;migrate(__DIR__ . '/../migrations');
+        $ctx-&gt;settings()-&gt;setDefaults([
+            'sitemap_enabled' =&gt; true,
+            'meta_title_suffix' =&gt; ' | {site_name}',
+        ]);
+        $ctx-&gt;scheduleJob('seo:sitemap:regenerate', '@daily');
+    }
+
+    public function activate(ActivateContext $ctx): void
+    {
+        $ctx-&gt;hooks()-&gt;addAction(
+            'article.published',
+            [SitemapInvalidator::class, 'invalidate'],
+            priority: 10
+        );
+
+        $ctx-&gt;hooks()-&gt;addFilter(
+            'article.title',
+            [TitleEnhancer::class, 'addSuffix'],
+            priority: 20
+        );
+
+        $ctx-&gt;menu()-&gt;addAdminMenuItem([
+            'label' =&gt; 'SEO',
+            'icon' =&gt; 'search',
+            'route' =&gt; 'seo_admin_dashboard',
+        ]);
+    }
+
+    public function getDependencies(): array
+    {
+        return ['cms-core' =&gt; '^2.0'];
+    }
+
+    public function getRequiredPermissions(): array
+    {
+        return ['db.write', 'admin.menu', 'cache.write'];
+    }
+}</code></pre>
+
+        <h2>Wzorce architektoniczne</h2>
+
+        <div class="card">
+            <h3>Wzorzec 1: Service Locator + Tags (Symfony native)</h3>
+<pre><code>// Plugin rejestruje:
+$services-&gt;set(SeoMetaProvider::class)
+    -&gt;tag('seo.meta_provider', ['priority' =&gt; 10]);
+
+// Core uzywa:
+foreach ($container-&gt;findTaggedServices('seo.meta_provider') as $p) {
+    $p-&gt;provide($article);
+}</code></pre>
+            <p><strong>Plus:</strong> Symfony-native, dobre dla DI. <strong>Minus:</strong> wymaga znajomosci DI tags.</p>
+        </div>
+
+        <div class="card">
+            <h3>Wzorzec 2: Event-driven (najluzniejszy coupling)</h3>
+<pre><code>// Core emit:
+$dispatcher-&gt;dispatch(new ArticlePublished($article));
+
+// Plugin listen (Symfony attributes):
+#[AsEventListener(event: ArticlePublished::class)]
+class SitemapInvalidator {
+    public function __invoke(ArticlePublished $event): void {
+        $this-&gt;cache-&gt;delete('sitemap');
+    }
+}</code></pre>
+        </div>
+
+        <div class="card green">
+            <h3>Wzorzec 4: Hybrid (rekomendowany)</h3>
+            <ul>
+                <li><strong>Service Tags</strong> dla: providers, processors (silnie typed)</li>
+                <li><strong>Events</strong> dla: side effects (notifications, cache invalidation)</li>
+                <li><strong>Hooks (filters)</strong> dla: modyfikacji wartosci (jak WP)</li>
+                <li><strong>Plugin Interface</strong> dla: lifecycle (install/uninstall)</li>
+            </ul>
+        </div>
+
+        <h2>Bezpieczenstwo plugin systems</h2>
+
+        <h3>Threat model</h3>
+        <ol>
+            <li><strong>Malicious plugin</strong> — instalujesz, kradnie dane</li>
+            <li><strong>Vulnerable plugin</strong> — exploit przez plugin (SQLi, XSS)</li>
+            <li><strong>Plugin conflict</strong> — psuje inne pluginy lub core</li>
+            <li><strong>Performance attack</strong> — plugin spowalnia hot path</li>
+            <li><strong>Privilege escalation</strong> — plugin uzyskuje wiecej uprawnien</li>
+            <li><strong>Supply chain attack</strong> — wstrzykniecie zlego kodu w update</li>
+        </ol>
+
+        <div class="card">
+            <h3>Mitigations</h3>
+            <ol>
+                <li><strong>Code signing</strong> — Composer + GPG keys, verify signature</li>
+                <li><strong>Permission system</strong> — manifest deklaruje, runtime enforce</li>
+                <li><strong>Sandboxing</strong> — PHP fpm pool per plugin, filesystem chroot</li>
+                <li><strong>Static analysis</strong> on install — PHPStan, Psalm taint</li>
+                <li><strong>Runtime isolation</strong> — DB schema separate, fs dir, sessions</li>
+                <li><strong>Audit log</strong> — wszystkie plugin actions</li>
+                <li><strong>Update strategy</strong> — auto-patch only, major needs approval</li>
+            </ol>
+        </div>
+
+        <h2>Plugin marketplace / installer prompts</h2>
+
+        <div class="card">
+            <h3>System dystrybucji</h3>
+<pre><code>ZADANIE: Zaprojektuj system dystrybucji pluginow:
+
+1. PLUGIN PACKAGE FORMAT
+   - Composer package (preferowane!)
+     composer require my-vendor/cms-seo-plugin
+
+2. SOURCES
+   - Composer (Packagist) — main
+   - Private Composer repo (Satis)
+   - GitHub release (.zip)
+   - Internal marketplace
+
+3. INSTALLER FLOW (admin UI)
+   - Browse marketplace (lista, search, filter, ratings)
+   - Click install → download → validate signature → install()
+   - Show progress
+   - Rollback if fails
+
+4. SECURITY
+   - Code signing (composer + GPG)
+   - Permission prompt
+   - Static analysis on install
+   - Vendor reputation
+
+5. UPDATE MANAGEMENT
+   - Check updates daily (cron)
+   - Notify admin
+   - Semver-aware (major = manual, patch = auto)</code></pre>
+        </div>
+
+        <h2>Plugin testing framework</h2>
+
+        <div class="card">
+<pre><code>abstract class PluginTestCase extends WebTestCase {
+    protected function setUpPluginEnvironment(): void;
+    protected function activatePlugin(string $name): void;
+    protected function assertHookWasCalled(string $hook): void;
+    protected function getPluginContainer(): ContainerInterface;
+}
+
+// Plus:
+- Fixtures (sample articles, users)
+- Mock core services (in-memory event bus, fake container)
+- Plugin compatibility matrix (multiple core versions)
+- GitHub Actions matrix (core: [2.0, 2.1, 2.2], php: [8.3, 8.4])</code></pre>
+        </div>
+
+        <h2>Czego LLM czesto zle robi</h2>
+
+        <div class="card red">
+            <h3>Tight coupling core ↔ plugin</h3>
+<pre><code>// Zle: core wie o konkretnym pluginie
+if ($pluginManager-&gt;isActive('seo-plugin')) {
+    $title = $container-&gt;get('seo.title_enhancer')-&gt;enhance($title);
+}
+
+// Dobrze: hook system, plugin sam sie podpina
+$title = $hooks-&gt;applyFilter('article.title', $title);</code></pre>
+        </div>
+
+        <div class="card red">
+            <h3>Brak permission system</h3>
+            <p>LLM domyslnie nie mysli o uprawnieniach. Zawsze pytaj: "Jakie permissions powinien miec plugin? Czy core wymusza ich respect?"</p>
+        </div>
+
+        <div class="card red">
+            <h3>Brak BC compatibility planu</h3>
+            <p>"Co sie dzieje gdy core zmienia API w wersji 3.0? Stare pluginy nadal dzialaja? Pluginy must-update? Migration tool dla plugin developers?"</p>
+        </div>
+
+        <h2>Real-world inspiracje</h2>
+        <ol>
+            <li><strong>Symfony Bundles</strong> — github.com/symfony/symfony</li>
+            <li><strong>Laravel Service Providers</strong> — laravel.com/docs/providers</li>
+            <li><strong>Drupal Module API</strong> — drupal.org/docs (hooks, service container)</li>
+            <li><strong>WordPress Hooks</strong> — developer.wordpress.org/plugins/hooks/</li>
+            <li><strong>Statamic Addons</strong> — statamic.dev/extending</li>
+            <li><strong>OctoberCMS</strong> — octobercms.com/docs (plugin-first)</li>
+        </ol>
+
+        <h2>Stack rekomendowany dla plugin-based CMS w PHP (2026)</h2>
+<pre><code>Core framework: Symfony 7.x
+Architecture:   DDD + CQRS-light
+Plugin system:  Symfony Bundles + Custom Hook Layer
+Plugin format:  Composer packages
+Database:       PostgreSQL 17 + plugin schemas (plugin_xxx_*)
+Cache:          Redis (plugin registry, hooks)
+Search:         Meilisearch
+Frontend:       Twig + Hotwire
+Admin:          EasyAdmin + Hotwire
+Auth:           Symfony Security + plugin permissions
+Queue:          Symfony Messenger
+Tests:          PHPUnit + custom PluginTestCase
+Static:         PHPStan level 8, Psalm
+CI/CD:          GitHub Actions (matrix testing)
+Monitoring:     Sentry (per-plugin error tracking)
+Marketplace:    Packagist lub Private Packagist
+Signing:        Composer + GPG signed releases</code></pre>
+
+        <h2>Checklist promptow dla plugin-based CMS</h2>
+        <ul>
+            <li>Wybor modelu plugin (hooks vs services vs hybrid)</li>
+            <li>Definicja Plugin API (interfejsy, manifest)</li>
+            <li>Plugin Manager (lifecycle)</li>
+            <li>Hook System (actions/filters)</li>
+            <li>Service Container Extensions</li>
+            <li>Event System (publishing/subscribing)</li>
+            <li>Plugin marketplace / installer</li>
+            <li>Permission system</li>
+            <li>Theme system (oddzielnie)</li>
+            <li>Plugin testing framework</li>
+            <li>Security model (signing, sandbox)</li>
+            <li>Update mechanism</li>
+            <li>Plugin developer docs</li>
+            <li>Backward compatibility strategy</li>
+            <li>Sample plugin (jako reference)</li>
+            <li>Admin UI dla plugin management</li>
+        </ul>
+
+        <h2>Koncowe prompty do skopiowania</h2>
+
+        <div class="card">
+            <h3>"Plan plugin-based CMS"</h3>
+<pre><code>Plan plugin-based CMS w PHP/Symfony 7. Generuj sekwencyjnie:
+1. Wybor modelu plugin (hybrid Symfony Bundles + Hooks + Events)
+2. Plugin API (interfejsy + manifest YAML)
+3. Plugin Manager (discovery, lifecycle, dependencies)
+4. Hook System (actions + filters z priority)
+5. Permission system
+6. Marketplace + installer
+7. Theme system
+8. Plugin developer docs
+9. Sample plugin (SEO) jako reference
+10. Security model + signing</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>"Build my plugin"</h3>
+<pre><code>Buduje plugin "[NAZWA]" do mojego plugin-based CMS.
+
+CO ROBI: [opisz funkcje]
+
+INTEGRATION:
+- Listen na hooks: [...]
+- Emit events: [...]
+- Extend admin: [...]
+- Database: [own schema lub shared]
+- Public API: [REST endpoints? Twig functions?]
+
+KROKI:
+1. plugin.yaml manifest (zaproponuj permissions)
+2. Main plugin class (PluginInterface)
+3. Domain layer (jesli plugin ma logike biznesowa)
+4. Listeners + filters
+5. Admin UI (Twig + Hotwire)
+6. Tests (using PluginTestCase)
+7. README dla uzytkownikow plugin
+8. CHANGELOG.md</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>"Refactor monolith CMS to plugin-based"</h3>
+<pre><code>Mam istniejacy CMS w PHP (Symfony) jako monolit.
+Chce zrefaktorowac do plugin-based.
+
+OBECNE FUNKCJE: [list]
+
+PLAN MIGRACJI:
+1. Identyfikuj boundaries (ktore funkcje to plugin candidates)
+2. Strangler Fig pattern — extract feature po feature
+3. Definicja stable Plugin API (BC contract)
+4. Pierwsze 3 pluginy do extract (priorytetyzuj impact/effort)
+5. Migration path dla istniejacych klientow
+
+Pokaz konkretny plan z timeline (sprintach).</code></pre>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="08-01-prompty-dla-programowania.html">&larr; Prompty dla programowania</a>
+            <a href="09-rag.html">RAG &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>06-01 — Trening LLM od zera</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<a href="06-projektowanie-modelu.html">06 — Projektowanie modelu</a>
+<span class="sep">/</span>
+<span class="title">Trening od zera</span>
+</div>
+<div class="container">
+<h1>Trening LLM od zera (from scratch)</h1>
+<p class="subtitle">Pelny pipeline: planowanie, dane, infrastruktura, pre-training, post-training, ewaluacja.</p>
+
+<h2>Czy chcesz to robic?</h2>
+<p><strong>Pierwsza i najwazniejsza rada: prawdopodobnie NIE.</strong></p>
+<p>Nawet w 2026, gdy koszty spadly, trening LLM od zera oznacza:</p>
+<ul>
+<li><strong>Budzet</strong>: $100k - $100M+</li>
+<li><strong>Zespol</strong>: 5-50+ ML inzynierow</li>
+<li><strong>Czas</strong>: 3-12 miesiecy</li>
+<li><strong>Hardware</strong>: setki - tysiace H100/H200/B200 GPU</li>
+<li><strong>Dane</strong>: terabajty wysokiej jakosci tekstu</li>
+<li><strong>Ryzyko</strong>: wiekszosc treningow sie nie udaje przy pierwszej probie</li>
+</ul>
+
+<h3>Lepsze alternatywy (99% przypadkow):</h3>
+<ol>
+<li><strong>Fine-tuning istniejacego modelu</strong> (LoRA, QLoRA) — 1000× tansze</li>
+<li><strong>Continued pre-training</strong> — adaptuj istniejacy model do nowej domeny</li>
+<li><strong>RAG</strong> — gdy potrzebujesz wiedzy zewnetrznej</li>
+<li><strong>Prompt engineering</strong> — gdy potrzebujesz nowego zachowania</li>
+</ol>
+
+<h3>Kiedy ma sens trening od zera?</h3>
+<ul>
+<li>Foundation lab (Anthropic, OpenAI, Google, Meta)</li>
+<li>Suwerenna AI (rzadowa, np. Falcon UAE, Hyperclova KR)</li>
+<li>Wasko-specjalistyczna domena z masa danych (np. genomika, prawo z miliardami stron)</li>
+<li>Research / nauka — uczysz sie jak to dziala</li>
+</ul>
+
+<h2>Mapa procesu — co trzeba zrobic</h2>
+<pre><code>┌─────────────────────────────┐
+│  1. PLANOWANIE               │  Tygodnie - miesiace
+│   - Definicja celu           │
+│   - Architektura             │
+│   - Skala (params, tokens)   │
+│   - Budzet hardware          │
+└────────────┬────────────────┘
+             ▼
+┌─────────────────────────────┐
+│  2. DANE                     │  Miesiace
+│   - Zbieranie                │
+│   - Cleaning                 │
+│   - Filtering                │
+│   - Tokenizacja              │
+│   - Deduplication            │
+└────────────┬────────────────┘
+             ▼
+┌─────────────────────────────┐
+│  3. INFRASTRUKTURA           │  Tygodnie - miesiace
+│   - GPU cluster              │
+│   - Storage (PB+)            │
+│   - Networking (InfiniBand)  │
+│   - Monitoring               │
+└────────────┬────────────────┘
+             ▼
+┌─────────────────────────────┐
+│  4. PRE-TRAINING             │  Tygodnie - miesiace
+│   - Initialization           │
+│   - Training loop            │
+│   - Checkpointing            │
+│   - Loss debugging           │
+└────────────┬────────────────┘
+             ▼
+┌─────────────────────────────┐
+│  5. POST-TRAINING            │  Tygodnie
+│   - SFT                      │
+│   - DPO/RLHF                 │
+│   - Safety tuning            │
+└────────────┬────────────────┘
+             ▼
+┌─────────────────────────────┐
+│  6. EWALUACJA                │  Ciagle
+│   - Benchmarki               │
+│   - Red teaming              │
+│   - Custom evals             │
+└─────────────────────────────┘</code></pre>
+
+<h2>1. Planowanie</h2>
+
+<h3>Wybor skali</h3>
+<p><strong>Chinchilla scaling laws</strong> (DeepMind, 2022) — optymalna alokacja compute:</p>
+<pre><code>Compute ∝ params × tokens
+Optimal: ~20 tokenow per parameter</code></pre>
+
+<p>W praktyce <strong>w 2026 trenuje sie over-trained</strong> (wiecej tokenow niz Chinchilla):</p>
+<ul>
+<li>Llama 3 8B: ~1875 tokens/param (15T tokenow na 8B params)</li>
+<li>Llama 4: ~3000+ tokens/param</li>
+</ul>
+<p>Dlaczego over-train? Bo trening to one-time cost, ale inferencja to repeat cost. Mniejszy, dluzej trenowany model jest tanszy w inferencji.</p>
+
+<h3>Budzet compute (FLOPs)</h3>
+<pre><code>Total FLOPs ≈ 6 × params × tokens
+
+Przyklad: 1B params × 100B tokens = 6 × 10^20 FLOPs
+
+H100 (BF16): 989 TFLOPs = 989 × 10^12 FLOPs/s
+Z efficiency 50%: 495 TFLOPs/s effective
+
+Czas na 1 GPU: 6 × 10^20 / (495 × 10^12) = 1.2M sekund = 14 dni
+
+Z 8 GPU (data parallel): ~1.7 dnia
+Z 64 GPU: ~5 godzin</code></pre>
+
+<h3>Wybor architektury</h3>
+<p>W 2026 <strong>standardowy stack</strong> dla nowoczesnego LLM:</p>
+<pre><code>config = {
+    # Type
+    "architecture": "decoder_only_transformer",  # standard
+    "use_moe": False,  # True dla bardzo duzych
+
+    # Size (przyklad 1B model)
+    "num_layers": 24,
+    "hidden_size": 2048,
+    "num_attention_heads": 32,
+    "num_kv_heads": 8,           # GQA, 4× mniej niz q heads
+    "intermediate_size": 8192,    # FFN dim, ~4× hidden
+    "vocab_size": 128256,         # Llama 3 vocab
+
+    # Position
+    "position_encoding": "rope",
+    "rope_theta": 500000,
+    "max_position_embeddings": 8192,
+
+    # Activations
+    "activation": "swiglu",       # nie ReLU, nie GeLU
+    "norm": "rmsnorm",            # nie LayerNorm
+
+    # Other
+    "tie_word_embeddings": False, # uncoupled embed/lm_head
+    "bias": False,                # no bias terms
+}</code></pre>
+
+<h2>2. Przygotowanie danych</h2>
+<p><strong>Najwazniejszy element. Lepsze dane &gt; wiecej parametrow.</strong></p>
+
+<h3>Pipeline danych</h3>
+<pre><code>┌──────────────────────────┐
+│  Common Crawl (PB)       │  Web pages
+│  Books, Wikipedia, ArXiv │
+│  Code (GitHub)           │
+│  Q&A (Reddit, SO)        │
+└────────┬─────────────────┘
+         ▼
+┌──────────────────────────┐
+│  Format conversion       │  HTML→text, PDF→text
+│  Encoding fixing          │
+└────────┬─────────────────┘
+         ▼
+┌──────────────────────────┐
+│  Language filtering      │  fastText classifier
+│  PII removal             │  emails, IDs, phones
+│  NSFW filtering          │  toxic content
+└────────┬─────────────────┘
+         ▼
+┌──────────────────────────┐
+│  Quality filtering       │  Heuristics + classifier
+│  - perplexity            │
+│  - quality scorer        │
+│  - duplicate removal     │
+└────────┬─────────────────┘
+         ▼
+┌──────────────────────────┐
+│  Deduplication           │  MinHash, suffix arrays
+│  - exact dups            │
+│  - near dups             │
+└────────┬─────────────────┘
+         ▼
+┌──────────────────────────┐
+│  Decontamination         │  Remove eval data
+│  - MMLU, GSM8K, ...      │
+└────────┬─────────────────┘
+         ▼
+┌──────────────────────────┐
+│  Mixing                  │  Optimal data mix
+│  Web: 70%                │
+│  Code: 15%               │
+│  Math: 8%                │
+│  Books: 5%               │
+│  Reasoning: 2%           │
+└────────┬─────────────────┘
+         ▼
+┌──────────────────────────┐
+│  Tokenization            │  BPE/SentencePiece
+└────────┬─────────────────┘
+         ▼
+┌──────────────────────────┐
+│  Sharding for training   │  N×M parquet files
+└──────────────────────────┘</code></pre>
+
+<h3>Public datasety dla treningu od zera</h3>
+<table>
+<thead>
+<tr><th>Dataset</th><th>Rozmiar</th><th>Quality</th><th>Uwagi</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>FineWeb-Edu</strong> (HF)</td><td>1.3T tokens</td><td>✓✓✓</td><td>Educational, filtered Common Crawl</td></tr>
+<tr><td><strong>Dolma</strong> (AI2)</td><td>3T tokens</td><td>✓✓</td><td>Open, dobrze udokumentowany</td></tr>
+<tr><td><strong>RedPajama V2</strong></td><td>30T tokens</td><td>✓✓</td><td>Quality scores included</td></tr>
+<tr><td><strong>The Pile</strong></td><td>825 GB</td><td>✓</td><td>Klasyczny, mniejszy</td></tr>
+<tr><td><strong>C4</strong> (Google)</td><td>750 GB</td><td>✓</td><td>Cleaner Common Crawl</td></tr>
+<tr><td><strong>The Stack v2</strong></td><td>6T tokens</td><td>✓✓</td><td>Code dataset</td></tr>
+<tr><td><strong>Proof-Pile-2</strong></td><td>55B tokens</td><td>✓✓</td><td>Math + science</td></tr>
+</tbody>
+</table>
+<p><strong>Dla research / malej skali</strong>: zacznij od FineWeb-Edu lub Dolma — sa dobrze sprawdzone.</p>
+
+<h3>Synthetic data (2025+ trend)</h3>
+<p>W 2026 standardem jest czesciowo syntetyczne dane:</p>
+<ul>
+<li><strong>Phi modele</strong> (Microsoft) — glownie syntetic data, "textbooks are all you need"</li>
+<li><strong>Llama 3</strong> — uzywala synthetic data dla math, code</li>
+<li><strong>Reasoning datasets</strong> — generowane przez wieksze modele</li>
+</ul>
+<pre><code># Przyklad: synthetic textbook generation
+prompt = """
+Napisz krotki podrecznik (3 strony) na temat:
+{topic}
+
+Format:
+- Wprowadzenie
+- Glowne koncepty z przykladami
+- Cwiczenia z rozwiazaniami
+"""
+
+# Generujesz milionow takich tekstow na roznorodne tematy</code></pre>
+
+<h3>Tokenizer training</h3>
+<p>Trenujesz <strong>tokenizer na wlasnych danych</strong> (nie uzywaj cudzego, jesli rozne jezyki):</p>
+<pre><code>from tokenizers import Tokenizer
+from tokenizers.models import BPE
+from tokenizers.trainers import BpeTrainer
+from tokenizers.pre_tokenizers import ByteLevel
+
+tokenizer = Tokenizer(BPE())
+tokenizer.pre_tokenizer = ByteLevel()
+
+trainer = BpeTrainer(
+    vocab_size=128256,  # podobnie jak Llama 3
+    special_tokens=[
+        "&lt;|begin_of_text|&gt;",
+        "&lt;|end_of_text|&gt;",
+        "&lt;|start_header_id|&gt;",
+        "&lt;|end_header_id|&gt;",
+        # ...
+    ]
+)
+
+# Trenuj na probce 10-100B tokenow
+files = ["data/sample_001.txt", "data/sample_002.txt", ...]
+tokenizer.train(files, trainer)
+tokenizer.save("my_tokenizer.json")</code></pre>
+
+<h2>3. Infrastruktura</h2>
+
+<h3>GPU cluster — opcje</h3>
+
+<h3>Self-built (najtaniej dlugoterminowo)</h3>
+<pre><code>8× H100 SXM5 80GB w jednym wezle:
+- GPU: ~$200-300k
+- Server (CPU, RAM, dyski): ~$50k
+- Siec (InfiniBand 400Gbps): ~$30k
+- Total: ~$280-380k
+
+Skala: ten setup wystarczy dla modeli do ~7B trenowanych miesiace
+Wieksze modele = wiecej takich wezlow + InfiniBand miedzy nimi</code></pre>
+
+<h3>Cloud</h3>
+<pre><code>RunPod, Lambda, CoreWeave, Together AI:
+- H100 SXM ~$2-4/h per GPU
+- A100 ~$1-2/h per GPU
+- B200 (najnowszy 2025) ~$5-8/h per GPU
+
+Zaleta: pay-as-you-go, latwe skalowanie
+Wada: drogie przy dlugim treningu</code></pre>
+
+<h3>Hyperscalers</h3>
+<pre><code>AWS p5 (8× H100): ~$98/h
+Azure ND H100 v5: ~$98/h
+GCP A3: ~$88/h
+
+Plus: pelny stack (S3, networking, etc.)
+Minus: najdrozsze per GPU/h</code></pre>
+
+<h3>Software stack</h3>
+<pre><code>Hardware: H100/H200/B200 GPU
+   ↓
+CUDA + cuDNN + NCCL
+   ↓
+PyTorch (lub JAX)
+   ↓
+Distributed framework:
+  - PyTorch FSDP (najnowsze)
+  - DeepSpeed (Microsoft, ZeRO)
+  - Megatron-LM (NVIDIA)
+   ↓
+Trainer (z checkpointing, logging):
+  - Custom training loop
+  - HF Accelerate
+  - Lightning AI
+   ↓
+Storage:
+  - Distributed FS (Lustre, GPFS)
+  - Object storage (S3, GCS)
+   ↓
+Monitoring:
+  - Weights & Biases
+  - TensorBoard
+  - Custom dashboards</code></pre>
+
+<h2>4. Pre-training</h2>
+
+<h3>Inicjalizacja wag</h3>
+<pre><code>def init_weights(module):
+    if isinstance(module, nn.Linear):
+        # Standard normal w/ small std
+        nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        if module.bias is not None:
+            nn.init.zeros_(module.bias)
+    elif isinstance(module, nn.Embedding):
+        nn.init.normal_(module.weight, mean=0.0, std=0.02)
+    elif isinstance(module, RMSNorm):
+        nn.init.ones_(module.weight)
+
+    # Specjalna inicjalizacja dla output projection
+    # (zapobiega eksplozji loss na poczatku)
+    for name, p in module.named_parameters():
+        if "out_proj" in name or "down_proj" in name:
+            nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(2 * num_layers))</code></pre>
+
+<h3>Training loop (uproszczony)</h3>
+<pre><code>import torch
+import torch.distributed as dist
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+
+# 1. Init distributed
+dist.init_process_group(backend="nccl")
+local_rank = int(os.environ["LOCAL_RANK"])
+torch.cuda.set_device(local_rank)
+
+# 2. Model with FSDP (Fully Sharded Data Parallel)
+model = LlamaForCausalLM(config)
+model = FSDP(
+    model,
+    mixed_precision=MixedPrecision(
+        param_dtype=torch.bfloat16,
+        reduce_dtype=torch.float32,
+        buffer_dtype=torch.bfloat16,
+    ),
+    device_id=local_rank,
+    sharding_strategy=ShardingStrategy.HYBRID_SHARD,
+)
+
+# 3. Optimizer (AdamW with proper groups)
+optimizer = torch.optim.AdamW(
+    model.parameters(),
+    lr=peak_lr,
+    betas=(0.9, 0.95),
+    eps=1e-8,
+    weight_decay=0.1,
+    fused=True,  # CUDA fused optimizer
+)
+
+# 4. LR Scheduler (cosine with warmup)
+scheduler = get_cosine_schedule_with_warmup(
+    optimizer,
+    num_warmup_steps=2000,
+    num_training_steps=total_steps,
+)
+
+# 5. Data loader (streaming z przygotowanych shardow)
+dataset = StreamingDataset("data/shards/")
+loader = DataLoader(
+    dataset,
+    batch_size=micro_batch,
+    num_workers=4,
+    pin_memory=True,
+)
+
+# 6. Training loop
+model.train()
+for step, batch in enumerate(loader):
+    # Forward
+    with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+        outputs = model(input_ids=batch["input_ids"], labels=batch["labels"])
+        loss = outputs.loss / grad_accum_steps
+
+    # Backward
+    loss.backward()
+
+    # Step (z gradient accumulation)
+    if (step + 1) % grad_accum_steps == 0:
+        # Clip gradients
+        model.clip_grad_norm_(max_norm=1.0)
+
+        optimizer.step()
+        scheduler.step()
+        optimizer.zero_grad()
+
+    # Logging
+    if step % 100 == 0 and dist.get_rank() == 0:
+        wandb.log({
+            "loss": loss.item() * grad_accum_steps,
+            "lr": scheduler.get_last_lr()[0],
+            "tokens_seen": step * global_batch_tokens,
+            "throughput": tokens_per_sec,
+        })
+
+    # Checkpoint
+    if step % checkpoint_every == 0 and dist.get_rank() == 0:
+        save_checkpoint(model, optimizer, scheduler, step)
+
+    # Eval
+    if step % eval_every == 0:
+        run_evaluations(model, eval_dataset)</code></pre>
+
+<h3>Hyperparameters — typowe wartosci</h3>
+<pre><code># Learning rate
+peak_lr = 3e-4         # dla malych modeli (&lt;10B)
+peak_lr = 1.5e-4       # dla srednich (10-70B)
+peak_lr = 8e-5         # dla bardzo duzych (&gt;70B)
+
+# Schedule: cosine with warmup
+warmup_steps = 2000    # ~0.1-1% total steps
+min_lr_ratio = 0.1     # min LR = 10% of peak
+
+# Batch size (TOKENY, nie samples)
+global_batch_tokens = 4_194_304  # 4M tokens — typowy
+sequence_length = 8192            # podczas pre-training
+# global_batch = (global_batch_tokens / seq_len) = 512 sequences
+# Z 64 GPU: micro_batch_per_gpu = 8, grad_accum = 1
+
+# Inne
+weight_decay = 0.1
+adam_beta1 = 0.9
+adam_beta2 = 0.95      # nie 0.999! nizej dla LLM
+adam_epsilon = 1e-8
+gradient_clip = 1.0
+
+# Mixed precision
+dtype = "bfloat16"     # standard w 2026, lepsze niz fp16
+# dla H100: mozna fp8 dla niektorych warstw</code></pre>
+
+<h3>Co monitorowac</h3>
+<pre><code>1. Training loss
+   - Powinien spadac monotonicznie
+   - Spike → sprobuj checkpoint resume
+   - Plateau → sprawdz LR, dane
+
+2. Validation loss
+   - Powinien sledzic training (z gap)
+   - Jesli rosnie → overfitting (rzadko w pre-training)
+
+3. Gradient norm
+   - Stable around 0.5-2.0
+   - Spike = problem (NaN coming?)
+
+4. Tokens/second
+   - Throughput wskaznik
+   - Spadek = problem z hardware/data
+
+5. GPU utilization
+   - Powinno byc 70-90%
+   - Nizej = bottleneck (data loading? sync?)
+
+6. Loss curves per data source
+   - Sprawdz czy kazde zrodlo uczy sie
+   - Jesli ktores nie spada — problem z danymi</code></pre>
+
+<h3>Recovery z awarii</h3>
+<p>Awarie sa <strong>certain</strong> w dlugim treningu:</p>
+<ul>
+<li>Hardware failure (1 GPU/ tydzien przy 1000 GPU)</li>
+<li>Network timeout</li>
+<li>OOM</li>
+<li>Numerical instability</li>
+</ul>
+<pre><code># Save checkpoints often!
+# Latwo wracac do wczesniejszego stanu
+
+def save_checkpoint(model, optimizer, scheduler, step):
+    state = {
+        "step": step,
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "scheduler": scheduler.state_dict(),
+        "rng_state": torch.get_rng_state(),
+    }
+    torch.save(state, f"ckpt_{step}.pt")
+
+# Cyklicznie usuwaj stare (storage!)
+def cleanup_old_checkpoints(keep=5):
+    ckpts = sorted(glob("ckpt_*.pt"))
+    for ckpt in ckpts[:-keep]:
+        os.remove(ckpt)</code></pre>
+
+<h2>5. Post-training</h2>
+<p>Po pre-training masz <strong>base model</strong> — dziala, ale nie umie rozmawiac.</p>
+
+<h3>SFT (Supervised Fine-Tuning)</h3>
+<pre><code># Dataset: pary (prompt, response) w chat format
+# Trening: identyczny jak pre-training, ale na chat data
+# Krotszy: 1-3 epoki na 100k-1M przykladach
+# Nizszy LR: 1e-5 do 5e-5</code></pre>
+
+<h3>DPO (Direct Preference Optimization)</h3>
+<pre><code>from trl import DPOTrainer
+
+# Dataset: (prompt, chosen, rejected)
+trainer = DPOTrainer(
+    model=sft_model,
+    ref_model=sft_model_copy,  # frozen
+    train_dataset=preference_data,
+    args=DPOConfig(
+        beta=0.1,           # KL regularization
+        learning_rate=5e-7, # bardzo nisko
+        num_train_epochs=1,
+    )
+)
+trainer.train()</code></pre>
+
+<h3>Safety tuning</h3>
+<ul>
+<li>Dataset z odmowami niebezpiecznych prosb</li>
+<li>Constitutional AI (Anthropic style)</li>
+<li>Red teaming → generowanie adversarial examples → dodanie do safety dataset</li>
+</ul>
+
+<h2>6. Ewaluacja</h2>
+<p>Patrz rozdzial 11. Dla treningu od zera:</p>
+<ul>
+<li>Run caly standardowy benchmark suite (MMLU, HumanEval, ...)</li>
+<li>Porownaj z modelami podobnej skali</li>
+<li>Custom evals dla Twoich use case</li>
+<li>Red teaming</li>
+<li>Bias evals</li>
+</ul>
+
+<h2>Realny przyklad — TinyLlama 1.1B</h2>
+<p>Zespol 3 osob, ~6 miesiecy, $100k budzet (cloud):</p>
+<ul>
+<li><strong>Architektura</strong>: Llama 2 architecture (1.1B params)</li>
+<li><strong>Dane</strong>: 3T tokens (SlimPajama + StarCoderData)</li>
+<li><strong>Hardware</strong>: 16× A100 80GB</li>
+<li><strong>Czas treningu</strong>: ~3 miesiace</li>
+<li><strong>Koszt</strong>: ~$70k cloud + zespol</li>
+</ul>
+<p>Wynik: model porownywalny z Pythia 1.4B i StableLM 1.3B.</p>
+
+<h2>Open source playgrounds</h2>
+<p>Jesli chcesz <strong>nauczyc sie</strong> treningu LLM przed wydaniem milionow:</p>
+
+<h3>nanoGPT (Karpathy)</h3>
+<ul>
+<li>300 linii kodu</li>
+<li>GPT-2 architecture</li>
+<li>Trenuj GPT-2 124M na Shakespeare na pojedynczym GPU</li>
+<li>github.com/karpathy/nanoGPT</li>
+</ul>
+
+<h3>llm.c (Karpathy)</h3>
+<ul>
+<li>GPT-2 w czystym C/CUDA</li>
+<li>Edukacyjne, ale szybkie</li>
+<li>Pokazuje co dzieje sie "pod spodem"</li>
+</ul>
+
+<h3>TinyLlama</h3>
+<ul>
+<li>1.1B model, 3T tokens</li>
+<li>Pelny pipeline open source</li>
+<li>github.com/jzhang38/TinyLlama</li>
+</ul>
+
+<h3>OLMo (AI2)</h3>
+<ul>
+<li>W pelni otwarte: dane + kod + checkpointy + logi</li>
+<li>1B i 7B models</li>
+<li>Najlepsze dla nauki — zobaczysz caly proces</li>
+<li>github.com/allenai/OLMo</li>
+</ul>
+
+<h3>MAP-Neo (2024)</h3>
+<ul>
+<li>Multi-lingual, w pelni open</li>
+<li>7B model</li>
+</ul>
+
+<h2>Praktyczna sciezka nauki</h2>
+<pre><code>1. Przeczytaj "Attention is All You Need" + GPT-1/2 papers
+   ↓
+2. Zaimplementuj nanoGPT od zera w PyTorch
+   ↓
+3. Trenuj na Shakespeare → swoj pierwszy model!
+   ↓
+4. Skaluj do GPT-2 124M na tinystories / wikipedia
+   ↓
+5. Zaimplementuj nowoczesne featury (RoPE, RMSNorm, SwiGLU)
+   ↓
+6. Studiuj OLMo / TinyLlama codebase
+   ↓
+7. Trenuj 100M-1B model na publicznym datasecie
+   ↓
+8. Zrozum distributed training (FSDP)
+   ↓
+9. (Opcjonalnie) Dolacz do organizacji ktora trenuje LLM</code></pre>
+
+<h2>Trendy 2026</h2>
+<ol>
+<li><strong>MoE jako standard</strong> dla wiekszych modeli</li>
+<li><strong>Reasoning trained from scratch</strong> — RL on chains of thought</li>
+<li><strong>Mniejsze modele, wiecej tokenow</strong> — over-trained</li>
+<li><strong>Synthetic data</strong> — wiekszosc treningu generowana przez modele</li>
+<li><strong>Multimodal from scratch</strong> — vision/audio nie jako dodatek</li>
+<li><strong>Long context od poczatku</strong> — 128k+ podczas pre-training</li>
+<li><strong>FP8 training</strong> — H100/B200 native</li>
+<li><strong>Edge models</strong> — celowo male (1B-3B), zoptymalizowane na phone</li>
+</ol>
+
+<h2>Zasoby</h2>
+
+<div class="card">
+<p><strong>Ksiazki / artykuly:</strong></p>
+<ul>
+<li>"Build a Large Language Model from Scratch" — Sebastian Raschka</li>
+<li>Karpathy: "Let's reproduce GPT-2 (124M)" YouTube</li>
+<li>Stanford CS336 — Language Modeling from Scratch (publicznie)</li>
+</ul>
+
+<p><strong>Papers must-read:</strong></p>
+<ul>
+<li>"Attention is All You Need" (2017)</li>
+<li>GPT-3 paper (2020)</li>
+<li>Chinchilla scaling laws (2022)</li>
+<li>Llama 3 paper (2024)</li>
+<li>DeepSeek V3 paper (2024)</li>
+<li>OLMo paper (2024)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="06-projektowanie-modelu.html">← 06 — Projektowanie modelu</a>
+<a href="index.html">Spis tresci →</a>
+</div>
+</div>
+</body>
+</html>

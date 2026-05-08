@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>09-01 — Strategie cachowania</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}.card h3{margin-top:4px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="09-skalowalnosc-i-wydajnosc.html">09 — Skalowalnosc</a>
+        <span class="sep">/</span>
+        <span class="title">Strategie cachowania</span>
+    </div>
+    <div class="container">
+        <h1>Strategie cachowania</h1>
+        <p class="subtitle">Poziomy cache, wzorce odczytu/zapisu, inwalidacja, cache stampede, Redis i CDN.</p>
+
+        <h2>Poziomy cache</h2>
+<pre><code>Uzytkownik
+  ↓
+[Przegladarka]         — najblizej, najszybszy
+  ↓
+[CDN]                  — edge servers, globalnie
+  ↓
+[Reverse Proxy]        — Nginx, Varnish
+  ↓
+[Application cache]    — Redis, Memcached
+  ↓
+[Database cache]       — buffer pool
+  ↓
+[Baza danych]          — zrodlo prawdy</code></pre>
+        <table>
+            <thead><tr><th>Poziom</th><th>Latencja</th><th>Pojemnosc</th><th>Przyklad</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Przegladarka</strong></td><td>~0ms</td><td>Mala</td><td>Cache-Control headers</td></tr>
+                <tr><td><strong>CDN</strong></td><td>5-50ms</td><td>Duza</td><td>CloudFront, Cloudflare</td></tr>
+                <tr><td><strong>Reverse Proxy</strong></td><td>1-5ms</td><td>Srednia</td><td>Nginx, Varnish</td></tr>
+                <tr><td><strong>Aplikacja</strong></td><td>1-5ms</td><td>Srednia</td><td>Redis, Memcached</td></tr>
+                <tr><td><strong>Baza danych</strong></td><td>10-100ms</td><td>Duza</td><td>Buffer pool</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Cache-Aside (Lazy Loading)</h2>
+        <p>Aplikacja zarzadza cachem recznie — sprawdza cache, przy miss czyta z bazy i zapisuje do cache.</p>
+<pre><code>async function getUser(userId) {
+  // 1. Sprawdz cache
+  const cached = await redis.get(`user:${userId}`);
+  if (cached) return JSON.parse(cached);  // HIT
+
+  // 2. MISS — czytaj z bazy
+  const user = await db.users.findById(userId);
+
+  // 3. Zapisz do cache
+  await redis.set(`user:${userId}`,
+    JSON.stringify(user), 'EX', 3600);
+  return user;
+}</code></pre>
+        <p><strong>Zalety:</strong> Prostota, cache ma tylko czytane dane. <strong>Wady:</strong> Pierwsze zapytanie wolne, mozliwa niespojnosc.</p>
+
+        <h2>Read-Through</h2>
+        <p>Cache sam pobiera dane z bazy przy miss — aplikacja zawsze czyta z cache.</p>
+<pre><code>const cache = new ReadThroughCache({
+  store: redis,
+  loader: async (key) =&gt; {
+    const [type, id] = key.split(':');
+    return db[type].findById(id);
+  },
+  ttl: 3600
+});
+
+const user = await cache.get('user:123');</code></pre>
+
+        <h2>Write-Through</h2>
+        <p>Zapis idzie przez cache do bazy synchronicznie — cache jest zawsze aktualny.</p>
+<pre><code>Zapis: Aplikacja → Cache → Baza (synchronicznie)
+Odczyt: Aplikacja → Cache (zawsze aktualny)</code></pre>
+        <p><strong>Zalety:</strong> Spojnosc cache-baza. <strong>Wady:</strong> Wyzsze latencje zapisu.</p>
+
+        <h2>Write-Behind (Write-Back)</h2>
+        <p>Zapis do cache natychmiast, zapis do bazy asynchronicznie z opoznieniem.</p>
+<pre><code>async function updateUser(userId, data) {
+  // Natychmiastowy zapis do cache
+  await redis.set(`user:${userId}`, JSON.stringify(data));
+
+  // Dodaj do bufora (async flush do bazy co 5s)
+  writeBuffer.push({ userId, data });
+}
+
+setInterval(async () =&gt; {
+  if (writeBuffer.length === 0) return;
+  const batch = writeBuffer.splice(0, writeBuffer.length);
+  await db.users.bulkUpdate(batch);
+}, 5000);</code></pre>
+        <p><strong>Zalety:</strong> Bardzo szybki zapis, batching. <strong>Wady:</strong> Ryzyko utraty danych przy awarii cache.</p>
+
+        <h2>Strategie inwalidacji</h2>
+
+        <div class="card">
+            <h3>TTL (Time-based)</h3>
+<pre><code>const TTL = {
+  userProfile: 3600,      // 1h — rzadko sie zmienia
+  productList: 300,       // 5min
+  searchResults: 60,      // 1min
+  stockPrice: 5           // 5s — czesto sie zmienia
+};</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Event-based (aktywna inwalidacja)</h3>
+<pre><code>async function updateUser(userId, data) {
+  await db.users.update(userId, data);
+  await redis.del(`user:${userId}`);
+  await redis.del(`user-orders:${userId}`);
+
+  // Pub/Sub — inwalidacja w wielu instancjach
+  redis.publish('cache:invalidate', JSON.stringify({
+    keys: [`user:${userId}`]
+  }));
+}</code></pre>
+        </div>
+
+        <h2>Cache Stampede</h2>
+        <p>Problem: klucz wygasa, setki requestow jednoczesnie pytaja baze — przeciazenie.</p>
+
+        <div class="card">
+            <h3>Rozwiazanie: Locking (mutex)</h3>
+<pre><code>async function getWithLock(key, loader, ttl) {
+  const cached = await redis.get(key);
+  if (cached) return JSON.parse(cached);
+
+  const lockKey = `lock:${key}`;
+  const acquired = await redis.set(
+    lockKey, '1', 'NX', 'EX', 10
+  );
+
+  if (acquired) {
+    const data = await loader();
+    await redis.set(key, JSON.stringify(data), 'EX', ttl);
+    await redis.del(lockKey);
+    return data;
+  } else {
+    await sleep(100);
+    return getWithLock(key, loader, ttl);  // retry
+  }
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Rozwiazanie: Probabilistic Early Refresh</h3>
+            <p>Odswiezaj cache <strong>przed</strong> wygasnieciem — gdy TTL &lt; 10%, odswiez w tle i zwroc stare dane.</p>
+        </div>
+
+        <h2>Wzorce Redis</h2>
+<pre><code>// String — proste klucz-wartosc
+await redis.set('user:123', JSON.stringify(user), 'EX', 3600);
+
+// Hash — struktura z polami
+await redis.hset('user:123', {
+  name: 'Jan', email: 'jan@ex.com', role: 'admin'
+});
+const all = await redis.hgetall('user:123');
+
+// Sorted Set — ranking
+await redis.zadd('leaderboard', 1500, 'player:1');
+const top10 = await redis.zrevrange('leaderboard', 0, 9, 'WITHSCORES');
+
+// Rate Limiting
+async function rateLimit(key, max, windowSec) {
+  const current = await redis.incr(key);
+  if (current === 1) await redis.expire(key, windowSec);
+  if (current &gt; max) throw new RateLimitError();
+  return { remaining: max - current };
+}</code></pre>
+
+        <h2>CDN i Cache-Control</h2>
+<pre><code># Statyczne assety — dlugi cache + hash w nazwie
+Cache-Control: public, max-age=31536000, immutable
+
+# API responses — krotki cache
+Cache-Control: public, max-age=60, s-maxage=300
+
+# Prywatne dane — nie cachuj na CDN
+Cache-Control: private, max-age=0, no-store
+
+# Stale-while-revalidate
+Cache-Control: public, max-age=60, stale-while-revalidate=300</code></pre>
+
+        <h2>Kluczowe wnioski</h2>
+        <ol>
+            <li><strong>Cache-aside</strong> to najpopularniejsza strategia — prosta i elastyczna</li>
+            <li><strong>Write-behind</strong> daje najszybsze zapisy, ale ryzyko utraty danych</li>
+            <li><strong>TTL</strong> to podstawa — zawsze ustawiaj czas wygasniecia</li>
+            <li><strong>Cache stampede</strong> to realny problem — locking lub early refresh</li>
+            <li><strong>CDN</strong> dla statycznych zasobow — latwa wygrana wydajnosciowa</li>
+            <li><strong>Redis</strong> to swiss army knife — cache, rate limiting, kolejki</li>
+            <li><strong>Inwalidacja</strong> jest najtrudniejsza — event-based dla krytycznych danych</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="09-skalowalnosc-i-wydajnosc.html">&larr; Skalowalnosc i wydajnosc</a>
+            <a href="09-02-load-balancing.html">Load Balancing &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

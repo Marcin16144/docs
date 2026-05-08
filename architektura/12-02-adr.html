@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>12-02 — Architecture Decision Records</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}.card h3{margin-top:4px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="12-dokumentacja-i-diagramy.html">12 — Dokumentacja</a>
+        <span class="sep">/</span>
+        <span class="title">Architecture Decision Records</span>
+    </div>
+    <div class="container">
+        <h1>Architecture Decision Records</h1>
+        <p class="subtitle">Dokumentowanie decyzji architektonicznych — szablony, cykl zycia, narzedzia i proces review.</p>
+
+        <h2>Dlaczego ADR?</h2>
+<pre><code>Bez ADR:
+  "Dlaczego uzywamy MongoDB?" → "Nie wiem, ktos zdecydowal"
+  → Powtarzanie dyskusji, brak kontekstu
+
+Z ADR:
+  "Dlaczego uzywamy MongoDB?" → Czyta ADR-007
+  → Kontekst, alternatywy, uzasadnienie
+  → Swiadoma decyzja czy zmieniac</code></pre>
+
+        <h2>Szablon ADR</h2>
+<pre><code># ADR-001: Tytul decyzji
+
+## Status
+Zaakceptowany | Zaproponowany | Zastapiony przez ADR-XXX
+
+## Data
+2025-03-15
+
+## Kontekst
+Jaka sytuacja wymagala decyzji?
+Jakie ograniczenia i wymagania istnialy?
+
+## Rozwazone opcje
+### Opcja A: [nazwa] — zalety / wady
+### Opcja B: [nazwa] — zalety / wady
+
+## Decyzja
+Wybralismy opcje B, poniewaz ...
+
+## Konsekwencje
+### Pozytywne — ...
+### Negatywne — ...</code></pre>
+
+        <h2>Przyklad: Wybor bazy danych</h2>
+        <div class="card">
+            <h3>ADR-007: PostgreSQL jako glowna baza</h3>
+<pre><code>Status: Zaakceptowany | Data: 2025-01-20
+
+Kontekst:
+  System e-commerce — transakcje finansowe,
+  relacje, full-text search, elastyczny schemat.
+
+Rozwazone opcje:
+  PostgreSQL — ACID, JSONB, full-text search, darmowy
+  MongoDB    — elastyczny schemat, ale brak ACID miedzy kol.
+  MySQL      — prosty, ale slabsze typy danych
+
+Decyzja: PostgreSQL
+  1. ACID krytyczne dla transakcji finansowych
+  2. JSONB rozwiazuje elastyczny schemat
+  3. Full-text search eliminuje Elasticsearch
+  4. Zespol ma doswiadczenie
+
+Konsekwencje (+):
+  Jedna baza zamiast dwoch, silna spojnosc
+Konsekwencje (-):
+  Skalowanie horyzontalne trudniejsze</code></pre>
+        </div>
+
+        <h2>Przyklad: Komunikacja miedzy serwisami</h2>
+        <div class="card">
+            <h3>ADR-012: RabbitMQ do komunikacji async</h3>
+<pre><code>Status: Zaakceptowany | Data: 2025-02-10
+
+Kontekst:
+  5 serwisow, utrata wiadomosci niedopuszczalna,
+  loose coupling, opoznienie &lt; 1s.
+
+Rozwazone: REST (tight coupling), RabbitMQ, Kafka (overeng.)
+
+Decyzja: RabbitMQ — niezawodna dostawa bez
+  zlozonosci Kafki.
+
+(+) Loose coupling, odpornosc na awarie
+(-) Brak replayability, dodatkowa infrastruktura</code></pre>
+        </div>
+
+        <h2>Cykl zycia ADR</h2>
+<pre><code>PROPOSED → ACCEPTED → DEPRECATED / SUPERSEDED
+
+Przyklad:
+  ADR-007: PostgreSQL (Status: Zastapiony przez ADR-025)
+  ADR-025: Migracja na CockroachDB (Status: Zaakceptowany)
+    "ADR-007 zaklada wertykalne skalowanie,
+     ale osiagnelismy limit jednego serwera..."</code></pre>
+
+        <h2>Narzedzia</h2>
+
+        <div class="card">
+            <h3>adr-tools (CLI)</h3>
+<pre><code># Inicjalizacja
+adr init doc/architecture/decisions
+
+# Nowy ADR
+adr new "Wybor frameworka frontendowego"
+# → 0001-wybor-frameworka.md
+
+# Nowy ADR zastepujacy stary
+adr new -s 3 "Migracja z React do Next.js"
+
+# Lista i spis tresci
+adr list
+adr generate toc</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>log4brains</h3>
+            <p>Web UI do przegladania ADR — generuje statyczna strone z historii decyzji.</p>
+<pre><code>npm install -g log4brains
+log4brains init
+log4brains adr new "Wybor message brokera"
+log4brains preview     # podglad lokalny
+log4brains build       # statyczna strona</code></pre>
+        </div>
+
+        <h3>Struktura katalogow</h3>
+<pre><code>doc/architecture/decisions/
+  0001-uzywamy-postgresql.md
+  0002-react-jako-frontend.md
+  0003-rabbitmq-do-komunikacji.md
+  0004-docker-i-kubernetes.md
+  0005-event-sourcing-dla-zamowien.md
+  index.md</code></pre>
+
+        <h2>Proces review</h2>
+        <ol>
+            <li><strong>Autor tworzy ADR jako PR</strong> — wypelnia szablon, status: Proposed</li>
+            <li><strong>Zespol reviewuje</strong> — kontekst kompletny? Alternatywy uczciwe? Konsekwencje realistyczne?</li>
+            <li><strong>Decyzja</strong> — akceptacja (merge), odrzucenie lub zmiana</li>
+            <li><strong>Implementacja</strong> — ADR jako referencja, link w kodzie i ticketach</li>
+        </ol>
+
+        <h2>Kiedy pisac ADR?</h2>
+        <table>
+            <thead><tr><th>Pisz gdy</th><th>Nie pisz gdy</th></tr></thead>
+            <tbody>
+                <tr><td>Wybierasz technologie</td><td>Decyzja trywialna (formatowanie)</td></tr>
+                <tr><td>Zmieniasz architekture</td><td>Odwracalne w minuty</td></tr>
+                <tr><td>Dlugoterminowe konsekwencje</td><td>Standard branzy (HTTPS)</td></tr>
+                <tr><td>Decyzja kontrowersyjna</td><td></td></tr>
+                <tr><td>Wplywa na wiele zespolow</td><td></td></tr>
+            </tbody>
+        </table>
+
+        <h2>Dobre praktyki</h2>
+        <ol>
+            <li><strong>Jeden ADR = jedna decyzja</strong></li>
+            <li><strong>Krotkie i konkretne</strong> — 1-2 strony</li>
+            <li><strong>Pisz dla kogos kto dolacza za rok</strong></li>
+            <li><strong>Uczciwie opisuj alternatywy</strong> — wady i zalety</li>
+            <li><strong>ADR niemutowalne</strong> — nie edytuj zaakceptowanych, tworzz nowe</li>
+            <li><strong>Linkuj w kodzie</strong> — komentarze: <code>// patrz ADR-007</code></li>
+            <li><strong>Review jak kod</strong> — PR, dyskusja, merge</li>
+        </ol>
+
+        <h2>Kluczowe wnioski</h2>
+        <ol>
+            <li><strong>ADR zachowuje kontekst</strong> — "dlaczego" wazniejsze niz "co"</li>
+            <li><strong>Szablon Nygarda</strong> wystarcza — kontekst, decyzja, konsekwencje</li>
+            <li><strong>Cykl zycia</strong> — proposed → accepted → deprecated/superseded</li>
+            <li><strong>adr-tools lub log4brains</strong> — automatyzacja</li>
+            <li><strong>Review jak kod</strong> — PR, dyskusja, merge</li>
+            <li><strong>Niemutowalne</strong> — nowe zastepuja stare</li>
+            <li><strong>Linkuj w kodzie</strong> — ADR blisko decyzji, nie w zapomnianym wiki</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="12-01-model-c4.html">&larr; Model C4</a>
+            <a href="12-dokumentacja-i-diagramy.html">Dokumentacja i diagramy &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

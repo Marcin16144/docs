@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>07 — Bazy danych i persystencja</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:16px 0}
+        .grid-3 .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <span class="title">07 — Bazy danych i persystencja</span>
+    </div>
+    <div class="container">
+        <h1>Bazy danych i persystencja</h1>
+        <p class="subtitle">Dobor technologii przechowywania danych do wymagan systemu.</p>
+        <p class="subtitle"><strong>Aktualizacja: 2026</strong> — uwzglednia PostgreSQL 17+ (parallel query, native partitioning), Supabase, Neon, Turso, SurrealDB, vector search w pgvector.</p>
+
+        <h2>Typy baz danych</h2>
+
+        <div class="card">
+            <h3>Relacyjne (SQL)</h3>
+            <p><strong>Przyklady:</strong> PostgreSQL, MySQL, SQL Server, Oracle, <strong>CockroachDB</strong> (rozproszony, kompatybilny z Postgres).</p>
+            <p><strong>PostgreSQL 17+ (2026):</strong> znaczaco ulepszony parallel query, dojrzale native partycjonowanie (range/list/hash, partition pruning, partition-wise joins), logical replication z DDL replication, JSON/JSONB konkurujace z dokumentowymi DBs, pgvector dojrzaly (HNSW/IVFFlat).</p>
+            <p>Postgres pelni czesto role "one database to rule them all" (relacyjne + JSON + vector + full-text + time-series przez TimescaleDB).</p>
+            <p><strong>Serverless / managed Postgres:</strong> <strong>Supabase</strong> (Postgres + Auth + Storage + Realtime + Edge Functions), <strong>Neon</strong> (separacja compute/storage, branching jak w Git), Crunchy Bridge, Aiven, AWS Aurora Serverless v2/v3.</p>
+            <p><strong>Kiedy stosowac:</strong> dane ze zlozonymi relacjami, transakcje ACID, zlozone zapytania, spojnosc jako priorytet.</p>
+        </div>
+
+        <div class="card">
+            <h3>SQLite na edge'u</h3>
+            <p><strong>Turso</strong> (oparty o libSQL) i <strong>Cloudflare D1</strong> — replikowany SQLite blisko uzytkownika. Bardzo niskie opoznienia odczytu, idealne dla aplikacji edge / globalnych. SQLite pozostaje popularny w aplikacjach desktopowych, mobilnych i SaaS per-tenant.</p>
+        </div>
+
+        <div class="grid-3">
+            <div class="card">
+                <h3>Dokumentowe</h3>
+                <p>MongoDB, CouchDB, DynamoDB, Firestore</p>
+                <p>Schemat zmienia sie czesto, dane naturalne jako JSON.</p>
+                <p><em>Uwaga: Postgres z JSONB czesto wystarcza.</em></p>
+            </div>
+            <div class="card">
+                <h3>Klucz-Wartosc</h3>
+                <p>Redis / <strong>Valkey</strong>, Memcached, KeyDB, Dragonfly</p>
+                <p>Edge KV: Cloudflare Workers KV, Vercel KV, Upstash Redis.</p>
+            </div>
+            <div class="card">
+                <h3>Grafowe</h3>
+                <p>Neo4j, Amazon Neptune, ArangoDB</p>
+                <p>Sieci spolecznosciowe, rekomendacje.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Kolumnowe i analityczne</h3>
+            <p><strong>Przyklady:</strong> Apache Cassandra, ScyllaDB, HBase, <strong>ClickHouse</strong>, Apache Doris, <strong>DuckDB</strong> (embedded analityczna).</p>
+            <p><strong>Kiedy stosowac:</strong> zapis duzych ilosci danych, dane szeregow czasowych (TimescaleDB, InfluxDB), analityka OLAP.</p>
+        </div>
+
+        <div class="card">
+            <h3>Wielomodelowe / nowsze</h3>
+            <p><strong>SurrealDB</strong> — wielomodelowa (dokument + graf + relacja), live queries, wbudowane auth; w 2026 rosnie jako alternatywa dla laczenia kilku DB.</p>
+            <p><strong>EdgeDB</strong> — relacyjna z mocnym schematem i jezykiem EdgeQL na bazie Postgres.</p>
+        </div>
+
+        <div class="card">
+            <h3>Wektorowe (Vector DBs) — era AI / RAG</h3>
+            <ul>
+                <li><strong>pgvector</strong> — rozszerzenie Postgres, najczestszy wybor jesli juz uzywasz Postgresa</li>
+                <li><strong>Qdrant</strong> — open source, Rust, swietna wydajnosc i filtrowanie</li>
+                <li><strong>Pinecone</strong> — managed, prosty start, dobry SLA</li>
+                <li><strong>Turbopuffer</strong> — serverless, bardzo niski koszt (object storage)</li>
+                <li>Weaviate, Milvus, Chroma, LanceDB</li>
+            </ul>
+            <p>Indeksy: HNSW (najpopularniejszy), IVF, ScaNN. Metryki: cosine, dot product, L2.</p>
+        </div>
+
+        <h2>Twierdzenie CAP</h2>
+        <p>W systemie rozproszonym mozesz miec tylko 2 z 3:</p>
+        <ul>
+            <li><strong>C (Consistency)</strong> — kazdy odczyt zwraca najnowsze dane</li>
+            <li><strong>A (Availability)</strong> — kazde zadanie otrzymuje odpowiedz</li>
+            <li><strong>P (Partition Tolerance)</strong> — system dziala mimo podzialu sieci</li>
+        </ul>
+        <p>Poniewaz partycje sieciowe sie zdarzaja, wybor to: <strong>CP</strong> (spojnosc) lub <strong>AP</strong> (dostepnosc).</p>
+
+        <h2>Wzorce persystencji</h2>
+
+        <div class="card">
+            <h3>Database per Service</h3>
+            <p>Kazdy mikroserwis ma wlasna baze danych — pelna izolacja.</p>
+        </div>
+
+        <div class="card">
+            <h3>Shared Database</h3>
+            <p>Wiele serwisow korzysta z jednej bazy — prostsze, ale tworzy coupling.</p>
+        </div>
+
+        <div class="card">
+            <h3>Event Sourcing</h3>
+            <p>Zamiast przechowywac aktualny stan, przechowuj strumien zdarzen.</p>
+<pre><code>Zdarzenia dla zamowienia #123:
+1. OrderCreated { items: [...], customer: "Jan" }
+2. ItemAdded { item: "Laptop" }
+3. PaymentReceived { amount: 5000 }
+4. OrderShipped { trackingId: "XYZ" }
+
+Stan aktualny = odtworzenie ze zdarzen</code></pre>
+            <p><strong>Zalety:</strong> Pelna historia zmian, audyt, mozliwosc odtworzenia stanu z dowolnego momentu.</p>
+            <p><strong>Wady:</strong> Zlozonosc, potrzeba snapshotow dla wydajnosci.</p>
+        </div>
+
+        <h2>Migracje bazy danych</h2>
+        <p><strong>Narzedzia (2026):</strong> Flyway, Liquibase, <strong>Atlas</strong> (HCL/SQL, multi-DB), Prisma Migrate, <strong>Drizzle Kit</strong>, Knex migrations, sqlx migrate (Rust), EF Migrations, Goose (Go).</p>
+        <ul>
+            <li>Migracje powinny byc idempotentne</li>
+            <li>Backward-compatible zmiany (expand-and-contract)</li>
+            <li>Strategia blue-green dla migracji zero-downtime</li>
+            <li>Testuj migracje na kopii produkcyjnych danych</li>
+            <li>Branching baz (Neon, Supabase) dla testowania migracji per Pull Request</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="06-komunikacja-i-integracja.html">&larr; Komunikacja i integracja</a>
+            <a href="08-bezpieczenstwo.html">Bezpieczenstwo &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

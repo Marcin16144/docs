@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>08-03 — Context management i wskazowki</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--red:#f87171;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-color:var(--green)}
+        .card.red{border-color:var(--red)}
+        .card.orange{border-color:var(--orange)}
+        .yes{color:var(--green);font-weight:600}
+        .warn{color:var(--orange);font-weight:600}
+        .no{color:var(--red);font-weight:600}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        .checklist li{list-style:none;padding-left:24px;position:relative;margin-bottom:8px}
+        .checklist li::before{content:"☐";position:absolute;left:0;color:var(--accent)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="08-prompt-engineering.html">08 — Prompt Engineering</a>
+        <span class="sep">/</span>
+        <span class="title">Context management</span>
+    </div>
+    <div class="container">
+        <h1>Context management i wskazowki</h1>
+        <p class="subtitle">Jak nie przekraczac limitu kontekstu, redukowac koszty i utrzymywac jakosc odpowiedzi.</p>
+
+        <h2>Czym jest context window?</h2>
+        <p><strong>Context window</strong> = maksymalna liczba tokenow ktore LLM moze przetworzyc w jednym wywolaniu. Obejmuje:</p>
+        <ul>
+            <li>System prompt</li>
+            <li>Historia rozmowy (wszystkie poprzednie wiadomosci)</li>
+            <li>Aktualny prompt uzytkownika</li>
+            <li>Tools / function definitions</li>
+            <li>Aktualnie generowana odpowiedz (output tokens)</li>
+        </ul>
+
+<pre><code>┌────────────────────────────────────────────────┐
+│              CONTEXT WINDOW (200k)              │
+├────────────────────────────────────────────────┤
+│  System prompt           │  ~5k tokens          │
+│  Tool definitions        │  ~2k tokens          │
+│  Conversation history    │  ~50k tokens         │
+│  Current user message    │  ~1k tokens          │
+│  Output (max_tokens)     │  ~8k tokens          │
+└──────────────────────────┴──────────────────────┘
+                            Total: ~66k / 200k</code></pre>
+
+        <h2>Limity kontekstu w 2026</h2>
+        <table>
+            <thead><tr><th>Model</th><th>Context</th><th>Output max</th><th>Cena 1M input</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Claude Opus 4.7</strong></td><td>200k</td><td>8k</td><td>$15</td></tr>
+                <tr><td><strong>Claude Sonnet 4.6</strong></td><td>200k</td><td>8k</td><td>$3</td></tr>
+                <tr><td><strong>Claude Haiku 4.5</strong></td><td>200k</td><td>8k</td><td>$0.80</td></tr>
+                <tr><td><strong>GPT-5</strong></td><td>128k</td><td>16k</td><td>~$10</td></tr>
+                <tr><td><strong>GPT-4o</strong></td><td>128k</td><td>16k</td><td>$2.50</td></tr>
+                <tr><td><strong>Gemini 2.5 Pro</strong></td><td><strong>2M</strong></td><td>8k</td><td>$7</td></tr>
+                <tr><td><strong>Gemini 2.5 Flash</strong></td><td>1M</td><td>8k</td><td>$0.30</td></tr>
+                <tr><td><strong>Llama 4 Maverick</strong></td><td>1M</td><td>8k</td><td>self-host</td></tr>
+                <tr><td><strong>DeepSeek V3</strong></td><td>128k</td><td>8k</td><td>$0.27</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Tokeny — jak liczyc</h2>
+        <p><strong>Regula kciuka:</strong></p>
+        <ul>
+            <li>1 token ≈ 0.75 slowa w angielskim</li>
+            <li>1 token ≈ 0.5 slowa w polskim (wiecej tokenizacji!)</li>
+            <li>1 token ≈ 4 znaki w angielskim</li>
+            <li>1 token ≈ 2-3 znaki w polskim</li>
+        </ul>
+
+<pre><code>Tekst: "Hello world!" (12 znakow)
+→ 3 tokeny: ["Hello", " world", "!"]
+
+Tekst: "Czesc swiecie!" (14 znakow, polski)
+→ 7 tokenow: ["Cze", "sc", " s", "wie", "cie", "!"]</code></pre>
+
+        <p><strong>Narzedzia:</strong> tiktoken (Python), anthropic-tokenizer, HF tokenizers, OpenAI Tokenizer playground, Anthropic Console.</p>
+
+<pre><code>import tiktoken
+encoding = tiktoken.encoding_for_model("gpt-4o")
+text = "Czesc swiecie!"
+tokens = encoding.encode(text)
+print(f"Tokens: {len(tokens)}")  # 7</code></pre>
+
+        <h2>Dlaczego context ma znaczenie?</h2>
+
+        <div class="card red">
+            <h3>1. Koszt rosnie liniowo</h3>
+<pre><code>Claude Sonnet 4.6: $3 / 1M input tokens
+
+Rozmowa 10k tokenow:    $0.03 per request
+Rozmowa 100k tokenow:   $0.30 per request   (10x drozej!)
+Rozmowa 200k tokenow:   $0.60 per request
+
+Bez prompt caching: kazdy request platsz pelna cene.
+Z prompt caching: cached tokens ~10% ceny → $0.003.</code></pre>
+        </div>
+
+        <div class="card orange">
+            <h3>2. Latency rosnie z kontekstem</h3>
+<pre><code>Time to First Token (TTFT) zalezy od dlugosci kontekstu:
+- 10k tokens:  ~500ms
+- 100k tokens: ~3s
+- 200k tokens: ~8s</code></pre>
+        </div>
+
+        <div class="card red">
+            <h3>3. Quality DEGRADUJE z dlugim kontekstem</h3>
+            <p><strong>"Lost in the middle"</strong> — model gorzej znajduje informacje w srodku dlugiego kontekstu:</p>
+            <ul>
+                <li>Top 10% kontekstu: ~95% accuracy</li>
+                <li>Srodek 50%: ~70% accuracy</li>
+                <li>Koniec 10%: ~85% accuracy (recency bias)</li>
+            </ul>
+            <p><strong>"Needle in a Haystack"</strong> benchmark testuje retrieval z dlugiego kontekstu. Modele 2026 sa coraz lepsze, ale problem nie zniknal.</p>
+        </div>
+
+        <div class="card red">
+            <h3>4. Hallucinations rosna z kontekstem</h3>
+            <p>Przy 100k+ tokenow modele zaczynaja mylic fakty, mieszac konteksty, halucynowac.</p>
+        </div>
+
+        <h2>10 strategii zarzadzania kontekstem</h2>
+
+        <div class="card green">
+            <h3>1. Krotszy system prompt</h3>
+<pre><code>ZLY system prompt (3000 slow):
+"Jestes asystentem... [historia firmy] [lista produktow]
+[wszystkie polityki zwrotu] [wszystkie cenniki]..."
+
+DOBRY system prompt (300 slow):
+"Jestes asystentem klienta firmy XYZ.
+Twoje zadania: [3 punkty]
+Twoje ograniczenia: [3 punkty]
+W razie watpliwosci uzyj search_kb()."
+
++ Tool: search_kb(query) → zwraca relevantne fragmenty
+
+Efekt: 90% redukcja kosztu, lepsze wyniki.</code></pre>
+        </div>
+
+        <div class="card green">
+            <h3>2. RAG zamiast wrzucania wszystkiego</h3>
+<pre><code>ZLE:
+prompt = full_knowledge_base + question  # 100k tokens
+
+DOBRZE:
+relevant_chunks = retrieve(question, top_k=5)  # 2k tokens
+prompt = relevant_chunks + question  # 3k tokens
+
+Oszczednosc: 30-100x mniej tokenow.</code></pre>
+        </div>
+
+        <div class="card green">
+            <h3>3. Prompt caching (kluczowe w 2026)</h3>
+            <p><strong>Anthropic, OpenAI, Google</strong> — 90% redukcja kosztu dla cached czesci.</p>
+<pre><code># Anthropic prompt caching
+client.messages.create(
+    model="claude-opus-4-7",
+    system=[
+        {
+            "type": "text",
+            "text": LONG_SYSTEM_PROMPT,   # 5000 tokens
+            "cache_control": {"type": "ephemeral"}
+        },
+        {
+            "type": "text",
+            "text": f"Context: {document}",  # 50k tokens
+            "cache_control": {"type": "ephemeral"}
+        }
+    ],
+    messages=[{"role": "user", "content": query}]
+)
+
+# Pierwszy request: full price (+25% cache write)
+# Kolejne (w 5 min): cached parts sa 10% ceny</code></pre>
+        </div>
+
+        <div class="card green">
+            <h3>4. Kompaktowanie historii</h3>
+<pre><code>def manage_conversation_context(messages, max_tokens=50_000):
+    if total_tokens(messages) &lt; max_tokens:
+        return messages
+
+    # Wymus podsumowanie starszych wiadomosci
+    old = messages[:-10]  # zachowaj 10 ostatnich
+    recent = messages[-10:]
+
+    summary = llm.summarize(old)
+
+    return [
+        {"role": "system",
+         "content": f"Earlier summary: {summary}"},
+        *recent
+    ]</code></pre>
+            <p>Anthropic Claude Code i Cursor robia to <strong>automatycznie</strong>.</p>
+        </div>
+
+        <div class="card">
+            <h3>5. Sliding window</h3>
+<pre><code>MAX_HISTORY = 20  # ostatnich 20 wymian
+messages = messages[-MAX_HISTORY:]
+
+# Trade-off: zapominasz poczatek
+# Mityguj: system prompt z faktami + external memory</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>6. External memory</h3>
+            <p>Zamiast trzymac wszystko w kontekscie — uzywaj bazy:</p>
+<pre><code>Kazda rozmowa:
+1. Retrieve relevant memories from DB
+2. Add do system prompt (top 5)
+3. Po rozmowie: extract new facts → save to DB</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>7. Strukturyzacja zamiast prozy</h3>
+<pre><code>ZLE (200 tokenow):
+"Klient powiedzial ze chcialby zamowic produkt o numerze
+ABC-123 w kolorze niebieskim, w rozmiarze L, na adres
+ulica Glowna 5 w Warszawie..."
+
+DOBRZE (50 tokenow):
+order:
+  product: ABC-123
+  color: blue
+  size: L
+  shipping: ul. Glowna 5, 00-001 Warszawa
+  payment: card
+
+4x mniej tokenow, model lepiej rozumie.</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>8. Skroty i kompresja</h3>
+            <p>Prosty tekst → strukturyzowane listy. PROZA (100 tokens) → LISTA (30 tokens).</p>
+        </div>
+
+        <div class="card">
+            <h3>9. Tools zamiast informacji w prompcie</h3>
+            <p><strong>Zle:</strong> wrzucam cala dokumentacje API w prompt.</p>
+            <p><strong>Dobrze:</strong> daje narzedzie <code>search_docs(query)</code> i model uzywa tylko gdy potrzebuje.</p>
+        </div>
+
+        <div class="card">
+            <h3>10. Wybor modelu pod task</h3>
+<pre><code>Mala zadanie (klasyfikacja):  Haiku 4.5  → 32k context wystarczy
+Srednia (generacja):           Sonnet 4.6 → 100k typically OK
+Duze dokumenty:                 Opus 4.7   → 200k
+Caly codebase:                  Gemini 2.5 → 1-2M</code></pre>
+        </div>
+
+        <h2>Anatomia "context budget"</h2>
+
+        <p><strong>Budget thinking</strong> — planuj ile tokenow na co.</p>
+<pre><code>Total context budget: 100k tokens
+
+Allocation:
+├─ System prompt:           3k  (3%)
+├─ Tool definitions:        1k  (1%)
+├─ RAG retrieved docs:      8k  (8%)   ← top 5 chunks
+├─ Conversation history:    20k (20%)  ← ostatnie 20 wymian
+├─ Memory (long-term):      3k  (3%)   ← top 10 facts
+├─ Current user message:    2k  (2%)
+├─ Reserved for output:     8k  (8%)
+└─ Buffer (safety):         55k (55%)  ← na nieoczekiwane
+
+Hard limit per request: 45k actual usage.</code></pre>
+
+        <h2>Jak rozpoznac ze context jest problemem</h2>
+
+        <div class="card orange">
+            <h3>Symptomy</h3>
+            <ol>
+                <li><strong>"Lost in the middle"</strong> — model nie odnajduje info ktore JEST w prompcie</li>
+                <li><strong>Zapomnienie instrukcji</strong> — model nie przestrzega system prompta po dlugiej rozmowie</li>
+                <li><strong>Halucynacje</strong> — zaczyna zmyslac fakty</li>
+                <li><strong>Wolny TTFT</strong> — &gt; 5s do pierwszego tokenu</li>
+                <li><strong>Wysokie koszty</strong> — rachunek rosnie wykladniczo</li>
+                <li><strong>Errors "context_length_exceeded"</strong> — przekraczasz limit</li>
+            </ol>
+        </div>
+
+        <h3>Test: Needle in Haystack</h3>
+<pre><code>prompt = (
+    long_document[:50000] +
+    "[UKRYTY FAKT: kod weryfikacyjny to 42-XYZ]\n" +
+    long_document[50000:]
+)
+
+response = llm.ask(prompt + "\n\nJaki jest kod weryfikacyjny?")
+# Czy znalazl?</code></pre>
+
+        <h2>Praktyczne wskazowki</h2>
+
+        <div class="card">
+            <h3>1. Mierz tokeny przed wysylka</h3>
+<pre><code>def safe_send(messages, max_context=180_000):
+    enc = tiktoken.encoding_for_model("gpt-4o")
+    total = sum(len(enc.encode(m["content"])) for m in messages)
+
+    if total &gt; max_context:
+        raise ValueError(f"Too long: {total} &gt; {max_context}")
+
+    return llm.send(messages)</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>2. Loguj token usage</h3>
+<pre><code>response = llm.ask(prompt)
+print(f"Input: {response.usage.input_tokens}")
+print(f"Output: {response.usage.output_tokens}")
+print(f"Cached: {response.usage.cache_read_tokens}")
+print(f"Cost: ${calculate_cost(response.usage)}")
+
+# Aggreguj per user, per feature, per day</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>3. Hard limits per user/feature</h3>
+<pre><code>RATE_LIMITS = {
+    "free_user":    {"daily_tokens": 100_000},
+    "paid_user":    {"daily_tokens": 1_000_000},
+    "enterprise":   {"daily_tokens": 50_000_000},
+}
+
+if user.tokens_used_today &gt; RATE_LIMITS[user.tier]["daily_tokens"]:
+    return "Daily limit reached. Upgrade or wait."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>4. Batch API dla nie-real-time</h3>
+            <p><strong>Anthropic, OpenAI Batch API:</strong> 50% taniej, async (godziny).</p>
+            <p>Idealne dla: analiza dokumentow, klasyfikacja recenzji, generowanie summaries, eval datasets.</p>
+        </div>
+
+        <div class="card">
+            <h3>5. Reasoning models = wiecej output tokenow</h3>
+<pre><code>response = client.messages.create(
+    model="claude-opus-4-7",
+    max_tokens=64000,  # zwieksz!
+    thinking={"type": "enabled", "budget_tokens": 32000},
+    messages=[{"role": "user", "content": "Solve this..."}]
+)
+
+# Output moga byc 50k tokenow (wiekszosc = thinking)</code></pre>
+        </div>
+
+        <h2>Wskazowki specyficzne per model</h2>
+
+        <div class="card">
+            <h3>Claude (Anthropic)</h3>
+            <p><strong>Co dziala swietnie:</strong></p>
+            <ul>
+                <li>XML structure: <code>&lt;context&gt;...&lt;/context&gt;</code> znacznie pomaga</li>
+                <li>"Long context" — 200k uzywaj smialo</li>
+                <li>Prompt caching — zawsze wlacz dla powtarzalnych czesci</li>
+                <li>Extended thinking — dla skomplikowanych zadan</li>
+            </ul>
+            <p><strong>Pulapki:</strong> Bez <code>cache_control</code> placisz pelna cene; extended thinking zjada output tokens.</p>
+        </div>
+
+        <div class="card">
+            <h3>GPT-5 / GPT-4o (OpenAI)</h3>
+            <p><strong>Co dziala:</strong> Markdown format, function calling vs structured output, prompt caching automatyczne (od 1024 tokens).</p>
+            <p><strong>Pulapki:</strong> 128k limit (latwiej go przekroczyc niz 200k Claude); czasem ignoruje system prompt.</p>
+        </div>
+
+        <div class="card">
+            <h3>Gemini (Google)</h3>
+            <p><strong>Co dziala:</strong> 1-2M context = mozesz wrzucic <strong>caly codebase</strong>; multimodal native; swietny caching dla bardzo dlugich kontekstow.</p>
+            <p><strong>Pulapki:</strong> "Lost in the middle" wciaz problem przy 1M; tendency do "lazy" przy duzym kontekscie.</p>
+        </div>
+
+        <div class="card">
+            <h3>Llama / Mistral / Qwen (open source)</h3>
+            <p><strong>Co dziala:</strong> self-host = nie ma kosztu per token; mozesz zwiekszyc kontekst (RoPE scaling).</p>
+            <p><strong>Pulapki:</strong> wiekszosc trenowanych do 8-32k; KV cache zjada VRAM dramatycznie; quantization (Q4) zwieksza "lost in the middle".</p>
+        </div>
+
+        <h2>Anti-patterns do unikania</h2>
+
+        <div class="card red">
+            <h3>"Wrzuce caly dokument"</h3>
+<pre><code># ZLE
+response = llm.ask(f"Caly dokument: {entire_book}\n\nPytanie: ...")
+# 500k tokenow = $$$$ + lost in middle
+
+# DOBRZE
+chunks = retrieve(question, top_k=5)
+response = llm.ask(f"Relevant: {chunks}\n\nPytanie: ...")</code></pre>
+        </div>
+
+        <div class="card red">
+            <h3>"Jeszcze jeden few-shot"</h3>
+            <p>Kazdy few-shot example = 200-500 tokenow. Po 10 examples masz 5k tokenow w kazdym requeście. Sprawdz czy wszystkie potrzebne — czesto 2-3 wystarcza.</p>
+        </div>
+
+        <div class="card red">
+            <h3>Powtarzanie info</h3>
+            <p><strong>Zle:</strong> "Mow tylko po polsku" w system prompt + w kazdej wiadomosci + po kazdej odpowiedzi.</p>
+            <p><strong>Dobrze:</strong> raz w system. Jesli model myli jezyki — zmien model lub fine-tune.</p>
+        </div>
+
+        <div class="card red">
+            <h3>Brak garbage collection w historii</h3>
+<pre><code>if len(messages) &gt; 30:
+    messages = compact_old_messages(messages, keep_recent=20)</code></pre>
+        </div>
+
+        <div class="card red">
+            <h3>Zapomnienie o multi-turn quadratic cost</h3>
+<pre><code>Pierwszy prompt: 5k tokens
+Po 50 wymian: 100k tokens (cala historia + kazda odpowiedz)
+
+Kazda nowa wymiana KOPIUJE cala historie.
+Koszt rosnie kwadratowo!</code></pre>
+        </div>
+
+        <h2>Tools i biblioteki</h2>
+
+        <table>
+            <thead><tr><th>Kategoria</th><th>Narzedzia</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Liczenie tokenow</strong></td><td>tiktoken (Python), anthropic-tokenizer, transformers AutoTokenizer, gpt-tokenizer (JS), OpenAI Tokenizer playground</td></tr>
+                <tr><td><strong>Context management</strong></td><td>LangChain ConversationBufferWindowMemory, ConversationSummaryMemory, LlamaIndex, mem0, Letta (MemGPT)</td></tr>
+                <tr><td><strong>Cost tracking</strong></td><td>Helicone, Langfuse, LangSmith, OpenAI Usage dashboard</td></tr>
+                <tr><td><strong>Compression</strong></td><td>LLMLingua (Microsoft), AutoCompressor, GPT-4 sumarization jako pre-processing</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Pattern: Hierarchical context</h2>
+
+        <p>Dla bardzo duzych dokumentow (ksiazki, codebases):</p>
+<pre><code>┌────────────────────────────┐
+│  Level 1: TOC + summary    │  ← zawsze w prompcie (1k)
+└──────────┬─────────────────┘
+           │
+           ▼ (model decyduje co potrzebuje)
+┌────────────────────────────┐
+│  Level 2: Section summary  │  ← retrieval gdy potrzeba (5k)
+└──────────┬─────────────────┘
+           │
+           ▼
+┌────────────────────────────┐
+│  Level 3: Full section     │  ← retrieval ostatecznie (20k)
+└────────────────────────────┘
+
+Model widzi summary, decyduje czy zoomowac w details.</code></pre>
+
+        <h2>Mierzenie efektywnosci</h2>
+
+        <table>
+            <thead><tr><th>Metryka</th><th>Cel</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Input tokens / request</strong></td><td>minimalizuj</td></tr>
+                <tr><td><strong>Cache hit rate</strong></td><td>maksymalizuj (&gt;70%)</td></tr>
+                <tr><td><strong>Output tokens / request</strong></td><td>dopasuj do potrzeby</td></tr>
+                <tr><td><strong>Cost per query</strong></td><td>track per feature</td></tr>
+                <tr><td><strong>Context utilization</strong></td><td>uzywasz calego budgetu?</td></tr>
+                <tr><td><strong>TTFT</strong></td><td>&lt; 2s dla good UX</td></tr>
+                <tr><td><strong>Failure rate (context_length_exceeded)</strong></td><td>0</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Decyzja: long context vs RAG</h2>
+
+        <div class="card green">
+            <h3>Long context wygrywa gdy:</h3>
+            <ul>
+                <li>Dokument &lt; 500k tokenow (mieszczy sie w 1M Gemini)</li>
+                <li>Zapytania wymagaja <strong>caloscowego</strong> zrozumienia</li>
+                <li>Niska liczba zapytan (&lt; 100/dzien)</li>
+                <li>Zlozone reasoning po dokumencie</li>
+                <li>Aktualizacja dokumentu rzadka</li>
+            </ul>
+        </div>
+
+        <div class="card green">
+            <h3>RAG wygrywa gdy:</h3>
+            <ul>
+                <li>Korpus &gt; 1M tokenow (TB tekstu)</li>
+                <li>Wysoka liczba zapytan (RAG dramatycznie tanszy)</li>
+                <li>Czeste aktualizacje</li>
+                <li>Wymagane cytowanie zrodel</li>
+                <li>Selektywne info wystarczy</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>Hybrid (zalecane w 2026):</h3>
+<pre><code>1. Retrieval pobiera top-50 chunks
+2. Long-context model (Gemini 1M) przetwarza wszystkie 50
+3. Gemini decyduje co relevantne, generuje odpowiedz
+
+Best of both worlds.</code></pre>
+        </div>
+
+        <h2>Praktyczny checklist</h2>
+
+        <div class="card">
+            <ul class="checklist">
+                <li>Czy potrzebuje wszystkich tych tokenow?</li>
+                <li>Czy system prompt jest zoptymalizowany?</li>
+                <li>Czy wlaczylem prompt caching dla stalych czesci?</li>
+                <li>Czy uzywam RAG zamiast wrzucac wszystko?</li>
+                <li>Czy historia rozmowy jest skompaktowana?</li>
+                <li>Czy mierze i loguje usage?</li>
+                <li>Czy testuje "needle in haystack" dla mojego use case?</li>
+                <li>Czy wybralem wlasciwy model (maly dla prostych task)?</li>
+                <li>Czy mam fallback gdy context exceeded?</li>
+                <li>Czy mam rate limits per user?</li>
+            </ul>
+        </div>
+
+        <h2>Praktyczne reguly kciuka</h2>
+
+        <div class="card green">
+<pre><code>1. Cel: &lt; 30% wykorzystania context window
+   200k limit → trzymaj sie 60k typically
+
+2. Cache hit rate &gt; 70%
+   Jesli nizszy → reorganizuj prompt structure
+
+3. Output max_tokens: ustaw realistic limit
+   Bez tego model moze gadac 8k tokenow niepotrzebnie
+
+4. Token cost &gt; $0.10 per request?
+   Sprawdz czy potrzebujesz, czy mozesz zopt.
+
+5. RAG &gt; 5k tokens retrieved?
+   Lepszy reranking, mniej top_k
+
+6. History &gt; 20 wiadomosci?
+   Skompaktuj lub sliding window
+
+7. System prompt &gt; 1000 slow?
+   Refaktor, uzyj tools zamiast info w prompcie
+
+8. Latency &gt; 3s?
+   Skroc kontekst lub mniejszy model</code></pre>
+        </div>
+
+        <h2>10 najwazniejszych zasad</h2>
+
+        <ol>
+            <li><strong>Mierz tokeny</strong> — bez tego nic nie zmienisz</li>
+            <li><strong>Loguj koszt</strong> per request, per feature, per user</li>
+            <li><strong>Krotszy system prompt</strong> &gt; dlugi monolit (rozbij na tools)</li>
+            <li><strong>Prompt caching</strong> — zawsze wlacz, 90% redukcja kosztu</li>
+            <li><strong>RAG</strong> zamiast wrzucania calego dokumentu</li>
+            <li><strong>Kompaktuj historie</strong> w dlugich rozmowach</li>
+            <li><strong>Mniejszy model</strong> dla prostych zadan (Haiku zamiast Opus)</li>
+            <li><strong>Stream output</strong> dla lepszego UX</li>
+            <li><strong>Test "needle in haystack"</strong> dla swojego use case</li>
+            <li><strong>Hard limits</strong> per user/feature zeby uniknac overspendingu</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="08-02-prompty-cms-plugin-architecture.html">&larr; CMS plugin-based</a>
+            <a href="09-rag.html">RAG &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

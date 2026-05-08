@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>07-01 — SQL vs NoSQL</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}.card h3{margin-top:4px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="07-bazy-danych-i-persystencja.html">07 — Bazy danych</a>
+        <span class="sep">/</span>
+        <span class="title">SQL vs NoSQL</span>
+    </div>
+    <div class="container">
+        <h1>SQL vs NoSQL</h1>
+        <p class="subtitle">Porownanie modeli danych, gwarancji spojnosci i scenariuszy zastosowania relacyjnych i nierelacyjnych baz danych.</p>
+
+        <h2>Modele danych</h2>
+
+        <div class="card">
+            <h3>SQL (relacyjne)</h3>
+            <p>Dane zorganizowane w tabelach z wierszami i kolumnami. Relacje miedzy tabelami przez klucze obce. Schema jest scisle zdefiniowana (schema-on-write).</p>
+<pre><code>CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE orders (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  total DECIMAL(10,2) NOT NULL,
+  status VARCHAR(20) DEFAULT 'pending'
+);
+
+SELECT u.name, o.total, o.status
+FROM users u
+JOIN orders o ON o.user_id = u.id
+WHERE u.id = 'abc-123';</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>NoSQL — Document (MongoDB)</h3>
+            <p>Dane przechowywane jako dokumenty JSON/BSON. Schema elastyczna (schema-on-read). Zagniezdzanie powiazanych danych.</p>
+<pre><code>// Kolekcja: users
+{
+  "_id": "abc-123",
+  "email": "jan@example.com",
+  "name": "Jan Kowalski",
+  "orders": [
+    {
+      "id": "ord-1",
+      "total": 299.99,
+      "status": "delivered",
+      "items": [
+        { "product": "Laptop Stand", "qty": 1 }
+      ]
+    }
+  ]
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>NoSQL — Key-Value (Redis)</h3>
+            <p>Najprostszy model — klucz mapowany na wartosc. Ekstremalnie szybki odczyt/zapis.</p>
+<pre><code>SET user:abc-123 '{"name":"Jan","email":"jan@example.com"}'
+GET user:abc-123
+
+SET session:token-xyz '{"userId":"abc-123"}'
+EXPIRE session:token-xyz 3600</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>NoSQL — Column-Family (Cassandra)</h3>
+            <p>Dane zorganizowane w rodziny kolumn. Zoptymalizowane do zapisu duzych wolumenow danych czasowych.</p>
+<pre><code>CREATE TABLE events (
+  sensor_id TEXT,
+  event_time TIMESTAMP,
+  temperature DOUBLE,
+  humidity DOUBLE,
+  PRIMARY KEY (sensor_id, event_time)
+) WITH CLUSTERING ORDER BY (event_time DESC);</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>NoSQL — Graph (Neo4j)</h3>
+            <p>Dane jako wezly i krawedzie. Naturalny model dla relacji wielokierunkowych — sieci spolecznosciowe, rekomendacje, fraud detection.</p>
+<pre><code>CREATE (jan:User {name: "Jan"})
+CREATE (anna:User {name: "Anna"})
+CREATE (jan)-[:FOLLOWS]-&gt;(anna)
+
+MATCH (u:User {name: "Jan"})-[:FOLLOWS]-&gt;()-[:FOLLOWS]-&gt;(fof)
+WHERE fof &lt;&gt; u
+RETURN DISTINCT fof.name</code></pre>
+        </div>
+
+        <h2>ACID vs BASE</h2>
+
+        <div class="card">
+            <h3>ACID (typowe dla SQL)</h3>
+            <table>
+                <thead><tr><th>Wlasciwosc</th><th>Opis</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Atomicity</strong></td><td>Transakcja jest niepodzielna — albo wszystko, albo nic</td></tr>
+                    <tr><td><strong>Consistency</strong></td><td>Dane po transakcji sa w spojnym stanie</td></tr>
+                    <tr><td><strong>Isolation</strong></td><td>Rownolegle transakcje nie wplywaja na siebie</td></tr>
+                    <tr><td><strong>Durability</strong></td><td>Zatwierdzone dane przetrwaja awarie</td></tr>
+                </tbody>
+            </table>
+<pre><code>BEGIN TRANSACTION;
+  UPDATE accounts SET balance = balance - 100 WHERE id = 'A';
+  UPDATE accounts SET balance = balance + 100 WHERE id = 'B';
+  -- Jesli cokolwiek sie nie powiedzie — oba cofniete
+COMMIT;</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>BASE (typowe dla NoSQL)</h3>
+            <table>
+                <thead><tr><th>Wlasciwosc</th><th>Opis</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Basically Available</strong></td><td>System zawsze odpowiada (moze byc nieaktualna odpowiedz)</td></tr>
+                    <tr><td><strong>Soft state</strong></td><td>Stan systemu moze sie zmieniac z czasem</td></tr>
+                    <tr><td><strong>Eventually consistent</strong></td><td>Dane beda spojne po pewnym czasie</td></tr>
+                </tbody>
+            </table>
+<pre><code>Zapis do Node A --&gt; Replikacja --&gt; Node B (opoznienie ~ms)
+                                   Node C (opoznienie ~ms)
+
+Klient czyta z Node B zaraz po zapisie do Node A
+--&gt; Moze dostac stara wartosc (eventual consistency)
+--&gt; Po chwili wartosc bedzie aktualna</code></pre>
+        </div>
+
+        <h2>Porownanie SQL vs NoSQL</h2>
+        <table>
+            <thead><tr><th>Aspekt</th><th>SQL</th><th>NoSQL</th></tr></thead>
+            <tbody>
+                <tr><td>Schema</td><td>Sztywna, zdefiniowana z gory</td><td>Elastyczna, dynamiczna</td></tr>
+                <tr><td>Skalowanie</td><td>Wertykalne (wiekszy serwer)</td><td>Horyzontalne (wiecej serwerow)</td></tr>
+                <tr><td>Spojnosc</td><td>Silna (ACID)</td><td>Eventual consistency (BASE)</td></tr>
+                <tr><td>Zapytania</td><td>SQL — potezny, standardowy</td><td>Specyficzne per baza</td></tr>
+                <tr><td>JOINy</td><td>Natywne, wydajne</td><td>Ograniczone lub brak</td></tr>
+                <tr><td>Transakcje</td><td>Pelne, wielotabelowe</td><td>Ograniczone (per dokument)</td></tr>
+                <tr><td>Normalizacja</td><td>Tak — unikanie redundancji</td><td>Denormalizacja — szybkosc odczytu</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Twierdzenie CAP</h2>
+        <p>Rozproszony system moze gwarantowac tylko <strong>2 z 3</strong> wlasciwosci: Consistency, Availability, Partition Tolerance.</p>
+<pre><code>         Consistency
+           /     \
+          /       \
+    CA (SQL)    CP (MongoDB)
+        |         |
+   Availability  Partition Tolerance
+        |         |
+   AP (Cassandra, DynamoDB)</code></pre>
+        <ul>
+            <li><strong>CP</strong> (MongoDB, HBase) — preferuj spojnosc, akceptuj niedostepnosc</li>
+            <li><strong>AP</strong> (Cassandra, DynamoDB) — preferuj dostepnosc, akceptuj chwilowa niespojnosc</li>
+            <li><strong>CA</strong> (tradycyjny SQL) — nie toleruje partycji sieciowych</li>
+        </ul>
+
+        <h2>Polyglot Persistence</h2>
+        <p>Uzywanie roznych baz danych do roznych celow w jednym systemie:</p>
+<pre><code>┌──────────────────────────────────────────────┐
+│           System e-commerce                   │
+│                                               │
+│  Uzytkownicy  → PostgreSQL (ACID)            │
+│  Zamowienia   → PostgreSQL (ACID)            │
+│  Sesje/Cache  → Redis (szybkosc)             │
+│  Katalog      → MongoDB (elastyczny schemat) │
+│  Wyszukiwanie → Elasticsearch (full-text)    │
+│  Rekomendacje → Neo4j (graf relacji)         │
+│  Analityka    → ClickHouse (OLAP)            │
+│  Logi         → Elasticsearch                │
+└──────────────────────────────────────────────┘</code></pre>
+
+        <h2>Sciezki migracji</h2>
+
+        <div class="card">
+            <h3>SQL → NoSQL</h3>
+            <ol>
+                <li>Zidentyfikuj wzorce dostepu — jakie zapytania sa najczestsze</li>
+                <li>Zaprojektuj model pod zapytania — w NoSQL model wynika z zapytan</li>
+                <li>Denormalizuj dane — zaakceptuj redundancje dla szybkosci</li>
+                <li>Migruj inkrementalnie — zacznij od jednego serwisu</li>
+                <li>Utrzymuj podwojny zapis (dual write) w okresie przejsciowym</li>
+            </ol>
+        </div>
+
+        <div class="card">
+            <h3>NoSQL → SQL</h3>
+            <ol>
+                <li>Zidentyfikuj relacje miedzy danymi</li>
+                <li>Znormalizuj dane — usun redundancje</li>
+                <li>Zdefiniuj schema i constrainty</li>
+                <li>Migruj dane z transformacja</li>
+                <li>Zweryfikuj integralnosc po migracji</li>
+            </ol>
+        </div>
+
+        <h2>Popularne bazy danych</h2>
+        <table>
+            <thead><tr><th>Baza</th><th>Typ</th><th>Kiedy stosowac</th></tr></thead>
+            <tbody>
+                <tr><td><strong>PostgreSQL</strong></td><td>Relacyjna</td><td>Ogolnego przeznaczenia, JSONB, pelnotekstowe</td></tr>
+                <tr><td><strong>MongoDB</strong></td><td>Dokumentowa</td><td>Elastyczny schemat, prototypowanie</td></tr>
+                <tr><td><strong>Redis</strong></td><td>Key-Value</td><td>Cache, sesje, kolejki, pub/sub</td></tr>
+                <tr><td><strong>Cassandra</strong></td><td>Kolumnowa</td><td>Duze wolumeny zapisu, time-series</td></tr>
+                <tr><td><strong>Elasticsearch</strong></td><td>Wyszukiwarka</td><td>Full-text search, logi, analityka</td></tr>
+                <tr><td><strong>Neo4j</strong></td><td>Grafowa</td><td>Relacje, rekomendacje, fraud detection</td></tr>
+                <tr><td><strong>ClickHouse</strong></td><td>Kolumnowa (OLAP)</td><td>Analityka, agregacje na duzych danych</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kluczowe wnioski</h2>
+        <ol>
+            <li><strong>Nie ma uniwersalnej bazy</strong> — kazda ma swoje mocne strony</li>
+            <li><strong>Zacznij od wymagan</strong> — wzorce dostepu determinuja wybor</li>
+            <li><strong>ACID nie zawsze potrzebny</strong> — eventual consistency czesto wystarczy</li>
+            <li><strong>Polyglot persistence</strong> to sila, ale i koszt operacyjny</li>
+            <li><strong>PostgreSQL</strong> to czesto najlepszy punkt startu — relacyjna z cechami NoSQL</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="07-bazy-danych-i-persystencja.html">&larr; Bazy danych i persystencja</a>
+            <a href="07-02-event-sourcing.html">Event Sourcing &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

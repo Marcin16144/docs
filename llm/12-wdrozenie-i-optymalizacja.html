@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>12 — Wdrozenie i optymalizacja LLM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<span class="title">12 — Wdrozenie i optymalizacja LLM</span>
+</div>
+
+<div class="container">
+<h1>Wdrozenie i optymalizacja LLM</h1>
+<p class="subtitle">Od POC do production-grade systemu</p>
+
+<h2>Architektura produkcyjnego LLM</h2>
+<pre><code>┌────────────────────────────────────────────────┐
+│             KLIENT (web/mobile/API)             │
+└──────────────────────┬─────────────────────────┘
+                       │
+┌──────────────────────▼─────────────────────────┐
+│              LOAD BALANCER + CDN                │
+└──────────────────────┬─────────────────────────┘
+                       │
+┌──────────────────────▼─────────────────────────┐
+│          API GATEWAY (auth, rate limit)         │
+└──────────────────────┬─────────────────────────┘
+                       │
+┌──────────────────────▼─────────────────────────┐
+│            APPLICATION LAYER                    │
+│   - Prompt construction                         │
+│   - RAG retrieval                               │
+│   - Tool execution                              │
+│   - Cache check                                 │
+└──────────────────────┬─────────────────────────┘
+                       │
+┌──────────────────────▼─────────────────────────┐
+│          INFERENCE LAYER (vLLM/TGI)             │
+│   - Model serving                               │
+│   - Batching                                    │
+│   - KV cache                                    │
+└──────────────────────┬─────────────────────────┘
+                       │
+┌──────────────────────▼─────────────────────────┐
+│          GPU CLUSTER (H100/A100)                │
+└─────────────────────────────────────────────────┘
+
+Sidecars:
+- Vector DB (Qdrant/Pinecone)
+- Cache (Redis)
+- Observability (Langfuse/LangSmith)
+- Logs/Metrics (ELK/Prometheus)</code></pre>
+
+<h2>Strategie deploymentu</h2>
+
+<div class="card">
+<h3>1. Managed API (najszybsze)</h3>
+<pre><code>Claude API / GPT API / Gemini API</code></pre>
+<p><strong>Plus:</strong> Zero ops, najnowsze modele, skalowanie automatyczne</p>
+<p><strong>Minus:</strong> Cost, vendor lock-in, dane na zewnatrz</p>
+</div>
+
+<div class="card">
+<h3>2. Cloud GPU (srodek)</h3>
+<pre><code>AWS Bedrock / Azure AI / Vertex AI</code></pre>
+<p><strong>Plus:</strong> Managed, ale wiecej kontroli niz API</p>
+<p><strong>Minus:</strong> Wciaz drogie, vendor lock-in</p>
+</div>
+
+<div class="card">
+<h3>3. Self-hosted (najwiecej kontroli)</h3>
+<pre><code>vLLM / TGI / Ollama na wlasnych GPU</code></pre>
+<p><strong>Plus:</strong> Pelna kontrola, prywatnosc, niskie koszty per query</p>
+<p><strong>Minus:</strong> Ops, fixed cost (GPU), trzeba znac sie na ML serving</p>
+</div>
+
+<h2>Kwantyzacja — najwazniejsza optymalizacja</h2>
+<p>Zmniejsza rozmiar modelu i przyspiesza inferencje.</p>
+
+<h3>Formaty kwantyzacji (2026)</h3>
+<table>
+<tr><th>Format</th><th>Bity</th><th>Quality</th><th>Speed</th><th>Use case</th></tr>
+<tr><td><strong>FP16/BF16</strong></td><td>16</td><td>100%</td><td>1×</td><td>Reference, training</td></tr>
+<tr><td><strong>INT8 (W8A16)</strong></td><td>8 wagi, 16 act</td><td>99%</td><td>1.5×</td><td>Production safe</td></tr>
+<tr><td><strong>FP8</strong></td><td>8 wagi+act</td><td>99%</td><td>2×</td><td>H100, latest</td></tr>
+<tr><td><strong>INT4 (W4A16)</strong></td><td>4 wagi</td><td>95-98%</td><td>2-3×</td><td><strong>Production sweet spot</strong></td></tr>
+<tr><td><strong>GPTQ</strong></td><td>4</td><td>96%</td><td>2.5×</td><td>NVIDIA inference</td></tr>
+<tr><td><strong>AWQ</strong></td><td>4</td><td>97%</td><td>2.5×</td><td>Lepsza niz GPTQ</td></tr>
+<tr><td><strong>EXL2</strong></td><td>2-8</td><td>varies</td><td>3×</td><td>NVIDIA, fastest</td></tr>
+<tr><td><strong>GGUF</strong></td><td>2-8</td><td>varies</td><td>1-2×</td><td>CPU+GPU mixed</td></tr>
+</table>
+
+<h3>Kwantyzacja w praktyce</h3>
+<pre><code># AWQ (najlepsze GPU inference)
+from awq import AutoAWQForCausalLM
+model = AutoAWQForCausalLM.from_quantized(
+    "TheBloke/Llama-3.1-70B-Instruct-AWQ"
+)
+
+# GPTQ (vLLM-compatible)
+# Po prostu wybierz model z "-GPTQ" suffix
+
+# GGUF (llama.cpp)
+# Wybierz np. llama-3.1-70b-instruct-Q4_K_M.gguf</code></pre>
+
+<h2>Inference servers</h2>
+
+<div class="card">
+<h3>vLLM — produkcyjny standard</h3>
+<pre><code>pip install vllm
+
+# Single GPU
+vllm serve meta-llama/Llama-3.1-8B-Instruct \
+    --gpu-memory-utilization 0.9
+
+# Multi-GPU tensor parallel
+vllm serve meta-llama/Llama-3.1-70B-Instruct \
+    --tensor-parallel-size 4 \
+    --quantization awq
+
+# OpenAI-compatible API na localhost:8000</code></pre>
+
+<p><strong>Kluczowe features:</strong></p>
+<ul>
+<li><strong>PagedAttention</strong> — efektywne KV cache (od UC Berkeley)</li>
+<li><strong>Continuous batching</strong> — dynamiczne laczenie requestow</li>
+<li><strong>Chunked prefill</strong> — rownowazenie prefill i decode</li>
+<li><strong>Speculative decoding</strong> — przyspieszenie z draft model</li>
+<li><strong>Prefix caching</strong> — cache wspolnych prefixow</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Text Generation Inference (TGI) — Hugging Face</h3>
+<pre><code>docker run --gpus all -p 8080:80 \
+    -v $PWD/data:/data \
+    ghcr.io/huggingface/text-generation-inference:latest \
+    --model-id meta-llama/Llama-3.1-8B-Instruct</code></pre>
+<p>Podobne featury do vLLM, dobrze zintegrowane z HF ecosystem.</p>
+</div>
+
+<div class="card">
+<h3>NVIDIA Triton + TensorRT-LLM</h3>
+<p>Najwyzsza wydajnosc na NVIDIA GPU. Trudniejsze w setup, ale 2-3× szybsze.</p>
+</div>
+
+<div class="card">
+<h3>Ollama (dev/small scale)</h3>
+<pre><code>ollama serve  # production-ready dla small/medium scale</code></pre>
+<p>Pod spodem llama.cpp, prosty deploy.</p>
+</div>
+
+<div class="card">
+<h3>MLC LLM</h3>
+<p>Multi-platform: serwer + mobile + browser (WebGPU).</p>
+</div>
+
+<h2>KV Cache — zrozumienie kluczowe</h2>
+<p>W generation, model dla kazdego tokenu liczy K i V dla wszystkich poprzednich tokenow.
+<strong>KV cache</strong> zapisuje to, by nie przeliczac.</p>
+
+<pre><code>Bez cache: dla N tokenow, przy generowaniu N+1 → przelicz wszystkie N
+Z cache:   przy generowaniu N+1 → przelicz tylko nowy</code></pre>
+
+<p><strong>Rozmiar KV cache:</strong></p>
+<pre><code>KV_size = 2 × num_layers × num_kv_heads × head_dim × seq_len × dtype_bytes
+
+Llama 3 8B, kontekst 8192:
+2 × 32 × 8 × 128 × 8192 × 2 (BF16) = 1 GB
+
+Llama 3 70B, kontekst 8192:
+2 × 80 × 8 × 128 × 8192 × 2 = 2.6 GB</code></pre>
+
+<p>Dla dlugich kontekstow (100k+) KV cache zajmuje <strong>wiecej niz sam model</strong>!</p>
+
+<h3>KV cache optimizations</h3>
+<ul>
+<li><strong>Quantization</strong> — INT8/INT4 KV cache (2-4× mniej pamieci)</li>
+<li><strong>PagedAttention</strong> (vLLM) — like virtual memory dla KV</li>
+<li><strong>Sliding window</strong> — limit kontekstu w attention</li>
+<li><strong>Multi-query / Grouped-query attention</strong> — mniej K/V heads</li>
+</ul>
+
+<h2>Prompt Caching — masowa oszczednosc</h2>
+<p>Anthropic, OpenAI i inni wprowadzili <strong>prompt caching</strong> — system prompt + initial context sa cache'owane przez kilka minut.</p>
+
+<pre><code># Anthropic prompt caching
+client.messages.create(
+    model="claude-opus-4-7",
+    system=[
+        {
+            "type": "text",
+            "text": LONG_SYSTEM_PROMPT,  # 5000 tokens
+            "cache_control": {"type": "ephemeral"}
+        }
+    ],
+    messages=[...]
+)
+
+# Pierwszy request: pelna cena (nawet +25% za cache write)
+# Kolejne (w 5 min): 90% taniej dla cached czesci</code></pre>
+
+<p><strong>Praktycznie:</strong> 70-95% redukcja kosztow dla aplikacji z duzym system promptem.</p>
+
+<h2>Batching strategies</h2>
+
+<h3>Static batching</h3>
+<p>Czekaj az zbierzesz N requestow, processuj razem.</p>
+<p><strong>Problem:</strong> opoznienie dla pierwszych requestow.</p>
+
+<h3>Continuous batching (vLLM)</h3>
+<p>Dynamicznie dodawaj/usuwaj requesty z batcha podczas inferencji.</p>
+<p><strong>2-10× wyzszy throughput</strong> niz static batching.</p>
+
+<pre><code>Time:    t1     t2     t3     t4
+Req A:   [████████████]
+Req B:        [████████████]
+Req C:             [████████]
+Req D:                  [████████████]
+
+Kazdy request konczy sie gdy gotowy, nowy moze dolaczyc.</code></pre>
+
+<h2>Speculative Decoding</h2>
+<p>Przyspieszenie z draft model:</p>
+<pre><code>1. Maly model (draft) generuje N tokenow szybko
+2. Duzy model weryfikuje wszystkie N naraz
+3. Akceptuj tokeny gdzie sie zgadzaja
+4. Mismatch → kontynuuj od tego punktu
+
+Przyspieszenie: 2-3× przy zachowaniu jakosci duzego modelu.</code></pre>
+
+<p>W 2026 standard w vLLM/TGI.</p>
+
+<h2>Streaming</h2>
+<p>User widzi tokeny w trakcie generacji (jak ChatGPT).
+<strong>Time to first token (TTFT)</strong> jest kluczowy dla UX.</p>
+
+<pre><code># Anthropic streaming
+with client.messages.stream(
+    model="claude-sonnet-4-6",
+    messages=[...]
+) as stream:
+    for text in stream.text_stream:
+        print(text, end="", flush=True)</code></pre>
+
+<h2>Monitoring i observability</h2>
+
+<h3>Co mierzyc:</h3>
+<ol>
+<li><strong>Latency</strong>: TTFT, TPOT (time per output token), total</li>
+<li><strong>Throughput</strong>: tokens/s, requests/s</li>
+<li><strong>GPU</strong>: utilization, memory, temperatura</li>
+<li><strong>Cost</strong>: per request, per user, per feature</li>
+<li><strong>Quality</strong>: hallucinations, refusals (sample real conversations)</li>
+<li><strong>Errors</strong>: timeouts, OOM, model errors</li>
+</ol>
+
+<h3>Tools:</h3>
+<ul>
+<li><strong>Langfuse</strong> (open source) — najlepszy compromise</li>
+<li><strong>LangSmith</strong> (LangChain) — managed</li>
+<li><strong>Helicone</strong> — proxy + analytics</li>
+<li><strong>Anthropic Console</strong> — natywne dla Claude</li>
+<li><strong>Phoenix Arize</strong> — open source</li>
+<li><strong>Prometheus + Grafana</strong> — niskopoziomowe metrics</li>
+</ul>
+
+<h2>Cost optimization — checklist</h2>
+
+<div class="card">
+<h3>1. Cache aggressively</h3>
+<ul>
+<li>Prompt caching (90% redukcja)</li>
+<li>Semantic cache (Redis + embeddings) dla powtarzajacych sie queries</li>
+<li>HTTP cache headers</li>
+</ul>
+
+<h3>2. Use right-sized model</h3>
+<ul>
+<li>Haiku/Mini dla prostych zadan → 10× tansze</li>
+<li>Opus/o3 tylko dla skomplikowanych</li>
+</ul>
+
+<h3>3. Batch API</h3>
+<ul>
+<li>Anthropic/OpenAI batch API → 50% taniej (async, godziny)</li>
+<li>Dla nie-real-time tasks (analiza, classification)</li>
+</ul>
+
+<h3>4. Optimize prompts</h3>
+<ul>
+<li>Krotszy system prompt</li>
+<li>Few-shot tylko gdy potrzebne</li>
+<li>Compression (krotki format, bez redundancji)</li>
+</ul>
+
+<h3>5. Reduce output length</h3>
+<ul>
+<li><code>max_tokens</code> z glowa</li>
+<li>"Odpowiedz zwiezle"</li>
+<li>Structured output (JSON &gt; prose)</li>
+</ul>
+
+<h3>6. RAG optimization</h3>
+<ul>
+<li>Mniej chunks = krotszy kontekst = taniej</li>
+<li>Reranking → top 3-5 zamiast top 20</li>
+<li>Chunk size optimization</li>
+</ul>
+
+<h3>7. Self-host gdy duza skala</h3>
+<ul>
+<li>$0.001/query API → $50/mc dla 50k queries</li>
+<li>Self-host: ~$1000/mc fixed (GPU rental) — break even przy 1M+ queries</li>
+</ul>
+
+<h3>8. Streaming + early stopping</h3>
+<ul>
+<li>User widzi odpowiedz wczesniej</li>
+<li>Moze przerwac niepotrzebne tokeny</li>
+</ul>
+</div>
+
+<h2>Bezpieczenstwo w produkcji</h2>
+
+<h3>Input safety:</h3>
+<ul>
+<li><strong>PII detection</strong> — usun przed wyslaniem do LLM</li>
+<li><strong>Prompt injection guard</strong> — Lakera, Llama Guard</li>
+<li><strong>Topic boundary</strong> — odmow odpowiedzi off-topic</li>
+<li><strong>Rate limiting</strong> — per user/IP</li>
+<li><strong>Input length limits</strong> — max prompt size</li>
+</ul>
+
+<h3>Output safety:</h3>
+<ul>
+<li><strong>Content filtering</strong> — Llama Guard, OpenAI Moderation</li>
+<li><strong>PII redaction</strong> — przed zwroceniem userowi</li>
+<li><strong>Hallucination detection</strong> — RAG faithfulness check</li>
+<li><strong>Refusal validation</strong> — czasem model "powinien" odmowic</li>
+</ul>
+
+<h3>Operational:</h3>
+<ul>
+<li><strong>API keys rotation</strong> — regularna</li>
+<li><strong>Audit logs</strong> — wszystkie requesty</li>
+<li><strong>Cost limits</strong> — per user, per day</li>
+<li><strong>Anomaly detection</strong> — niezwykle wzorce uzycia</li>
+</ul>
+
+<h2>Wzorzec: Production-grade LLM endpoint</h2>
+
+<pre><code>from fastapi import FastAPI, HTTPException
+from anthropic import Anthropic
+
+app = FastAPI()
+client = Anthropic()
+
+@app.post("/chat")
+async def chat(request: ChatRequest):
+    # 1. Auth & rate limit
+    user = await authenticate(request)
+    await rate_limit_check(user)
+
+    # 2. Input validation & safety
+    if len(request.message) > MAX_INPUT_LEN:
+        raise HTTPException(400, "Message too long")
+
+    if await contains_pii(request.message):
+        request.message = await redact_pii(request.message)
+
+    if await is_prompt_injection(request.message):
+        log_security_event(user, "injection_attempt")
+        raise HTTPException(400, "Invalid input")
+
+    # 3. Cache check
+    cache_key = hash(request.message + request.system)
+    if cached := await cache.get(cache_key):
+        return cached
+
+    # 4. RAG retrieval
+    context = await retrieve_context(request.message)
+
+    # 5. Build prompt with caching
+    response = await client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        system=[
+            {
+                "type": "text",
+                "text": SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"}
+            },
+            {
+                "type": "text",
+                "text": f"Context:\n{context}"
+            }
+        ],
+        messages=[{"role": "user", "content": request.message}]
+    )
+
+    # 6. Output safety
+    answer = response.content[0].text
+    if await contains_harmful(answer):
+        return SAFE_FALLBACK_RESPONSE
+
+    # 7. Cache, log, monitor
+    await cache.set(cache_key, answer, ttl=3600)
+    await log_interaction(user, request, response)
+    await metrics.record(latency=..., tokens=...)
+
+    return {"answer": answer, "sources": context.sources}</code></pre>
+
+<h2>Capacity planning</h2>
+
+<pre><code>Scenariusz: 1000 uzytkownikow, 10 queries/user/day = 10k queries/dzien
+
+API approach:
+  Cost: 10k × $0.005 = $50/dzien = $1500/mc
+  Pros: zero ops, perfect scaling
+  Cons: cost scales linearly
+
+Self-host (Llama 3.1 70B AWQ na A100 80GB):
+  GPU: 1× A100 (~$1500/mc rental, lub wlasna ~$15k upfront)
+  Throughput: ~50 req/s = 4.3M queries/dzien (znacznie wiecej niz 10k)
+  Cost: $1500/mc fixed
+  Break-even: ~30k queries/mc
+
+Decyzja:
+  < 30k queries/mc: API
+  > 30k queries/mc: Self-host (lub wielu modeli)</code></pre>
+
+<h2>Ewolucja — od POC do produkcji</h2>
+
+<div class="card">
+<h3>1. POC (1 weekend)</h3>
+<ul>
+<li>Anthropic API + Streamlit</li>
+<li>1 prompt, 1 model</li>
+<li>In-memory state</li>
+</ul>
+
+<h3>2. Beta (1 miesiac)</h3>
+<ul>
+<li>FastAPI/Next.js backend</li>
+<li>Postgres dla state</li>
+<li>Langfuse dla observability</li>
+<li>Eval dataset (50 examples)</li>
+</ul>
+
+<h3>3. Production (3-6 miesiecy)</h3>
+<ul>
+<li>Auto-scaling (Kubernetes/serverless)</li>
+<li>Caching (Redis + prompt cache)</li>
+<li>RAG (Qdrant/Pinecone)</li>
+<li>Multi-model fallback</li>
+<li>Comprehensive monitoring</li>
+</ul>
+
+<h3>4. Scale (6+ miesiecy)</h3>
+<ul>
+<li>Self-hosted dla cost optimization</li>
+<li>Custom fine-tunes dla specyficznych zadan</li>
+<li>Multi-region deployment</li>
+<li>SLA monitoring</li>
+</ul>
+</div>
+
+<h2>Trendy 2026</h2>
+<ol>
+<li><strong>Long context bez RAG</strong> — modele 1M+ kontekst, "wrzuc wszystko"</li>
+<li><strong>Reasoning models</strong> — chain of thought wbudowane (Claude extended thinking, o3)</li>
+<li><strong>Agentic systems</strong> — wieloetapowe agenty zamiast pojedynczych queries</li>
+<li><strong>Edge inference</strong> — modele na phone (Llama 3.2 1B/3B)</li>
+<li><strong>Specialized models</strong> — coding, math, vision-specific (zamiast general-purpose)</li>
+<li><strong>MoE w inference</strong> — wieksze modele bez wyzszych kosztow</li>
+<li><strong>MCP</strong> — universal tool protocol</li>
+<li><strong>Computer Use</strong> — agenci jako digital workers</li>
+</ol>
+
+<div class="nav-bottom">
+<a href="11-ewaluacja.html">← 11 — Ewaluacja</a>
+<a href="index.html">Spis tresci →</a>
+</div>
+</div>
+</body>
+</html>

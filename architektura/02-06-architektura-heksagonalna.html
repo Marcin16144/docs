@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02-06 — Architektura heksagonalna</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="02-wzorce-architektoniczne.html">02 — Wzorce</a>
+        <span class="sep">/</span>
+        <span class="title">Architektura heksagonalna</span>
+    </div>
+    <div class="container">
+        <h1>Architektura heksagonalna</h1>
+        <p class="subtitle">Ports &amp; Adapters — izolacja domeny od infrastruktury przez jasne kontrakty (porty) i wymienne implementacje (adaptery).</p>
+
+        <h2>Czym jest architektura heksagonalna?</h2>
+        <p>Architektura heksagonalna (Ports &amp; Adapters), zaproponowana przez Alistaira Cockburna, to wzorzec w ktorym <strong>domena aplikacji jest izolowana od swiata zewnetrznego</strong> za pomoca portow (interfejsow) i adapterow (implementacji). Rdzen aplikacji nie wie nic o bazach danych, frameworkach ani protokolach komunikacji.</p>
+
+<pre><code>                    ┌──────────────────────┐
+                    │    REST Adapter       │
+                    │   (Spring MVC)        │
+                    └──────────┬────────────┘
+                               │
+                    ┌──────────▼────────────┐
+    ┌───────────┐   │      INPUT PORT       │   ┌────────────┐
+    │  CLI      │──►│    (interfejs)        │   │  Message   │
+    │  Adapter  │   │                       │   │  Adapter   │
+    └───────────┘   │  ┌─────────────────┐  │   └─────┬──────┘
+                    │  │                 │  │         │
+                    │  │    DOMAIN       │  │◄────────┘
+                    │  │    CORE         │  │
+                    │  │  (logika biz.)  │  │
+                    │  │                 │  │
+                    │  └─────────────────┘  │
+                    │                       │
+                    │    OUTPUT PORT         │
+                    │    (interfejs)        │
+                    └──────────┬────────────┘
+                               │
+              ┌────────────────┼────────────────┐
+              │                │                │
+    ┌─────────▼──┐   ┌────────▼───┐   ┌───────▼────┐
+    │ PostgreSQL │   │  Redis     │   │  External  │
+    │  Adapter   │   │  Adapter   │   │  API       │
+    └────────────┘   └────────────┘   └────────────┘</code></pre>
+
+        <h2>Kluczowe koncepcje</h2>
+
+        <div class="card">
+            <h3>Domena (Core)</h3>
+            <p>Serce aplikacji — zawiera logike biznesowa, encje, Value Objects, reguly. <strong>Nie zalezy od zadnej infrastruktury.</strong></p>
+        </div>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Porty (Ports)</h3>
+                <p>Interfejsy definiujace kontrakty komunikacji:</p>
+                <ul>
+                    <li><strong>Input Ports</strong> (Driving) — jak swiat zewnetrzny wywoluje domene</li>
+                    <li><strong>Output Ports</strong> (Driven) — jak domena komunikuje sie ze swiatem zewnetrznym</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Adaptery (Adapters)</h3>
+                <p>Implementacje portow — mosty miedzy technologia a domena:</p>
+                <ul>
+                    <li><strong>Input Adapters</strong> — REST controller, CLI, GUI, Message listener</li>
+                    <li><strong>Output Adapters</strong> — SQL repo, HTTP klient, email adapter</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Struktura projektu</h2>
+<pre><code>src/
+├── domain/                          # RDZEN — zero zaleznosci
+│   ├── model/
+│   │   ├── Order.java               # Encja domenowa
+│   │   ├── OrderId.java             # Value Object
+│   │   ├── Money.java               # Value Object
+│   │   └── OrderStatus.java         # Enum
+│   ├── port/
+│   │   ├── input/                   # Input Ports (use cases)
+│   │   │   ├── CreateOrderUseCase.java
+│   │   │   ├── GetOrderUseCase.java
+│   │   │   └── CancelOrderUseCase.java
+│   │   └── output/                  # Output Ports
+│   │       ├── OrderRepository.java
+│   │       ├── PaymentGateway.java
+│   │       └── NotificationSender.java
+│   └── service/
+│       └── OrderService.java        # Implementacja use case'ow
+│
+├── adapter/
+│   ├── input/                       # Input Adapters (driving)
+│   │   ├── rest/
+│   │   │   ├── OrderController.java
+│   │   │   ├── OrderRequest.java
+│   │   │   └── OrderResponse.java
+│   │   ├── cli/
+│   │   │   └── OrderCli.java
+│   │   └── messaging/
+│   │       └── OrderEventListener.java
+│   └── output/                      # Output Adapters (driven)
+│       ├── persistence/
+│       │   ├── JpaOrderRepository.java
+│       │   ├── OrderEntity.java
+│       │   └── OrderMapper.java
+│       ├── payment/
+│       │   └── StripePaymentAdapter.java
+│       └── notification/
+│           └── EmailNotificationAdapter.java
+│
+└── config/
+    └── BeanConfiguration.java       # Wiring</code></pre>
+
+        <h2>Porty — szczegoly</h2>
+
+        <h3>Input Ports (Use Cases)</h3>
+<pre><code>// Port wejsciowy — definiuje co aplikacja potrafi zrobic
+public interface CreateOrderUseCase {
+    OrderId execute(CreateOrderCommand command);
+}
+
+public interface GetOrderUseCase {
+    OrderView execute(GetOrderQuery query);
+}
+
+public interface CancelOrderUseCase {
+    void execute(CancelOrderCommand command);
+}
+
+// Komenda (dane wejsciowe)
+public record CreateOrderCommand(
+    String customerId,
+    List&lt;OrderItemDto&gt; items,
+    String shippingAddress
+) {}</code></pre>
+
+        <h3>Output Ports (SPI)</h3>
+<pre><code>// Port wyjsciowy — czego domena potrzebuje od infrastruktury
+public interface OrderRepository {
+    void save(Order order);
+    Optional&lt;Order&gt; findById(OrderId id);
+    List&lt;Order&gt; findByCustomerId(String customerId);
+}
+
+public interface PaymentGateway {
+    PaymentResult charge(Money amount, PaymentMethod method);
+    void refund(PaymentId paymentId);
+}
+
+public interface NotificationSender {
+    void sendOrderConfirmation(Order order);
+    void sendShipmentNotification(Order order, TrackingInfo info);
+}</code></pre>
+
+        <h2>Adaptery — implementacje</h2>
+
+        <h3>Input Adapter — REST Controller</h3>
+<pre><code>@RestController
+@RequestMapping("/api/orders")
+public class OrderController {
+    // Kontroler zalezy od PORTU, nie od implementacji
+    private final CreateOrderUseCase createOrder;
+    private final GetOrderUseCase getOrder;
+
+    @PostMapping
+    public ResponseEntity&lt;OrderResponse&gt; create(
+            @RequestBody OrderRequest request) {
+        // Mapowanie: HTTP request --► Command domenowy
+        var command = new CreateOrderCommand(
+            request.customerId(),
+            request.items(),
+            request.shippingAddress()
+        );
+
+        OrderId id = createOrder.execute(command);
+
+        return ResponseEntity
+            .created(URI.create("/api/orders/" + id.value()))
+            .body(new OrderResponse(id.value()));
+    }
+}</code></pre>
+
+        <h3>Output Adapter — Repozytorium JPA</h3>
+<pre><code>@Repository
+public class JpaOrderRepository implements OrderRepository {
+    private final JpaOrderEntityRepository jpaRepo;
+    private final OrderMapper mapper;
+
+    @Override
+    public void save(Order order) {
+        // Mapowanie: Encja domenowa --► Encja JPA
+        OrderEntity entity = mapper.toEntity(order);
+        jpaRepo.save(entity);
+    }
+
+    @Override
+    public Optional&lt;Order&gt; findById(OrderId id) {
+        return jpaRepo.findById(id.value())
+            .map(mapper::toDomain);
+    }
+}</code></pre>
+
+        <h3>Output Adapter — External API</h3>
+<pre><code>@Component
+public class StripePaymentAdapter implements PaymentGateway {
+    private final StripeClient stripeClient;
+
+    @Override
+    public PaymentResult charge(Money amount, PaymentMethod method) {
+        try {
+            var charge = stripeClient.charges().create(
+                ChargeCreateParams.builder()
+                    .setAmount(amount.toCents())
+                    .setCurrency("pln")
+                    .setSource(method.token())
+                    .build()
+            );
+            return PaymentResult.success(
+                new PaymentId(charge.getId()));
+        } catch (StripeException e) {
+            return PaymentResult.failure(e.getMessage());
+        }
+    }
+}</code></pre>
+
+        <h2>Implementacja domeny (Service)</h2>
+<pre><code>// Implementacja use case'a — czysta logika biznesowa
+public class OrderService implements CreateOrderUseCase,
+                                     CancelOrderUseCase {
+    private final OrderRepository orderRepo;
+    private final PaymentGateway paymentGateway;
+    private final NotificationSender notifications;
+
+    @Override
+    public OrderId execute(CreateOrderCommand cmd) {
+        // Czysta logika biznesowa — zero infrastruktury
+        Order order = Order.create(
+            cmd.customerId(), cmd.items(), cmd.shippingAddress()
+        );
+
+        PaymentResult payment = paymentGateway.charge(
+            order.getTotal(), cmd.paymentMethod()
+        );
+
+        if (payment.isFailure()) {
+            throw new PaymentFailedException(payment.errorMessage());
+        }
+
+        order.markAsPaid(payment.paymentId());
+        orderRepo.save(order);
+        notifications.sendOrderConfirmation(order);
+
+        return order.getId();
+    }
+}</code></pre>
+
+        <h2>Korzysci z testowania</h2>
+<pre><code>TESTOWANIE HEKSAGONALNE:
+
+Unit testy domeny:              Testy integracyjne:
+┌─────────────────────┐        ┌─────────────────────┐
+│ Domain + Mocki       │        │ Adapter + Real       │
+│ (InMemory repo)      │        │ (Testcontainers)     │
+│ SZYBKIE              │        │ WOLNIEJSZE           │
+│ Bez infrastruktury   │        │ Z infrastruktura     │
+└─────────────────────┘        └─────────────────────┘
+
+Testy akceptacyjne (E2E):
+┌────────────────────────────────────────────┐
+│ Input Adapter --► Domain --► Output Adapter │
+│ (HTTP request --► logika --► baza danych)   │
+└────────────────────────────────────────────┘</code></pre>
+
+        <h3>Test domeny z InMemory Adapter</h3>
+<pre><code>class OrderServiceTest {
+    // InMemory adapter — test bez bazy danych
+    private InMemoryOrderRepository orderRepo =
+        new InMemoryOrderRepository();
+    private FakePaymentGateway paymentGateway =
+        new FakePaymentGateway();
+    private SpyNotificationSender notifications =
+        new SpyNotificationSender();
+
+    private CreateOrderUseCase useCase =
+        new OrderService(orderRepo, paymentGateway, notifications);
+
+    @Test
+    void shouldCreateOrder() {
+        var command = new CreateOrderCommand(
+            "cust-1",
+            List.of(new OrderItemDto("prod-1", 2)),
+            "Warszawa"
+        );
+
+        OrderId id = useCase.execute(command);
+
+        assertThat(orderRepo.findById(id)).isPresent();
+        assertThat(notifications.sentConfirmations()).hasSize(1);
+    }
+
+    @Test
+    void shouldRejectWhenPaymentFails() {
+        paymentGateway.willFail("Insufficient funds");
+
+        assertThatThrownBy(() -&gt; useCase.execute(command))
+            .isInstanceOf(PaymentFailedException.class);
+    }
+}</code></pre>
+
+        <h2>Porownanie z Clean Architecture</h2>
+<pre><code>Heksagonalna:                   Clean Architecture (Uncle Bob):
+
+  ┌─────────────────────┐       ┌─────────────────────────┐
+  │ Adaptery zewnetrzne │       │ Frameworks &amp; Drivers     │
+  │  ┌───────────────┐  │       │  ┌─────────────────────┐│
+  │  │    Porty      │  │       │  │  Interface Adapters  ││
+  │  │ ┌───────────┐ │  │       │  │  ┌───────────────┐  ││
+  │  │ │  Domain   │ │  │       │  │  │  Use Cases    │  ││
+  │  │ │  Core     │ │  │       │  │  │ ┌───────────┐ │  ││
+  │  │ └───────────┘ │  │       │  │  │ │ Entities  │ │  ││
+  │  └───────────────┘  │       │  │  │ └───────────┘ │  ││
+  └─────────────────────┘       │  │  └───────────────┘  ││
+                                │  └─────────────────────┘│
+  2 warstwy logiczne            └─────────────────────────┘
+  (inside/outside)              4 warstwy koncentryczne</code></pre>
+
+        <table>
+            <thead><tr><th>Aspekt</th><th>Heksagonalna</th><th>Clean Architecture</th></tr></thead>
+            <tbody>
+                <tr><td>Autor</td><td>Alistair Cockburn</td><td>Robert C. Martin</td></tr>
+                <tr><td>Warstwy</td><td>2 (inside/outside)</td><td>4 koncentryczne</td></tr>
+                <tr><td>Terminologia</td><td>Ports &amp; Adapters</td><td>Entities, Use Cases, Adapters, Frameworks</td></tr>
+                <tr><td>Kierunek zaleznosci</td><td>Ku centrum</td><td>Ku centrum (Dependency Rule)</td></tr>
+                <tr><td>Nacisk</td><td>Izolacja domeny od I/O</td><td>Pelna separacja warstw</td></tr>
+            </tbody>
+        </table>
+        <p>W praktyce oba podejscia prowadza do bardzo podobnej struktury kodu.</p>
+
+        <h2>Kierunek zaleznosci</h2>
+<pre><code>ZASADA: Zaleznosci zawsze wskazuja DO SRODKA (ku domenie)
+
+Adaptery ──────► Porty ──────► Domena
+
+OK:  Controller --► CreateOrderUseCase --► Order
+OK:  JpaOrderRepo --► OrderRepository (implementuje interfejs domeny)
+
+ZLE: Order --► JpaOrderRepository (NIGDY — domena nie zna infrastruktury)
+ZLE: OrderService --► HttpClient (NIGDY — uzyj output portu)</code></pre>
+
+        <h2>Kiedy stosowac?</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Idealny dla</h3>
+                <ul>
+                    <li>Zlozonej logiki biznesowej (DDD)</li>
+                    <li>Latwej wymiany technologii</li>
+                    <li>Wielu interfejsow wejsciowych (REST, CLI, events)</li>
+                    <li>Wysokiej testowalnosci</li>
+                    <li>Dlugowiecznych systemow (5+ lat)</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Nadmiarowy dla</h3>
+                <ul>
+                    <li>Prostych aplikacji CRUD</li>
+                    <li>Prototypow i MVP</li>
+                    <li>Bardzo malych projektow (1-2 osob)</li>
+                    <li>Skryptow i narzedzi jednorazowych</li>
+                    <li>Projektow z ograniczonym budzetem</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Zalety i wady</h2>
+        <table>
+            <thead><tr><th>Zalety</th><th>Wady</th></tr></thead>
+            <tbody>
+                <tr><td>Domena wolna od zaleznosci infrastrukturalnych</td><td>Wiecej kodu boilerplate (mapowania, interfejsy)</td></tr>
+                <tr><td>Latwa wymiana adapterow</td><td>Krzywa uczenia sie dla zespolu</td></tr>
+                <tr><td>Doskonala testowalnosc</td><td>Overhead dla prostych operacji CRUD</td></tr>
+                <tr><td>Jasne granice i kontrakty</td><td>Ryzyko over-engineering w malych projektach</td></tr>
+                <tr><td>Naturalnie wspiera DDD</td><td>Wiecej plikow i katalogow</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Podsumowanie</h2>
+        <p>Architektura heksagonalna to <strong>fundament dla systemow z bogata logika biznesowa</strong>. Izolacja domeny przez porty i adaptery daje niezrownana testowalnosc i elastycznosc technologiczna. Kluczowe jest utrzymanie zasady, ze zaleznosci zawsze wskazuja ku centrum — domena nigdy nie wie o infrastrukturze.</p>
+
+        <div class="nav-bottom">
+            <a href="02-05-cqrs.html">&larr; 02-05 CQRS</a>
+            <a href="02-07-serverless.html">02-07 Serverless &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

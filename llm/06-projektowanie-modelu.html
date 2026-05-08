@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>06 — Projektowanie modelu LLM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<span class="title">06 — Projektowanie modelu</span>
+</div>
+<div class="container">
+<h1>Projektowanie modelu LLM</h1>
+<p class="subtitle">Decyzje architektoniczne, skala i pipeline treningowy nowoczesnego LLM.</p>
+
+<h2>Kiedy projektowac wlasny model?</h2>
+<p><strong>99% przypadkow: NIE projektuj wlasnego LLM.</strong> Zamiast tego uzyj:</p>
+<ul>
+<li>Komercyjnego API (Claude, GPT, Gemini)</li>
+<li>Open source modelu z fine-tuningiem (Llama, Mistral, Qwen)</li>
+<li>RAG zamiast trenowania na wlasnych danych</li>
+</ul>
+
+<div class="card">
+<p><strong>Projektowanie wlasnego LLM ma sens gdy:</strong></p>
+<ul>
+<li>Masz unikalne wymagania niespelnione przez istniejace modele</li>
+<li>Pracujesz w specjalistycznej domenie (genomika, prawo, finanse) z duzymi specjalistycznymi danymi</li>
+<li>Masz budzet $1M+ i zespol 5+ ML engineers</li>
+<li>Wymagana jest pelna kontrola nad modelem (regulacje, IP)</li>
+</ul>
+</div>
+
+<p>W praktyce: wiekszosc firm projektuje <strong>adaptery</strong> lub <strong>fine-tuningi</strong> istniejacych modeli, nie modele od zera.</p>
+
+<p>Jesli mimo wszystko chcesz przejsc do treningu od zera — zobacz osobny rozdzial <a href="06-01-trening-od-zera.html">06-01 Trening od zera</a>.</p>
+
+<h2>Proces projektowania (od zera)</h2>
+
+<h3>Krok 1: Definicja problemu</h3>
+<p>Pytania do odpowiedzenia:</p>
+<ul>
+<li><strong>Co model ma robic?</strong> (chat, code, klasyfikacja, embeddings)</li>
+<li><strong>Jakie jezyki?</strong> (mono- czy multilingual)</li>
+<li><strong>Jaki kontekst?</strong> (4k, 32k, 200k, 1M tokenow)</li>
+<li><strong>Jakie ograniczenia?</strong> (latency, cost, hardware)</li>
+<li><strong>Modalnosci?</strong> (text-only, vision, audio, video)</li>
+<li><strong>Czy reasoning?</strong> (standardowy vs reasoning model)</li>
+</ul>
+
+<h3>Krok 2: Wybor architektury</h3>
+<table>
+<thead>
+<tr><th>Wybor</th><th>Opcje</th><th>Domyslny w 2026</th></tr>
+</thead>
+<tbody>
+<tr><td>Typ</td><td>Decoder-only / Encoder-Decoder / MoE</td><td>Decoder-only lub MoE</td></tr>
+<tr><td>Attention</td><td>MHA / GQA / MQA</td><td>GQA (Grouped-Query)</td></tr>
+<tr><td>Position</td><td>RoPE / ALiBi / NoPE</td><td>RoPE z YARN</td></tr>
+<tr><td>Normalization</td><td>LayerNorm / RMSNorm</td><td>RMSNorm</td></tr>
+<tr><td>Activation</td><td>ReLU / GeLU / SwiGLU</td><td>SwiGLU</td></tr>
+<tr><td>MoE?</td><td>Tak / Nie</td><td>Tak dla &gt;70B params</td></tr>
+</tbody>
+</table>
+
+<h3>Krok 3: Okreslenie skali</h3>
+<p>Chinchilla-optimal: <strong>~20 tokenow na parametr</strong>.</p>
+<p>W 2026 trenuje sie "over-trained" — znacznie wiecej tokenow per parameter dla lepszej inferencji:</p>
+<pre><code>Llama 3 8B:    15T tokenow (1875 tokens/param)
+Llama 3 70B:   15T tokenow (214 tokens/param)
+Llama 4 (MoE): ~30T tokenow
+
+Trade-off:
+- Wiecej tokenow = lepszy model, ale drozszy trening
+- Sweet spot: 100-500 tokens/param dla malych modeli</code></pre>
+
+<h3>Krok 4: Dane</h3>
+<p><strong>Najwazniejszy element. Lepsze dane &gt; wiecej parametrow.</strong></p>
+<p>Pipeline danych:</p>
+<pre><code>Surowe dane (PB)
+    │
+    ▼
+Filtrowanie jezyka, NSFW, deduplikacja
+    │
+    ▼
+Quality filtering (klasyfikator jakosci)
+    │
+    ▼
+Decontamination (usuniecie eval data)
+    │
+    ▼
+Mix (web 70%, code 15%, math 8%, books 5%, reasoning 2%)
+    │
+    ▼
+Tokenizacja
+    │
+    ▼
+Dataset gotowy do treningu</code></pre>
+
+<div class="card">
+<p><strong>Co wazne:</strong></p>
+<ul>
+<li><strong>Jakosc &gt; Ilosc</strong> — model na 1T high-quality tokens &gt; 10T low-quality</li>
+<li><strong>Diversity</strong> — rozne zrodla, jezyki, domeny</li>
+<li><strong>Decontamination</strong> — eval datasets nie moga byc w trainie</li>
+<li><strong>Synthetic data</strong> — w 2025+ wiekszosc datasetow jest czesciowo syntetyczna</li>
+</ul>
+</div>
+
+<h3>Krok 5: Hyperparameters</h3>
+<p>Typowe dla nowoczesnych LLM:</p>
+<pre><code>config = {
+    # Architektura
+    "num_layers": 32,           # liczba blokow transformer
+    "hidden_size": 4096,        # wymiar embedding
+    "num_heads": 32,            # glowy attention
+    "num_kv_heads": 8,          # GQA — mniej KV heads
+    "intermediate_size": 14336,  # FFN dim (~3.5x hidden)
+    "vocab_size": 128256,
+    "max_position_embeddings": 131072,  # 128k context
+    "rope_theta": 500000,
+    "tie_word_embeddings": False,
+
+    # Trening
+    "learning_rate": 3e-4,
+    "lr_schedule": "cosine_with_warmup",
+    "warmup_steps": 2000,
+    "weight_decay": 0.1,
+    "gradient_clip": 1.0,
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.95,
+    "adam_epsilon": 1e-8,
+
+    # Batch
+    "global_batch_size": 4_194_304,  # 4M tokenow (typowe)
+    "sequence_length": 8192,          # podczas pre-trainingu
+
+    # Precision
+    "dtype": "bfloat16",      # lub "float8" dla H100
+    "use_flash_attention": True,
+}</code></pre>
+
+<h3>Krok 6: Pipeline treningowy</h3>
+<pre><code># Pseudo-kod treningu LLM
+import torch
+from torch.distributed import init_process_group
+from torch.nn.parallel import DistributedDataParallel
+
+# 1. Init distributed
+init_process_group(backend="nccl")
+
+# 2. Model + tokenizer
+model = LlamaForCausalLM(config)
+model = DistributedDataParallel(model)
+model = model.to(dtype=torch.bfloat16)
+
+# 3. Dataset (streaming dla duzych)
+dataset = load_streaming_dataset("c4")
+dataloader = DataLoader(dataset, batch_size=...)
+
+# 4. Optimizer + scheduler
+optimizer = torch.optim.AdamW(
+    model.parameters(),
+    lr=config["learning_rate"],
+    betas=(0.9, 0.95),
+    weight_decay=0.1
+)
+scheduler = get_cosine_schedule_with_warmup(
+    optimizer,
+    num_warmup_steps=2000,
+    num_training_steps=total_steps
+)
+
+# 5. Training loop
+for step, batch in enumerate(dataloader):
+    with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+        outputs = model(input_ids=batch["input_ids"])
+        loss = outputs.loss
+
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    optimizer.step()
+    scheduler.step()
+    optimizer.zero_grad()
+
+    # Checkpointing co N krokow
+    if step % 1000 == 0:
+        save_checkpoint(model, optimizer, step)
+
+    # Eval
+    if step % 5000 == 0:
+        run_evaluations(model)</code></pre>
+
+<h2>Mixture of Experts (MoE)</h2>
+<p>W 2025/2026 wiekszosc duzych modeli (Llama 4, DeepSeek V3, GPT-5) uzywa MoE.</p>
+
+<h3>Idea</h3>
+<p>Zamiast jednego duzego FFN — wiele "ekspertow", router wybiera 1-2 dla kazdego tokenu:</p>
+<pre><code>Input token
+    │
+    ▼
+[Router Network] → wybierz top-2 ekspertow
+    │
+    ├─→ Expert 1 ─┐
+    └─→ Expert 7 ─┴─→ Output (wazona suma)
+
+Inni eksperci (2-6, 8-N) pozostaja nieaktywni!</code></pre>
+
+<h3>Zalety</h3>
+<ul>
+<li><strong>Wiecej parametrow</strong> bez zwiekszenia kosztu inferencji</li>
+<li>Mixtral 8x7B: 47B total, ale tylko 13B aktywnych per token</li>
+<li>DeepSeek V3: 671B total, 37B aktywnych</li>
+</ul>
+
+<h3>Wyzwania</h3>
+<ul>
+<li><strong>Load balancing</strong> — eksperci musza byc rownomiernie uzywane</li>
+<li><strong>Komunikacja</strong> w distributed training (all-to-all)</li>
+<li><strong>Pamiec VRAM</strong> — wszystkie eksperci musza byc zaladowane</li>
+</ul>
+
+<h2>Reasoning models — projekt 2025+</h2>
+<p>Modele typu o1, o3, DeepSeek R1, Claude z extended thinking sa trenowane inaczej:</p>
+<pre><code>1. Pre-training (jak zwykle)
+2. SFT na rozwiazaniach krok-po-kroku (chain of thought)
+3. RL na poprawnych rozwiazaniach
+   - Model generuje dlugi CoT
+   - Verifier sprawdza koncowa odpowiedz
+   - Wzmacniamy lancuchy prowadzace do poprawnej odpowiedzi
+4. Distillation (opcjonalnie) — przekaz rozumowanie do mniejszego modelu</code></pre>
+<p>Efekt: model "mysli" znacznie dluzej (10s-10min), generuje setki/tysiace tokenow rozumowania, osiaga znacznie lepsze wyniki na matematyce, nauce, kodzie.</p>
+
+<h2>Adaptery zamiast pelnego treningu</h2>
+<p>Jesli chcesz "swoj model" — najczesciej wystarczy adaptacja istniejacego:</p>
+<table>
+<thead>
+<tr><th>Metoda</th><th>Koszt</th><th>Kiedy</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Prompt engineering</strong></td><td>$</td><td>Zacznij od tego</td></tr>
+<tr><td><strong>RAG</strong></td><td>$$</td><td>Gdy potrzebujesz wiedzy domenowej</td></tr>
+<tr><td><strong>Few-shot prompting</strong></td><td>$</td><td>Male dostosowania zachowania</td></tr>
+<tr><td><strong>LoRA fine-tuning</strong></td><td>$$$</td><td>Specyficzny styl, format, jezyk</td></tr>
+<tr><td><strong>Full fine-tuning</strong></td><td>$$$$</td><td>Bardzo specyficzna domena</td></tr>
+<tr><td><strong>Continued pre-training</strong></td><td>$$$$$</td><td>Nowy jezyk/domena na masowa skale</td></tr>
+<tr><td><strong>Trening od zera</strong></td><td>$$$$$$$$</td><td>Tylko z ogromnym budzetem</td></tr>
+</tbody>
+</table>
+<p>Szczegoly fine-tuningu — patrz rozdzial <a href="07-fine-tuning.html">07 — Fine-tuning</a>.</p>
+
+<h2>Przyklad: jak Anthropic projektuje Claude (publiczne info)</h2>
+<p>Anthropic publicznie nie ujawnia szczegolow, ale wiadomo:</p>
+<ul>
+<li>Architektura: Decoder-only Transformer (prawdopodobnie z MoE w najwiekszych)</li>
+<li>Trening: Pre-training + SFT + Constitutional AI (RLAIF)</li>
+<li>Specjalnosc: bezpieczenstwo, dlugi kontekst (200k+), agentic capabilities</li>
+<li>Reasoning: Claude moze "myslec" przed odpowiedzia (extended thinking)</li>
+</ul>
+
+<h2>Open-source playgrounds do nauki</h2>
+<p>Jesli chcesz <strong>nauczyc sie</strong> projektowania LLM:</p>
+<ol>
+<li><strong>nanoGPT</strong> (Andrej Karpathy) — minimalny GPT w 300 linijkach</li>
+<li><strong>MinGPT</strong> — edukacyjna implementacja</li>
+<li><strong>llm.c</strong> (Karpathy) — GPT-2 w czystym C/CUDA</li>
+<li><strong>TinyLlama</strong> — wytrenuj 1.1B model na 3T tokenach</li>
+<li><strong>OLMo</strong> (AI2) — w pelni open: dane, kod, model, training logs</li>
+</ol>
+
+<h2>Praktyczna rada</h2>
+
+<div class="card">
+<p><strong>Nie zaczynaj od zera.</strong> Zaczerpnij z TinyLlama, OLMo, Pythia. Zrozum architekture przez modyfikacje istniejacych, dzialajacych modeli. Dopiero potem (po latach doswiadczenia) zaprojektuj wlasny.</p>
+
+<p><strong>Co warto poznac doglebnie:</strong></p>
+<ol>
+<li>Tokenizacje (BPE, SentencePiece, tiktoken)</li>
+<li>Attention (zwlaszcza Flash Attention)</li>
+<li>Distributed training (FSDP, DeepSpeed)</li>
+<li>Mixed precision i gradient accumulation</li>
+<li>LR scheduling i warmup</li>
+<li>Data quality i filtering pipelines</li>
+</ol>
+<p>To konkretna wiedza, ktora zarabia.</p>
+</div>
+
+<p>Bardziej szczegolowy opis pelnego procesu treningu od zera znajdziesz w <a href="06-01-trening-od-zera.html">rozdziale 06-01</a>.</p>
+
+<div class="nav-bottom">
+<a href="05-frameworki-i-narzedzia.html">← 05 — Frameworki i narzedzia</a>
+<a href="07-fine-tuning.html">07 — Fine-tuning →</a>
+</div>
+</div>
+</body>
+</html>

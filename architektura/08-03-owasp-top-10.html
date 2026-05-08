@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>08-03 — OWASP Top 10</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}.card h3{margin-top:4px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="08-bezpieczenstwo.html">08 — Bezpieczenstwo</a>
+        <span class="sep">/</span>
+        <span class="title">OWASP Top 10</span>
+    </div>
+    <div class="container">
+        <h1>OWASP Top 10</h1>
+        <p class="subtitle">Dziesiec najkrytyczniejszych zagrozen bezpieczenstwa aplikacji webowych — ataki, zapobieganie i przyklady kodu.</p>
+
+        <h2>A01: Broken Access Control</h2>
+        <p>Uzytkownik moze wykonywac akcje lub widziec dane, do ktorych nie powinien miec dostepu.</p>
+<pre><code># IDOR (Insecure Direct Object Reference)
+GET /api/users/123/orders   # Moje zamowienia
+GET /api/users/456/orders   # Cudze — brak weryfikacji!</code></pre>
+        <div class="card">
+            <h3>Zapobieganie</h3>
+<pre><code>app.get('/api/users/:userId/orders', auth, async (req, res) =&gt; {
+  if (req.params.userId !== req.user.id
+      &amp;&amp; req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const orders = await orderService.getByUserId(req.params.userId);
+  res.json(orders);
+});</code></pre>
+            <p>Zasada: <strong>deny by default</strong> — biala lista dozwolonych akcji.</p>
+        </div>
+
+        <h2>A02: Cryptographic Failures</h2>
+        <p>Brak szyfrowania lub uzycie slabych algorytmow dla danych wrazliwych.</p>
+        <div class="card">
+            <h3>Hashowanie hasel</h3>
+<pre><code>// ZLE: MD5, SHA256 bez salt
+const hash = md5(password);
+
+// DOBRZE: bcrypt
+const bcrypt = require('bcrypt');
+const hash = await bcrypt.hash(password, 12);
+const valid = await bcrypt.compare(password, hash);
+
+// JESZCZE LEPIEJ: Argon2
+const argon2 = require('argon2');
+const hash = await argon2.hash(password, {
+  type: argon2.argon2id,
+  memoryCost: 65536,
+  timeCost: 3,
+  parallelism: 4
+});</code></pre>
+        </div>
+
+        <h2>A03: Injection</h2>
+        <p>Wstrzykniecie zloslliwego kodu do zapytan — SQL, NoSQL, OS commands.</p>
+        <div class="card">
+            <h3>SQL Injection i obrona</h3>
+<pre><code>// ZLE: konkatenacja stringow
+const q = `SELECT * FROM users WHERE email = '${email}'`;
+// Atak: email = "' OR '1'='1' --"
+// → Zwraca WSZYSTKICH uzytkownikow!
+
+// DOBRZE: parametryzowane zapytania
+const result = await db.query(
+  'SELECT * FROM users WHERE email = $1',
+  [email]
+);
+
+// DOBRZE: ORM (Prisma)
+const user = await prisma.user.findUnique({
+  where: { email: email }
+});</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>NoSQL Injection</h3>
+<pre><code>// ZLE: MongoDB — operator injection
+const user = await db.users.findOne({
+  email: req.body.email,         // moze byc {"$gt": ""}
+  password: req.body.password
+});
+
+// DOBRZE: walidacja typow
+if (typeof req.body.email !== 'string' ||
+    typeof req.body.password !== 'string') {
+  return res.status(400).json({ error: 'Invalid input' });
+}</code></pre>
+        </div>
+
+        <h2>A04: Insecure Design</h2>
+        <p>Bledy projektowe — brak rate limiting, threat modeling, limitow. Nie da sie naprawic kodem — wymaga zmiany architektury.</p>
+<pre><code>const rateLimit = require('express-rate-limit');
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minut
+  max: 5,                     // max 5 prob
+  message: 'Zbyt wiele prob logowania'
+});
+
+app.post('/login', loginLimiter, loginHandler);</code></pre>
+
+        <h2>A05: Security Misconfiguration</h2>
+        <p>Domyslne hasla, stack trace na produkcji, brak naglowkow bezpieczenstwa.</p>
+        <div class="card">
+            <h3>Security Headers (Helmet)</h3>
+<pre><code>const helmet = require('helmet');
+app.use(helmet());
+// → X-Content-Type-Options: nosniff
+// → X-Frame-Options: DENY
+// → Strict-Transport-Security: max-age=15552000
+// → Content-Security-Policy: ...
+
+// Wylacz stack trace na produkcji
+app.use((err, req, res, next) =&gt; {
+  res.status(err.status || 500).json({
+    error: process.env.NODE_ENV === 'production'
+      ? 'Internal Server Error'
+      : err.message
+  });
+});</code></pre>
+        </div>
+
+        <h2>A06: Vulnerable Components</h2>
+        <p>Uzycie bibliotek ze znanymi podatnosciami.</p>
+<pre><code># Audyt zaleznosci
+npm audit
+npm audit fix
+
+# Skanowanie Snyk
+npx snyk test</code></pre>
+<pre><code># .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10</code></pre>
+
+        <h2>A07: Authentication Failures</h2>
+        <p>Slabe hasla, brak MFA, podatnosc na brute force.</p>
+<pre><code>function validatePassword(password) {
+  const errors = [];
+  if (password.length &lt; 12) errors.push('Min. 12 znakow');
+  if (!/[A-Z]/.test(password)) errors.push('Wielka litera');
+  if (!/[a-z]/.test(password)) errors.push('Mala litera');
+  if (!/[0-9]/.test(password)) errors.push('Cyfra');
+  if (!/[^A-Za-z0-9]/.test(password)) errors.push('Znak specjalny');
+  if (COMMON_PASSWORDS.has(password.toLowerCase())) {
+    errors.push('Haslo zbyt popularne');
+  }
+  return errors;
+}
+
+// Timing-safe porownanie (zapobiega timing attacks)
+const crypto = require('crypto');
+function safeCompare(a, b) {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}</code></pre>
+
+        <h2>A08: Integrity Failures</h2>
+        <p>Brak weryfikacji zrodel kodu — zatrute zaleznosci, niezabezpieczony CI/CD.</p>
+<pre><code># Uzywaj npm ci (nie npm install) na produkcji
+npm ci
+
+# Subresource Integrity w HTML:
+&lt;script src="https://cdn.example.com/lib.js"
+  integrity="sha384-oqVuAfXRKap7fdgc..."
+  crossorigin="anonymous"&gt;&lt;/script&gt;</code></pre>
+
+        <h2>A09: Logging Failures</h2>
+        <p>Brak logowania zdarzen bezpieczenstwa — ataki pozostaja niewykryte.</p>
+<pre><code>const securityLogger = {
+  loginSuccess: (userId, ip) =&gt;
+    log.info('AUTH_SUCCESS', { userId, ip }),
+  loginFailure: (email, ip, reason) =&gt;
+    log.warn('AUTH_FAILURE', { email, ip, reason }),
+  accessDenied: (userId, resource) =&gt;
+    log.warn('ACCESS_DENIED', { userId, resource }),
+  suspiciousActivity: (userId, action) =&gt;
+    log.error('SUSPICIOUS', { userId, action })
+};</code></pre>
+
+        <h2>A10: SSRF</h2>
+        <p>Serwer wykonuje zapytanie do URL podanego przez uzytkownika — dostep do zasobow wewnetrznych.</p>
+<pre><code>// Atak:
+POST /api/fetch-image
+{ "url": "http://169.254.169.254/latest/meta-data/" }
+
+// Zapobieganie:
+async function validateUrl(inputUrl) {
+  const parsed = new URL(inputUrl);
+
+  // Tylko HTTPS
+  if (parsed.protocol !== 'https:')
+    throw new Error('Only HTTPS');
+
+  // Zablokuj prywatne IP
+  const addrs = await dns.resolve4(parsed.hostname);
+  for (const ip of addrs) {
+    if (isPrivateIP(ip))
+      throw new Error('Private IPs blocked');
+  }
+
+  // Biala lista domen (najlepsze)
+  const ALLOWED = ['cdn.example.com', 'images.example.com'];
+  if (!ALLOWED.includes(parsed.hostname))
+    throw new Error('Domain not allowed');
+}</code></pre>
+
+        <h2>Content Security Policy (CSP)</h2>
+<pre><code>Content-Security-Policy:
+  default-src 'self';
+  script-src 'self' 'nonce-abc123';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: https://cdn.example.com;
+  connect-src 'self' https://api.example.com;
+  frame-ancestors 'none';</code></pre>
+
+        <h2>Walidacja danych wejsciowych</h2>
+<pre><code>const Joi = require('joi');
+
+const createUserSchema = Joi.object({
+  name: Joi.string().min(2).max(100).required()
+    .pattern(/^[a-zA-Z\s\-']+$/),
+  email: Joi.string().email().required(),
+  age: Joi.number().integer().min(18).max(120),
+  role: Joi.string().valid('user', 'editor').default('user')
+});
+
+app.post('/api/users', async (req, res) =&gt; {
+  const { error, value } = createUserSchema.validate(
+    req.body, { abortEarly: false, stripUnknown: true }
+  );
+  if (error) return res.status(400).json({
+    errors: error.details.map(d =&gt; d.message)
+  });
+  // ...
+});</code></pre>
+
+        <h2>Podsumowanie</h2>
+        <table>
+            <thead><tr><th>#</th><th>Zagrozenie</th><th>Kluczowa obrona</th></tr></thead>
+            <tbody>
+                <tr><td>A01</td><td>Broken Access Control</td><td>Weryfikacja uprawnien, deny by default</td></tr>
+                <tr><td>A02</td><td>Cryptographic Failures</td><td>bcrypt/Argon2, HTTPS, rotacja kluczy</td></tr>
+                <tr><td>A03</td><td>Injection</td><td>Parametryzowane zapytania</td></tr>
+                <tr><td>A04</td><td>Insecure Design</td><td>Rate limiting, threat modeling</td></tr>
+                <tr><td>A05</td><td>Security Misconfiguration</td><td>Helmet, security headers</td></tr>
+                <tr><td>A06</td><td>Vulnerable Components</td><td>npm audit, Dependabot</td></tr>
+                <tr><td>A07</td><td>Auth Failures</td><td>MFA, silne hasla</td></tr>
+                <tr><td>A08</td><td>Integrity Failures</td><td>Lock files, SRI</td></tr>
+                <tr><td>A09</td><td>Logging Failures</td><td>Security logging, SIEM</td></tr>
+                <tr><td>A10</td><td>SSRF</td><td>Biala lista URL, blokada prywatnych IP</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kluczowe wnioski</h2>
+        <ol>
+            <li><strong>Waliduj wszystkie dane wejsciowe</strong> — uzytkownik to niezaufane zrodlo</li>
+            <li><strong>Parametryzowane zapytania</strong> zawsze — nigdy konkatenacja stringow</li>
+            <li><strong>Defense in depth</strong> — wiele warstw obrony</li>
+            <li><strong>Security headers</strong> — latwi do wdrozenia, duzy efekt</li>
+            <li><strong>Loguj i monitoruj</strong> — nie obronisz sie przed tym, czego nie widzisz</li>
+            <li><strong>Aktualizuj zaleznosci</strong> — znane podatnosci to najlatwiejszy wektor ataku</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="08-02-oauth-i-jwt.html">&larr; OAuth 2.0 i JWT</a>
+            <a href="08-bezpieczenstwo.html">Bezpieczenstwo &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

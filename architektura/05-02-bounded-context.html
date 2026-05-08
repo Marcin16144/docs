@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>05-02 — Bounded Context</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="05-domain-driven-design.html">05 — DDD</a>
+        <span class="sep">/</span>
+        <span class="title">Bounded Context</span>
+    </div>
+    <div class="container">
+        <h1>Bounded Context</h1>
+        <p class="subtitle">Wyrazne granice modelu domenowego — klucz do zarzadzania zlozonoscia duzych systemow.</p>
+
+        <h2>Czym jest Bounded Context?</h2>
+        <p>Bounded Context (kontekst ograniczony) to wyrazna granica, wewnatrz ktorej dany model domenowy ma spojne, jednoznaczne znaczenie. Poza ta granica te same slowa moga oznaczac zupelnie co innego.</p>
+
+<pre><code>Kontekst Sprzedazy:
+  Klient = potencjalny nabywca z budzetem, historia zakupow, segmentem
+
+Kontekst Wysylki:
+  Klient = adres dostawy, preferencje doreczenia, telefon kontaktowy
+
+Kontekst Rozliczen:
+  Klient = NIP, dane do faktury, historia platnosci, limit kredytowy
+
+Kontekst Obslugi:
+  Klient = historia zgloszen, poziom SLA, preferowany kanal kontaktu</code></pre>
+        <p>Proba stworzenia jednej klasy <code>Klient</code> z wszystkimi tymi polami prowadzi do "God Object" — klasy, ktora wie i robi za duzo.</p>
+
+        <h2>Definiowanie granic kontekstow</h2>
+        <div class="card">
+            <h3>Sygnaly, ze potrzebujesz osobnych kontekstow</h3>
+            <ul>
+                <li>Ten sam termin ma rozne znaczenia w roznych czesciach systemu</li>
+                <li>Rozne zespoly pracuja nad roznymi aspektami domeny</li>
+                <li>Zmiany w jednej czesci nie powinny wymuszac zmian w innej</li>
+                <li>Rozne modele danych lepiej pasuja do roznych czesci systemu</li>
+                <li>Rozne wymagania niefunkcjonalne (np. wysoka dostepnosc vs spojnosc)</li>
+            </ul>
+        </div>
+
+        <h3>Przyklad: system e-commerce</h3>
+<pre><code>// Kontekst: Katalog Produktow
+class Product {
+    id: ProductId;
+    name: string;
+    description: string;
+    images: Image[];
+    categories: Category[];
+    specifications: Map&lt;string, string&gt;;
+    seoMetadata: SeoMetadata;
+}
+
+// Kontekst: Zarzadzanie Magazynem
+// Ten sam "produkt" ale zupelnie inny model
+class StockItem {
+    sku: SKU;
+    warehouseLocation: string;
+    quantityOnHand: number;
+    reorderLevel: number;
+    supplier: SupplierId;
+    lastRestockedAt: Date;
+}
+
+// Kontekst: Cennik
+class PricedItem {
+    productId: ProductId;
+    basePrice: Money;
+    discountRules: DiscountRule[];
+    taxCategory: TaxCategory;
+    currency: Currency;
+    priceValidUntil: Date;
+}</code></pre>
+
+        <h2>Context Mapping — wzorce relacji</h2>
+        <p>Konteksty nie zyja w izolacji — musza ze soba wspolpracowac. Context Map opisuje relacje miedzy kontekstami.</p>
+
+        <h3>Anti-Corruption Layer (ACL)</h3>
+        <p>Warstwa tlumaczaca miedzy kontekstami. Chroni Twoj model przed "zanieczyszczeniem" przez zewnetrzny model.</p>
+<pre><code>class InventoryAntiCorruptionLayer {
+    constructor(private inventoryClient: InventoryServiceClient) {}
+
+    async checkAvailability(
+        productId: ProductId, quantity: number
+    ): Promise&lt;ProductAvailability&gt; {
+        // Wywolanie do zewnetrznego kontekstu
+        const stockData = await this.inventoryClient
+            .getStockLevel(productId.value);
+
+        // Tlumaczenie na nasz model domenowy
+        return new ProductAvailability({
+            productId,
+            isAvailable: stockData.qty_on_hand &gt;= quantity,
+            availableQuantity: stockData.qty_on_hand,
+            estimatedRestockDate: stockData.next_delivery_date
+                ? new Date(stockData.next_delivery_date)
+                : null,
+        });
+    }
+}
+
+// Nasz kontekst uzywa SWOJEGO modelu, nie modelu magazynu
+class OrderService {
+    constructor(private inventoryACL: InventoryAntiCorruptionLayer) {}
+
+    async placeOrder(request: PlaceOrderRequest): Promise&lt;Order&gt; {
+        for (const item of request.items) {
+            const availability = await this.inventoryACL
+                .checkAvailability(item.productId, item.quantity);
+            if (!availability.isAvailable) {
+                throw new ProductUnavailableError(item.productId);
+            }
+        }
+        // ... reszta logiki zamowienia
+    }
+}</code></pre>
+
+        <h3>Shared Kernel</h3>
+        <p>Wspolna czesc modelu, dzielona przez dwa konteksty. Musi byc mala i stabilna — zmiany wplywaja na oba konteksty.</p>
+<pre><code>// Shared Kernel — wspoldzielone Value Objects
+class Money {
+    constructor(
+        readonly amount: number,
+        readonly currency: Currency,
+    ) {}
+
+    add(other: Money): Money {
+        this.ensureSameCurrency(other);
+        return new Money(this.amount + other.amount, this.currency);
+    }
+
+    subtract(other: Money): Money {
+        this.ensureSameCurrency(other);
+        return new Money(this.amount - other.amount, this.currency);
+    }
+
+    private ensureSameCurrency(other: Money): void {
+        if (this.currency !== other.currency)
+            throw new CurrencyMismatchError(this.currency, other.currency);
+    }
+}
+
+class Address {
+    constructor(
+        readonly street: string,
+        readonly city: string,
+        readonly postalCode: string,
+        readonly country: CountryCode,
+    ) {}
+}</code></pre>
+
+        <h3>Open Host Service</h3>
+        <p>Kontekst udostepnia dobrze zdefiniowane API (protokol) dla innych kontekstow. Konsumenci dostosowuja sie do tego protokolu.</p>
+<pre><code>// Kontekst Magazynu udostepnia Open Host Service
+interface InventoryAPI {
+    // Queries
+    getStockLevel(sku: string): Promise&lt;StockLevelResponse&gt;;
+    getStockLevels(skus: string[]): Promise&lt;StockLevelResponse[]&gt;;
+
+    // Commands
+    reserveStock(req: StockReservationRequest): Promise&lt;ReservationId&gt;;
+    releaseReservation(reservationId: string): Promise&lt;void&gt;;
+
+    // Events (webhooks lub message bus)
+    onStockDepleted(handler: (e: StockDepletedEvent) =&gt; void): void;
+    onStockReplenished(handler: (e: StockReplenishedEvent) =&gt; void): void;
+}
+
+// Published Language — wspolny format wymiany danych
+interface StockLevelResponse {
+    sku: string;
+    quantityAvailable: number;
+    quantityReserved: number;
+    warehouse: string;
+    updatedAt: string; // ISO 8601
+}</code></pre>
+
+        <h2>Mapowanie kontekstow na zespoly</h2>
+        <p>Bounded Contexts naturalnie mapuja sie na strukture zespolow (zgodnie z prawem Conwaya). Kazdy kontekst powinien miec jeden wlascicielski zespol.</p>
+
+        <table>
+            <thead><tr><th>Relacja zespolow</th><th>Wzorzec kontekstowy</th><th>Charakterystyka</th></tr></thead>
+            <tbody>
+                <tr><td>Bliska wspolpraca</td><td>Partnership</td><td>Dwa zespoly wspolpracuja, zmiany koordynowane</td></tr>
+                <tr><td>Wspolny mikroserwis</td><td>Shared Kernel</td><td>Maly, wspolny modul — wymaga dyscypliny</td></tr>
+                <tr><td>Dostawca-konsument</td><td>Customer-Supplier</td><td>Dostawca priorytetyzuje potrzeby konsumenta</td></tr>
+                <tr><td>Bez wplywu</td><td>Conformist</td><td>Konsument dostosowuje sie lub buduje ACL</td></tr>
+                <tr><td>Izolacja</td><td>Separate Ways</td><td>Zespoly nie integruja sie — duplikacja OK</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Praktyczny przyklad: Context Map</h2>
+<pre><code>+-----------------+     ACL      +------------------+
+|   Zamowienia     |&lt;------------|   Platnosci       |
+|   (core domain)  |             |   (external)       |
++--------+--------+             +------------------+
+         |
+         | Domain Events
+         v
++-----------------+  Open Host  +------------------+
+|   Magazyn        |&lt;-----------|   Katalog          |
+|   (supporting)   |  Service   |   (supporting)     |
++--------+--------+             +------------------+
+         |
+         | Shared Kernel (Money, Address)
+         v
++-----------------+  Conformist +------------------+
+|   Wysylka        |------------&gt;|  Kurier API       |
+|   (supporting)   |             |  (external)       |
++-----------------+             +------------------+</code></pre>
+
+        <h2>Typowe bledy</h2>
+        <ul>
+            <li><strong>Zbyt duze konteksty</strong> — jesli kontekst ma setki encji, prawdopodobnie powinien byc rozbity</li>
+            <li><strong>Zbyt male konteksty</strong> — jeden agregat to za malo na osobny kontekst; prowadzi do nadmiernej komunikacji</li>
+            <li><strong>Brak ACL</strong> — bezposrednie uzycie modelu innego kontekstu "zanieczyszcza" Twoj model</li>
+            <li><strong>Shared Kernel jako smietnik</strong> — do Shared Kernel trafia wszystko, co "wydaje sie wspolne"</li>
+            <li><strong>Konteksty techniczne zamiast domenowych</strong> — podzial na "frontend", "backend", "baza danych" to nie Bounded Contexts</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="05-01-ubiquitous-language.html">&larr; Ubiquitous Language</a>
+            <a href="05-03-agregaty-i-encje.html">Agregaty, Encje, Value Objects &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

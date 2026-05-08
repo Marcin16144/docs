@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02-01 — Architektura monolityczna</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="02-wzorce-architektoniczne.html">02 — Wzorce</a>
+        <span class="sep">/</span>
+        <span class="title">Architektura monolityczna</span>
+    </div>
+    <div class="container">
+        <h1>Architektura monolityczna</h1>
+        <p class="subtitle">Jedna aplikacja, jeden deployment, jeden proces — klasyczne podejscie, ktore wciaz ma swoje miejsce.</p>
+
+        <h2>Czym jest monolit?</h2>
+        <p>Architektura monolityczna to podejscie, w ktorym cala aplikacja jest budowana, wdrazana i skalowana jako <strong>jedna, spojna jednostka</strong>. Wszystkie funkcjonalnosci — od interfejsu uzytkownika, przez logike biznesowa, po dostep do danych — dzialaja w ramach jednego procesu.</p>
+
+<pre><code>┌─────────────────────────────────────────────────┐
+│                   MONOLIT                        │
+│                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│  │    UI     │  │  Zamow.  │  │  Platn.  │      │
+│  │  Layer    │  │  Modul   │  │  Modul   │      │
+│  └──────────┘  └──────────┘  └──────────┘      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│  │  Uzytk.  │  │ Magazyn  │  │ Raporty  │      │
+│  │  Modul   │  │  Modul   │  │  Modul   │      │
+│  └──────────┘  └──────────┘  └──────────┘      │
+│                                                  │
+│  ┌─────────────────────────────────────────┐    │
+│  │         Wspolna baza danych             │    │
+│  └─────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────┘</code></pre>
+
+        <h2>Struktura typowego monolitu</h2>
+
+        <h3>Monolit jednowarstwowy (prosty)</h3>
+        <p>Cala logika w jednym projekcie bez wyraznego podzialu na moduly:</p>
+<pre><code>src/
+├── controllers/
+│   ├── OrderController.java
+│   ├── UserController.java
+│   └── PaymentController.java
+├── services/
+│   ├── OrderService.java
+│   ├── UserService.java
+│   └── PaymentService.java
+├── repositories/
+│   ├── OrderRepository.java
+│   └── UserRepository.java
+├── models/
+│   ├── Order.java
+│   └── User.java
+└── Application.java</code></pre>
+
+        <h3>Monolit modularny (strukturalny)</h3>
+        <p>Podzial na moduly z wyraznymi granicami i odpowiedzialnosciami:</p>
+<pre><code>src/
+├── modules/
+│   ├── orders/
+│   │   ├── api/OrderController.java
+│   │   ├── domain/Order.java
+│   │   ├── service/OrderService.java
+│   │   └── repository/OrderRepository.java
+│   ├── users/
+│   │   ├── api/UserController.java
+│   │   ├── domain/User.java
+│   │   └── service/UserService.java
+│   └── payments/
+│       ├── api/PaymentController.java
+│       └── service/PaymentService.java
+├── shared/
+│   ├── config/
+│   └── utils/
+└── Application.java</code></pre>
+
+        <h2>Deployment monolitu</h2>
+        <p>Caly kod jest pakowany w jeden artefakt (WAR, JAR, Docker image) i wdrazany atomowo:</p>
+<pre><code>Pipeline CI/CD:
+
+Kod --> Build --> Test --> Pakiet --> Deploy
+                           │
+                     app-v2.3.war
+                           │
+               ┌───────────┴──────────┐
+               ▼                      ▼
+          Serwer 1              Serwer 2
+         (aktywny)             (standby)</code></pre>
+
+        <p><strong>Typowe strategie wdrozenia:</strong></p>
+        <ul>
+            <li><strong>Rolling deployment</strong> — stopniowa wymiana instancji, zero downtime</li>
+            <li><strong>Blue-Green deployment</strong> — dwa identyczne srodowiska, przelaczenie ruchu</li>
+            <li><strong>Canary release</strong> — nowa wersja trafia na maly procent ruchu</li>
+        </ul>
+
+        <h2>Strategie skalowania</h2>
+
+        <h3>Skalowanie pionowe (Vertical Scaling)</h3>
+<pre><code>Przed:                    Po:
+┌────────┐               ┌────────────┐
+│ 4 CPU  │               │   16 CPU   │
+│ 8 GB   │  ──upgrade──► │   64 GB    │
+│ 100 GB │               │   1 TB SSD │
+└────────┘               └────────────┘</code></pre>
+        <ul>
+            <li>Prosta realizacja — wiekszy serwer</li>
+            <li>Ograniczona skalowalnosc (fizyczne limity sprzetu)</li>
+            <li>Single point of failure</li>
+        </ul>
+
+        <h3>Skalowanie poziome (Horizontal Scaling)</h3>
+<pre><code>                  ┌──────────┐
+            ┌────►│ Instancja│
+            │     │    1     │
+┌────────┐  │     └──────────┘
+│  Load  │──┤     ┌──────────┐
+│Balancer│──┼────►│ Instancja│
+│        │──┤     │    2     │
+└────────┘  │     └──────────┘
+            │     ┌──────────┐
+            └────►│ Instancja│
+                  │    3     │
+                  └──────────┘</code></pre>
+        <ul>
+            <li>Wymaga aplikacji bezstanowej (stateless)</li>
+            <li>Sesje w zewnetrznym store (Redis, baza danych)</li>
+            <li>Wspoldzielona baza danych moze byc waskim gardlem</li>
+        </ul>
+
+        <h2>Modularyzacja wewnatrz monolitu</h2>
+
+        <h3>Zasady dobrej modularyzacji</h3>
+        <ol>
+            <li><strong>Wysoka spojnosc</strong> (high cohesion) — modul realizuje jedna odpowiedzialnosc</li>
+            <li><strong>Luzne powiazania</strong> (low coupling) — moduly komunikuja sie przez interfejsy</li>
+            <li><strong>Enkapsulacja</strong> — wewnetrzne szczegoly modulu sa ukryte</li>
+            <li><strong>Jawne zaleznosci</strong> — graf zaleznosci jest czytelny i jednokierunkowy</li>
+        </ol>
+
+        <h3>Egzekwowanie granic modulow</h3>
+<pre><code>// Interfejs publiczny modulu zamowien
+public interface OrderFacade {
+    OrderDto createOrder(CreateOrderCommand cmd);
+    OrderDto getOrder(OrderId id);
+    List&lt;OrderDto&gt; getUserOrders(UserId userId);
+}
+
+// Implementacja ukryta w module
+class OrderFacadeImpl implements OrderFacade {
+    private final OrderRepository repository;
+    private final OrderValidator validator;
+
+    @Override
+    public OrderDto createOrder(CreateOrderCommand cmd) {
+        validator.validate(cmd);
+        Order order = Order.create(cmd);
+        repository.save(order);
+        return OrderDto.from(order);
+    }
+}</code></pre>
+
+        <h3>Testy architektury (ArchUnit)</h3>
+<pre><code>// ArchUnit — test architektury w Javie
+@Test
+void orderModuleShouldNotDependOnPaymentInternals() {
+    noClasses()
+        .that().resideInAPackage("..orders..")
+        .should().dependOnClassesThat()
+        .resideInAPackage("..payments.internal..")
+        .check(classes);
+}</code></pre>
+
+        <h2>Kiedy monolit to wlasciwy wybor?</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Idealny dla</h3>
+                <ul>
+                    <li><strong>Malych zespolow</strong> (2-10 deweloperow)</li>
+                    <li><strong>MVP i prototypow</strong> — szybki time-to-market</li>
+                    <li><strong>Domen o niskiej zlozonosci</strong></li>
+                    <li><strong>Ograniczonego budzetu</strong> — niski koszt infrastruktury</li>
+                    <li><strong>Poczatku nowego projektu</strong> — lepsza eksploracja domeny</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Problematyczny dla</h3>
+                <ul>
+                    <li><strong>Duzych zespolow</strong> (50+ deweloperow)</li>
+                    <li><strong>Niezaleznego skalowania</strong> komponentow</li>
+                    <li><strong>Roznych cykli wdrozen</strong> modulow</li>
+                    <li><strong>Polyglot programming</strong> — rozne technologie</li>
+                    <li><strong>Ekstremalnej dostepnosci</strong> — fault isolation</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Zalety i wady</h2>
+        <table>
+            <thead><tr><th>Zalety</th><th>Wady</th></tr></thead>
+            <tbody>
+                <tr><td>Prostosc wdrozenia i debugowania</td><td>Dluzszy czas buildu przy rosnacym kodzie</td></tr>
+                <tr><td>Brak zlozonosci rozproszonej</td><td>Jeden deployment dla wszystkich zmian</td></tr>
+                <tr><td>Latwe testowanie end-to-end</td><td>Awaria modulu moze zepsuc cala aplikacje</td></tr>
+                <tr><td>Proste transakcje ACID</td><td>Trudnosc skalowania komponentow</td></tr>
+                <tr><td>Niski prog wejscia</td><td>Technologiczny lock-in</td></tr>
+                <tr><td>Nizszy koszt infrastruktury</td><td>Big Ball of Mud przy braku dyscypliny</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Sciezki migracji z monolitu</h2>
+
+        <h3>Strangler Fig Pattern</h3>
+        <p>Stopniowe zastepowanie fragmentow monolitu nowymi serwisami — jak figowiec dusiciel owijajacy drzewo:</p>
+<pre><code>Faza 1: Monolit obsluguje 100% ruchu
+┌───────────────┐
+│   MONOLIT     │  &lt;-- caly ruch
+└───────────────┘
+
+Faza 2: Nowe funkcje w serwisach
+┌──────────┐  ┌─────────────┐
+│ Serwis A │  │   MONOLIT   │
+└──────────┘  └─────────────┘
+     ↑              ↑
+     └──── Router ──┘
+
+Faza 3: Stopniowa ekstrakcja
+┌──────────┐ ┌──────────┐ ┌─────────┐
+│ Serwis A │ │ Serwis B │ │ MONOLIT │
+└──────────┘ └──────────┘ │(mniejsz)│
+     ↑            ↑       └─────────┘
+     └──── Router ────────────┘
+
+Faza 4: Monolit wygaszony
+┌──────────┐ ┌──────────┐ ┌──────────┐
+│ Serwis A │ │ Serwis B │ │ Serwis C │
+└──────────┘ └──────────┘ └──────────┘</code></pre>
+
+        <h3>Branch by Abstraction</h3>
+        <ol>
+            <li>Utworz abstrakcje (interfejs) nad fragmentem do wydzielenia</li>
+            <li>Zmien klientow, aby korzystali z abstrakcji</li>
+            <li>Utworz nowa implementacje (mikroserwis)</li>
+            <li>Przelacz abstrakcje na nowa implementacje</li>
+            <li>Usun stara implementacje</li>
+        </ol>
+
+        <h2>Anty-wzorce monolitu</h2>
+
+        <div class="card">
+            <h3>Big Ball of Mud</h3>
+            <p>Brak wyraznej struktury — kazdy modul zalezy od kazdego. Zmiany wywoluja kaskade nieoczekiwanych efektow ubocznych. Kod staje sie nieutrzymywalny.</p>
+        </div>
+
+        <div class="card">
+            <h3>Distributed Monolith</h3>
+            <p>Pozornie osobne serwisy, ale scisle powiazane — deploy wymaga jednoczesnego wdrozenia wielu serwisow. To najgorsze z dwoch swiatow: zlozonosc systemu rozproszonego plus sztywnosc monolitu.</p>
+        </div>
+
+        <h2>Podsumowanie</h2>
+        <p>Architektura monolityczna nie jest "przestarzala" ani "zla". To <strong>swiadomy wybor architektoniczny</strong>, ktory w wielu sytuacjach jest optymalny. Kluczem jest utrzymanie wewnetrznej modularyzacji, aby w przyszlosci migracja do innej architektury (jesli zajdzie taka potrzeba) byla wykonalna.</p>
+
+        <div class="nav-bottom">
+            <a href="02-wzorce-architektoniczne.html">&larr; 02 — Wzorce architektoniczne</a>
+            <a href="02-02-architektura-warstwowa.html">02-02 Architektura warstwowa &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

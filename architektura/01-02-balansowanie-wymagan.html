@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>01-02 — Balansowanie wymagan</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="01-podstawy-architektury.html">01 — Podstawy</a>
+        <span class="sep">/</span>
+        <span class="title">Balansowanie wymagan</span>
+    </div>
+    <div class="container">
+        <h1>Balansowanie wymagan</h1>
+        <p class="subtitle">Jak godzic wymagania funkcjonalne z niefunkcjonalnymi, gdy sie wzajemnie wykluczaja.</p>
+
+        <h2>Wymagania funkcjonalne vs niefunkcjonalne</h2>
+        <div class="card">
+            <h3>Funkcjonalne (FR) — co system robi</h3>
+            <ul>
+                <li>Uzytkownik moze zlozyc zamowienie</li>
+                <li>System wysyla potwierdzenie e-mail</li>
+                <li>Administrator generuje raport sprzedazy</li>
+            </ul>
+        </div>
+        <div class="card">
+            <h3>Niefunkcjonalne (NFR) — jak system dziala</h3>
+            <ul>
+                <li>Strona laduje sie &lt; 2s (wydajnosc)</li>
+                <li>10 000 rownoczesnych uzytkownikow (skalowalnosc)</li>
+                <li>Dostepnosc 99.9% (niezawodnosc)</li>
+                <li>Szyfrowanie AES-256 (bezpieczenstwo)</li>
+            </ul>
+        </div>
+
+        <h2>Dlaczego balansowanie jest trudne?</h2>
+<pre><code>Bezpieczenstwo  ←——→  Wygoda uzytkowania
+Wydajnosc       ←——→  Spojnosc danych
+Elastycznosc    ←——→  Prostota</code></pre>
+
+        <h2>Techniki balansowania</h2>
+
+        <div class="card">
+            <h3>1. Priorytetyzacja atrybutow</h3>
+            <table>
+                <thead><tr><th>Priorytet</th><th>Atrybut</th><th>Uzasadnienie</th></tr></thead>
+                <tbody>
+                    <tr><td>1</td><td>Bezpieczenstwo</td><td>Dane medyczne, HIPAA</td></tr>
+                    <tr><td>2</td><td>Dostepnosc</td><td>System krytyczny 24/7</td></tr>
+                    <tr><td>3</td><td>Wydajnosc</td><td>UX &lt; 200ms response</td></tr>
+                    <tr><td>4</td><td>Skalowalnosc</td><td>Wzrost 10x w 2 lata</td></tr>
+                    <tr><td>5</td><td>Modyfikowalnosc</td><td>Czeste zmiany wymagan</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>2. Quality Attribute Scenarios</h3>
+<pre><code>Zrodlo:      Uzytkownik
+Bodziec:     Klika "Zloz zamowienie"
+Artefakt:    Serwis zamowien
+Srodowisko:  Normalne obciazenie (1000 req/s)
+Odpowiedz:   Zamowienie przetworzone
+Miara:       &lt; 500ms w 99% przypadkow (p99)</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>3. Fitness Functions</h3>
+            <p>Automatyczne testy weryfikujace atrybuty jakosciowe:</p>
+<pre><code>// Fitness function — wydajnosc
+test("API &lt; 200ms at p95", async () =&gt; {
+    const results = await loadTest({
+        url: "/api/orders",
+        duration: "60s", rate: 1000
+    });
+    expect(results.p95).toBeLessThan(200);
+});
+
+// Fitness function — modularnosc
+test("No circular deps", () =&gt; {
+    const deps = analyzeModuleDependencies();
+    expect(deps.circular).toHaveLength(0);
+});</code></pre>
+        </div>
+
+        <h2>Typowe kompromisy w praktyce</h2>
+        <table>
+            <thead><tr><th>Wybor</th><th>Zyskujesz</th><th>Tracisz</th></tr></thead>
+            <tbody>
+                <tr><td>Mikroserwisy</td><td>Skalowalnosc, autonomia</td><td>Prostota, debugowanie</td></tr>
+                <tr><td>Async API</td><td>Luzny coupling, odpornosc</td><td>Prostota, debugowanie</td></tr>
+                <tr><td>NoSQL</td><td>Skalowalnosc, elastycznosc</td><td>Spojnosc, zlozone zapytania</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Zasada "good enough"</h2>
+        <p>Nie szukaj idealnego rozwiazania — szukaj wystarczajaco dobrego. Perfekcja jest wrogiem dostarczania.</p>
+
+        <div class="nav-bottom">
+            <a href="01-01-podejmowanie-decyzji-technicznych.html">&larr; Decyzje techniczne</a>
+            <a href="01-03-komunikacja-wizji-technicznej.html">Komunikacja wizji &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

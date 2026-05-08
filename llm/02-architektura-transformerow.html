@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02 - Architektura Transformerow</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<span class="title">02 - Architektura Transformerow</span>
+</div>
+<div class="container">
+<h1>Architektura Transformerow</h1>
+<p class="subtitle">Jak dziala Transformer - self-attention, multi-head attention i pelna architektura LLM.</p>
+
+<h2>Dlaczego Transformer?</h2>
+<p>Przed 2017 rokiem do przetwarzania jezyka uzywano glownie RNN i LSTM - sieci, ktore przetwarzaly tekst sekwencyjnie (slowo po slowie). Mialy dwa problemy:</p>
+<ol>
+<li><strong>Wolne</strong> - nie da sie ich latwo zrownoleglic</li>
+<li><strong>Slaba pamiec dlugoterminowa</strong> - gubily kontekst w dlugich tekstach</li>
+</ol>
+<p>W 2017 zespol Google opublikowal artykul "Attention is All You Need" (Vaswani et al.), ktory wprowadzil architekture <strong>Transformer</strong>. Caly wspolczesny ekosystem LLM (GPT, Claude, Llama) opiera sie na tej architekturze.</p>
+
+<h2>Glowna idea: Self-Attention</h2>
+<p><strong>Self-attention</strong> pozwala kazdemu tokenowi w sekwencji "zwracac uwage" na inne tokeny i obliczac, ktore z nich sa dla niego najwazniejsze.</p>
+
+<h3>Przyklad intuicyjny</h3>
+<pre><code>Zdanie: "Kot siedzi na macie, poniewaz jest ona ciepla."
+
+Pytanie: do czego odnosi sie slowo "ona"?
+
+Self-attention przy slowie "ona" oblicza wagi:
+- "Kot"      -&gt; 0.05
+- "siedzi"   -&gt; 0.02
+- "na"       -&gt; 0.01
+- "macie"    -&gt; 0.85   &lt;- najwyzsza waga!
+- "poniewaz" -&gt; 0.03
+- "jest"     -&gt; 0.02
+- "ciepla"   -&gt; 0.02
+
+Wniosek: "ona" odnosi sie do "maty"</code></pre>
+
+<h3>Mechanizm Q, K, V</h3>
+<div class="card">
+<p>Self-attention dla kazdego tokenu tworzy 3 wektory:</p>
+<ul>
+<li><strong>Q (Query)</strong> - "czego szukam?"</li>
+<li><strong>K (Key)</strong> - "co oferuje?"</li>
+<li><strong>V (Value)</strong> - "jaka jest moja zawartosc?"</li>
+</ul>
+<pre><code>Attention(Q, K, V) = softmax(Q . K^T / sqrt(d)) . V
+
+Krok 1: Q . K^T  - porownanie zapytan z kluczami (podobienstwo)
+Krok 2: / sqrt(d)- skalowanie (stabilnosc numeryczna)
+Krok 3: softmax  - normalizacja do prawdopodobienstw
+Krok 4: . V      - wazona suma wartosci</code></pre>
+</div>
+
+<h2>Multi-Head Attention</h2>
+<p>Zamiast jednego mechanizmu attention, uzywamy <strong>wielu glow (heads)</strong> rownolegle. Kazda glowa moze uczyc sie innego rodzaju relacji:</p>
+<ul>
+<li>Glowa 1: relacje gramatyczne (podmiot-orzeczenie)</li>
+<li>Glowa 2: relacje semantyczne (zaimek-poprzednik)</li>
+<li>Glowa 3: relacje pozycyjne (sasiadujace slowa)</li>
+<li>...</li>
+</ul>
+<pre><code>MultiHead(Q, K, V) = Concat(head_1, ..., head_h) . W^O
+
+gdzie head_i = Attention(Q . W^Q_i, K . W^K_i, V . W^V_i)</code></pre>
+<p>Typowo 8-128 glow w jednej warstwie.</p>
+
+<h2>Pelna architektura Transformer</h2>
+
+<h3>Decoder-only (GPT, Claude, Llama - wiekszosc LLM)</h3>
+<pre><code>+-----------------------------+
+|       Token Embeddings      |  &lt;- input
+|    + Positional Encoding    |
++--------------|--------------+
+               |
+        +------v------+
+        |  Block 1    |   ]
+        | (attention  |   |
+        |  + FFN)     |   |
+        +------|------+   |
+               |          |
+        +------v------+   |   N warstw
+        |  Block 2    |   |   (np. 32 dla
+        +------|------+   |    Llama 3 8B)
+               |          |
+              ...         |
+               |          |
+        +------v------+   |
+        |  Block N    |   ]
+        +------|------+
+               |
+        +------v------+
+        | Layer Norm  |
+        +------|------+
+               |
+        +------v------+
+        |   Linear    |   &lt;- projekcja na vocabulary
+        +------|------+
+               |
+        +------v------+
+        |   Softmax   |   &lt;- prawdopodobienstwa tokenow
+        +-------------+</code></pre>
+
+<h3>Pojedynczy blok Transformer</h3>
+<pre><code>Input
+  |
+  +--&gt; Layer Norm --&gt; Multi-Head Attention --&gt; + (residual)
+  |                                              |
+  |&lt;---------------------------------------------+
+  |
+  +--&gt; Layer Norm --&gt; Feed-Forward Network --&gt; + (residual)
+  |                                              |
+  |&lt;---------------------------------------------+
+  |
+Output</code></pre>
+
+<h2>Tokenizacja</h2>
+<p>Modele nie rozumieja surowego tekstu - pracuja na <strong>tokenach</strong>.</p>
+
+<h3>Byte Pair Encoding (BPE)</h3>
+<div class="card">
+<p>Najpopularniejszy algorytm tokenizacji (GPT, Llama):</p>
+<ol>
+<li>Zacznij od pojedynczych znakow</li>
+<li>Znajdz najczestsza pare sasiadujacych tokenow</li>
+<li>Polacz w jeden token</li>
+<li>Powtarzaj az osiagniesz docelowy rozmiar slownika (np. 100k)</li>
+</ol>
+</div>
+
+<h3>Przyklad</h3>
+<pre><code>"Hello world!"
+-&gt; Tokenizer
+-&gt; ["Hello", " world", "!"]
+-&gt; [9906, 1917, 0]  (token IDs)</code></pre>
+<pre><code>"Programming is fun"  -&gt;  ["Program", "ming", " is", " fun"]
+"przeprogramowanie"   -&gt;  ["prze", "program", "owanie"]</code></pre>
+
+<h3>Specjalne tokeny</h3>
+<ul>
+<li><code>&lt;|begin_of_text|&gt;</code> - start sekwencji</li>
+<li><code>&lt;|end_of_text|&gt;</code> - koniec sekwencji</li>
+<li><code>&lt;|im_start|&gt;</code> / <code>&lt;|im_end|&gt;</code> - granice wiadomosci w czacie</li>
+<li><code>[PAD]</code> - padding (wyrownanie batcha)</li>
+</ul>
+
+<h2>Positional Encoding</h2>
+<p>Self-attention sam w sobie nie zna <strong>kolejnosci</strong> tokenow. Trzeba dodac informacje o pozycji.</p>
+
+<h3>Sinusoidal (oryginalny Transformer)</h3>
+<pre><code>PE(pos, 2i)   = sin(pos / 10000^(2i/d))
+PE(pos, 2i+1) = cos(pos / 10000^(2i/d))</code></pre>
+
+<h3>Learned Positional Embeddings</h3>
+<p>Pozycje sa wyuczonymi wektorami (jak embeddingi tokenow).</p>
+
+<h3>RoPE (Rotary Position Embedding) - nowoczesny standard</h3>
+<p>Uzywany w Llama, Mistral. Pozwala na lepsze generalizowanie do dluzszych kontekstow niz widziane w treningu.</p>
+
+<h3>ALiBi (Attention with Linear Biases)</h3>
+<p>Alternatywa do RoPE, uzywana w niektorych modelach.</p>
+
+<h2>Encoder vs Decoder vs Encoder-Decoder</h2>
+<table>
+<thead>
+<tr><th>Typ</th><th>Przyklady</th><th>Zastosowanie</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Encoder-only</strong></td><td>BERT, RoBERTa</td><td>Klasyfikacja, NER, embeddingi</td></tr>
+<tr><td><strong>Decoder-only</strong></td><td>GPT, Claude, Llama</td><td>Generacja tekstu (autoregresyjna)</td></tr>
+<tr><td><strong>Encoder-Decoder</strong></td><td>T5, BART</td><td>Tlumaczenie, streszczanie</td></tr>
+</tbody>
+</table>
+<p><strong>Decoder-only</strong> dominuje obecnie w LLM. Generuje tekst token po tokenie, gdzie kazdy nowy token zalezy od wszystkich poprzednich.</p>
+
+<h2>Causal masking</h2>
+<p>W decoderze stosuje sie <strong>maske przyczynowa</strong> - token moze patrzyc tylko na tokeny <strong>przed</strong> soba, nigdy na te po nim. To kluczowe dla generacji.</p>
+<pre><code>Pozycja:    1  2  3  4  5
+Token 1:    1  0  0  0  0     &lt;- widzi tylko siebie
+Token 2:    1  1  0  0  0     &lt;- widzi 1 i 2
+Token 3:    1  1  1  0  0     &lt;- widzi 1, 2, 3
+Token 4:    1  1  1  1  0
+Token 5:    1  1  1  1  1</code></pre>
+
+<h2>Feed-Forward Network (FFN)</h2>
+<p>Kazdy blok Transformer zawiera FFN - zwykle 2-warstwowa siec:</p>
+<pre><code>FFN(x) = activation(x . W_1 + b_1) . W_2 + b_2</code></pre>
+<p>W nowoczesnych modelach (Llama, Mistral) uzywa sie <strong>SwiGLU</strong>:</p>
+<pre><code>SwiGLU(x) = (Swish(x . W_1) (x) (x . W_2)) . W_3</code></pre>
+<p>FFN ma typowo 4x wiecej parametrow niz attention. To tu "mieszka" wiekszosc wiedzy modelu.</p>
+
+<h2>Mixture of Experts (MoE)</h2>
+<p>Zamiast jednego duzego FFN, uzywamy wielu mniejszych "ekspertow" i routera, ktory wybiera 1-2 z nich dla kazdego tokenu.</p>
+<p><strong>Zalety:</strong> wiecej parametrow bez zwiekszenia kosztu inferencji.</p>
+<p>Przyklady: Mixtral 8x7B (47B params, ale tylko 13B aktywnych), GPT-4 (podejrzewane MoE), DeepSeek V3.</p>
+
+<h2>Skalowanie i Scaling Laws</h2>
+<p>Chinchilla scaling laws (DeepMind, 2022): aby model osiagnal optymalna wydajnosc, musi miec:</p>
+<ul>
+<li>~20 tokenow treningowych na kazdy parametr</li>
+</ul>
+<p>Przyklad: Llama 3 8B trenowano na ~15T tokenow (znacznie wiecej niz Chinchilla-optimal - to "over-trained" model, lepszy w inferencji).</p>
+
+<h2>Warstwy nowoczesnych LLM</h2>
+<div class="card">
+<p>Nowoczesne LLM (Llama 3, Claude) wprowadzily ulepszenia:</p>
+<ul>
+<li><strong>Pre-Layer Norm</strong> zamiast Post-Layer Norm (stabilnosc treningu)</li>
+<li><strong>RMSNorm</strong> zamiast LayerNorm (szybsze)</li>
+<li><strong>SwiGLU</strong> zamiast ReLU (lepsza jakosc)</li>
+<li><strong>RoPE</strong> zamiast sinusoidal (lepsze dlugie konteksty)</li>
+<li><strong>Grouped-Query Attention (GQA)</strong> - kompromis miedzy MHA a MQA, oszczedza pamiec</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="01-podstawy-llm.html">&larr; 01 - Podstawy LLM</a>
+<a href="03-trening-modeli.html">03 - Trening modeli &rarr;</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02-08 — Modular Monolith</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="02-wzorce-architektoniczne.html">02 — Wzorce</a>
+        <span class="sep">/</span>
+        <span class="title">Modular Monolith</span>
+    </div>
+    <div class="container">
+        <h1>Modular Monolith</h1>
+        <p class="subtitle">Prostosc deploymentu monolitu z klarownoscia granic modulow — zloty srodek miedzy monolitem a mikroserwisami.</p>
+
+        <h2>Czym jest Modular Monolith?</h2>
+        <p>Modular Monolith to architektura, ktora laczy <strong>prostosc deploymentu monolitu</strong> z <strong>klarownoscia granic modulow znana z mikroserwisow</strong>. System jest wdrazany jako jedna jednostka, ale wewnetrznie podzielony na autonomiczne moduly z jasno zdefiniowanymi granicami, interfejsami i zasadami komunikacji.</p>
+
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                    MODULAR MONOLITH                      │
+│                    (jeden deployment)                     │
+│                                                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │  Modul:     │  │  Modul:     │  │  Modul:     │     │
+│  │  Zamowienia │  │  Platnosci  │  │  Wysylka    │     │
+│  │             │  │             │  │             │     │
+│  │  ┌───────┐  │  │  ┌───────┐  │  │  ┌───────┐  │     │
+│  │  │ API   │  │  │  │ API   │  │  │  │ API   │  │     │
+│  │  │publicz│  │  │  │publicz│  │  │  │publicz│  │     │
+│  │  ├───────┤  │  │  ├───────┤  │  │  ├───────┤  │     │
+│  │  │Domena │  │  │  │Domena │  │  │  │Domena │  │     │
+│  │  ├───────┤  │  │  ├───────┤  │  │  ├───────┤  │     │
+│  │  │Infra  │  │  │  │Infra  │  │  │  │Infra  │  │     │
+│  │  └───────┘  │  │  └───────┘  │  │  └───────┘  │     │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘     │
+│         │                │                │              │
+│  ┌──────┴────────────────┴────────────────┴──────┐      │
+│  │       Wspoldzielona baza danych                │      │
+│  │    (ale osobne schematy per modul!)            │      │
+│  └────────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────┘</code></pre>
+
+        <h2>Dlaczego Modular Monolith?</h2>
+
+        <div class="card">
+            <h3>Problem z klasycznym monolitem</h3>
+<pre><code>Big Ball of Mud:
+
+  OrderService --► UserService --► PaymentService
+       ↑                │                │
+       └────────────────┘                │
+              ↑                          │
+              └──────────────────────────┘
+
+  Wszystko zalezy od wszystkiego.
+  Zmiana w jednym miejscu = niespodzianki wszedzie.</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Problem z przedwczesnymi mikroserwisami</h3>
+<pre><code>Mikroserwisy za wczesnie:
+
+  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐
+  │Svc A│  │Svc B│  │Svc C│  │Svc D│  │Svc E│
+  └─────┘  └─────┘  └─────┘  └─────┘  └─────┘
+
+  + Docker, Kubernetes, Service Mesh,
+    Distributed Tracing, Message Broker,
+    API Gateway, Circuit Breaker...
+
+  Ogromny overhead dla 5-osobowego zespolu.</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Modular Monolith — zloty srodek</h3>
+<pre><code>┌───────────────────────────────────────────┐
+│  [Zamowienia] [Platnosci] [Wysylka]       │
+│  (jasne granice, publiczne API)           │
+│                                           │
+│  Jeden deployment + proste operacje       │
+│  Gotowosc do przyszlej dekompozycji       │
+└───────────────────────────────────────────┘</code></pre>
+        </div>
+
+        <h2>Granice modulow</h2>
+
+        <h3>Zasady definiowania granic</h3>
+        <ol>
+            <li><strong>Bounded Context z DDD</strong> — modul = bounded context</li>
+            <li><strong>Wysoka kohezja</strong> — elementy w module sa silnie powiazane</li>
+            <li><strong>Luzne powiazania</strong> — moduly komunikuja sie tylko przez publiczne API</li>
+            <li><strong>Enkapsulacja</strong> — wewnetrzne klasy modulu sa niedostepne z zewnatrz</li>
+        </ol>
+
+        <h3>Struktura modulu</h3>
+<pre><code>modules/
+├── orders/                          # Modul zamowien
+│   ├── api/                         # PUBLICZNE API
+│   │   ├── OrderFacade.java         # Fasada — punkt wejscia
+│   │   ├── OrderDto.java            # DTO dla klientow
+│   │   ├── CreateOrderCommand.java  # Komendy
+│   │   └── OrderEvents.java         # Zdarzenia domenowe
+│   │
+│   ├── internal/                    # WEWNETRZNE — niedostepne
+│   │   ├── domain/
+│   │   │   ├── Order.java
+│   │   │   └── OrderPolicy.java
+│   │   ├── infrastructure/
+│   │   │   ├── JpaOrderRepository.java
+│   │   │   └── OrderEntity.java
+│   │   └── application/
+│   │       └── OrderService.java
+│   │
+│   └── OrderModuleConfig.java       # Konfiguracja Spring
+│
+├── payments/                        # Modul platnosci
+│   ├── api/
+│   │   └── PaymentFacade.java
+│   └── internal/ ...
+│
+└── shipping/                        # Modul wysylki
+    ├── api/
+    │   └── ShippingFacade.java
+    └── internal/ ...</code></pre>
+
+        <h3>Fasada modulu — publiczny kontrakt</h3>
+<pre><code>// Jedyny punkt wejscia do modulu zamowien
+public interface OrderFacade {
+    // Komendy
+    OrderId createOrder(CreateOrderCommand command);
+    void cancelOrder(CancelOrderCommand command);
+    void addItem(AddItemCommand command);
+
+    // Zapytania
+    OrderDto getOrder(OrderId orderId);
+    List&lt;OrderDto&gt; getOrdersByCustomer(CustomerId customerId);
+}
+
+// Implementacja — deleguje do wewnetrznych serwisow
+class OrderFacadeImpl implements OrderFacade {
+    private final OrderService orderService;
+    private final OrderQueryService queryService;
+
+    @Override
+    public OrderId createOrder(CreateOrderCommand command) {
+        return orderService.create(command);
+    }
+
+    @Override
+    public OrderDto getOrder(OrderId orderId) {
+        return queryService.findById(orderId)
+            .orElseThrow(() -&gt; new OrderNotFoundException(orderId));
+    }
+}</code></pre>
+
+        <h2>Komunikacja miedzy modulami</h2>
+
+        <h3>1. Wywolania synchroniczne (przez fasady)</h3>
+<pre><code>// Modul zamowien wywoluje modul platnosci
+class OrderService {
+    private final PaymentFacade paymentFacade;
+
+    public OrderId create(CreateOrderCommand cmd) {
+        Order order = Order.create(cmd);
+        orderRepo.save(order);
+
+        // Wywolanie innego modulu przez publiczne API
+        PaymentResult result = paymentFacade.processPayment(
+            new ProcessPaymentCommand(order.getId(), order.getTotal())
+        );
+
+        if (result.isSuccess()) {
+            order.markAsPaid();
+            orderRepo.save(order);
+        }
+        return order.getId();
+    }
+}</code></pre>
+
+        <h3>2. Zdarzenia domenowe (asynchroniczne, in-process)</h3>
+<pre><code>// Modul zamowien publikuje zdarzenie
+class OrderService {
+    private final EventPublisher eventPublisher;
+
+    public OrderId create(CreateOrderCommand cmd) {
+        Order order = Order.create(cmd);
+        orderRepo.save(order);
+
+        // Publikacja — modul zamowien nie wie kto nasluchuje
+        eventPublisher.publish(new OrderCreatedEvent(
+            order.getId(), order.getCustomerId(), order.getTotal()
+        ));
+        return order.getId();
+    }
+}
+
+// Modul platnosci nasluchuje zdarzenia
+class PaymentEventHandler {
+    @EventListener
+    public void onOrderCreated(OrderCreatedEvent event) {
+        paymentService.initiatePayment(
+            event.orderId(), event.total());
+    }
+}
+
+// Modul powiadomien — tez nasluchuje
+class NotificationEventHandler {
+    @EventListener
+    public void onOrderCreated(OrderCreatedEvent event) {
+        emailService.sendOrderConfirmation(event.customerId());
+    }
+}</code></pre>
+
+        <h3>3. Porownanie podejsc</h3>
+        <table>
+            <thead><tr><th>Aspekt</th><th>Synchroniczne (fasady)</th><th>Asynchroniczne (eventy)</th></tr></thead>
+            <tbody>
+                <tr><td>Powiazanie</td><td>Bezposrednie (zna fasade)</td><td>Luzne (nie zna konsumenta)</td></tr>
+                <tr><td>Transakcja</td><td>Moze byc w jednej TX</td><td>Eventual consistency</td></tr>
+                <tr><td>Debugowanie</td><td>Proste (call stack)</td><td>Trudniejsze</td></tr>
+                <tr><td>Rozszerzalnosc</td><td>Wymaga zmian w callerze</td><td>Nowy listener bez zmian</td></tr>
+                <tr><td>Gotowosc na mikroserwisy</td><td>Srednia</td><td>Wysoka</td></tr>
+            </tbody>
+        </table>
+
+        <p><strong>Rekomendacja:</strong> fasady dla zapytan i krytycznych komend synchronicznych, eventy dla powiadomien i efektow ubocznych.</p>
+
+        <h2>Schematy bazodanowe</h2>
+
+        <h3>Osobne schematy per modul</h3>
+<pre><code>-- Modul zamowien — wlasny schemat
+CREATE SCHEMA orders;
+
+CREATE TABLE orders.order (
+    id UUID PRIMARY KEY,
+    customer_id UUID NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    total DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Modul platnosci — wlasny schemat
+CREATE SCHEMA payments;
+
+CREATE TABLE payments.payment (
+    id UUID PRIMARY KEY,
+    order_id UUID NOT NULL,  -- referencja po ID, nie FK!
+    amount DECIMAL(10,2) NOT NULL,
+    status VARCHAR(20) NOT NULL
+);
+-- BRAK FOREIGN KEY do orders.order — izolacja modulow!</code></pre>
+
+        <h3>Zasady izolacji danych</h3>
+        <div class="card">
+<pre><code>REGULY:
+1. Modul A NIE czyta tabel modulu B bezposrednio (brak JOIN)
+2. Modul A NIE pisze do tabel modulu B
+3. Referencje miedzy modulami — tylko po ID (nie FK)
+4. Dane z innego modulu — przez fasade lub event
+
+ZLE:
+SELECT o.*, p.status
+FROM orders.order o
+JOIN payments.payment p ON o.id = p.order_id;
+
+DOBRE:
+OrderDto order = orderFacade.getOrder(orderId);
+PaymentDto payment = paymentFacade.getPaymentForOrder(orderId);
+// Kompozycja w warstwie prezentacji</code></pre>
+        </div>
+
+        <h2>Egzekwowanie granic</h2>
+
+        <h3>ArchUnit (Java)</h3>
+<pre><code>@AnalyzeClasses(packages = "com.example")
+class ModuleBoundaryTest {
+
+    @ArchTest
+    static final ArchRule ordersInternalNotAccessible =
+        noClasses()
+            .that().resideOutsideOfPackage("..orders..")
+            .should().accessClassesThat()
+            .resideInAPackage("..orders.internal..")
+            .because("Modul orders udostepnia tylko pakiet api/");
+
+    @ArchTest
+    static final ArchRule modulesCommunicateViaFacades =
+        noClasses()
+            .that().resideInAPackage("..orders.internal..")
+            .should().accessClassesThat()
+            .resideInAPackage("..payments.internal..")
+            .because("Moduly komunikuja sie tylko przez fasady");
+}</code></pre>
+
+        <h3>Java Modules (JPMS)</h3>
+<pre><code>// module-info.java modulu zamowien
+module orders {
+    // Eksportuje TYLKO publiczne API
+    exports com.example.orders.api;
+
+    // Wewnetrzne pakiety NIE SA eksportowane
+    // com.example.orders.internal — niedostepny
+
+    // Zaleznosci od innych modulow
+    requires payments;  // potrzebuje PaymentFacade
+    requires shared;    // wspoldzielone DTO, eventy
+}</code></pre>
+
+        <h3>Gradle Multi-Module</h3>
+<pre><code>// settings.gradle
+include 'shared', 'orders', 'payments', 'shipping', 'app'
+
+// orders/build.gradle
+dependencies {
+    implementation project(':shared')
+    implementation project(':payments')  // zalezy od fasady
+    // NIE: implementation project(':shipping')
+}</code></pre>
+
+        <h2>Migracja do mikroserwisow</h2>
+
+        <h3>Kiedy sie rozdzielac?</h3>
+        <div class="card">
+<pre><code>Sygnaly do dekompozycji:
+
+1. Modul wymaga niezaleznego skalowania
+   Zamowienia: 100 req/s
+   Raporty:    2 req/s ale kazdy trwa 30 sekund
+
+2. Rozne cykle wdrozen
+   Platnosci: deploy 1x/tydzien (wymaga audytu)
+   Katalog:   deploy 5x/dzien
+
+3. Rozne wymagania technologiczne
+   Wyszukiwarka: Elasticsearch
+   Zamowienia:   PostgreSQL
+
+4. Zespoly sie blokuja nawzajem</code></pre>
+        </div>
+
+        <h3>Sciezka migracji</h3>
+<pre><code>Faza 1: Modular Monolith (dobrze zdefiniowane granice)
+┌─────────────────────────────────────┐
+│  [Zamowienia] [Platnosci] [Wysylka] │
+│            Jeden proces              │
+└─────────────────────────────────────┘
+
+Faza 2: Wydzielenie pierwszego modulu
+┌─────────────────────────┐  ┌──────────┐
+│  [Zamowienia] [Wysylka] │  │Platnosci │
+│       Monolit           │◄►│(osobny   │
+│                         │  │ serwis)  │
+└─────────────────────────┘  └──────────┘
+
+Faza 3: Kolejne wydzielenia (jesli potrzebne)
+┌─────────────┐  ┌──────────┐  ┌──────────┐
+│ Zamowienia  │◄►│Platnosci │◄►│ Wysylka  │
+└─────────────┘  └──────────┘  └──────────┘</code></pre>
+
+        <h3>Co ulatwia przyszla dekompozycje?</h3>
+        <ol>
+            <li><strong>Komunikacja przez fasady</strong> — zamien na HTTP/gRPC call</li>
+            <li><strong>Zdarzenia domenowe</strong> — zamien na message broker (Kafka/RabbitMQ)</li>
+            <li><strong>Osobne schematy DB</strong> — przenies schemat do osobnej bazy</li>
+            <li><strong>Brak wspoldzielonych tabel</strong> — czysta izolacja danych</li>
+            <li><strong>Testy architektury</strong> — weryfikacja granic przed i po</li>
+        </ol>
+
+        <h2>Praktyczna implementacja (Spring Boot)</h2>
+
+<pre><code>// Konfiguracja modulu
+@Configuration
+@ComponentScan(basePackages = "com.example.orders.internal")
+public class OrderModuleConfig {
+
+    @Bean
+    public OrderFacade orderFacade(
+            OrderRepository orderRepo,
+            EventPublisher eventPublisher) {
+        return new OrderFacadeImpl(
+            new OrderService(orderRepo, eventPublisher),
+            new OrderQueryService(orderRepo)
+        );
+    }
+}
+
+// Event Publisher — in-process (teraz)
+@Component
+public class SpringEventPublisher implements EventPublisher {
+    private final ApplicationEventPublisher spring;
+
+    @Override
+    public void publish(DomainEvent event) {
+        spring.publishEvent(event);
+    }
+}
+
+// Event Publisher — Kafka (po migracji do mikroserwisow)
+@Component
+public class KafkaEventPublisher implements EventPublisher {
+    private final KafkaTemplate&lt;String, DomainEvent&gt; kafka;
+
+    @Override
+    public void publish(DomainEvent event) {
+        kafka.send("domain-events", event.aggregateId(), event);
+    }
+}</code></pre>
+
+        <h2>Zalety i wady</h2>
+        <table>
+            <thead><tr><th>Zalety</th><th>Wady</th></tr></thead>
+            <tbody>
+                <tr><td>Prostosc deploymentu (jeden artefakt)</td><td>Wymaga dyscypliny (latwo zlamac granice)</td></tr>
+                <tr><td>Jasne granice modulow</td><td>Jeden deployment dla wszystkich zmian</td></tr>
+                <tr><td>Proste transakcje w ramach procesu</td><td>Brak niezaleznego skalowania modulow</td></tr>
+                <tr><td>Latwe debugowanie (jeden proces)</td><td>Technologiczny lock-in (jeden jezyk)</td></tr>
+                <tr><td>Niski koszt infrastruktury</td><td>Ryzyko powrotu do Big Ball of Mud</td></tr>
+                <tr><td>Gotowosc do dekompozycji na mikroserwisy</td><td>Wymaga testow architektury (ArchUnit)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kiedy stosowac?</h2>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Idealny dla</h3>
+                <ul>
+                    <li><strong>Nowych projektow</strong> (zamiast startowania od mikroserwisow)</li>
+                    <li><strong>Srednich zespolow</strong> (5-30 deweloperow)</li>
+                    <li><strong>Zlozonej logiki biznesowej</strong></li>
+                    <li><strong>Nieznanych granic modulow</strong> (eksploracja domeny)</li>
+                    <li><strong>Migracji z chaotycznego monolitu</strong></li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Nieodpowiedni gdy</h3>
+                <ul>
+                    <li>Wymagasz niezaleznego skalowania juz teraz</li>
+                    <li>Potrzebujesz polyglot (rozne jezyki)</li>
+                    <li>Masz 100+ deweloperow na jednym repo</li>
+                    <li>Moduly maja fundamentalnie rozne wymagania</li>
+                    <li>Juz masz dojrzala infrastrukture mikroserwisowa</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Podsumowanie</h2>
+        <p>Modular Monolith to <strong>najlepszy punkt startowy</strong> dla wiekszosci nowych projektow. Daje klarownosc granic bez overhead'u systemow rozproszonych. Kluczem jest dyscyplina w utrzymaniu granic (ArchUnit, JPMS, multi-module) i projektowanie modulow tak, by mogly zostac wydzielone do osobnych serwisow gdy zajdzie realna potrzeba. To nie kompromis — to swiadoma strategia.</p>
+
+        <div class="nav-bottom">
+            <a href="02-07-serverless.html">&larr; 02-07 Serverless</a>
+            <a href="02-wzorce-architektoniczne.html">02 — Wzorce architektoniczne &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

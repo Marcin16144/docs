@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06-05 — Saga Pattern</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="06-komunikacja-i-integracja.html">06 — Komunikacja</a>
+        <span class="sep">/</span>
+        <span class="title">Saga Pattern</span>
+    </div>
+    <div class="container">
+        <h1>Saga Pattern</h1>
+        <p class="subtitle">Zarzadzanie transakcjami rozproszonymi jako sekwencja lokalnych transakcji z kompensacjami.</p>
+
+        <h2>Problem transakcji rozproszonych</h2>
+        <p>W monolicie transakcja bazodanowa zapewnia ACID. W mikroserwisach kazdy serwis ma wlasna baze — nie ma jednej transakcji obejmujacej wiele serwisow.</p>
+<pre><code>Zamowienie online — 3 serwisy, kazdy z wlasna baza:
+
+1. Serwis zamowien  &rarr; Utworz zamowienie  ✓
+2. Serwis platnosci &rarr; Pobierz platnosc   ✓
+3. Serwis magazynu  &rarr; Zarezerwuj towar   ✗ BLAD!
+
+System jest w niespolnym stanie!
+Zamowienie istnieje, platnosc pobrana, ale brak towaru.</code></pre>
+
+        <h3>Dlaczego nie 2PC?</h3>
+        <p>Two-Phase Commit (2PC) to klasyczne rozwiazanie, ale w mikroserwisach ma powazne wady:</p>
+        <ul>
+            <li><strong>Blokujacy</strong> — uczestnicy trzymaja locki do decyzji koordynatora</li>
+            <li><strong>Single point of failure</strong> — awaria koordynatora blokuje wszystkich</li>
+            <li><strong>Nie skaluje sie</strong> — wielu uczestnikow dramatycznie obniza wydajnosc</li>
+            <li><strong>Wymaga dostepnosci</strong> — wszyscy musza byc online</li>
+        </ul>
+
+        <h2>Saga — rozwiazanie</h2>
+        <p>Sekwencja lokalnych transakcji z kompensacjami. Jesli krok sie nie powiedzie, transakcje kompensujace wykonywane sa w odwrotnej kolejnosci.</p>
+<pre><code>Saga "Zloz zamowienie":
+
+Krok 1: Utworz zamowienie (PENDING)
+  ↓ sukces
+Krok 2: Zarezerwuj srodki
+  ↓ sukces
+Krok 3: Zarezerwuj towar
+  ↓ BLAD!
+
+Kompensacja (odwrotna kolejnosc):
+  &larr; Krok 2: Zwolnij zarezerwowane srodki
+  &larr; Krok 1: Anuluj zamowienie (CANCELLED)</code></pre>
+
+        <h2>Choreografia (Choreography Saga)</h2>
+        <p>Kazdy serwis reaguje na zdarzenia i publikuje nowe. Brak centralnego koordynatora — serwisy "tancza" samodzielnie.</p>
+
+        <div class="card">
+            <h3>Przeplyw sukcesu</h3>
+<pre><code>[Serwis zamowien]
+  &rarr; publikuje: OrderCreated
+       ↓
+[Serwis platnosci]
+  slucha: OrderCreated
+  &rarr; rezerwuje srodki
+  &rarr; publikuje: PaymentReserved
+       ↓
+[Serwis magazynu]
+  slucha: PaymentReserved
+  &rarr; rezerwuje towar
+  &rarr; publikuje: StockReserved
+       ↓
+[Serwis zamowien]
+  slucha: StockReserved
+  &rarr; potwierdza zamowienie (CONFIRMED)</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Przeplyw kompensacji</h3>
+<pre><code>[Serwis magazynu]
+  brak towaru! &rarr; publikuje: StockReservationFailed
+       ↓
+[Serwis platnosci]
+  slucha: StockReservationFailed
+  &rarr; zwalnia srodki &rarr; publikuje: PaymentReleased
+       ↓
+[Serwis zamowien]
+  slucha: PaymentReleased
+  &rarr; anuluje zamowienie (CANCELLED)</code></pre>
+        </div>
+
+        <h3>Implementacja choreografii</h3>
+<pre><code># Serwis zamowien
+class OrderService:
+    def create_order(self, order_data):
+        order = Order.create(status="PENDING", **order_data)
+        event_bus.publish("OrderCreated", {
+            "orderId": order.id,
+            "userId": order.user_id,
+            "total": order.total
+        })
+        return order
+
+    @event_handler("StockReserved")
+    def on_stock_reserved(self, event):
+        order = Order.find(event["orderId"])
+        order.update(status="CONFIRMED")
+
+    @event_handler("PaymentReleased")
+    def on_payment_released(self, event):
+        order = Order.find(event["orderId"])
+        order.update(status="CANCELLED")
+
+# Serwis platnosci
+class PaymentService:
+    @event_handler("OrderCreated")
+    def on_order_created(self, event):
+        try:
+            payment = Payment.reserve(
+                userId=event["userId"],
+                amount=event["total"])
+            event_bus.publish("PaymentReserved", {
+                "orderId": event["orderId"],
+                "paymentId": payment.id})
+        except InsufficientFundsError:
+            event_bus.publish("PaymentFailed", {
+                "orderId": event["orderId"]})</code></pre>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Zalety choreografii</h3>
+                <ul>
+                    <li>Proste serwisy (reaguja na zdarzenia)</li>
+                    <li>Brak single point of failure</li>
+                    <li>Luzne powiazanie</li>
+                    <li>Latwe dodawanie nowych krokow</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Wady choreografii</h3>
+                <ul>
+                    <li>Trudne sledzenie przeplywu</li>
+                    <li>Ryzyko cyklicznych zaleznosci</li>
+                    <li>Brak centralnego widoku stanu</li>
+                    <li>Skomplikowane testowanie</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Orkiestracja (Orchestration Saga)</h2>
+        <p>Centralny koordynator (orchestrator) zarzadza przeplywem — mowi kazdemu serwisowi, co ma zrobic.</p>
+
+<pre><code>             [Orchestrator (Saga Manager)]
+                 |           |           |
+           (1) Create    (2) Reserve   (3) Reserve
+           Order         Payment       Stock
+                 |           |           |
+        [Serwis zam.]  [Serwis plat.] [Serwis mag.]
+
+Orchestrator utrzymuje stan sagi:
+  Step 1: CREATE_ORDER  &rarr; SUCCESS
+  Step 2: RESERVE_PAY   &rarr; SUCCESS
+  Step 3: RESERVE_STOCK &rarr; FAILED &rarr; kompensacja!</code></pre>
+
+        <h3>Implementacja orchestratora</h3>
+<pre><code>class OrderSagaOrchestrator:
+    def __init__(self):
+        self.steps = [
+            SagaStep("create_order",
+                action=self.create_order,
+                compensation=self.cancel_order),
+            SagaStep("reserve_payment",
+                action=self.reserve_payment,
+                compensation=self.release_payment),
+            SagaStep("reserve_stock",
+                action=self.reserve_stock,
+                compensation=self.release_stock),
+            SagaStep("confirm_order",
+                action=self.confirm_order,
+                compensation=None),
+        ]
+
+    def execute(self, order_data):
+        saga_state = SagaState(data=order_data)
+        completed_steps = []
+
+        for step in self.steps:
+            try:
+                result = step.action(saga_state)
+                saga_state.update(step.name, result)
+                completed_steps.append(step)
+            except Exception as e:
+                self.compensate(completed_steps, saga_state)
+                raise SagaFailedError(
+                    f"Saga failed at {step.name}: {e}")
+        return saga_state
+
+    def compensate(self, completed_steps, saga_state):
+        for step in reversed(completed_steps):
+            if step.compensation:
+                try:
+                    step.compensation(saga_state)
+                except Exception as e:
+                    log.error(f"Compensation failed: {e}")
+                    self.schedule_retry(step, saga_state)</code></pre>
+
+        <div class="two-col">
+            <div class="card">
+                <h3>Zalety orkiestracji</h3>
+                <ul>
+                    <li>Czytelny przeplyw (jedno miejsce)</li>
+                    <li>Latwe testowanie</li>
+                    <li>Centralny widok stanu sagi</li>
+                    <li>Prostsza obsluga bledow</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Wady orkiestracji</h3>
+                <ul>
+                    <li>Single point of failure</li>
+                    <li>Ryzyko "god service"</li>
+                    <li>Wieksze powiazanie</li>
+                    <li>Orchestrator musi byc niezawodny</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Choreografia vs Orkiestracja</h2>
+        <table>
+            <thead><tr><th>Aspekt</th><th>Choreografia</th><th>Orkiestracja</th></tr></thead>
+            <tbody>
+                <tr><td>Koordynacja</td><td>Rozproszona (zdarzenia)</td><td>Centralna (orchestrator)</td></tr>
+                <tr><td>Powiazanie</td><td>Luzne</td><td>Scislejsze</td></tr>
+                <tr><td>Czytelnosc</td><td>Trudna</td><td>Latwa</td></tr>
+                <tr><td>SPOF</td><td>Brak</td><td>Orchestrator</td></tr>
+                <tr><td>Testowanie</td><td>Trudne</td><td>Latwiejsze</td></tr>
+                <tr><td>Idealne dla</td><td>2-4 kroki, proste</td><td>5+ krokow, zlozone</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Transakcje kompensujace</h2>
+        <p>Kompensacja to <strong>logiczne cofniecie</strong> efektu, nie rollback. Dane mogly sie zmienic od oryginalnej operacji.</p>
+        <table>
+            <thead><tr><th>Oryginalna transakcja</th><th>Kompensacja</th></tr></thead>
+            <tbody>
+                <tr><td>Utworz zamowienie</td><td>Anuluj zamowienie (nie DELETE!)</td></tr>
+                <tr><td>Pobierz platnosc</td><td>Zwroc platnosc (refund)</td></tr>
+                <tr><td>Zarezerwuj towar</td><td>Zwolnij rezerwacje</td></tr>
+                <tr><td>Wyslij email z potwierdzeniem</td><td>Wyslij email z anulowaniem</td></tr>
+                <tr><td>Dodaj punkty lojalnosciowe</td><td>Odejmij punkty</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Zasady:</strong> kompensacja musi byc idempotentna, musi sie w koncu udac (retry), kolejnosc odwrotna, nie wszystko da sie skompensowac (np. wyslany SMS).</p>
+
+        <h2>Idempotentnosc w sagach</h2>
+        <p>Saga moze ponowic dowolny krok. Kazda operacja MUSI byc idempotentna.</p>
+<pre><code># ZLE — nie idempotentne
+def reserve_payment(order_id, amount):
+    payment = Payment.create(
+        order_id=order_id, amount=amount)
+    return payment
+    # Ponowne wywolanie = druga platnosc!
+
+# DOBRZE — idempotentne
+def reserve_payment(order_id, amount):
+    existing = Payment.find_by_order(order_id)
+    if existing:
+        return existing  # juz zarezerwowana
+    payment = Payment.create(
+        order_id=order_id, amount=amount)
+    return payment
+    # Ponowne wywolanie = zwraca istniejaca</code></pre>
+
+        <h2>Frameworki do sag</h2>
+
+        <div class="card">
+            <h3>Temporal</h3>
+            <p>Platforma do orkiestracji workflow, obslugujaca dlugotrwale procesy, retry, kompensacje.</p>
+<pre><code>// Temporal — definicja workflow (Go)
+func OrderSagaWorkflow(ctx workflow.Context,
+    order OrderData) error {
+
+    var orderResult OrderResult
+    err := workflow.ExecuteActivity(ctx,
+        CreateOrderActivity, order).Get(ctx, &amp;orderResult)
+    if err != nil { return err }
+
+    var paymentResult PaymentResult
+    err = workflow.ExecuteActivity(ctx,
+        ReservePaymentActivity, orderResult).Get(ctx, &amp;paymentResult)
+    if err != nil {
+        // Kompensacja kroku 1
+        workflow.ExecuteActivity(ctx,
+            CancelOrderActivity, orderResult)
+        return err
+    }
+
+    err = workflow.ExecuteActivity(ctx,
+        ReserveStockActivity, order.Items).Get(ctx, nil)
+    if err != nil {
+        // Kompensacja krokow 2 i 1
+        workflow.ExecuteActivity(ctx,
+            ReleasePaymentActivity, paymentResult)
+        workflow.ExecuteActivity(ctx,
+            CancelOrderActivity, orderResult)
+        return err
+    }
+    return nil
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>MassTransit (.NET)</h3>
+            <p>Framework komunikacji asynchronicznej z wbudowana obsluga sag jako state machines.</p>
+<pre><code>// MassTransit — State Machine Saga
+public class OrderSagaStateMachine :
+    MassTransitStateMachine&lt;OrderSagaState&gt;
+{
+    public State OrderCreated { get; private set; }
+    public State PaymentReserved { get; private set; }
+    public State Completed { get; private set; }
+    public State Failed { get; private set; }
+
+    public OrderSagaStateMachine()
+    {
+        InstanceState(x =&gt; x.CurrentState);
+
+        Initially(
+            When(OrderSubmitted)
+                .TransitionTo(OrderCreated)
+                .Publish(ctx =&gt;
+                    new ReservePayment(ctx.Saga.OrderId))
+        );
+
+        During(OrderCreated,
+            When(PaymentReservedEvent)
+                .TransitionTo(PaymentReserved)
+                .Publish(ctx =&gt;
+                    new ReserveStock(ctx.Saga.OrderId)),
+            When(PaymentFailedEvent)
+                .TransitionTo(Failed)
+                .Publish(ctx =&gt;
+                    new CancelOrder(ctx.Saga.OrderId))
+        );
+    }
+}</code></pre>
+        </div>
+
+        <h2>Dobre praktyki</h2>
+        <ol>
+            <li><strong>Zacznij od choreografii</strong> — prostsze przypadki (2-4 kroki), migruj do orkiestracji gdy sie komplikuje</li>
+            <li><strong>Kazdy krok idempotentny</strong> — saga MUSI bezpiecznie ponawiac kroki</li>
+            <li><strong>Kompensacja musi sie udac</strong> — retry z backoff, alertowanie, reczna interwencja</li>
+            <li><strong>Monitoruj stan sag</strong> — dashboard ze statusem kazdej sagi</li>
+            <li><strong>Timeout na kazdym kroku</strong> — nie czekaj w nieskonczonosc</li>
+            <li><strong>Correlation ID</strong> — propaguj przez wszystkie kroki</li>
+            <li><strong>Testuj awarie</strong> — kazda mozliwa kombinacja bledow</li>
+            <li><strong>Unikaj sag w sagach</strong> — zagniezdzone sagi to koszmar</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="06-04-kolejki-i-pub-sub.html">&larr; Kolejki i Pub/Sub</a>
+            <a href="06-06-circuit-breaker.html">Circuit Breaker &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

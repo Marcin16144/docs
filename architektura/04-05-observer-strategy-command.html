@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04-05 — Observer, Strategy, Command</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="04-wzorce-projektowe.html">04 — Wzorce projektowe</a>
+        <span class="sep">/</span>
+        <span class="title">Observer, Strategy, Command</span>
+    </div>
+    <div class="container">
+        <h1>Wzorce behawioralne</h1>
+        <p class="subtitle">Observer, Strategy i Command — komunikacja, wymiennosc algorytmow i enkapsulacja operacji.</p>
+
+        <h2>Observer — systemy zdarzen</h2>
+        <p>Observer definiuje mechanizm subskrypcji, w ktorym obiekty (obserwatorzy) rejestruja sie na powiadomienia o zdarzeniach emitowanych przez inny obiekt. Dzieki temu nadawca nie musi znac odbiorcow.</p>
+
+<pre><code>// Interfejs zdarzen
+interface DomainEvent {
+    readonly type: string;
+    readonly occurredAt: Date;
+}
+
+class OrderPlacedEvent implements DomainEvent {
+    readonly type = 'order.placed';
+    readonly occurredAt = new Date();
+    constructor(
+        readonly orderId: string,
+        readonly customerId: string,
+        readonly totalAmount: number,
+        readonly items: OrderItem[],
+    ) {}
+}
+
+// Event Bus — centralny punkt subskrypcji
+type EventHandler&lt;T extends DomainEvent&gt; = (event: T) =&gt; Promise&lt;void&gt;;
+
+class EventBus {
+    private handlers = new Map&lt;string, EventHandler&lt;any&gt;[]&gt;();
+
+    on&lt;T extends DomainEvent&gt;(
+        eventType: string, handler: EventHandler&lt;T&gt;
+    ): void {
+        const existing = this.handlers.get(eventType) || [];
+        existing.push(handler);
+        this.handlers.set(eventType, existing);
+    }
+
+    off(eventType: string, handler: EventHandler&lt;any&gt;): void {
+        const existing = this.handlers.get(eventType) || [];
+        this.handlers.set(eventType, existing.filter(h =&gt; h !== handler));
+    }
+
+    async emit&lt;T extends DomainEvent&gt;(event: T): Promise&lt;void&gt; {
+        const handlers = this.handlers.get(event.type) || [];
+        await Promise.all(handlers.map(handler =&gt; handler(event)));
+    }
+}</code></pre>
+
+        <h3>Rejestracja obserwatorow</h3>
+<pre><code>const eventBus = new EventBus();
+
+// Kazdy handler to niezalezny obserwator
+eventBus.on&lt;OrderPlacedEvent&gt;('order.placed', async (event) =&gt; {
+    await emailService.sendOrderConfirmation(
+        event.customerId, event.orderId
+    );
+});
+
+eventBus.on&lt;OrderPlacedEvent&gt;('order.placed', async (event) =&gt; {
+    for (const item of event.items) {
+        await inventoryService.decrementStock(
+            item.productId, item.quantity
+        );
+    }
+});
+
+eventBus.on&lt;OrderPlacedEvent&gt;('order.placed', async (event) =&gt; {
+    await loyaltyService.addPoints(
+        event.customerId, Math.floor(event.totalAmount)
+    );
+});
+
+// Emisja zdarzenia — Order nie wie kto nasluchuje
+class OrderService {
+    constructor(private eventBus: EventBus) {}
+
+    async placeOrder(request: PlaceOrderRequest): Promise&lt;Order&gt; {
+        const order = Order.create(request);
+        await this.orderRepository.save(order);
+        await this.eventBus.emit(new OrderPlacedEvent(
+            order.id, order.customerId,
+            order.totalAmount, order.items,
+        ));
+        return order;
+    }
+}</code></pre>
+
+        <h2>Strategy — wymienne algorytmy</h2>
+        <p>Strategy definiuje rodzine algorytmow, enkapsuluje kazdy z nich i czyni je wymiennymi. Klient wybiera strategie w runtime, zamiast rozbudowywac if/else.</p>
+
+<pre><code>// Interfejs strategii
+interface PricingStrategy {
+    calculateDiscount(order: Order): Money;
+    description(): string;
+}
+
+// Strategia: staly procent
+class PercentageDiscount implements PricingStrategy {
+    constructor(private percent: number) {}
+
+    calculateDiscount(order: Order): Money {
+        return order.subtotal.multiply(this.percent / 100);
+    }
+
+    description(): string {
+        return `${this.percent}% rabatu`;
+    }
+}
+
+// Strategia: kwota od progu
+class ThresholdDiscount implements PricingStrategy {
+    constructor(
+        private threshold: Money,
+        private discountAmount: Money,
+    ) {}
+
+    calculateDiscount(order: Order): Money {
+        if (order.subtotal.isGreaterThan(this.threshold)) {
+            return this.discountAmount;
+        }
+        return Money.zero(order.subtotal.currency);
+    }
+
+    description(): string {
+        return `${this.discountAmount} rabatu powyzej ${this.threshold}`;
+    }
+}
+
+// Strategia: progresywna (im wiecej, tym taniej)
+class TieredDiscount implements PricingStrategy {
+    private tiers = [
+        { minAmount: 500, percent: 5 },
+        { minAmount: 1000, percent: 10 },
+        { minAmount: 2000, percent: 15 },
+    ];
+
+    calculateDiscount(order: Order): Money {
+        const applicable = this.tiers
+            .filter(t =&gt; order.subtotal.amount &gt;= t.minAmount)
+            .sort((a, b) =&gt; b.percent - a.percent)[0];
+
+        if (!applicable) return Money.zero(order.subtotal.currency);
+        return order.subtotal.multiply(applicable.percent / 100);
+    }
+
+    description(): string { return 'Rabat progresywny'; }
+}</code></pre>
+
+        <h3>Wybor strategii w runtime</h3>
+<pre><code>class PricingService {
+    private strategies = new Map&lt;string, PricingStrategy&gt;();
+
+    registerStrategy(name: string, strategy: PricingStrategy): void {
+        this.strategies.set(name, strategy);
+    }
+
+    calculatePrice(order: Order, strategyName: string): PriceBreakdown {
+        const strategy = this.strategies.get(strategyName);
+        if (!strategy)
+            throw new Error(`Nieznana strategia: ${strategyName}`);
+
+        const discount = strategy.calculateDiscount(order);
+        return {
+            subtotal: order.subtotal,
+            discount,
+            total: order.subtotal.subtract(discount),
+            appliedStrategy: strategy.description(),
+        };
+    }
+}
+
+// Konfiguracja
+const pricing = new PricingService();
+pricing.registerStrategy('vip', new PercentageDiscount(20));
+pricing.registerStrategy('seasonal', new PercentageDiscount(10));
+pricing.registerStrategy('bulk', new TieredDiscount());
+pricing.registerStrategy('promo50',
+    new ThresholdDiscount(Money.of(200, 'PLN'), Money.of(50, 'PLN'))
+);
+
+// Nowy typ = nowa klasa, zero zmian w istniejacym kodzie
+pricing.registerStrategy('employee', new PercentageDiscount(30));</code></pre>
+
+        <h2>Command — undo/redo i kolejkowanie</h2>
+        <p>Command enkapsuluje operacje jako obiekt z metodami <code>execute()</code> i opcjonalnie <code>undo()</code>. Pozwala na kolejkowanie, cofanie, ponawianie i logowanie operacji.</p>
+
+<pre><code>// Interfejs Command
+interface Command {
+    execute(): Promise&lt;void&gt;;
+    undo(): Promise&lt;void&gt;;
+    describe(): string;
+}
+
+// Konkretna komenda
+class AddItemToCartCommand implements Command {
+    private previousQuantity: number = 0;
+
+    constructor(
+        private cart: ShoppingCart,
+        private productId: string,
+        private quantity: number,
+    ) {}
+
+    async execute(): Promise&lt;void&gt; {
+        this.previousQuantity = this.cart.getQuantity(this.productId);
+        await this.cart.addItem(this.productId, this.quantity);
+    }
+
+    async undo(): Promise&lt;void&gt; {
+        await this.cart.setItemQuantity(
+            this.productId, this.previousQuantity
+        );
+    }
+
+    describe(): string {
+        return `Dodaj ${this.quantity}x produkt ${this.productId}`;
+    }
+}</code></pre>
+
+        <h3>Historia komend z undo/redo</h3>
+<pre><code>class CommandHistory {
+    private executed: Command[] = [];
+    private undone: Command[] = [];
+
+    async execute(command: Command): Promise&lt;void&gt; {
+        await command.execute();
+        this.executed.push(command);
+        this.undone = []; // Nowa akcja czysci redo stack
+    }
+
+    async undo(): Promise&lt;void&gt; {
+        const command = this.executed.pop();
+        if (!command) throw new Error('Brak akcji do cofniecia');
+        await command.undo();
+        this.undone.push(command);
+    }
+
+    async redo(): Promise&lt;void&gt; {
+        const command = this.undone.pop();
+        if (!command) throw new Error('Brak akcji do powtorzenia');
+        await command.execute();
+        this.executed.push(command);
+    }
+
+    canUndo(): boolean { return this.executed.length &gt; 0; }
+    canRedo(): boolean { return this.undone.length &gt; 0; }
+}</code></pre>
+
+        <h3>Kolejkowanie komend</h3>
+<pre><code>class CommandQueue {
+    private queue: Command[] = [];
+    private processing = false;
+
+    enqueue(command: Command): void {
+        this.queue.push(command);
+        if (!this.processing) this.processQueue();
+    }
+
+    private async processQueue(): Promise&lt;void&gt; {
+        this.processing = true;
+        while (this.queue.length &gt; 0) {
+            const command = this.queue.shift()!;
+            try {
+                await command.execute();
+                console.log(`Wykonano: ${command.describe()}`);
+            } catch (error) {
+                console.error(`Blad: ${command.describe()}`, error);
+            }
+        }
+        this.processing = false;
+    }
+}</code></pre>
+
+        <h2>Porownanie trzech wzorcow</h2>
+        <table>
+            <thead><tr><th>Cecha</th><th>Observer</th><th>Strategy</th><th>Command</th></tr></thead>
+            <tbody>
+                <tr><td>Cel</td><td>Powiadamianie o zdarzeniach</td><td>Wymienne algorytmy</td><td>Enkapsulacja operacji</td></tr>
+                <tr><td>Kierunek</td><td>1-do-wielu (broadcast)</td><td>1-do-1 (wybor)</td><td>Sekwencyjny (queue/stack)</td></tr>
+                <tr><td>Coupling</td><td>Luzny (przez zdarzenia)</td><td>Luzny (przez interfejs)</td><td>Luzny (przez obiekt)</td></tr>
+                <tr><td>Use case</td><td>Event bus, reaktywne UI</td><td>Polityki cenowe, walidacja</td><td>Undo/redo, task queue</td></tr>
+                <tr><td>Czas wykonania</td><td>Natychmiast po emisji</td><td>Natychmiast po wywolaniu</td><td>Odlozony (opcjonalnie)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Laczenie wzorcow</h2>
+        <p>W praktyce wzorce czesto sie lacza. Command emituje zdarzenie Observer po wykonaniu, a Observer wybiera strategie Strategy na podstawie kontekstu.</p>
+<pre><code>// Command emituje zdarzenie po wykonaniu
+class PlaceOrderCommand implements Command {
+    async execute(): Promise&lt;void&gt; {
+        const order = await this.orderService.create(this.request);
+        await this.eventBus.emit(new OrderPlacedEvent(order));
+    }
+}
+
+// Observer uzywa Strategy do wyboru obslugi
+eventBus.on&lt;OrderPlacedEvent&gt;('order.placed', async (event) =&gt; {
+    const strategy = shippingStrategies.get(event.shippingType);
+    await strategy.scheduleDelivery(event.orderId);
+});</code></pre>
+
+        <div class="nav-bottom">
+            <a href="04-04-adapter-facade-decorator.html">&larr; Adapter, Facade, Decorator</a>
+            <a href="04-06-repository-unit-of-work.html">Repository &amp; Unit of Work &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>11-01 — Piramida testow</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}.card h3{margin-top:4px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="11-testowanie.html">11 — Testowanie</a>
+        <span class="sep">/</span>
+        <span class="title">Piramida testow</span>
+    </div>
+    <div class="container">
+        <h1>Piramida testow</h1>
+        <p class="subtitle">Unit, integration, E2E — proporcje, alternatywne modele i anti-patterny.</p>
+
+        <h2>Klasyczna piramida</h2>
+<pre><code>        /\
+       /  \        E2E (UI) — malo, wolne, kruche
+      /    \
+     /──────\
+    /        \     Integration — srednia ilosc
+   /          \
+  /────────────\
+ /              \  Unit — duzo, szybkie, stabilne
+/________________\</code></pre>
+
+        <h2>Typy testow</h2>
+
+        <div class="card">
+            <h3>Unit Tests</h3>
+            <p>Testuja pojedyncza funkcje w izolacji. Szybkie (~ms), stabilne.</p>
+<pre><code>describe('calculateDiscount', () =&gt; {
+  it('applies 20% discount for VIP', () =&gt; {
+    expect(calculateDiscount(100, 'vip')).toBe(80);
+  });
+
+  it('applies 5% discount for regular', () =&gt; {
+    expect(calculateDiscount(100, 'regular')).toBe(95);
+  });
+
+  it('no discount for unknown type', () =&gt; {
+    expect(calculateDiscount(100, 'guest')).toBe(100);
+  });
+});</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Integration Tests</h3>
+            <p>Testuja wspolprace miedzy komponentami — aplikacja + baza, API.</p>
+<pre><code>describe('OrderService', () =&gt; {
+  beforeEach(() =&gt; db.truncateAll());
+
+  it('creates order and updates inventory', async () =&gt; {
+    await db.products.insert({ id: 'p1', stock: 10 });
+
+    const order = await orderService.create({
+      items: [{ productId: 'p1', quantity: 2 }]
+    });
+
+    expect(order.status).toBe('created');
+    const product = await db.products.findById('p1');
+    expect(product.stock).toBe(8);
+  });
+});</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>E2E Tests</h3>
+            <p>Testuja caly system z perspektywy uzytkownika.</p>
+<pre><code>test('user can place an order', async ({ page }) =&gt; {
+  await page.goto('/login');
+  await page.fill('[name=email]', 'jan@example.com');
+  await page.fill('[name=password]', 'password123');
+  await page.click('button[type=submit]');
+
+  await page.goto('/products');
+  await page.click('[data-testid=product-1] &gt;&gt; text=Dodaj');
+  await page.click('text=Zamow');
+
+  await expect(page.locator('[data-testid=order-status]'))
+    .toHaveText('Zamowienie przyjete');
+});</code></pre>
+        </div>
+
+        <h2>Alternatywne modele</h2>
+
+        <div class="card">
+            <h3>Testing Trophy (Kent C. Dodds)</h3>
+            <p>Nacisk na testy <strong>integracyjne</strong> — najlepsza rownowaga pewnosci i kosztu.</p>
+<pre><code>Static Analysis (TS, ESLint) — podstawa
+Unit          — srednia ilosc
+Integration   — NAJWIECEJ (tu wartosc)
+E2E           — malo</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Testing Diamond</h3>
+            <p>Dla <strong>mikroserwisow</strong> — nacisk na testy kontraktowe i integracyjne.</p>
+<pre><code>E2E             — malo
+Contract + Integ — NAJWIECEJ
+Unit            — srednia ilosc</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Anti-pattern: Ice Cream Cone</h3>
+<pre><code>Duzo E2E (wolne, kruche)      ← ZLE
+Duzo manualnych testow        ← ZLE
+Malo integration
+Bardzo malo unit
+
+Problemy:
+- Pipeline 45+ minut
+- Testy losowo failuja (flaky)
+- Debugging trudny
+- Developerzy omijaja testy</code></pre>
+        </div>
+
+        <h2>Porownanie modeli</h2>
+        <table>
+            <thead><tr><th>Model</th><th>Unit</th><th>Integration</th><th>E2E</th><th>Najlepsze dla</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Piramida</strong></td><td>Duzo</td><td>Srednio</td><td>Malo</td><td>Biblioteki, algorytmy</td></tr>
+                <tr><td><strong>Trophy</strong></td><td>Srednio</td><td>Duzo</td><td>Malo</td><td>Aplikacje webowe</td></tr>
+                <tr><td><strong>Diamond</strong></td><td>Srednio</td><td>Duzo</td><td>Malo</td><td>Mikroserwisy</td></tr>
+                <tr><td><strong>Ice Cream</strong></td><td>Malo</td><td>Malo</td><td>Duzo</td><td>ANTI-PATTERN</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Co testowac na kazdym poziomie</h2>
+<pre><code>Unit:
+  ✓ Logika biznesowa, kalkulacje, walidacja
+  ✓ Transformacje danych, edge cases
+  ✗ Baza danych, API, system plikow
+
+Integration:
+  ✓ Endpointy HTTP (request → response)
+  ✓ Zapytania do bazy (CRUD)
+  ✓ Integracje z zewnetrznymi API
+
+E2E:
+  ✓ Krytyczne sciezki (happy path)
+  ✓ Onboarding, checkout, platnosc
+  ✗ Edge cases (testuj na nizszych poziomach)</code></pre>
+
+        <h2>Unikanie flaky tests</h2>
+        <ol>
+            <li><strong>Nie uzywaj sleep</strong> — uzywaj <code>waitFor</code></li>
+            <li><strong>Izoluj dane</strong> — kazdy test ma wlasne dane</li>
+            <li><strong>Niezaleznosc testow</strong> — test B nie wymaga danych z A</li>
+            <li><strong>Retry z umiarem</strong> — max 1 raz, potem napraw</li>
+        </ol>
+
+        <h2>Kluczowe wnioski</h2>
+        <ol>
+            <li><strong>Piramida</strong> to punkt wyjscia — dostosuj do projektu</li>
+            <li><strong>Testing Trophy</strong> lepsza dla typowych aplikacji webowych</li>
+            <li><strong>Ice Cream Cone</strong> to anti-pattern — unikaj za wszelka cene</li>
+            <li><strong>Integracyjne</strong> daja najlepsza wartosc za zainwestowany czas</li>
+            <li><strong>Testuj zachowanie</strong>, nie szczegoly implementacji</li>
+            <li><strong>Flaky tests</strong> — naprawiaj natychmiast lub usuwaj</li>
+            <li><strong>Pokrycie 80%</strong> to dobry cel — 100% czesto nie jest warte kosztu</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="11-testowanie.html">&larr; Testowanie</a>
+            <a href="11-02-testy-kontraktowe.html">Testy kontraktowe &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

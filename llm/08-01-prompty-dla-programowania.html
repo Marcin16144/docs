@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>08-01 — Prompty dla programowania (PHP/CMS)</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--red:#f87171;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card.green{border-color:var(--green)}
+        .card.orange{border-color:var(--orange)}
+        .card.red{border-color:var(--red)}
+        .card h3{margin-top:4px}
+        .yes{color:var(--green);font-weight:600}
+        .warn{color:var(--orange);font-weight:600}
+        .no{color:var(--red);font-weight:600}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        .phase-box{display:grid;grid-template-columns:1fr;gap:8px;margin:16px 0}
+        .phase{background:var(--surface);border-left:4px solid var(--accent);padding:12px 18px;border-radius:6px}
+        .phase strong{color:var(--accent)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="08-prompt-engineering.html">08 — Prompt Engineering</a>
+        <span class="sep">/</span>
+        <span class="title">Prompty dla programowania (PHP/CMS)</span>
+    </div>
+    <div class="container">
+        <h1>Prompty dla programowania i architektury</h1>
+        <p class="subtitle">Z przykladami budowy CMS w PHP — jak podzielic prace, od czego zaczac, jak iteracyjnie pracowac z LLM.</p>
+
+        <h2>Filozofia: programowanie z LLM ≠ chat</h2>
+        <p>LLM jako para programisty wymaga <strong>innego podejscia</strong> niz ChatGPT-konwersacja:</p>
+
+        <div class="card">
+<pre><code>Chat:                              Programowanie z LLM:
+- "Wyjasnij rekurencje"            - Specyfikacja → projekt → kod → testy → review
+- Jeden prompt, jedna odpowiedz    - Lancuch promptow, iteracja
+- Tekstowa odpowiedz               - Pliki, struktury, testy
+- Brak kontekstu projektu          - Pelny kontekst (codebase, konwencje)</code></pre>
+        </div>
+        <p><strong>Zasada #1:</strong> Im bardziej zlozone zadanie, tym bardziej <strong>dziel prace na fazy</strong> zamiast jednego mega-promptu.</p>
+
+        <h2>4-fazowy model promptowania dla developmentu</h2>
+
+        <div class="phase-box">
+            <div class="phase"><strong>FAZA 1: ANALIZA (Discovery)</strong> — Zrozumienie problemu, wymagan. Output: spec, user stories, edge cases</div>
+            <div class="phase"><strong>FAZA 2: PROJEKT (Design)</strong> — Architektura, struktura plikow, schema DB. Output: diagramy, ADR, interfejsy</div>
+            <div class="phase"><strong>FAZA 3: KOD (Implementation)</strong> — Implementacja krok po kroku. Output: pliki, testy, dokumentacja</div>
+            <div class="phase"><strong>FAZA 4: REVIEW (Quality)</strong> — Bezpieczenstwo, wydajnosc, refactor. Output: poprawki, optymalizacje</div>
+        </div>
+
+        <h2>FAZA 1: Analiza i wymagania</h2>
+        <p><strong>Cel:</strong> wydobyc z LLM <strong>pelne zrozumienie problemu</strong> zanim zaczniesz pisac kod.</p>
+
+        <div class="card">
+            <h3>Template — Discovery prompt</h3>
+<pre><code>ROLA: Jestes senior software architectem z 15-letnim doswiadczeniem
+w budowaniu systemow CMS w PHP.
+
+KONTEKST:
+Buduje CMS dla sredniej wielkosci portalu (~50k uzytkownikow/dzien).
+Wymagania:
+- Multi-author publishing
+- SEO optimization
+- Multi-language (PL/EN)
+- Performance &lt; 200ms TTFB
+- Komentarze i moderacja
+
+ZADANIE: Przeprowadz analize wymagan:
+
+1. Zadaj 5-10 pytan ktore pomoga doprecyzowac wymagania
+2. Zidentyfikuj nietypowe edge cases ktore moga umknac
+3. Wskaz ryzyka techniczne dla tej skali
+4. Zaproponuj 3 alternatywne podejscia (np. headless vs tradycyjny)
+   z analiza trade-offs
+
+NIE pisz jeszcze kodu. Skupiamy sie na zrozumieniu.</code></pre>
+        </div>
+
+        <p><strong>Dlaczego to dziala:</strong> rola ustawia oczekiwania jakosci, kontekst daje istotne ograniczenia, strukturalne zadanie zamiast "napisz CMS", "NIE pisz kodu" wymusza fazowosc.</p>
+
+        <p><strong>Edge cases ktore znajdzie LLM dla CMS:</strong></p>
+        <ul>
+            <li>Co przy konfliktach edycji (2 autorow edytuje ten sam artykul)?</li>
+            <li>Cache invalidation przy publikacji</li>
+            <li>Rollback po bledzie w workflow</li>
+            <li>GDPR przy komentarzach (anonymous + IP)</li>
+            <li>Filename sanitization (XSS w mediach)</li>
+        </ul>
+
+        <h2>FAZA 2: Projekt architektury</h2>
+
+        <div class="card">
+            <h3>Template — Architecture prompt</h3>
+<pre><code>KONTEKST: [wklej output z fazy 1 — wymagania, edge cases, decyzje]
+
+STACK:
+- PHP 8.3 (strict types, readonly properties)
+- MySQL 8.0
+- Redis (cache, sessions)
+- Nginx + PHP-FPM
+- Docker Compose (dev)
+
+ZADANIE: Zaprojektuj architekture CMS:
+
+1. STRUKTURA KATALOGOW (pelne drzewo, PSR-4 namespaces)
+2. WARSTWY (Domain, Application, Infrastructure, Presentation)
+3. KLUCZOWE ENCJE i ich relacje (UML class diagram w mermaid)
+4. SCHEMA BAZY (tabele, indeksy, FK)
+5. PUBLIC API (endpointy REST, request/response)
+6. STRATEGIA CACHE'OWANIA
+7. PIPELINE PUBLIKACJI (kto, co, kiedy)
+
+Format: Markdown z sekcjami. Diagramy w Mermaid.
+WAZNE: Uzasadnij kazda decyzje (dlaczego ten wzorzec, nie inny).</code></pre>
+        </div>
+
+        <h3>Output PHP CMS (przyklad struktury)</h3>
+<pre><code>src/
+├── Domain/                    # Logika biznesowa, czysty PHP
+│   ├── Article/
+│   │   ├── Article.php        # Aggregate root
+│   │   ├── ArticleId.php      # Value object
+│   │   ├── ArticleStatus.php  # Enum
+│   │   └── ArticleRepository.php  # Interface
+│   ├── User/
+│   └── Shared/
+├── Application/               # Use cases (CQRS)
+│   ├── Command/
+│   │   ├── PublishArticle/
+│   │   │   ├── PublishArticleCommand.php
+│   │   │   └── PublishArticleHandler.php
+│   └── Query/
+├── Infrastructure/            # Implementacje techniczne
+│   ├── Persistence/Doctrine/
+│   ├── Cache/RedisCache.php
+│   └── Http/
+└── UI/                        # Controllers, views
+    ├── Http/Controller/
+    └── Cli/</code></pre>
+
+        <p><strong>Iteruj:</strong> pierwszy szkic to nie final. Zadawaj pytania:</p>
+        <ul>
+            <li>"Dlaczego tu wybrales X zamiast Y?"</li>
+            <li>"Jak ten design zachowa sie przy 10x obciazeniu?"</li>
+            <li>"Gdzie tu sa single points of failure?"</li>
+        </ul>
+
+        <h2>FAZA 3: Implementacja</h2>
+
+        <div class="card red">
+            <h3>Anty-pattern: "Napisz caly CMS w PHP"</h3>
+            <p>LLM wygeneruje 500 linii kiepskiego kodu. <strong>NIE rob tego.</strong></p>
+        </div>
+
+        <div class="card green">
+            <h3>Pattern: Iteracyjne male kroki</h3>
+<pre><code>KROK 1: "Implementuj klase Article (aggregate root) zgodnie z architektura.
+         Tylko ta klasa, z testami PHPUnit."
+
+KROK 2: "Implementuj ArticleRepository (interface) i jej Doctrine impl."
+
+KROK 3: "Implementuj PublishArticleCommand + Handler. Tylko logika."
+
+KROK 4: "Dodaj HTTP controller dla POST /api/articles/{id}/publish."
+
+KROK 5: "Dodaj integration test dla pelnego flow publikacji."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Template — Implementation prompt</h3>
+<pre><code>KONTEKST: [link do architektury z fazy 2]
+
+PLIK: src/Domain/Article/Article.php
+
+ZADANIE: Implementuj klase Article jako aggregate root.
+
+WYMAGANIA:
+- PHP 8.3, strict_types
+- Readonly properties tam gdzie mozliwe
+- Wszystkie metody mutacji rzucaja DomainException jesli invariant naruszony
+- Emituj Domain Events (ArticlePublished, ArticleEdited)
+- Nie zna szczegolow persystencji (Doctrine itp.)
+
+REGULY BIZNESOWE:
+- Mozna publikowac tylko Article w stanie DRAFT
+- Tytul: 5-200 znakow
+- Edycja resetuje publishedAt do null jesli zmiana &gt; 50% tresci
+- Po archiwizacji nie mozna juz edytowac
+
+DOSTARCZ:
+1. Plik Article.php (z komentarzami WHY, nie WHAT)
+2. Plik ArticleStatus.php (enum)
+3. Plik ArticleId.php (value object)
+4. Pliki domain events
+5. Test PHPUnit z 100% coverage scenariuszy biznesowych</code></pre>
+        </div>
+
+        <h3>Przyklad output PHP</h3>
+<pre><code>&lt;?php
+declare(strict_types=1);
+
+namespace App\Domain\Article;
+
+use App\Domain\Article\Event\ArticlePublished;
+use App\Domain\Shared\AggregateRoot;
+
+final class Article extends AggregateRoot
+{
+    private string $title;
+    private string $content;
+    private ArticleStatus $status;
+    private ?\DateTimeImmutable $publishedAt = null;
+
+    private function __construct(
+        public readonly ArticleId $id,
+        public readonly AuthorId $authorId,
+        public readonly \DateTimeImmutable $createdAt,
+    ) {}
+
+    public static function create(
+        ArticleId $id,
+        string $title,
+        AuthorId $authorId,
+    ): self {
+        self::assertTitleLength($title);
+        $article = new self($id, $authorId, new \DateTimeImmutable());
+        $article->title = $title;
+        $article->content = '';
+        $article->status = ArticleStatus::Draft;
+        return $article;
+    }
+
+    public function publish(\DateTimeImmutable $now): void
+    {
+        if ($this->status !== ArticleStatus::Draft) {
+            throw new \DomainException(
+                'Only draft articles can be published'
+            );
+        }
+
+        $this->status = ArticleStatus::Published;
+        $this->publishedAt = $now;
+
+        $this->recordEvent(new ArticlePublished(
+            $this->id, $this->authorId, $now
+        ));
+    }
+
+    private static function assertTitleLength(string $title): void
+    {
+        $len = mb_strlen($title);
+        if ($len &lt; 5 || $len &gt; 200) {
+            throw new \DomainException("Title must be 5-200 chars");
+        }
+    }
+}</code></pre>
+
+        <h3>Patterns dla efektywnej implementacji</h3>
+
+        <div class="card">
+            <h4>Pattern: "Show me X first"</h4>
+<pre><code>"Zanim napiszesz kod, pokaz:
+1. Lista plikow ktore utworzysz
+2. Krotka odpowiedz jak kazdy plik wpisuje sie w architekture
+3. Czy sa dependencies na inne klasy ktore nie istnieja?
+
+Czekaj na moje OK przed pisaniem kodu."</code></pre>
+        </div>
+
+        <div class="card">
+            <h4>Pattern: "Test-first"</h4>
+<pre><code>"Najpierw napisz testy (PHPUnit) dla scenariuszy:
+- Tworzenie article z poprawnym tytulem (happy path)
+- Title za krotki / za dlugi → DomainException
+- Publish DRAFT → status = PUBLISHED, event emitted
+- Publish PUBLISHED → DomainException
+
+Pokaz testy. Po mojej akceptacji napisz implementacje."</code></pre>
+        </div>
+
+        <div class="card">
+            <h4>Pattern: Constraint-driven</h4>
+<pre><code>"Przy implementacji TRZYMAJ SIE zasad:
+- NIE uzywaj static methods (poza named constructors)
+- NIE uzywaj global state
+- NIE uzywaj zmiennych mutable poza klasa
+- KAZDA publiczna metoda ma test
+- KAZDY public param ma type hint
+- Komentarze tylko WHY, nigdy WHAT"</code></pre>
+        </div>
+
+        <h2>FAZA 4: Review i refactor</h2>
+        <p>LLM jako <strong>niezalezny reviewer</strong> — czesto widzi rzeczy ktorych autor nie widzi.</p>
+
+        <div class="card">
+            <h3>Template — Review prompt</h3>
+<pre><code>ROLA: Senior PHP engineer specjalizujacy sie w bezpieczenstwie aplikacji.
+
+KOD DO REVIEW: [wklej kod]
+
+ZADANIE: Code review pod katem:
+
+1. BEZPIECZENSTWO
+   - SQL injection
+   - XSS (output escaping)
+   - CSRF
+   - File upload vulnerabilities
+   - Path traversal
+   - Authentication/authorization
+   - Sekrety w kodzie
+
+2. WYDAJNOSC
+   - N+1 queries
+   - Brakujace indeksy DB
+   - Cache opportunities
+   - Memory leaks (dlugie procesy)
+
+3. JAKOSC KODU
+   - SOLID violations
+   - Code smells
+   - Duplikacja
+   - Nieczytelne nazwy
+
+DLA KAZDEGO PROBLEMU:
+- Severity: Critical / High / Medium / Low
+- Linia / fragment kodu
+- Wyjasnienie problemu
+- Konkretna propozycja fix-a (kod)</code></pre>
+        </div>
+
+        <h3>Specjalistyczne review prompty</h3>
+
+        <div class="card">
+            <h4>Security review</h4>
+            <p>"Sprawdz ten kod pod katem OWASP Top 10 2021. Dla kazdego znalezionego problemu pokaz exploit (proof of concept) i fix."</p>
+        </div>
+
+        <div class="card">
+            <h4>Database review</h4>
+            <p>"Przeanalizuj schema MySQL pod katem: brakujace indeksy (na podstawie typowych queries), niewlasciwe typy kolumn, mozliwosci partycjonowania, czy tabele sa w 3NF?"</p>
+        </div>
+
+        <h2>Kompletny workflow: budowa CMS w PHP od zera</h2>
+
+        <div class="card">
+            <h3>Krok 1: Discovery (1 prompt)</h3>
+<pre><code>"Pomoz mi zaplanowac CMS dla portalu newsowego.
+Skala: 50k unique/day, 10 autorow, 100 artykulow/tydzien.
+
+Zadaj 10 pytan przed projektowaniem. Czekaj na odpowiedzi."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Krok 2: ADR (1 prompt)</h3>
+<pre><code>"Na bazie odpowiedzi, wygeneruj 5 ADR dla kluczowych decyzji:
+- Framework (custom vs Symfony vs Laravel)
+- Database (MySQL vs Postgres)
+- Cache (Redis vs Memcached)
+- Search (DB vs Elasticsearch vs Meilisearch)
+- Frontend (server-rendered vs SPA vs hybrid)
+
+Format: ADR z kontekstem, decyzja i konsekwencjami."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Krok 3: Architektura (1 prompt)</h3>
+<pre><code>"Na podstawie ADR-ow wygeneruj:
+1. C4 diagram (Context, Container) w Mermaid
+2. Strukture katalogow (PSR-4)
+3. Schema bazy danych (10-15 tabel)
+4. Liste bounded contexts (Article, User, Comment, Media...)"</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Krok 4: Implementacja per Bounded Context (wiele promptow)</h3>
+<pre><code>"Zacznij od bounded context Article. Implementuj:
+1. Aggregate Article + value objects
+2. Repository interface
+3. Domain events
+4. Doctrine implementation repository
+5. PHPUnit tests
+
+Po kazdym pliku — pokaz go i czekaj na review."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Krok 5: Application layer (CQRS)</h3>
+<pre><code>"Application layer dla Article. Use cases:
+- CreateArticleCommand + Handler
+- PublishArticleCommand + Handler
+- UpdateArticleCommand + Handler
+- GetArticleQuery + Handler
+- ListPublishedArticlesQuery + Handler
+
+Wszystko z testami integracyjnymi (z prawdziwa baza via testcontainers)."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Krok 6: HTTP layer</h3>
+<pre><code>"REST API:
+POST   /api/articles
+GET    /api/articles/{slug}
+PATCH  /api/articles/{id}
+POST   /api/articles/{id}/publish
+DELETE /api/articles/{id}
+
+Kazdy endpoint:
+- Controller (cienki)
+- Request validation (DTO)
+- Authorization (Voter pattern)
+- Response format JSON:API
+
+Plus testy E2E (Behat lub PHPUnit)."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Krok 7: UI (frontend)</h3>
+<pre><code>"Server-side rendered frontend z Twig:
+- Layout
+- Lista artykulow
+- Detail artykulu z komentarzami
+- Admin panel (lista, edit, publish)
+
+Use Hotwire (Turbo + Stimulus) dla interactivity bez SPA."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Krok 8: DevOps</h3>
+<pre><code>"Docker Compose dla dev:
+- PHP 8.3 FPM
+- Nginx
+- MySQL 8
+- Redis
+- Mailhog (dev SMTP)
+- phpMyAdmin
+
+Plus:
+- GitHub Actions CI (PHPUnit, PHPStan level 8, Psalm, php-cs-fixer)
+- Deployment script (zero downtime)
+- Healthchecks"</code></pre>
+        </div>
+
+        <h2>Najczestsze bledy promptowania</h2>
+        <ul>
+            <li><span class="no">✗ Mega-prompt:</span> "Napisz caly CMS w PHP" → 2000 linii kiepskiego kodu</li>
+            <li><span class="no">✗ Brak kontekstu projektu:</span> LLM nie wie co to za projekt, jakie konwencje</li>
+            <li><span class="no">✗ Tylko happy path:</span> Brak edge cases, walidacji, testow bledow</li>
+            <li><span class="no">✗ Brak ograniczen:</span> LLM moze uzyc dowolnego frameworka, dowolnej wersji PHP</li>
+            <li><span class="no">✗ Brak iteracji:</span> Jeden prompt → akceptacja kodu bez pytan</li>
+        </ul>
+
+        <div class="card green">
+            <h3>Dobry prompt zawiera</h3>
+            <ol>
+                <li><strong>Role</strong> (Senior PHP architect)</li>
+                <li><strong>Kontekst</strong> (CMS, skala, stack)</li>
+                <li><strong>Konkretne zadanie</strong> (jeden plik, jedna funkcja)</li>
+                <li><strong>Constraints</strong> (PSR, strict_types, no static)</li>
+                <li><strong>Format output</strong> (kod + testy + komentarze WHY)</li>
+                <li><strong>Checkpoint</strong> (pokaz plan przed kodem)</li>
+            </ol>
+        </div>
+
+        <h2>System prompt dla CMS PHP project</h2>
+<pre><code>Jestes senior PHP engineer pracujacym nad CMS dla sredniego portalu.
+
+STACK:
+- PHP 8.3 (strict types, readonly, enums)
+- Symfony 7.x lub Laravel 11.x
+- MySQL 8 / PostgreSQL 16
+- Redis dla cache i kolejek
+- Doctrine ORM
+- PHPUnit + Pest dla testow
+- PHPStan level 8
+
+KONWENCJE:
+- PSR-4 autoloading, PSR-12 code style
+- Domain-Driven Design (Domain/Application/Infrastructure/UI)
+- CQRS-light (osobne handlery dla command i query)
+- Repository pattern z interface w Domain
+- Domain Events dla side effects
+- Testy: AAA pattern (Arrange-Act-Assert)
+
+ZASADY:
+- Nigdy nie uzywaj globals, $GLOBALS, statics
+- Kazda publiczna metoda ma type hint i PHPDoc
+- Komentarze WHY, nie WHAT
+- 100% test coverage dla Domain layer
+- Wszystkie SQL przez prepared statements
+- Output zawsze escapowany (Twig auto-escape ON)
+
+PRZY PISANIU KODU:
+1. Najpierw pokaz plan (pliki, dependencies)
+2. Potem testy (jako kontrakt)
+3. Potem implementacja
+4. Po kazdej fazie czekaj na review
+
+PYTAJ jesli:
+- Wymagania niejasne
+- Moze byc wiele poprawnych rozwiazan
+- Brakuje kontekstu (struktury istniejacego kodu)</code></pre>
+
+        <h2>Lancuch promptow: dodawanie komentarzy do CMS</h2>
+
+        <div class="card">
+            <h3>Prompt 1: Discovery</h3>
+<pre><code>"Dodajemy system komentarzy do CMS. Glowne pytania:
+- Logowanie wymagane czy goscie tez moga?
+- Moderacja: pre-moderation, post-moderation, AI?
+- Threading (odpowiedzi)?
+- Reakcje (like, dislike)?
+- Anty-spam (captcha, rate limit, honeypot)?
+- GDPR (anonimizacja po N czasie)?
+- Markdown czy plain text?
+
+Zaproponuj strategie."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Prompt 2: Schema + ADR</h3>
+<pre><code>"Wygeneruj:
+1. ADR: Comments — moderation strategy
+2. Schema MySQL (tabele: comments, comment_reactions, banned_users)
+3. Indeksy uwzgledniajace: lista komentarzy artykulu, top liked, najnowsze
+4. Constraints (FK, unique)
+5. Migration file (Doctrine migrations)"</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Prompt 3: Domain</h3>
+<pre><code>"Bounded Context: Comment.
+Implementuj:
+- Comment (aggregate)
+- CommentId, CommentBody (value objects)
+- CommentStatus (enum: Pending, Approved, Rejected, Spam)
+- Domain events: CommentPosted, CommentApproved, CommentMarkedAsSpam
+
+Reguly:
+- Body 5-2000 znakow (rich text disabled)
+- Nie mozna edytowac po 5 min od posted
+- Approved comment nie moze byc edytowany przez autora (tylko mod)
+- Reply (parent_id) musi byc w tym samym artykule
+
+Pokaz testy najpierw, czekaj na akceptacje."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Prompt 4: Anti-spam</h3>
+<pre><code>"Application service AntiSpamService:
+- Rate limiting per IP (3 / minute, 30 / godzine)
+- Honeypot field check
+- Blacklist slow (configurable)
+- Akismet API integration (jesli klucz w env)
+- Heuristic: link count &gt; 2, all caps, repeated chars
+
+Output: SpamCheckResult (clean/suspicious/spam) + reason."</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>Prompt 5: HTTP + Frontend</h3>
+<pre><code>"REST endpoints:
+POST   /api/articles/{id}/comments
+GET    /api/articles/{id}/comments?page=1
+POST   /api/comments/{id}/approve  (admin)
+POST   /api/comments/{id}/react    (auth user)
+
+Plus Twig template z Hotwire (Turbo Stream dla nowych komentarzy
+real-time, bez page reload)."</code></pre>
+        </div>
+
+        <h2>Praktyczne komendy dla Claude Code / Cursor</h2>
+
+        <div class="card">
+            <h3>/build-cms-feature</h3>
+<pre><code>Implementuj feature [NAME] zgodnie z architektura CMS.
+
+KROK 1: Pokaz plan (pliki, dependencies, testy)
+KROK 2: Czekaj na akceptacje
+KROK 3: Implementuj plik po pliku
+KROK 4: Po kazdym pliku → pokaz go, run testy, czekaj na akceptacje
+KROK 5: Update CHANGELOG.md i README z nowa funkcja</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>/security-audit-php</h3>
+<pre><code>Przeprowadz security audit zmienionych plikow (git diff main).
+Sprawdz:
+- SQLi (czy sa przygotowane statements?)
+- XSS (czy output escapowany w Twig/PHP?)
+- Mass assignment
+- File upload (rozszerzenia, MIME, path)
+- Hardcoded secrets
+- CSRF tokens
+
+Output: lista problemow + fix-y.</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>/refactor-legacy-php</h3>
+<pre><code>Refaktor legacy PHP na nowoczesny:
+1. Dodaj declare(strict_types=1)
+2. Type hints wszedzie
+3. Readonly properties
+4. Enum zamiast const
+5. Dependency injection zamiast new
+6. PHPUnit dla kazdej publicznej metody
+
+Pokaz diff. Nie zmieniaj zachowania (testy musza passowac).</code></pre>
+        </div>
+
+        <h2>Stack rekomendowany dla CMS PHP w 2026</h2>
+        <table>
+            <thead><tr><th>Komponent</th><th>Wybor</th></tr></thead>
+            <tbody>
+                <tr><td>Framework</td><td>Symfony 7.x (kontrola) lub Laravel 11.x (szybki start)</td></tr>
+                <tr><td>PHP</td><td>8.3+ (lub 8.4 gdy stable)</td></tr>
+                <tr><td>DB</td><td>PostgreSQL 17 (lepsze niz MySQL dla CMS)</td></tr>
+                <tr><td>Cache</td><td>Redis 7+ / Valkey</td></tr>
+                <tr><td>Search</td><td>Meilisearch (prostsze niz Elasticsearch)</td></tr>
+                <tr><td>Frontend</td><td>Twig + Hotwire (Turbo + Stimulus) — SSR, lekkie</td></tr>
+                <tr><td>Admin panel</td><td>EasyAdmin (Symfony) lub Filament (Laravel)</td></tr>
+                <tr><td>Auth</td><td>Symfony Security / Laravel Sanctum + 2FA</td></tr>
+                <tr><td>Queue</td><td>Symfony Messenger / Laravel Horizon (Redis backend)</td></tr>
+                <tr><td>File storage</td><td>Flysystem (S3, local, MinIO)</td></tr>
+                <tr><td>Mail</td><td>Symfony Mailer / Laravel Mail (SMTP, SES, Postmark)</td></tr>
+                <tr><td>Tests</td><td>PHPUnit + Pest + Symfony Panther (E2E)</td></tr>
+                <tr><td>Static analysis</td><td>PHPStan level 8, Psalm, Rector</td></tr>
+                <tr><td>CI/CD</td><td>GitHub Actions</td></tr>
+                <tr><td>Deploy</td><td>Deployer (PHP-native) lub GitHub Actions + ssh</td></tr>
+                <tr><td>Container</td><td>Docker Compose (dev), FrankenPHP (prod alternatywa)</td></tr>
+                <tr><td>Monitoring</td><td>Symfony Profiler (dev), Sentry (prod), Grafana</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Czego unikac</h2>
+        <ul>
+            <li><span class="no">✗</span> <strong>Stare CMS</strong> (WordPress 5.x bez blokow) — security ryzyko, vendor lock</li>
+            <li><span class="no">✗</span> <strong>Custom framework "from scratch"</strong> — chyba ze research, nie produkcja</li>
+            <li><span class="no">✗</span> <strong>PHP &lt; 8.1</strong> — brakuje readonly, enums, fibers</li>
+            <li><span class="no">✗</span> <strong>MySQL &lt; 8</strong> — brakuje window functions, JSON improvements</li>
+            <li><span class="no">✗</span> <strong>Server-side templating bez auto-escape</strong> — XSS risk</li>
+        </ul>
+
+        <h2>Co warto zapamietac</h2>
+        <ol>
+            <li><strong>Faza &gt; prompt</strong> — dziel prace, nie dawaj jednego mega-zadania</li>
+            <li><strong>Show plan first</strong> — niech LLM pokaze co zrobi przed kodem</li>
+            <li><strong>Test-first</strong> — testy jako kontrakt, potem implementacja</li>
+            <li><strong>Iteracja</strong> — pierwszy szkic to nie final</li>
+            <li><strong>Niezalezny review</strong> — LLM jako reviewer czesto widzi co przeoczyles</li>
+            <li><strong>Constraints</strong> — bez nich LLM uzyje "popularnych" rozwiazan</li>
+            <li><strong>Kontekst projektu</strong> — zawsze konwencje, stack, decyzje</li>
+            <li><strong>Komendy / templates</strong> — zapisz dobre prompty jako reusable</li>
+        </ol>
+
+        <div class="nav-bottom">
+            <a href="08-prompt-engineering.html">&larr; Prompt Engineering</a>
+            <a href="09-rag.html">RAG &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

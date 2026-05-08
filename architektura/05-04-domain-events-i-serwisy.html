@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>05-04 — Domain Events &amp; Domain Services</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="05-domain-driven-design.html">05 — DDD</a>
+        <span class="sep">/</span>
+        <span class="title">Domain Events &amp; Services</span>
+    </div>
+    <div class="container">
+        <h1>Domain Events &amp; Domain Services</h1>
+        <p class="subtitle">Zdarzenia domenowe, handlery, koordynacja sag i serwisy domenowe bez naturalnego domu.</p>
+
+        <h2>Domain Events — zdarzenia domenowe</h2>
+        <p>Domain Event to obiekt reprezentujacy fakt, ktory wydarzyl sie w domenie biznesowej. Jest zapisany w czasie przeszlym, bo opisuje cos, co juz sie stalo — nie zadanie, nie komende, lecz nieodwracalny fakt.</p>
+
+        <div class="card">
+            <h3>Cechy Domain Events</h3>
+            <ul>
+                <li><strong>Czas przeszly</strong> — OrderPlaced, PaymentReceived, ShipmentDispatched</li>
+                <li><strong>Niemutowalne</strong> — po utworzeniu nie mozna zmienic (fakt sie nie zmienia)</li>
+                <li><strong>Samowystarczalne</strong> — zawieraja wszystkie dane potrzebne handlerowi</li>
+                <li><strong>Domenowe</strong> — opisuja zdarzenia biznesowe, nie techniczne</li>
+            </ul>
+        </div>
+
+        <h3>Anatomia Domain Event</h3>
+<pre><code>interface DomainEvent {
+    readonly eventId: string;
+    readonly occurredAt: Date;
+    readonly aggregateId: string;
+    readonly eventType: string;
+}
+
+class OrderPlacedEvent implements DomainEvent {
+    readonly eventType = 'Order.Placed';
+    readonly eventId = crypto.randomUUID();
+    readonly occurredAt = new Date();
+
+    constructor(
+        readonly aggregateId: string,    // OrderId
+        readonly customerId: string,
+        readonly items: ReadonlyArray&lt;{
+            productId: string;
+            quantity: number;
+            unitPrice: number;
+        }&gt;,
+        readonly totalAmount: number,
+        readonly currency: string,
+        readonly shippingAddress: {
+            street: string;
+            city: string;
+            postalCode: string;
+        },
+    ) {}
+}
+
+class OrderCancelledEvent implements DomainEvent {
+    readonly eventType = 'Order.Cancelled';
+    readonly eventId = crypto.randomUUID();
+    readonly occurredAt = new Date();
+
+    constructor(
+        readonly aggregateId: string,
+        readonly reason: string,
+        readonly cancelledBy: string,
+        readonly refundAmount: number,
+    ) {}
+}</code></pre>
+
+        <h3>Emitowanie zdarzen z agregatu</h3>
+        <p>Agregat zbiera zdarzenia wewnetrznie, a infrastruktura je publikuje po zapisaniu agregatu do bazy.</p>
+<pre><code>abstract class AggregateRoot {
+    private _domainEvents: DomainEvent[] = [];
+
+    protected addDomainEvent(event: DomainEvent): void {
+        this._domainEvents.push(event);
+    }
+
+    pullDomainEvents(): DomainEvent[] {
+        const events = [...this._domainEvents];
+        this._domainEvents = [];
+        return events;
+    }
+}
+
+class Order extends AggregateRoot {
+    place(): void {
+        if (this._items.length === 0)
+            throw new EmptyOrderError(this._id);
+
+        this._status = OrderStatus.Placed;
+
+        // Zdarzenie dodane — jeszcze nie opublikowane
+        this.addDomainEvent(new OrderPlacedEvent(
+            this._id.value,
+            this._customerId.value,
+            this._items.map(i =&gt; ({
+                productId: i.productId.value,
+                quantity: i.quantity.value,
+                unitPrice: i.unitPrice.amount,
+            })),
+            this.totalAmount.amount,
+            this.totalAmount.currency,
+            this._shippingAddress.toPlain(),
+        ));
+    }
+}</code></pre>
+
+        <h3>Publikowanie po zapisie</h3>
+<pre><code>class OrderApplicationService {
+    constructor(
+        private orderRepo: OrderRepository,
+        private eventPublisher: DomainEventPublisher,
+    ) {}
+
+    async placeOrder(command: PlaceOrderCommand): Promise&lt;OrderId&gt; {
+        const order = Order.create(command);
+        order.place();
+
+        // 1. Zapisz agregat
+        await this.orderRepo.save(order);
+
+        // 2. Opublikuj zebrane zdarzenia
+        const events = order.pullDomainEvents();
+        for (const event of events) {
+            await this.eventPublisher.publish(event);
+        }
+
+        return order.id;
+    }
+}</code></pre>
+
+        <h2>Event Handlers — reagowanie na zdarzenia</h2>
+        <p>Handlery to niezalezne komponenty reagujace na zdarzenia. Kazdy handler ma jedna odpowiedzialnosc.</p>
+<pre><code>interface DomainEventHandler&lt;T extends DomainEvent&gt; {
+    handle(event: T): Promise&lt;void&gt;;
+}
+
+// Handler: wyslij e-mail z potwierdzeniem
+class SendOrderConfirmationEmail
+    implements DomainEventHandler&lt;OrderPlacedEvent&gt; {
+
+    constructor(private emailService: EmailService) {}
+
+    async handle(event: OrderPlacedEvent): Promise&lt;void&gt; {
+        await this.emailService.send({
+            to: event.customerId,
+            template: 'order-confirmation',
+            data: {
+                orderId: event.aggregateId,
+                items: event.items,
+                total: `${event.totalAmount} ${event.currency}`,
+            },
+        });
+    }
+}
+
+// Handler: zarezerwuj produkty w magazynie
+class ReserveInventoryOnOrderPlaced
+    implements DomainEventHandler&lt;OrderPlacedEvent&gt; {
+
+    constructor(private inventoryService: InventoryService) {}
+
+    async handle(event: OrderPlacedEvent): Promise&lt;void&gt; {
+        for (const item of event.items) {
+            await this.inventoryService.reserve(
+                item.productId, item.quantity, event.aggregateId,
+            );
+        }
+    }
+}
+
+// Handler: zwolnij rezerwacje po anulowaniu
+class ReleaseInventoryOnOrderCancelled
+    implements DomainEventHandler&lt;OrderCancelledEvent&gt; {
+
+    constructor(private inventoryService: InventoryService) {}
+
+    async handle(event: OrderCancelledEvent): Promise&lt;void&gt; {
+        await this.inventoryService.releaseReservation(
+            event.aggregateId
+        );
+    }
+}</code></pre>
+
+        <h3>Rejestracja handlerow</h3>
+<pre><code>const publisher = new DomainEventPublisher();
+publisher.register('Order.Placed',
+    new SendOrderConfirmationEmail(emailService));
+publisher.register('Order.Placed',
+    new ReserveInventoryOnOrderPlaced(inventory));
+publisher.register('Order.Placed',
+    new AwardLoyaltyPointsOnOrderPlaced(loyalty));
+publisher.register('Order.Cancelled',
+    new ReleaseInventoryOnOrderCancelled(inventory));</code></pre>
+
+        <h2>Saga — koordynacja procesow</h2>
+        <p>Saga koordynuje proces biznesowy rozciagniety na wiele agregatow, reagujac na zdarzenia i wydajac komendy. Zarzadza tez kompensacja w razie bledu.</p>
+<pre><code>class OrderFulfillmentSaga {
+    private state: SagaState = 'started';
+
+    async onOrderPlaced(event: OrderPlacedEvent): Promise&lt;void&gt; {
+        this.state = 'awaiting_payment';
+        await this.paymentService.requestPayment(
+            event.aggregateId, event.totalAmount, event.currency,
+        );
+    }
+
+    async onPaymentReceived(event: PaymentReceivedEvent): Promise&lt;void&gt; {
+        this.state = 'awaiting_shipment';
+        await this.warehouseService.prepareShipment(event.orderId);
+    }
+
+    async onPaymentFailed(event: PaymentFailedEvent): Promise&lt;void&gt; {
+        this.state = 'compensating';
+        // Kompensacja: zwolnij rezerwacje, anuluj zamowienie
+        await this.inventoryService.releaseReservation(event.orderId);
+        await this.orderService.cancelOrder(
+            event.orderId,
+            CancellationReason.paymentFailed(event.reason),
+        );
+        this.state = 'compensated';
+    }
+
+    async onShipmentDispatched(event: ShipmentDispatchedEvent): Promise&lt;void&gt; {
+        this.state = 'completed';
+        await this.orderService.markAsShipped(
+            event.orderId, event.trackingNumber,
+        );
+    }
+
+    async onShipmentFailed(event: ShipmentFailedEvent): Promise&lt;void&gt; {
+        this.state = 'compensating';
+        await this.paymentService.refund(event.orderId);
+        await this.orderService.cancelOrder(
+            event.orderId,
+            CancellationReason.shipmentFailed(event.reason),
+        );
+        this.state = 'compensated';
+    }
+}</code></pre>
+
+        <h2>Domain Services — operacje bez naturalnego domu</h2>
+        <p>Domain Service to operacja domenowa, ktora nie nalezy naturalnie do zadnej encji ani Value Objectu. Jest bezstanowa i operuje na wielu obiektach domenowych.</p>
+
+        <div class="card">
+            <h3>Kiedy potrzebujesz Domain Service?</h3>
+            <ul>
+                <li>Operacja wymaga danych z wielu agregatow</li>
+                <li>Logika nie pasuje do zadnego konkretnego agregatu</li>
+                <li>Operacja implementuje regule biznesowa przekraczajaca granice jednego agregatu</li>
+            </ul>
+            <h3>Kiedy NIE tworzyc Domain Service?</h3>
+            <ul>
+                <li>Logika pasuje do istniejacej encji — umiesc ja tam</li>
+                <li>To operacja techniczna (e-mail, baza) — to infrastructure service</li>
+                <li>To orkiestracja/koordynacja — to application service</li>
+            </ul>
+        </div>
+
+<pre><code>// Domain Service: kalkulacja ceny z wieloma regulami
+class OrderPricingService {
+    calculateFinalPrice(
+        items: OrderItem[],
+        customer: Customer,
+        promotions: Promotion[],
+        shippingOption: ShippingOption,
+    ): PriceBreakdown {
+        const subtotal = items.reduce(
+            (sum, item) =&gt; sum.add(item.lineTotal()),
+            Money.zero('PLN'),
+        );
+
+        // Rabat klienta (zalezy od segmentu)
+        const customerDiscount = customer.tier.calculateDiscount(subtotal);
+
+        // Promocje (zaleza od produktow i kampanii)
+        const promoDiscount = promotions.reduce(
+            (total, promo) =&gt; total.add(promo.calculateDiscount(items)),
+            Money.zero('PLN'),
+        );
+
+        // Najwyzszy rabat wygrywa (regula biznesowa)
+        const discount = customerDiscount.isGreaterThan(promoDiscount)
+            ? customerDiscount : promoDiscount;
+
+        // Darmowa wysylka powyzej progu
+        const shipping = subtotal.isGreaterThan(Money.of(200, 'PLN'))
+            ? Money.zero('PLN') : shippingOption.cost;
+
+        const taxableAmount = subtotal.subtract(discount).add(shipping);
+        const tax = taxableAmount.multiply(0.23);
+
+        return new PriceBreakdown({
+            subtotal, discount, shipping, tax,
+            total: taxableAmount.add(tax),
+        });
+    }
+}</code></pre>
+
+        <h3>Domain Service: transfer miedzy kontami</h3>
+<pre><code>// Transfer wymaga dwoch agregatow — nie pasuje do zadnego
+class FundsTransferService {
+    transfer(
+        source: BankAccount,
+        destination: BankAccount,
+        amount: Money,
+        purpose: TransferPurpose,
+    ): TransferResult {
+        if (source.wouldExceedDailyLimit(amount))
+            throw new DailyTransferLimitExceededError(source.id);
+
+        if (!source.supportsCurrency(amount.currency))
+            throw new UnsupportedCurrencyError(source.id, amount.currency);
+
+        source.debit(amount, purpose);
+        destination.credit(amount, purpose);
+
+        return TransferResult.successful(
+            source.id, destination.id, amount, purpose
+        );
+    }
+}</code></pre>
+
+        <h2>Domain vs Application vs Infrastructure Service</h2>
+        <table>
+            <thead><tr><th>Typ serwisu</th><th>Odpowiedzialnosc</th><th>Zna domene?</th><th>Przyklady</th></tr></thead>
+            <tbody>
+                <tr><td>Domain Service</td><td>Reguly biznesowe cross-agregatowe</td><td>Tak</td><td>FundsTransferService, PricingService</td></tr>
+                <tr><td>Application Service</td><td>Orkiestracja, transakcje, uprawnienia</td><td>Czesciowo</td><td>PlaceOrderUseCase, RegisterUserUseCase</td></tr>
+                <tr><td>Infrastructure Service</td><td>Komunikacja z zewnetrznym swiatem</td><td>Nie</td><td>EmailSender, FileStorage, PaymentGateway</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kiedy Domain Events vs bezposrednie wywolania?</h2>
+        <table>
+            <thead><tr><th>Kryterium</th><th>Bezposrednie wywolanie</th><th>Domain Event</th></tr></thead>
+            <tbody>
+                <tr><td>Spojnosc</td><td>Natychmiastowa (strong consistency)</td><td>Ostateczna (eventual consistency)</td></tr>
+                <tr><td>Coupling</td><td>Wyzszy (bezposrednia zaleznosc)</td><td>Nizszy (przez zdarzenia)</td></tr>
+                <tr><td>Debugowanie</td><td>Latwiejsze (call stack)</td><td>Trudniejsze (asynchronicznosc)</td></tr>
+                <tr><td>Skalowalnosc</td><td>Ograniczona</td><td>Wysoka (niezalezne handlery)</td></tr>
+                <tr><td>Stosuj gdy</td><td>Logika w ramach jednego agregatu</td><td>Reakcje cross-agregatowe, powiadomienia</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Praktyczne wskazowki</h2>
+        <ul>
+            <li>Domain Events powinny byc samowystarczalne — handler nie powinien musiec odpytywac o dane</li>
+            <li>Nie naduzywaj Domain Services — jesli logika pasuje do encji, umiesc ja tam</li>
+            <li>Application Service nie powinien zawierac regul biznesowych — deleguj do domeny</li>
+            <li>Saga potrzebuje persystencji stanu — zapisuj stan sagi w bazie</li>
+            <li>Zdarzenia powinny byc wersjonowane — zmiany w strukturze moga zlamac handlery</li>
+            <li>Rozwaz Event Store zamiast zwyklej bazy — pelna historia zdarzen jako zrodlo prawdy</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="05-03-agregaty-i-encje.html">&larr; Agregaty, Encje, Value Objects</a>
+            <a href="05-domain-driven-design.html">Domain-Driven Design &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

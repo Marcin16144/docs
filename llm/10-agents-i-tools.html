@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>10 — Agenci LLM i Tools</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<span class="title">10 — Agenci LLM i Tools</span>
+</div>
+
+<div class="container">
+<h1>Agenci LLM i Tools</h1>
+<p class="subtitle">Jak LLM zamienia sie w autonomiczny system dzialajacy w swiecie</p>
+
+<h2>Czym jest agent LLM?</h2>
+<p><strong>Agent</strong> to system, w ktorym LLM nie tylko generuje tekst, ale <strong>decyduje o akcjach</strong>: wywoluje narzedzia, czyta wyniki, planuje kolejne kroki, iteruje az do osiagniecia celu.</p>
+
+<pre><code>┌─────────────────────────────────────┐
+│              AGENT                  │
+│  ┌─────────────────────────────┐   │
+│  │         LLM (mozg)           │   │
+│  └──┬───────────────────────┬──┘   │
+│     │                        │      │
+│  ┌──▼──────┐         ┌──────▼──┐   │
+│  │ Memory  │         │  Tools  │   │
+│  │ (state) │         │ (akcje) │   │
+│  └─────────┘         └─────────┘   │
+│         ↓                  ↓        │
+│  ┌──────────────────────────────┐  │
+│  │       Swiat zewnetrzny:       │  │
+│  │  pliki, API, baza, internet   │  │
+│  └──────────────────────────────┘  │
+└─────────────────────────────────────┘</code></pre>
+
+<h2>Tradycyjna aplikacja vs Agent</h2>
+<pre><code>Tradycyjna aplikacja:
+User → kod (sztywny przeplyw) → API → odpowiedz
+
+Agent:
+User → LLM → "Co zrobic?" → wybierz tool → wynik
+              ↑                              ↓
+              └──── feedback loop ──────────┘</code></pre>
+
+<h2>Function Calling / Tool Use</h2>
+<p>Podstawowa zdolnosc: LLM otrzymuje liste dostepnych funkcji i moze je "wywolac" w odpowiedzi.</p>
+
+<div class="card">
+<h3>Anthropic Claude Tool Use</h3>
+<pre><code>import anthropic
+
+client = anthropic.Anthropic()
+
+tools = [{
+    "name": "get_weather",
+    "description": "Get current weather for a city",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "city": {"type": "string", "description": "City name"},
+            "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}
+        },
+        "required": ["city"]
+    }
+}]
+
+response = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=1024,
+    tools=tools,
+    messages=[{"role": "user", "content": "Jaka jest pogoda w Warszawie?"}]
+)
+
+# Model zdecyduje czy wywolac tool
+if response.stop_reason == "tool_use":
+    tool_call = response.content[-1]
+    result = get_weather(**tool_call.input)  # Twoja implementacja
+
+    # Kontynuuj rozmowe z wynikiem
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        tools=tools,
+        messages=[
+            {"role": "user", "content": "Jaka jest pogoda w Warszawie?"},
+            {"role": "assistant", "content": response.content},
+            {"role": "user", "content": [{
+                "type": "tool_result",
+                "tool_use_id": tool_call.id,
+                "content": str(result)
+            }]}
+        ]
+    )</code></pre>
+</div>
+
+<h3>OpenAI Function Calling</h3>
+<p>Podobny pattern, skladnia rozni sie delikatnie. W 2026 standardem jest <strong>OpenAI-compatible</strong> schema (kompatybilna z wiekszoscia modeli).</p>
+
+<h2>ReAct Pattern</h2>
+<p><strong>ReAct</strong> = <strong>Re</strong>asoning + <strong>Act</strong>ing. Klasyczny pattern dla agentow.</p>
+
+<pre><code>Question: Jaka bedzie pogoda jutro w stolicy Francji?
+
+Thought: Musze najpierw znalezc stolice Francji.
+Action: search("stolica Francji")
+Observation: Stolica Francji to Paryz.
+
+Thought: Teraz moge sprawdzic pogode w Paryzu na jutro.
+Action: get_weather(city="Paryz", date="tomorrow")
+Observation: Jutro w Paryzu: 15°C, slonecznie.
+
+Thought: Mam juz odpowiedz.
+Answer: Jutro w Paryzu (stolicy Francji) bedzie 15°C i slonecznie.</code></pre>
+
+<p>W 2026 nowoczesne reasoning models (Claude, o3, R1) robia to <strong>automatycznie</strong> w extended thinking.</p>
+
+<h2>Frameworki do agentow (2026)</h2>
+
+<div class="card">
+<h3>LangGraph (preferowany 2026)</h3>
+<p>Nastepca LangChain Agents. Graph-based, stateful, lepiej zaprojektowany.</p>
+<pre><code>from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import create_react_agent
+from langchain_anthropic import ChatAnthropic
+
+llm = ChatAnthropic(model="claude-sonnet-4-6")
+
+@tool
+def search_web(query: str) -> str:
+    """Search the web."""
+    return ddg_search(query)
+
+@tool
+def calculator(expression: str) -> str:
+    """Evaluate math expression."""
+    return str(eval(expression))
+
+agent = create_react_agent(
+    llm,
+    tools=[search_web, calculator],
+    prompt="Jestes badaczem internetu."
+)
+
+result = agent.invoke({
+    "messages": [("user", "Ile wynosi PKB Polski podzielone przez populacje?")]
+})</code></pre>
+</div>
+
+<div class="card">
+<h3>Claude Agent SDK</h3>
+<p>SDK od Anthropic do budowy agentow (jak Claude Code):</p>
+<pre><code>from claude_agent_sdk import Agent, tool
+
+@tool
+def read_file(path: str) -> str:
+    """Read file contents."""
+    return open(path).read()
+
+@tool
+def write_file(path: str, content: str) -> str:
+    """Write content to file."""
+    open(path, "w").write(content)
+    return f"Written to {path}"
+
+agent = Agent(
+    model="claude-opus-4-7",
+    tools=[read_file, write_file],
+    system_prompt="Jestes pomocnym asystentem programistycznym."
+)
+
+response = agent.run("Przeczytaj README.md i streszcz go")</code></pre>
+</div>
+
+<div class="card">
+<h3>AutoGen (Microsoft)</h3>
+<p>Multi-agent framework, agenci rozmawiaja ze soba.</p>
+<pre><code>from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent("assistant", llm_config={"model": "gpt-5"})
+user = UserProxyAgent("user", code_execution_config={"work_dir": "tmp"})
+
+user.initiate_chat(assistant, message="Napisz prosta gre w Snake")</code></pre>
+</div>
+
+<div class="card">
+<h3>CrewAI</h3>
+<p>Multi-agent z zdefiniowanymi rolami:</p>
+<pre><code>from crewai import Agent, Task, Crew
+
+researcher = Agent(role="Researcher", goal="Find latest AI papers")
+writer = Agent(role="Writer", goal="Write summary")
+
+task1 = Task(description="Research AI trends", agent=researcher)
+task2 = Task(description="Write blog post", agent=writer)
+
+crew = Crew(agents=[researcher, writer], tasks=[task1, task2])
+result = crew.kickoff()</code></pre>
+</div>
+
+<div class="card">
+<h3>Pydantic AI</h3>
+<p>Type-safe agent framework.</p>
+<pre><code>from pydantic import BaseModel
+from pydantic_ai import Agent
+
+class Answer(BaseModel):
+    response: str
+    sources: list[str]
+
+agent = Agent("anthropic:claude-sonnet-4-6", result_type=Answer)</code></pre>
+</div>
+
+<h2>Model Context Protocol (MCP)</h2>
+<p><strong>MCP</strong> (Anthropic, 2024) — protokol do integracji narzedzi z agentami. <strong>De facto standard 2026</strong>.</p>
+
+<pre><code>MCP Client (Claude Desktop, Cursor, Claude Code)
+       ↓
+   MCP Protocol (JSON-RPC over stdio/SSE)
+       ↓
+   MCP Server (filesystem, postgres, github, slack...)
+       ↓
+   Real tool/data</code></pre>
+
+<h3>Przyklad: prosty MCP server</h3>
+<pre><code># my_mcp_server.py
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("My Tools")
+
+@mcp.tool()
+def calculate(expression: str) -> str:
+    """Evaluate math."""
+    return str(eval(expression))
+
+@mcp.resource("config://app")
+def get_config() -> str:
+    """App configuration."""
+    return open("config.yaml").read()
+
+if __name__ == "__main__":
+    mcp.run()</code></pre>
+
+<p>Konfiguracja w Claude Desktop:</p>
+<pre><code>{
+  "mcpServers": {
+    "my-tools": {
+      "command": "python",
+      "args": ["my_mcp_server.py"]
+    }
+  }
+}</code></pre>
+
+<h3>Popularne MCP servery (2026)</h3>
+<ul>
+<li><strong>filesystem</strong> — operacje na plikach</li>
+<li><strong>postgres</strong> — query bazy danych</li>
+<li><strong>github</strong> — repo, issues, PR</li>
+<li><strong>slack</strong> — wiadomosci</li>
+<li><strong>google-drive</strong> — pliki Google</li>
+<li><strong>web-search</strong> — Brave, Tavily</li>
+<li><strong>memory</strong> — persistent memory</li>
+<li><strong>fetch</strong> — HTTP requests</li>
+<li><strong>playwright</strong> — browser automation</li>
+</ul>
+<p>Repozytorium 1000+ MCP serverow w 2026.</p>
+
+<h2>Memory dla agentow</h2>
+
+<h3>Short-term memory (working memory)</h3>
+<p>Historia rozmowy w prompcie. Limit: context window.</p>
+<pre><code>messages = [
+    {"role": "user", "content": "Mam na imie Marcin"},
+    {"role": "assistant", "content": "Milo cie poznac, Marcin"},
+    {"role": "user", "content": "Jak mam na imie?"}
+]</code></pre>
+
+<h3>Long-term memory</h3>
+<p>Persystentna baza wiedzy o userze, poprzednich interakcjach.</p>
+
+<p><strong>Typy:</strong></p>
+<ul>
+<li><strong>Episodic</strong> — pamiec konkretnych zdarzen ("3 dni temu pytalem o X")</li>
+<li><strong>Semantic</strong> — fakty o swiecie i userze ("user lubi Python")</li>
+<li><strong>Procedural</strong> — jak cos robic ("user preferuje krotkie odpowiedzi")</li>
+</ul>
+
+<h3>Implementacja</h3>
+<pre><code># 1. Po kazdej rozmowie — ekstrahuj fakty
+facts = llm.generate(f"""
+Wyciagnij wazne fakty z rozmowy:
+{conversation}
+
+Fakty:
+""")
+
+# 2. Zapisz w vector DB
+vector_db.upsert(facts)
+
+# 3. Przy nastepnej rozmowie — retrieve relevant
+relevant_memory = vector_db.search(current_query)
+
+# 4. Dodaj do system prompt
+system_prompt = f"""
+Wiedza o userze:
+{relevant_memory}
+
+[reszta promptu]
+"""</code></pre>
+
+<h3>Frameworki memory</h3>
+<ul>
+<li><strong>mem0</strong> — managed memory layer dla agentow</li>
+<li><strong>Letta</strong> (dawniej MemGPT) — open source memory</li>
+<li><strong>LangGraph checkpoints</strong> — state w Postgres</li>
+<li><strong>Zep</strong> — conversational memory</li>
+</ul>
+
+<h2>Multi-agent systems</h2>
+<p>W 2025-2026 rosnacy trend: zamiast jednego mega-agenta, <strong>specjalizowane agenty wspolpracujace</strong>.</p>
+
+<pre><code>┌──────────────────────────┐
+│      Orchestrator         │  (planuje, deleguje)
+└────────────┬─────────────┘
+             │
+   ┌─────────┼─────────┐
+   ▼         ▼         ▼
+┌─────┐  ┌─────┐  ┌─────┐
+│ Res │  │ Cod │  │ Wri │  Specjalizowani agenci
+│earch│  │ er  │  │ ter │
+└─────┘  └─────┘  └─────┘</code></pre>
+
+<p><strong>Wzorce:</strong></p>
+<ul>
+<li><strong>Sequential</strong> — agent A → B → C</li>
+<li><strong>Hierarchical</strong> — orchestrator deleguje subtaski</li>
+<li><strong>Concurrent</strong> — agenci pracuja rownolegle</li>
+<li><strong>Debate</strong> — agenci dyskutuja dla lepszej decyzji</li>
+<li><strong>Voting</strong> — glosuja na najlepsze rozwiazanie</li>
+</ul>
+
+<h2>Agent design patterns</h2>
+
+<h3>Reflection</h3>
+<p>Agent ocenia wlasna prace i poprawia:</p>
+<pre><code>Generate → Critique → Refine → Critique → Final</code></pre>
+
+<h3>Planning</h3>
+<p>Agent najpierw tworzy plan, potem wykonuje:</p>
+<pre><code>Goal → Plan (steps 1-N) → Execute step 1 → Re-plan → Execute step 2 → ...</code></pre>
+
+<h3>Tool use orchestration</h3>
+<p>Agent decyduje ktory tool kiedy:</p>
+<pre><code>Query → Identify needed tools → Execute in order → Synthesize results</code></pre>
+
+<h2>Bezpieczenstwo agentow</h2>
+<p>Agenci dzialajacy autonomicznie to ryzyko:</p>
+<ul>
+<li><strong>Prompt injection</strong> — atakujacy wplywa na decyzje</li>
+<li><strong>Niezamierzone akcje</strong> — agent usuwa pliki</li>
+<li><strong>Loop infinity</strong> — agent w nieskonczonej petli</li>
+<li><strong>Cost explosion</strong> — agent wywoluje LLM 1000 razy</li>
+<li><strong>Data exfiltration</strong> — agent wysyla wrazliwe dane</li>
+</ul>
+
+<h3>Mitigations:</h3>
+<ol>
+<li><strong>Human-in-the-loop</strong> — confirmation przed destructive actions</li>
+<li><strong>Sandboxing</strong> — agent w izolowanym srodowisku</li>
+<li><strong>Permission system</strong> — explicit consent dla kazdego tool</li>
+<li><strong>Rate limiting</strong> — max N akcji na minute</li>
+<li><strong>Cost limits</strong> — max budget per session</li>
+<li><strong>Audit logging</strong> — log wszystkich akcji</li>
+<li><strong>Input validation</strong> — sanitize tool inputs</li>
+<li><strong>Restricted tools</strong> — tylko niezbedne tools</li>
+</ol>
+
+<h2>Real-world agent applications</h2>
+
+<h3>Coding agents</h3>
+<ul>
+<li><strong>Claude Code</strong> (Anthropic) — terminal-based, multi-step coding</li>
+<li><strong>Cursor Composer</strong> — multi-file edits w IDE</li>
+<li><strong>Aider</strong> — open source CLI coding</li>
+<li><strong>Devin</strong> (Cognition Labs) — fully autonomous SWE</li>
+<li><strong>GitHub Copilot Workspace</strong> — repo-level changes</li>
+<li><strong>Cline / Continue</strong> — open source IDE agents</li>
+</ul>
+
+<h3>Research agents</h3>
+<ul>
+<li><strong>Perplexity</strong> — web search + synthesis</li>
+<li><strong>You.com</strong> — multi-source research</li>
+<li><strong>Manus</strong> — general purpose agent</li>
+</ul>
+
+<h3>Customer support</h3>
+<ul>
+<li><strong>Sierra</strong> — AI customer support</li>
+<li><strong>Decagon</strong> — enterprise AI agents</li>
+<li><strong>Intercom Fin</strong> — built-in AI agent</li>
+</ul>
+
+<h3>Personal assistants</h3>
+<ul>
+<li><strong>Claude (Anthropic)</strong> — claude.ai z Projects, Computer Use</li>
+<li><strong>ChatGPT Operator</strong> — web automation agent</li>
+</ul>
+
+<h3>Specialized</h3>
+<ul>
+<li><strong>Code review</strong> agents</li>
+<li><strong>Data analysis</strong> agents</li>
+<li><strong>Sales prospecting</strong> agents</li>
+<li><strong>HR screening</strong> agents</li>
+</ul>
+
+<h2>Computer Use (2024+)</h2>
+<p>Anthropic w 2024 udostepnila <strong>Computer Use</strong> — Claude moze obslugiwac komputer (klikac, pisac, nawigowac). W 2026 standardem dla browsing agents.</p>
+
+<pre><code>response = client.messages.create(
+    model="claude-opus-4-7",
+    tools=[{"type": "computer_20250124"}],
+    messages=[{"role": "user", "content": "Otworz przegladarke i wyszukaj 'pogoda Warszawa'"}]
+)</code></pre>
+
+<p>Model otrzymuje screenshot, decyduje gdzie kliknac, co napisac.</p>
+
+<h2>Trendy 2026</h2>
+<ol>
+<li><strong>Reasoning models w agentach</strong> — Claude/o3/R1 pozwalaja na skomplikowane planowanie</li>
+<li><strong>MCP</strong> — uniwersalny protokol dla tools</li>
+<li><strong>Multi-agent collaboration</strong> — zespoly agentow, nie pojedynczy</li>
+<li><strong>Agent skill libraries</strong> — preset zachowania (jak Claude Skills)</li>
+<li><strong>Computer Use</strong> — agenci jako digital workers</li>
+<li><strong>Self-improving agents</strong> — agenci ucza sie z bledow</li>
+<li><strong>Persistent memory</strong> — agenci pamietaja miesiacami</li>
+</ol>
+
+<h2>Praktyczna rada — kiedy budowac agenta?</h2>
+
+<div class="card">
+<p><strong>TAK, agent ma sens gdy:</strong></p>
+<ul>
+<li>Zadanie wymaga <strong>wielu krokow</strong> trudnych do zaplanowania z gory</li>
+<li>Potrzebne sa <strong>rozne narzedzia</strong> (search + DB + compute)</li>
+<li>Decyzje zaleza od posrednich wynikow</li>
+<li>Workflow jest <strong>dynamiczny</strong>, nie sztywny</li>
+</ul>
+
+<p><strong>NIE, klasyczny pipeline lepszy gdy:</strong></p>
+<ul>
+<li>Workflow jest <strong>przewidywalny</strong> i zawsze ten sam</li>
+<li>Zadanie jest pojedyncze (1 LLM call wystarczy)</li>
+<li>Wymagana jest <strong>deterministycznosc</strong></li>
+<li>Latency jest krytyczne (agent = wiele LLM calls)</li>
+</ul>
+</div>
+
+<h2>Stack agenta — rekomendacja 2026</h2>
+
+<h3>Prosty agent</h3>
+<pre><code>Claude Agent SDK + 5-10 tools (Python functions)</code></pre>
+
+<h3>Sredni agent</h3>
+<pre><code>LangGraph + MCP servers + LangSmith (observability)</code></pre>
+
+<h3>Zaawansowany multi-agent</h3>
+<pre><code>LangGraph + AutoGen patterns + custom orchestration
++ Mem0/Letta (memory)
++ Langfuse (tracing)
++ Permissions middleware</code></pre>
+
+<h3>Production-ready</h3>
+<pre><code>+ Human-in-the-loop dla destructive actions
++ Cost tracking i limits
++ Audit logs
++ Sandboxed execution (Docker, Firecracker)
++ Fallback strategies
++ Eval suite (real conversations)</code></pre>
+
+<div class="nav-bottom">
+<a href="09-rag.html">← 09 — RAG</a>
+<a href="11-ewaluacja.html">11 — Ewaluacja →</a>
+</div>
+</div>
+</body>
+</html>

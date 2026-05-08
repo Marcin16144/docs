@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04-06 — Repository &amp; Unit of Work</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="04-wzorce-projektowe.html">04 — Wzorce projektowe</a>
+        <span class="sep">/</span>
+        <span class="title">Repository &amp; Unit of Work</span>
+    </div>
+    <div class="container">
+        <h1>Repository &amp; Unit of Work</h1>
+        <p class="subtitle">Abstrakcja dostepu do danych i transakcyjna spojnosc wielu operacji.</p>
+
+        <h2>Repository Pattern</h2>
+        <p>Repository abstrahuje dostep do danych za interfejsem kolekcji. Warstwa biznesowa operuje na obiektach domenowych, nie wiedzac nic o SQL, ORM czy konkretnej bazie danych.</p>
+
+        <h3>Interfejs repozytorium</h3>
+<pre><code>// Interfejs domenowy — zadnych szczegolow bazy danych
+interface OrderRepository {
+    findById(id: OrderId): Promise&lt;Order | null&gt;;
+    findByCustomer(customerId: CustomerId): Promise&lt;Order[]&gt;;
+    findPending(): Promise&lt;Order[]&gt;;
+    findByDateRange(from: Date, to: Date): Promise&lt;Order[]&gt;;
+    save(order: Order): Promise&lt;void&gt;;
+    delete(id: OrderId): Promise&lt;void&gt;;
+    nextId(): OrderId;
+}</code></pre>
+
+        <h3>Implementacja z baza danych</h3>
+<pre><code>class PostgresOrderRepository implements OrderRepository {
+    constructor(private db: DatabaseConnection) {}
+
+    async findById(id: OrderId): Promise&lt;Order | null&gt; {
+        const row = await this.db.queryOne(
+            'SELECT * FROM orders WHERE id = $1', [id.value]
+        );
+        return row ? this.toDomain(row) : null;
+    }
+
+    async findByCustomer(customerId: CustomerId): Promise&lt;Order[]&gt; {
+        const rows = await this.db.query(
+            `SELECT * FROM orders
+             WHERE customer_id = $1
+             ORDER BY created_at DESC`,
+            [customerId.value]
+        );
+        return rows.map(row =&gt; this.toDomain(row));
+    }
+
+    async save(order: Order): Promise&lt;void&gt; {
+        const data = this.toPersistence(order);
+        await this.db.query(
+            `INSERT INTO orders (id, customer_id, status, total, items, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (id) DO UPDATE SET
+                status = $3, total = $4, items = $5`,
+            [data.id, data.customerId, data.status,
+             data.total, JSON.stringify(data.items), data.createdAt]
+        );
+    }
+
+    // Mapowanie: baza danych -&gt; obiekt domenowy
+    private toDomain(row: any): Order {
+        return Order.reconstitute({
+            id: new OrderId(row.id),
+            customerId: new CustomerId(row.customer_id),
+            status: row.status as OrderStatus,
+            total: Money.of(row.total, 'PLN'),
+            items: JSON.parse(row.items).map(this.toOrderItem),
+            createdAt: row.created_at,
+        });
+    }
+
+    // Mapowanie: obiekt domenowy -&gt; baza danych
+    private toPersistence(order: Order): any {
+        return {
+            id: order.id.value,
+            customerId: order.customerId.value,
+            status: order.status,
+            total: order.total.amount,
+            items: order.items.map(this.toItemData),
+            createdAt: order.createdAt,
+        };
+    }
+}</code></pre>
+
+        <h3>Implementacja in-memory do testow</h3>
+<pre><code>class InMemoryOrderRepository implements OrderRepository {
+    private orders = new Map&lt;string, Order&gt;();
+    private idCounter = 0;
+
+    async findById(id: OrderId): Promise&lt;Order | null&gt; {
+        return this.orders.get(id.value) || null;
+    }
+
+    async findByCustomer(customerId: CustomerId): Promise&lt;Order[]&gt; {
+        return Array.from(this.orders.values())
+            .filter(o =&gt; o.customerId.equals(customerId))
+            .sort((a, b) =&gt;
+                b.createdAt.getTime() - a.createdAt.getTime()
+            );
+    }
+
+    async findPending(): Promise&lt;Order[]&gt; {
+        return Array.from(this.orders.values())
+            .filter(o =&gt; o.status === 'pending');
+    }
+
+    async save(order: Order): Promise&lt;void&gt; {
+        this.orders.set(order.id.value, order);
+    }
+
+    async delete(id: OrderId): Promise&lt;void&gt; {
+        this.orders.delete(id.value);
+    }
+
+    nextId(): OrderId {
+        return new OrderId(`order-${++this.idCounter}`);
+    }
+
+    // Metody pomocnicze dla testow
+    clear(): void { this.orders.clear(); }
+    count(): number { return this.orders.size; }
+}</code></pre>
+
+        <h3>Testowanie z in-memory repository</h3>
+<pre><code>describe('OrderService', () =&gt; {
+    let orderRepo: InMemoryOrderRepository;
+    let service: OrderService;
+
+    beforeEach(() =&gt; {
+        orderRepo = new InMemoryOrderRepository();
+        service = new OrderService(orderRepo);
+    });
+
+    test('skladanie zamowienia zapisuje je w repozytorium', async () =&gt; {
+        const request = {
+            customerId: new CustomerId('cust-1'),
+            items: [{ productId: 'prod-1', quantity: 2,
+                       price: Money.of(100, 'PLN') }],
+        };
+        const order = await service.placeOrder(request);
+
+        const saved = await orderRepo.findById(order.id);
+        expect(saved).not.toBeNull();
+        expect(saved!.status).toBe('pending');
+        expect(saved!.total.amount).toBe(200);
+    });
+});</code></pre>
+
+        <h2>Unit of Work</h2>
+        <p>Unit of Work sledzi wszystkie zmiany dokonane w obiektach domenowych podczas jednej operacji biznesowej i zapisuje je jako jedna transakcje. Zapewnia atomowosc — albo wszystkie zmiany sie zapisza, albo zadna.</p>
+
+        <h3>Problem bez Unit of Work</h3>
+<pre><code>// Bez Unit of Work — kazde save() to osobna transakcja
+async function transferMoney(fromId: string, toId: string, amount: Money) {
+    const fromAccount = await accountRepo.findById(fromId);
+    const toAccount = await accountRepo.findById(toId);
+
+    fromAccount.withdraw(amount);
+    toAccount.deposit(amount);
+
+    await accountRepo.save(fromAccount); // Transakcja 1 OK
+    await accountRepo.save(toAccount);   // Transakcja 2 BLAD!
+    // Pieniadze zniknely z fromAccount, ale nie dotarly do toAccount!
+}</code></pre>
+
+        <h3>Implementacja Unit of Work</h3>
+<pre><code>interface UnitOfWork {
+    orderRepository: OrderRepository;
+    customerRepository: CustomerRepository;
+    paymentRepository: PaymentRepository;
+    begin(): Promise&lt;void&gt;;
+    commit(): Promise&lt;void&gt;;
+    rollback(): Promise&lt;void&gt;;
+}
+
+class PostgresUnitOfWork implements UnitOfWork {
+    private transaction: DatabaseTransaction | null = null;
+
+    readonly orderRepository: OrderRepository;
+    readonly customerRepository: CustomerRepository;
+    readonly paymentRepository: PaymentRepository;
+
+    constructor(private db: DatabaseConnection) {
+        this.orderRepository = new PostgresOrderRepository(this);
+        this.customerRepository = new PostgresCustomerRepository(this);
+        this.paymentRepository = new PostgresPaymentRepository(this);
+    }
+
+    async begin(): Promise&lt;void&gt; {
+        this.transaction = await this.db.beginTransaction();
+    }
+
+    async commit(): Promise&lt;void&gt; {
+        if (!this.transaction) throw new Error('Brak transakcji');
+        await this.transaction.commit();
+        this.transaction = null;
+    }
+
+    async rollback(): Promise&lt;void&gt; {
+        if (!this.transaction) return;
+        await this.transaction.rollback();
+        this.transaction = null;
+    }
+}</code></pre>
+
+        <h3>Uproszczona wersja z callbackiem</h3>
+        <p>Wzorzec try/catch/rollback powtarza sie w kazdym serwisie. Mozna go wyekstrahowac do metody pomocniczej.</p>
+<pre><code>class UnitOfWorkManager {
+    constructor(private db: DatabaseConnection) {}
+
+    async execute&lt;T&gt;(
+        work: (uow: UnitOfWork) =&gt; Promise&lt;T&gt;
+    ): Promise&lt;T&gt; {
+        const uow = new PostgresUnitOfWork(this.db);
+        await uow.begin();
+        try {
+            const result = await work(uow);
+            await uow.commit();
+            return result;
+        } catch (error) {
+            await uow.rollback();
+            throw error;
+        }
+    }
+}
+
+// Uzycie — czystsze, bez boilerplate'u
+class OrderService {
+    constructor(private uowManager: UnitOfWorkManager) {}
+
+    async placeOrder(request: PlaceOrderRequest): Promise&lt;Order&gt; {
+        return this.uowManager.execute(async (uow) =&gt; {
+            const customer = await uow.customerRepository
+                .findById(request.customerId);
+            const order = Order.create({ /* ... */ });
+            await uow.orderRepository.save(order);
+            await uow.customerRepository.save(customer);
+            return order;
+        });
+    }
+}</code></pre>
+
+        <h2>Repository + Unit of Work razem</h2>
+        <table>
+            <thead><tr><th>Wzorzec</th><th>Odpowiedzialnosc</th></tr></thead>
+            <tbody>
+                <tr><td>Repository</td><td>Dostep do danych — CRUD jednego typu encji</td></tr>
+                <tr><td>Unit of Work</td><td>Spojnosc transakcyjna — koordynacja wielu repozytoriow</td></tr>
+            </tbody>
+        </table>
+
+        <div class="card">
+            <h3>Kiedy wystarczy sam Repository?</h3>
+            <ul>
+                <li>Proste operacje CRUD na jednej encji</li>
+                <li>Brak wymagan transakcyjnych cross-encyjnych</li>
+                <li>Maly system, gdzie ORM zarzadza transakcjami automatycznie</li>
+            </ul>
+            <h3>Kiedy potrzebujesz Unit of Work?</h3>
+            <ul>
+                <li>Operacja biznesowa modyfikuje kilka encji jednoczesnie</li>
+                <li>Wymagasz atomowosci — wszystko albo nic</li>
+                <li>Masz zlozone invarianty cross-agregatowe</li>
+            </ul>
+        </div>
+
+        <h2>Typowe bledy</h2>
+        <ul>
+            <li><strong>Zbyt generyczne repozytorium</strong> — <code>Repository&lt;T&gt;</code> z metodami <code>find(query)</code> wycieka abstrakcje persystencji do warstwy biznesowej</li>
+            <li><strong>Metody typu query-builder</strong> — <code>orderRepo.where('status', 'pending').orderBy('date')</code> to nie repozytorium, to ORM</li>
+            <li><strong>Zwracanie encji persystencji</strong> — repozytorium powinno zwracac obiekty domenowe, nie rekordy bazy danych</li>
+            <li><strong>Brak mapowania</strong> — bezposrednie mapowanie 1:1 miedzy tabela a encja oznacza, ze nie potrzebujesz Repository</li>
+            <li><strong>Unit of Work jako singleton</strong> — UoW powinien zyc tyle co jedna operacja biznesowa, nie cala aplikacja</li>
+        </ul>
+
+        <div class="nav-bottom">
+            <a href="04-05-observer-strategy-command.html">&larr; Observer, Strategy, Command</a>
+            <a href="04-wzorce-projektowe.html">Wzorce projektowe &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

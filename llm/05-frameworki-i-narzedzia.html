@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>05 — Frameworki i narzedzia do pracy z LLM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<span class="title">05 — Frameworki i narzedzia</span>
+</div>
+<div class="container">
+<h1>Frameworki i narzedzia do pracy z LLM</h1>
+<p class="subtitle">Przeglad ekosystemu narzedziowego LLM w 2026 roku — od PyTorch po MCP.</p>
+
+<h2>Mapa ekosystemu (2026)</h2>
+<pre><code>┌─────────────────────────────────────────────────────┐
+│              APLIKACJE / AGENT FRAMEWORKS           │
+│  LangGraph │ Anthropic SDK │ DSPy │ AutoGen │ ...   │
+├─────────────────────────────────────────────────────┤
+│                  WYZSZE WARSTWY                     │
+│  LangChain │ LlamaIndex │ Haystack │ Pydantic AI    │
+├─────────────────────────────────────────────────────┤
+│                       SDKI                          │
+│  Anthropic SDK │ OpenAI SDK │ Google AI │ ...       │
+├─────────────────────────────────────────────────────┤
+│           SERVING / INFERENCE ENGINES               │
+│  vLLM │ TGI │ Ollama │ llama.cpp │ MLC LLM          │
+├─────────────────────────────────────────────────────┤
+│              FRAMEWORKI ML                          │
+│  PyTorch │ JAX │ Hugging Face Transformers          │
+├─────────────────────────────────────────────────────┤
+│                  HARDWARE / CUDA                    │
+└─────────────────────────────────────────────────────┘</code></pre>
+
+<h2>1. PyTorch — fundament</h2>
+<p>Stworzony przez Meta (Facebook), de facto standard dla research i produkcji LLM.</p>
+<pre><code>import torch
+import torch.nn as nn
+
+# Self-attention w pigulce
+class SimpleAttention(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.q = nn.Linear(dim, dim)
+        self.k = nn.Linear(dim, dim)
+        self.v = nn.Linear(dim, dim)
+
+    def forward(self, x):
+        Q, K, V = self.q(x), self.k(x), self.v(x)
+        scores = (Q @ K.transpose(-2, -1)) / (x.size(-1) ** 0.5)
+        attn = torch.softmax(scores, dim=-1)
+        return attn @ V</code></pre>
+
+<div class="card">
+<p><strong>Alternatywy:</strong></p>
+<ul>
+<li><strong>JAX</strong> (Google) — uzywany w Gemini, PaLM. Szybszy do trainingu na TPU.</li>
+<li><strong>MLX</strong> (Apple) — natywny dla Apple Silicon.</li>
+<li><strong>TensorFlow</strong> — praktycznie nieuzywany w nowych projektach LLM.</li>
+</ul>
+</div>
+
+<h2>2. Hugging Face Transformers</h2>
+<p><strong>Najpopularniejsza biblioteka</strong> do pracy z transformerami. Repo <code>transformers</code> ma 130k+ gwiazdek.</p>
+<pre><code>pip install transformers accelerate</code></pre>
+<pre><code>from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
+model_name = "meta-llama/Llama-3.3-70B-Instruct"
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype=torch.bfloat16,
+    device_map="auto"  # automatyczne rozlozenie na GPU
+)
+
+messages = [
+    {"role": "user", "content": "Wyjasnij CAP theorem"}
+]
+inputs = tokenizer.apply_chat_template(
+    messages, return_tensors="pt", add_generation_prompt=True
+).to(model.device)
+
+outputs = model.generate(inputs, max_new_tokens=512, temperature=0.7)
+print(tokenizer.decode(outputs[0]))</code></pre>
+
+<div class="card">
+<p><strong>Hugging Face Hub</strong> — repozytorium 1.5M+ modeli:</p>
+<ul>
+<li>huggingface.co/models</li>
+<li>Pobieranie automatyczne przez <code>from_pretrained</code></li>
+<li>Spaces — demo aplikacje</li>
+<li>Datasets — dataset hub</li>
+</ul>
+<p><strong>Powiazane biblioteki HF:</strong></p>
+<ul>
+<li><code>datasets</code> — ladowanie i przetwarzanie datasetow</li>
+<li><code>accelerate</code> — distributed training, mixed precision</li>
+<li><code>peft</code> — Parameter Efficient Fine-Tuning (LoRA, QLoRA)</li>
+<li><code>trl</code> — Transformers Reinforcement Learning (DPO, PPO)</li>
+<li><code>evaluate</code> — metryki ewaluacji</li>
+<li><code>optimum</code> — optymalizacja inference (ONNX, TensorRT)</li>
+</ul>
+</div>
+
+<h2>3. SDK do API komercyjnych LLM</h2>
+
+<h3>Anthropic SDK (Claude)</h3>
+<pre><code>pip install anthropic</code></pre>
+<pre><code>import anthropic
+
+client = anthropic.Anthropic()  # ANTHROPIC_API_KEY z env
+
+message = client.messages.create(
+    model="claude-opus-4-7",
+    max_tokens=1024,
+    system="Jestes ekspertem od architektury oprogramowania.",
+    messages=[
+        {"role": "user", "content": "Jakie sa kompromisy mikroserwisow?"}
+    ]
+)
+print(message.content[0].text)</code></pre>
+<p><strong>Funkcje:</strong> prompt caching, extended thinking, vision, tool use, batch API, files API, citations.</p>
+
+<h3>OpenAI SDK</h3>
+<pre><code>from openai import OpenAI
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-5",
+    messages=[{"role": "user", "content": "Hi!"}]
+)</code></pre>
+
+<h3>Google AI SDK</h3>
+<pre><code>from google import genai
+client = genai.Client()
+response = client.models.generate_content(
+    model="gemini-2.5-pro",
+    contents="Hi!"
+)</code></pre>
+
+<h3>Universal: LiteLLM</h3>
+<p>Jeden interfejs do 100+ dostawcow LLM:</p>
+<pre><code>from litellm import completion
+response = completion(
+    model="claude-opus-4-7",  # lub "gpt-5", "gemini-2.5-pro"
+    messages=[{"role": "user", "content": "Hi"}]
+)</code></pre>
+
+<h2>4. Frameworki do budowy aplikacji LLM</h2>
+
+<h3>LangChain</h3>
+<p>Najbardziej znany framework. Modulowy, ale bywa over-engineered.</p>
+<pre><code>from langchain_anthropic import ChatAnthropic
+from langchain_core.prompts import ChatPromptTemplate
+
+llm = ChatAnthropic(model="claude-sonnet-4-6")
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "Jestes tlumaczem na jezyk {language}."),
+    ("user", "{text}")
+])
+
+chain = prompt | llm
+result = chain.invoke({"language": "francuski", "text": "Czesc!"})</code></pre>
+
+<h3>LangGraph (preferowany w 2026)</h3>
+<p>Nastepca LangChain dla agentow. Graph-based, stateful, lepiej zaprojektowany.</p>
+<pre><code>from langgraph.graph import StateGraph
+from langgraph.prebuilt import create_react_agent
+
+agent = create_react_agent(
+    model="anthropic:claude-sonnet-4-6",
+    tools=[search_tool, calculator_tool],
+    prompt="Jestes badaczem internetu."
+)
+
+result = agent.invoke({
+    "messages": [("user", "Jakie sa ostatnie nowiny o AI?")]
+})</code></pre>
+
+<h3>DSPy (Stanford)</h3>
+<p>"Programowanie zamiast promptowania". Optymalizuje prompty automatycznie.</p>
+<pre><code>import dspy
+
+dspy.configure(lm=dspy.LM("anthropic/claude-sonnet-4-6"))
+
+class QA(dspy.Signature):
+    """Odpowiadaj zwiezle."""
+    question = dspy.InputField()
+    answer = dspy.OutputField()
+
+predictor = dspy.ChainOfThought(QA)
+result = predictor(question="Co to jest CAP theorem?")</code></pre>
+
+<h3>Pydantic AI</h3>
+<p>Type-safe agent framework. Wykorzystuje Pydantic do strukturalnych odpowiedzi.</p>
+<pre><code>from pydantic import BaseModel
+from pydantic_ai import Agent
+
+class CityInfo(BaseModel):
+    name: str
+    population: int
+    country: str
+
+agent = Agent("anthropic:claude-sonnet-4-6", result_type=CityInfo)
+result = agent.run_sync("Powiedz mi o Warszawie")
+print(result.data)  # CityInfo(name='Warszawa', population=1860000, country='Polska')</code></pre>
+
+<h3>Instructor</h3>
+<p>Strukturalne odpowiedzi przez Pydantic, dziala ze wszystkimi LLM:</p>
+<pre><code>import instructor
+from anthropic import Anthropic
+
+client = instructor.from_anthropic(Anthropic())
+result = client.messages.create(
+    model="claude-opus-4-7",
+    response_model=CityInfo,
+    messages=[{"role": "user", "content": "Powiedz o Warszawie"}]
+)</code></pre>
+
+<h3>Claude Agent SDK</h3>
+<p>SDK od Anthropic do budowania wlasnych agentow (jak Claude Code):</p>
+<pre><code>from claude_agent_sdk import Agent, tool
+
+@tool
+def search_web(query: str) -> str:
+    """Search the web for information."""
+    return ...
+
+agent = Agent(
+    model="claude-opus-4-7",
+    tools=[search_web],
+    system_prompt="Jestes badaczem."
+)</code></pre>
+
+<h2>5. RAG / Vector Stores</h2>
+
+<h3>LlamaIndex</h3>
+<p>Specjalizowany w RAG i indeksowaniu danych.</p>
+<pre><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+documents = SimpleDirectoryReader("./docs").load_data()
+index = VectorStoreIndex.from_documents(documents)
+
+query_engine = index.as_query_engine()
+response = query_engine.query("Co mowia dokumenty o X?")</code></pre>
+
+<h3>Vector Databases</h3>
+<table>
+<thead>
+<tr><th>Baza</th><th>Typ</th><th>Charakterystyka</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Chroma</strong></td><td>Open source, in-process</td><td>Najprostsza do startu, lokalna</td></tr>
+<tr><td><strong>Qdrant</strong></td><td>Open source, server</td><td>Rust, bardzo szybka</td></tr>
+<tr><td><strong>Weaviate</strong></td><td>Open source, server</td><td>GraphQL API, hybrid search</td></tr>
+<tr><td><strong>Pinecone</strong></td><td>SaaS</td><td>Najpopularniejsza komercyjna, latwa</td></tr>
+<tr><td><strong>Milvus</strong></td><td>Open source</td><td>Skalowalna, uzywana w produkcji</td></tr>
+<tr><td><strong>pgvector</strong></td><td>PostgreSQL extension</td><td>Vector search w istniejacej Postgres</td></tr>
+<tr><td><strong>LanceDB</strong></td><td>Embedded</td><td>Plikowa, multimodalna</td></tr>
+<tr><td><strong>Turbopuffer</strong></td><td>SaaS</td><td>Tanio, dobry balance ceny/wydajnosci</td></tr>
+</tbody>
+</table>
+
+<h3>Embedding modele</h3>
+<ul>
+<li><strong>OpenAI text-embedding-3-large</strong> — komercyjny standard</li>
+<li><strong>Voyage AI</strong> — komercyjny, swietna jakosc, partner Anthropic</li>
+<li><strong>Cohere embed-v4</strong> — komercyjny, multilingual</li>
+<li><strong>BGE-M3</strong> — open source, multilingual</li>
+<li><strong>Nomic Embed</strong> — open source, dlugi kontekst</li>
+</ul>
+
+<h2>6. Model Context Protocol (MCP)</h2>
+<p><strong>MCP</strong> (Anthropic, 2024) — otwarty protokol do laczenia LLM z zewnetrznymi narzedziami i danymi. Stal sie de facto standardem w 2025/2026.</p>
+<pre><code>LLM Application  ←─MCP─→  MCP Server  ←─→  Tool/Data
+(Claude Desktop,         (Filesystem,       (pliki, API,
+ Claude Code,             Postgres,          baza danych)
+ Cursor)                  GitHub, ...)</code></pre>
+
+<div class="card">
+<p><strong>Popularne MCP servery:</strong></p>
+<ul>
+<li><code>@modelcontextprotocol/server-filesystem</code></li>
+<li><code>@modelcontextprotocol/server-postgres</code></li>
+<li><code>@modelcontextprotocol/server-github</code></li>
+<li><code>@modelcontextprotocol/server-slack</code></li>
+<li>Ponad 1000 community servers w 2026</li>
+</ul>
+<p><strong>Zastosowanie:</strong> Claude Code, Cursor, Zed uzywaja MCP do integracji z narzedziami developerskimi.</p>
+</div>
+
+<h2>7. Narzedzia developerskie</h2>
+
+<h3>IDE z AI</h3>
+<p><strong>Komercyjne:</strong></p>
+<ul>
+<li><strong>Cursor</strong> — VS Code fork z gleboka integracja AI</li>
+<li><strong>Windsurf</strong> (Codeium) — alternatywa do Cursora</li>
+<li><strong>GitHub Copilot</strong> — najstarszy, dostepny w wielu IDE</li>
+<li><strong>JetBrains AI Assistant</strong> — natywny w IntelliJ/PyCharm</li>
+</ul>
+<p><strong>Open source / darmowe:</strong></p>
+<ul>
+<li><strong>Continue.dev</strong> (VS Code, JetBrains) — open source, wlasne LLM</li>
+<li><strong>Cline</strong> (VS Code) — dawniej Claude Dev, agentic</li>
+<li><strong>Aider</strong> — terminalowy AI pair programmer</li>
+<li><strong>Zed</strong> z natywna AI</li>
+</ul>
+
+<h3>CLI Agents</h3>
+<ul>
+<li><strong>Claude Code</strong> (Anthropic) — terminalowy agent, multi-step tasks</li>
+<li><strong>Codex CLI</strong> (OpenAI)</li>
+<li><strong>Gemini CLI</strong> (Google)</li>
+<li><strong>Aider</strong> — open source</li>
+</ul>
+
+<h3>Notebooki AI</h3>
+<ul>
+<li><strong>Cursor Composer</strong> — multi-file editing</li>
+<li><strong>Claude Artifacts / Projects</strong> — claude.ai</li>
+<li><strong>ChatGPT Canvas</strong> — chat.openai.com</li>
+</ul>
+
+<h2>8. Specjalizowane narzedzia</h2>
+
+<h3>Trening i fine-tuning</h3>
+<ul>
+<li><strong>Axolotl</strong> — wrapper na trl, latwy fine-tuning</li>
+<li><strong>Unsloth</strong> — 2-5× szybszy fine-tuning, mniej VRAM</li>
+<li><strong>TRL</strong> (HF) — RLHF, DPO, GRPO</li>
+<li><strong>Llama Factory</strong> — GUI do fine-tuningu</li>
+</ul>
+
+<h3>Ewaluacja</h3>
+<ul>
+<li><strong>lm-evaluation-harness</strong> (EleutherAI) — standard benchmarkow</li>
+<li><strong>OpenAI Evals</strong></li>
+<li><strong>Promptfoo</strong> — eval prompts</li>
+<li><strong>DeepEval</strong> — LLM testing framework</li>
+<li><strong>Ragas</strong> — eval RAG systems</li>
+<li><strong>TruLens</strong> — observability + eval</li>
+</ul>
+
+<h3>Observability i monitoring</h3>
+<ul>
+<li><strong>LangSmith</strong> (LangChain) — tracing, eval</li>
+<li><strong>Helicone</strong> — proxy + analytics</li>
+<li><strong>Langfuse</strong> — open source observability</li>
+<li><strong>Weights &amp; Biases</strong> — ML experiments tracking</li>
+<li><strong>Anthropic Console</strong> — natywne dla Claude API</li>
+</ul>
+
+<h3>Bezpieczenstwo</h3>
+<ul>
+<li><strong>Lakera Guard</strong> — protection przeciw prompt injection</li>
+<li><strong>Prompt Armor</strong></li>
+<li><strong>NeMo Guardrails</strong> (NVIDIA) — open source</li>
+<li><strong>Llama Guard</strong> (Meta) — open source content safety</li>
+</ul>
+
+<h2>9. Polecane stacki technologiczne (2026)</h2>
+
+<h3>Stack "minimum viable LLM app"</h3>
+<pre><code>Frontend: Next.js + Vercel AI SDK
+Backend:  Python (FastAPI) + Anthropic SDK
+LLM:      Claude Sonnet 4.6 (API)
+Vector:   pgvector w Postgres (Supabase)</code></pre>
+
+<h3>Stack "produkcyjny RAG"</h3>
+<pre><code>Frontend: React/Next.js
+Backend:  Python + LlamaIndex
+LLM:      Claude (glowny) + GPT-5 (fallback) via LiteLLM
+Vector:   Qdrant lub Pinecone
+Embed:    Voyage AI voyage-3-large
+Cache:    Redis (semantic cache)
+Monitor:  Langfuse</code></pre>
+
+<h3>Stack "lokalny self-hosted"</h3>
+<pre><code>Inference: vLLM (Llama 4 70B AWQ)
+Frontend:  Open WebUI
+Vector:    Qdrant
+Embed:     BGE-M3 (lokalnie)
+RAG:       LlamaIndex
+Tools:     MCP servers</code></pre>
+
+<h3>Stack "agent z narzedziami"</h3>
+<pre><code>Framework: LangGraph lub Claude Agent SDK
+LLM:       Claude Opus 4.7 (extended thinking)
+Tools:     MCP servers
+State:     LangGraph checkpoints (Postgres)
+Observe:   LangSmith</code></pre>
+
+<h2>Co wybrac?</h2>
+
+<div class="card">
+<p><strong>Zaczynasz?</strong><br>
+→ Anthropic SDK lub OpenAI SDK + prosty Python skrypt</p>
+
+<p><strong>Budujesz aplikacje z RAG?</strong><br>
+→ LlamaIndex (RAG-first) lub LangChain + Qdrant/Pinecone</p>
+
+<p><strong>Budujesz agenta?</strong><br>
+→ LangGraph lub Claude Agent SDK</p>
+
+<p><strong>Eksperymentujesz lokalnie?</strong><br>
+→ Ollama dla startu, vLLM dla wydajnosci</p>
+
+<p><strong>Fine-tuning?</strong><br>
+→ Unsloth (najszybszy) lub Axolotl (najpopularniejszy)</p>
+
+<p><strong>Strukturalne odpowiedzi?</strong><br>
+→ Pydantic AI lub Instructor</p>
+
+<p><strong>Chcesz uniknac vendor lock-in?</strong><br>
+→ LiteLLM jako warstwa abstrakcji</p>
+</div>
+
+<div class="nav-bottom">
+<a href="04-lokalna-konfiguracja.html">← 04 — Lokalna konfiguracja</a>
+<a href="06-projektowanie-modelu.html">06 — Projektowanie modelu →</a>
+</div>
+</div>
+</body>
+</html>
