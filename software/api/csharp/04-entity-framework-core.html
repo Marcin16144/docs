@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entity Framework Core — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">Entity Framework Core</span>
+</div>
+<div class="container">
+  <h1>Entity Framework Core</h1>
+  <p class="subtitle">DbContext, migracje, LINQ, ladowanie powiazan, raw SQL, EF Core 9 i wydajnosc</p>
+
+  <h2>DbContext — konfiguracja</h2>
+  <p>DbContext jest centralnym punktem EF Core — reprezentuje sesje z baza danych. Kazda klasa encji mapuje sie na tabele. Konfiguracje mozna definiowac przez <strong>Data Annotations</strong> lub <strong>Fluent API</strong> (preferowane dla zlozonych przypadkow).</p>
+
+  <pre><code>// Encje
+public class Product
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public int Stock { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public int CategoryId { get; set; }
+    public Category Category { get; set; } = null!;
+    public ICollection&lt;OrderItem&gt; OrderItems { get; set; } = [];
+    public ProductDetails? Details { get; set; }   // JSON column (EF9)
+}
+
+public class ProductDetails  // Complex type / JSON column
+{
+    public string? Manufacturer { get; set; }
+    public string? Sku { get; set; }
+    public Dictionary&lt;string, string&gt; Attributes { get; set; } = [];
+}
+
+// DbContext
+public class AppDbContext : DbContext
+{
+    public AppDbContext(DbContextOptions&lt;AppDbContext&gt; options)
+        : base(options) { }
+
+    public DbSet&lt;Product&gt; Products =&gt; Set&lt;Product&gt;();
+    public DbSet&lt;Category&gt; Categories =&gt; Set&lt;Category&gt;();
+    public DbSet&lt;Order&gt; Orders =&gt; Set&lt;Order&gt;();
+    public DbSet&lt;OrderItem&gt; OrderItems =&gt; Set&lt;OrderItem&gt;();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            Assembly.GetExecutingAssembly());
+    }
+
+    public override Task&lt;int&gt; SaveChangesAsync(
+        CancellationToken ct = default)
+    {
+        // Auto-set CreatedAt / UpdatedAt
+        foreach (var entry in ChangeTracker.Entries&lt;IAuditableEntity&gt;())
+        {
+            if (entry.State == EntityState.Added)
+                entry.Entity.CreatedAt = DateTime.UtcNow;
+            if (entry.State is EntityState.Added or EntityState.Modified)
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+        }
+        return base.SaveChangesAsync(ct);
+    }
+}
+
+// Konfiguracja encji (IEntityTypeConfiguration)
+public class ProductConfiguration : IEntityTypeConfiguration&lt;Product&gt;
+{
+    public void Configure(EntityTypeBuilder&lt;Product&gt; builder)
+    {
+        builder.HasKey(p =&gt; p.Id);
+        builder.Property(p =&gt; p.Name)
+            .IsRequired()
+            .HasMaxLength(200);
+        builder.Property(p =&gt; p.Price)
+            .HasColumnType("decimal(18,2)");
+        builder.HasIndex(p =&gt; p.Name);
+        builder.HasQueryFilter(p =&gt; p.IsActive);  // global filter
+
+        // JSON column (EF Core 9)
+        builder.OwnsOne(p =&gt; p.Details, details =&gt;
+        {
+            details.ToJson();
+        });
+
+        builder.HasOne(p =&gt; p.Category)
+            .WithMany(c =&gt; c.Products)
+            .HasForeignKey(p =&gt; p.CategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}</code></pre>
+
+  <pre><code>// Rejestracja w Program.cs
+builder.Services.AddDbContext&lt;AppDbContext&gt;(options =&gt;
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sql =&gt; sql.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorNumbersToAdd: null))
+    .LogTo(Console.WriteLine, LogLevel.Information)
+    .EnableSensitiveDataLogging(
+        builder.Environment.IsDevelopment()));</code></pre>
+
+  <h2>Migracje</h2>
+  <pre><code># Dodanie migracji
+dotnet ef migrations add InitialCreate --project src/MyApi.Infrastructure --startup-project src/MyApi.Api
+
+# Podglad SQL przed zastosowaniem
+dotnet ef migrations script --idempotent
+
+# Zastosowanie migracji
+dotnet ef database update
+
+# Cofniecie do konkretnej migracji
+dotnet ef database update PreviousMigrationName
+
+# Usuniecie ostatniej migracji (jesli nie zastosowana)
+dotnet ef migrations remove
+
+# Migracja w kodzie (auto-apply przy starcie)
+using var scope = app.Services.CreateScope();
+var db = scope.ServiceProvider.GetRequiredService&lt;AppDbContext&gt;();
+await db.Database.MigrateAsync();</code></pre>
+
+  <h2>LINQ — lancuchy zapytan</h2>
+  <pre><code>// Podstawowe zapytania
+var products = await _context.Products
+    .Where(p =&gt; p.Price &gt; 100 &amp;&amp; p.Stock &gt; 0)
+    .OrderBy(p =&gt; p.Name)
+    .Skip((page - 1) * pageSize)
+    .Take(pageSize)
+    .Select(p =&gt; new ProductDto(p.Id, p.Name, p.Price))
+    .ToListAsync(ct);
+
+// Include — eager loading
+var orders = await _context.Orders
+    .Include(o =&gt; o.Customer)
+    .Include(o =&gt; o.Items)
+        .ThenInclude(i =&gt; i.Product)
+            .ThenInclude(p =&gt; p.Category)
+    .Where(o =&gt; o.Status == OrderStatus.Pending)
+    .ToListAsync(ct);
+
+// Projekcja na DTO (unika SELECT *)
+var dtos = await _context.Products
+    .Where(p =&gt; p.CategoryId == categoryId)
+    .Select(p =&gt; new ProductListDto
+    {
+        Id = p.Id,
+        Name = p.Name,
+        Price = p.Price,
+        CategoryName = p.Category.Name  // JOIN wygenerowany automatycznie
+    })
+    .ToListAsync(ct);
+
+// Grupowanie i agregacja
+var stats = await _context.OrderItems
+    .GroupBy(i =&gt; i.ProductId)
+    .Select(g =&gt; new
+    {
+        ProductId = g.Key,
+        TotalSold = g.Sum(i =&gt; i.Quantity),
+        Revenue = g.Sum(i =&gt; i.Quantity * i.UnitPrice)
+    })
+    .OrderByDescending(s =&gt; s.Revenue)
+    .Take(10)
+    .ToListAsync(ct);</code></pre>
+
+  <h2>Strategie ladowania — Eager / Lazy / Explicit</h2>
+  <table>
+    <thead>
+      <tr><th>Strategia</th><th>Jak dziala</th><th>Kiedy uzywac</th><th>Ryzyko</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Eager loading</strong></td>
+        <td><code>Include()</code> — JOIN w jednym zapytaniu SQL</td>
+        <td>Gdy wiesz z gory, ze potrzebujesz powiazan</td>
+        <td>Duze JOIN-y moga byc wolniejsze niz osobne zapytania</td>
+      </tr>
+      <tr>
+        <td><strong>Lazy loading</strong></td>
+        <td>Wlasciwosci nawigacyjne ladowane przy dostepe</td>
+        <td>Rzadko — tylko gdy powiazan uzywa sie opcjonalnie</td>
+        <td>Problem N+1: osobne SQL na kazdy obiekt w petli</td>
+      </tr>
+      <tr>
+        <td><strong>Explicit loading</strong></td>
+        <td><code>Entry().Collection().LoadAsync()</code></td>
+        <td>Gdy chcesz zaladowac powiazan warunkowo</td>
+        <td>Dwa osobne zapytania SQL</td>
+      </tr>
+      <tr>
+        <td><strong>Split query</strong></td>
+        <td><code>AsSplitQuery()</code> — osobne SQL per kolekcja</td>
+        <td>Kolekcje z duza iloscia danych (unikanie kartezjanu)</td>
+        <td>Wiele zapytan zamiast jednego duzego JOIN</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <pre><code>// Explicit loading — warunkowo
+var order = await _context.Orders.FindAsync(orderId);
+if (includeItems)
+    await _context.Entry(order!)
+        .Collection(o =&gt; o.Items)
+        .Query()
+        .Include(i =&gt; i.Product)
+        .LoadAsync(ct);
+
+// Split query — dla kolekcji z duza iloscia danych
+var orders = await _context.Orders
+    .Include(o =&gt; o.Items)
+    .AsSplitQuery()
+    .ToListAsync(ct);</code></pre>
+
+  <h2>AsNoTracking — wydajnosc odczytu</h2>
+  <pre><code>// Dla odczytow bez zapisu — brak sledzenia zmian = szybciej
+var products = await _context.Products
+    .AsNoTracking()
+    .Where(p =&gt; p.IsActive)
+    .ToListAsync(ct);
+
+// Globalnie dla calego kontekstu (read-only DbContext)
+builder.Services.AddDbContext&lt;ReadOnlyAppDbContext&gt;(options =&gt;
+    options.UseSqlServer(connectionString)
+           .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));</code></pre>
+
+  <h2>Raw SQL — FromSqlRaw i ExecuteSqlRaw</h2>
+  <pre><code>// FromSqlRaw — zapytania zwracajace encje
+var products = await _context.Products
+    .FromSqlRaw("SELECT * FROM Products WHERE Price &gt; {0}", minPrice)
+    .Include(p =&gt; p.Category)
+    .Where(p =&gt; p.IsActive)  // LINQ dziala na wynikach SQL
+    .ToListAsync(ct);
+
+// ZAWSZE uzywaj parametrow (nie interpolacji!) — ochrona przed SQL injection
+// ZLE:
+var bad = _context.Products
+    .FromSqlRaw($"SELECT * FROM Products WHERE Name = '{name}'"); // NIEBEZPIECZNE!
+
+// DOBRZE (parametry):
+var good = _context.Products
+    .FromSqlRaw("SELECT * FROM Products WHERE Name = {0}", name);
+
+// ExecuteSqlRaw — INSERT/UPDATE/DELETE
+var affected = await _context.Database
+    .ExecuteSqlRawAsync(
+        "UPDATE Products SET Stock = Stock - {0} WHERE Id = {1}",
+        quantity, productId, ct);
+
+// Stored procedure
+var results = await _context.Products
+    .FromSqlRaw("EXEC GetTopSellingProducts @CategoryId = {0}, @Top = {1}",
+        categoryId, 10)
+    .ToListAsync(ct);</code></pre>
+
+  <h2>EF Core 9 — nowe funkcje</h2>
+  <h3>JSON columns</h3>
+  <pre><code>// Mapowanie na kolumne JSON (SQL Server / PostgreSQL)
+public class Product
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public ProductDetails? Details { get; set; }  // przechowywane jako JSON
+}
+
+// Konfiguracja
+builder.OwnsOne(p =&gt; p.Details, d =&gt; d.ToJson());
+
+// Zapytania na JSON (EF transluje na SQL JSON functions)
+var products = await _context.Products
+    .Where(p =&gt; p.Details!.Sku == "ABC-123")
+    .ToListAsync();</code></pre>
+
+  <h3>Complex types (EF Core 8+)</h3>
+  <pre><code>// Complex type — obiekt bez klucza glownego, przechowywany inline
+[ComplexType]
+public record Address(string Street, string City, string PostalCode, string Country);
+
+public class Customer
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public Address ShippingAddress { get; set; } = null!;
+    public Address BillingAddress { get; set; } = null!;
+}</code></pre>
+
+  <h2>Wydajnosc — compiled queries i batch</h2>
+  <pre><code>// Compiled queries — dla czesto wykonywanych zapytan
+private static readonly Func&lt;AppDbContext, int, Task&lt;Product?&gt;&gt;
+    GetByIdQuery = EF.CompileAsyncQuery(
+        (AppDbContext ctx, int id) =&gt;
+            ctx.Products.FirstOrDefault(p =&gt; p.Id == id));
+
+// Uzycie
+var product = await GetByIdQuery(_context, productId);
+
+// Batch INSERT (EF Core 7+ ExecuteUpdateAsync / ExecuteDeleteAsync)
+// Usun wszystkie nieaktywne produkty BEZ ladowania ich do pamieci
+var deleted = await _context.Products
+    .Where(p =&gt; !p.IsActive &amp;&amp; p.CreatedAt &lt; cutoffDate)
+    .ExecuteDeleteAsync(ct);
+
+// Batch UPDATE bez ladowania encji
+var updated = await _context.Products
+    .Where(p =&gt; p.CategoryId == oldCategoryId)
+    .ExecuteUpdateAsync(s =&gt; s
+        .SetProperty(p =&gt; p.CategoryId, newCategoryId)
+        .SetProperty(p =&gt; p.UpdatedAt, DateTime.UtcNow),
+        ct);</code></pre>
+
+  <h2>EF Core vs Dapper vs raw SQL</h2>
+  <table>
+    <thead>
+      <tr><th>Aspekt</th><th>EF Core</th><th>Dapper</th><th>Raw ADO.NET</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Kiedy uzywac</strong></td><td>CRUD, relacje, migracje, walidacja modelu</td><td>Zlozony raportowy SQL, wydajnosc odczytu</td><td>Maksymalna kontrola, specjalne scenariusze</td></tr>
+      <tr><td><strong>Wydajnosc zapisu</strong></td><td>Dobra (batch w EF7+)</td><td>Wymaga recznego SQL</td><td>Najlepsza — pelna kontrola</td></tr>
+      <tr><td><strong>Wydajnosc odczytu</strong></td><td>Dobra z AsNoTracking</td><td>Bardzo dobra</td><td>Najlepsza</td></tr>
+      <tr><td><strong>Migracje</strong></td><td>Tak (wbudowane)</td><td>Nie</td><td>Nie</td></tr>
+      <tr><td><strong>Krzywa uczenia</strong></td><td>Srednia (LINQ, konfiguracja)</td><td>Niska (SQL + mapping)</td><td>Wysoka (wszystko recznie)</td></tr>
+      <tr><td><strong>N+1 ryzyko</strong></td><td>Tak (lazy loading)</td><td>Recznie kontrolujesz JOIN-y</td><td>Brak (pelna kontrola)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card orange">
+    <strong>Dobra praktyka — hybryda:</strong> Uzyj EF Core do zapisu i prostego odczytu (CRUD). Dla zlozonych raportow i dashboardow uzyj Dapper lub <code>FromSqlRaw</code> z optymalizowanym SQL.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="03-controllers-i-mvc.html">← 03-controllers-i-mvc.html</a>
+    <a href="05-uwierzytelnianie.html">05-uwierzytelnianie.html →</a>
+  </div>
+</div>
+</body>
+</html>

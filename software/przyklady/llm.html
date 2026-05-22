@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM — przykłady kodu</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span>
+    <a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span>
+    <span class="crumb">LLM</span>
+</div>
+<div class="container">
+<h1>🤖 LLM — działające przykłady</h1>
+<p class="lead">Ollama lokalnie, RAG z embedingami, fine-tuning LoRA, Claude API z prompt caching. Aktualizowane na 2026-05.</p>
+
+<div class="toc">
+<div class="toc-title">Spis treści</div>
+<ul>
+    <li><a href="#ollama">1. Ollama — uruchom Llama 4 lokalnie</a></li>
+    <li><a href="#claude-api">2. Claude API — basic + tool use</a></li>
+    <li><a href="#prompt-cache">3. Prompt caching (5× tańsze, 10× szybsze)</a></li>
+    <li><a href="#rag-min">4. Minimalny RAG (Chroma + sentence-transformers)</a></li>
+    <li><a href="#rag-pgvector">5. RAG produkcyjny z pgvector + reranking</a></li>
+    <li><a href="#lora">6. Fine-tuning LoRA (Unsloth)</a></li>
+    <li><a href="#agent">7. Agent z tool calling (Pydantic AI)</a></li>
+</ul>
+</div>
+
+<h2 id="ollama">1. Ollama — Llama 4 lokalnie</h2>
+<p><span class="tag">Bash</span> Instalacja i pierwsza inferencja.</p>
+<pre data-lang="bash"><code><span class="com"># macOS / Linux</span>
+curl -fsSL https://ollama.com/install.sh | sh
+
+<span class="com"># Windows: pobierz .msi z ollama.com</span>
+
+<span class="com"># Pobierz model (8 GB VRAM wystarczy na 8B quant)</span>
+ollama pull llama3.3:8b-instruct-q4_K_M
+ollama pull qwen2.5-coder:7b
+ollama pull nomic-embed-text  <span class="com"># do embeddingów</span>
+
+<span class="com"># Test</span>
+ollama run llama3.3:8b-instruct-q4_K_M <span class="str">"Wyjaśnij quicksort w 3 zdaniach"</span>
+
+<span class="com"># API kompatybilne z OpenAI na :11434</span>
+curl http://localhost:11434/v1/chat/completions \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{
+    "model": "llama3.3:8b-instruct-q4_K_M",
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'</span></code></pre>
+<div class="tip">💡 Dla M-series Mac użyj <code>q8_0</code> zamiast <code>q4_K_M</code> — Unified Memory daje przewagę.</div>
+
+<h2 id="claude-api">2. Claude API — basic + tool use</h2>
+<pre data-lang="python"><code><span class="kw">from</span> anthropic <span class="kw">import</span> Anthropic
+client = Anthropic()  <span class="com"># czyta ANTHROPIC_API_KEY z env</span>
+
+<span class="com"># --- Basic ---</span>
+msg = client.messages.create(
+    model=<span class="str">"claude-opus-4-7"</span>,
+    max_tokens=<span class="num">1024</span>,
+    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"Krótko: czym jest MoE?"</span>}]
+)
+print(msg.content[<span class="num">0</span>].text)
+
+<span class="com"># --- Tool use ---</span>
+tools = [{
+    <span class="str">"name"</span>: <span class="str">"get_weather"</span>,
+    <span class="str">"description"</span>: <span class="str">"Pobiera bieżącą pogodę dla miasta"</span>,
+    <span class="str">"input_schema"</span>: {
+        <span class="str">"type"</span>: <span class="str">"object"</span>,
+        <span class="str">"properties"</span>: {<span class="str">"city"</span>: {<span class="str">"type"</span>: <span class="str">"string"</span>}},
+        <span class="str">"required"</span>: [<span class="str">"city"</span>]
+    }
+}]
+
+response = client.messages.create(
+    model=<span class="str">"claude-opus-4-7"</span>,
+    max_tokens=<span class="num">1024</span>,
+    tools=tools,
+    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"Jaka pogoda w Krakowie?"</span>}]
+)
+
+<span class="kw">if</span> response.stop_reason == <span class="str">"tool_use"</span>:
+    tool_use = next(b <span class="kw">for</span> b <span class="kw">in</span> response.content <span class="kw">if</span> b.type == <span class="str">"tool_use"</span>)
+    result = fetch_weather(tool_use.input[<span class="str">"city"</span>])  <span class="com"># Twoja funkcja</span>
+    final = client.messages.create(
+        model=<span class="str">"claude-opus-4-7"</span>, max_tokens=<span class="num">1024</span>, tools=tools,
+        messages=[
+            {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"Jaka pogoda w Krakowie?"</span>},
+            {<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: response.content},
+            {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: [{
+                <span class="str">"type"</span>: <span class="str">"tool_result"</span>,
+                <span class="str">"tool_use_id"</span>: tool_use.id,
+                <span class="str">"content"</span>: result
+            }]}
+        ]
+    )</code></pre>
+
+<h2 id="prompt-cache">3. Prompt caching — duże system prompty</h2>
+<pre data-lang="python"><code><span class="com"># Cache system prompt (długi! min. 1024 tokeny dla Opus, 2048 dla Sonnet/Haiku)</span>
+<span class="com"># TTL: 5 minut domyślnie, można rozszerzyć do 1h</span>
+response = client.messages.create(
+    model=<span class="str">"claude-opus-4-7"</span>,
+    max_tokens=<span class="num">1024</span>,
+    system=[
+        {
+            <span class="str">"type"</span>: <span class="str">"text"</span>,
+            <span class="str">"text"</span>: open(<span class="str">"long_codebase_context.md"</span>).read(),  <span class="com"># np. 50k tokens</span>
+            <span class="str">"cache_control"</span>: {<span class="str">"type"</span>: <span class="str">"ephemeral"</span>}
+        }
+    ],
+    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"Wyjaśnij funkcję X"</span>}]
+)
+<span class="com"># Pierwsze wywołanie: pełna cena. Kolejne w 5 min: tylko ~10% kosztu cache hit.</span>
+print(response.usage.cache_creation_input_tokens)  <span class="com"># pierwsze: ile zapisano</span>
+print(response.usage.cache_read_input_tokens)      <span class="com"># kolejne: ile odczytano (90% taniej)</span></code></pre>
+<div class="tip">💡 Cache działa dopiero gdy zawartość ma min. 1024 tokeny (Opus) lub 2048 (Sonnet/Haiku). Krótsze prompty są ignorowane.</div>
+
+<h2 id="rag-min">4. Minimalny RAG (Chroma + sentence-transformers)</h2>
+<pre data-lang="python"><code><span class="com"># pip install chromadb sentence-transformers anthropic</span>
+<span class="kw">import</span> chromadb
+<span class="kw">from</span> sentence_transformers <span class="kw">import</span> SentenceTransformer
+<span class="kw">from</span> anthropic <span class="kw">import</span> Anthropic
+
+embedder = SentenceTransformer(<span class="str">"intfloat/multilingual-e5-large"</span>)
+client = chromadb.PersistentClient(path=<span class="str">"./chroma_db"</span>)
+coll = client.get_or_create_collection(<span class="str">"docs"</span>)
+
+<span class="com"># 1. Indeksuj</span>
+docs = [
+    <span class="str">"Python jest interpretowanym językiem wysokiego poziomu."</span>,
+    <span class="str">"Rust to język systemowy z gwarancjami bezpieczeństwa pamięci."</span>,
+    <span class="str">"FastAPI to nowoczesny framework Python do API."</span>,
+]
+coll.add(
+    ids=[<span class="kw">str</span>(i) <span class="kw">for</span> i <span class="kw">in</span> <span class="kw">range</span>(<span class="kw">len</span>(docs))],
+    embeddings=embedder.encode(docs).tolist(),
+    documents=docs
+)
+
+<span class="com"># 2. Zapytaj</span>
+query = <span class="str">"Który język jest bezpieczny pamięciowo?"</span>
+results = coll.query(query_embeddings=[embedder.encode(query).tolist()], n_results=<span class="num">2</span>)
+context = <span class="str">"\n"</span>.join(results[<span class="str">"documents"</span>][<span class="num">0</span>])
+
+<span class="com"># 3. Wygeneruj odpowiedź z kontekstem</span>
+anthropic = Anthropic()
+msg = anthropic.messages.create(
+    model=<span class="str">"claude-opus-4-7"</span>, max_tokens=<span class="num">512</span>,
+    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: f<span class="str">"Kontekst:\n{context}\n\nPytanie: {query}"</span>}]
+)
+print(msg.content[<span class="num">0</span>].text)</code></pre>
+
+<h2 id="rag-pgvector">5. RAG produkcyjny — pgvector + hybrid search + reranking</h2>
+<pre data-lang="sql"><code><span class="com">-- Schema</span>
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TABLE chunks (
+    id BIGSERIAL PRIMARY KEY,
+    doc_id UUID NOT NULL,
+    content TEXT NOT NULL,
+    embedding vector(<span class="num">1024</span>),  <span class="com">-- multilingual-e5-large</span>
+    fts tsvector GENERATED ALWAYS AS (to_tsvector(<span class="str">'simple'</span>, content)) STORED
+);
+
+CREATE INDEX chunks_embedding_idx ON chunks
+    USING hnsw (embedding vector_cosine_ops) WITH (m = <span class="num">16</span>, ef_construction = <span class="num">64</span>);
+CREATE INDEX chunks_fts_idx ON chunks USING GIN (fts);</code></pre>
+<pre data-lang="python"><code><span class="com"># Hybrid search: kombinacja vector + BM25/FTS, potem rerank</span>
+<span class="kw">from</span> sentence_transformers <span class="kw">import</span> CrossEncoder
+reranker = CrossEncoder(<span class="str">"BAAI/bge-reranker-v2-m3"</span>)
+
+<span class="kw">def</span> <span class="fn">retrieve</span>(query: str, k: int = <span class="num">5</span>) -&gt; <span class="kw">list</span>[<span class="kw">str</span>]:
+    q_emb = embedder.encode([f<span class="str">"query: {query}"</span>])[<span class="num">0</span>].tolist()
+
+    <span class="com"># 1. Pobierz top 20 z vector i top 20 z FTS</span>
+    rows = db.execute(<span class="str">"""
+        WITH vec AS (
+            SELECT id, content, 1 - (embedding &lt;=&gt; %s::vector) AS score
+            FROM chunks ORDER BY embedding &lt;=&gt; %s::vector LIMIT 20
+        ),
+        fts AS (
+            SELECT id, content, ts_rank(fts, plainto_tsquery('simple', %s)) AS score
+            FROM chunks WHERE fts @@ plainto_tsquery('simple', %s)
+            ORDER BY score DESC LIMIT 20
+        )
+        SELECT DISTINCT id, content FROM (SELECT * FROM vec UNION SELECT * FROM fts) u
+    """</span>, [q_emb, q_emb, query, query]).fetchall()
+
+    <span class="com"># 2. Rerank cross-encoderem (precyzyjniejszy niż samo cosine)</span>
+    pairs = [(query, r[<span class="num">1</span>]) <span class="kw">for</span> r <span class="kw">in</span> rows]
+    scores = reranker.predict(pairs)
+    ranked = <span class="kw">sorted</span>(<span class="kw">zip</span>(rows, scores), key=<span class="kw">lambda</span> x: x[<span class="num">1</span>], reverse=<span class="kw">True</span>)
+    <span class="kw">return</span> [r[<span class="num">0</span>][<span class="num">1</span>] <span class="kw">for</span> r <span class="kw">in</span> ranked[:k]]</code></pre>
+
+<h2 id="lora">6. Fine-tuning LoRA (Unsloth, ~10 minut na T4)</h2>
+<pre data-lang="python"><code><span class="com"># pip install unsloth</span>
+<span class="kw">from</span> unsloth <span class="kw">import</span> FastLanguageModel
+<span class="kw">from</span> trl <span class="kw">import</span> SFTTrainer
+<span class="kw">from</span> datasets <span class="kw">import</span> load_dataset
+<span class="kw">from</span> transformers <span class="kw">import</span> TrainingArguments
+
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name=<span class="str">"unsloth/Llama-3.2-3B-Instruct"</span>,
+    max_seq_length=<span class="num">2048</span>,
+    load_in_4bit=<span class="kw">True</span>,
+)
+
+model = FastLanguageModel.get_peft_model(
+    model, r=<span class="num">16</span>, lora_alpha=<span class="num">16</span>, lora_dropout=<span class="num">0</span>,
+    target_modules=[<span class="str">"q_proj"</span>, <span class="str">"k_proj"</span>, <span class="str">"v_proj"</span>, <span class="str">"o_proj"</span>,
+                    <span class="str">"gate_proj"</span>, <span class="str">"up_proj"</span>, <span class="str">"down_proj"</span>],
+    bias=<span class="str">"none"</span>, use_gradient_checkpointing=<span class="str">"unsloth"</span>,
+)
+
+dataset = load_dataset(<span class="str">"json"</span>, data_files=<span class="str">"train.jsonl"</span>, split=<span class="str">"train"</span>)
+
+trainer = SFTTrainer(
+    model=model, tokenizer=tokenizer, train_dataset=dataset,
+    dataset_text_field=<span class="str">"text"</span>, max_seq_length=<span class="num">2048</span>,
+    args=TrainingArguments(
+        per_device_train_batch_size=<span class="num">2</span>, gradient_accumulation_steps=<span class="num">4</span>,
+        warmup_steps=<span class="num">5</span>, num_train_epochs=<span class="num">1</span>, learning_rate=<span class="num">2e-4</span>,
+        fp16=<span class="kw">False</span>, bf16=<span class="kw">True</span>, logging_steps=<span class="num">1</span>,
+        output_dir=<span class="str">"./out"</span>, optim=<span class="str">"adamw_8bit"</span>
+    )
+)
+trainer.train()
+model.save_pretrained_merged(<span class="str">"./merged"</span>, tokenizer, save_method=<span class="str">"merged_16bit"</span>)</code></pre>
+
+<h2 id="agent">7. Agent z tool calling (Pydantic AI)</h2>
+<pre data-lang="python"><code><span class="com"># pip install pydantic-ai</span>
+<span class="kw">from</span> pydantic_ai <span class="kw">import</span> Agent, RunContext
+<span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel
+<span class="kw">import</span> httpx
+
+<span class="kw">class</span> <span class="fn">Deps</span>(BaseModel):
+    http: httpx.AsyncClient
+
+agent = Agent(
+    <span class="str">"anthropic:claude-opus-4-7"</span>,
+    deps_type=Deps,
+    system_prompt=<span class="str">"You are a helpful research assistant. Use search when needed."</span>,
+)
+
+<span class="com">@agent.tool</span>
+<span class="kw">async def</span> <span class="fn">search_web</span>(ctx: RunContext[Deps], query: str) -&gt; str:
+    <span class="str">"""Wyszukuje w internecie i zwraca podsumowanie."""</span>
+    r = <span class="kw">await</span> ctx.deps.http.get(<span class="str">"https://api.search.brave.com/res/v1/web/search"</span>,
+                              params={<span class="str">"q"</span>: query},
+                              headers={<span class="str">"X-Subscription-Token"</span>: SEARCH_KEY})
+    results = r.json()[<span class="str">"web"</span>][<span class="str">"results"</span>][:<span class="num">3</span>]
+    <span class="kw">return</span> <span class="str">"\n"</span>.join(f<span class="str">"{r['title']}: {r['description']}"</span> <span class="kw">for</span> r <span class="kw">in</span> results)
+
+<span class="com">@agent.tool</span>
+<span class="kw">async def</span> <span class="fn">fetch_page</span>(ctx: RunContext[Deps], url: str) -&gt; str:
+    <span class="str">"""Pobiera tekst ze strony WWW."""</span>
+    r = <span class="kw">await</span> ctx.deps.http.get(url, follow_redirects=<span class="kw">True</span>)
+    <span class="kw">return</span> r.text[:<span class="num">3000</span>]
+
+<span class="kw">async def</span> <span class="fn">main</span>():
+    <span class="kw">async with</span> httpx.AsyncClient() <span class="kw">as</span> http:
+        result = <span class="kw">await</span> agent.run(<span class="str">"Co nowego w Pythonie 3.14?"</span>, deps=Deps(http=http))
+        print(result.output)</code></pre>
+
+<div class="next-prev">
+    <a href="architektura.html"><div class="label">← Poprzedni</div><div class="title">Architektura</div></a>
+    <a href="api-rest.html"><div class="label">Następny →</div><div class="title">REST API</div></a>
+</div>
+</div>
+</body>
+</html>

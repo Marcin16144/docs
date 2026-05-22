@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphQL z Hot Chocolate v15 — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">GraphQL z Hot Chocolate v15</span>
+</div>
+<div class="container">
+  <h1>GraphQL z Hot Chocolate v15</h1>
+  <p class="subtitle">Setup, queries, mutations, subscriptions, DataLoader, filtering/sorting/paging i Federation</p>
+
+  <h2>Czym jest Hot Chocolate?</h2>
+  <p>Hot Chocolate to wiodaca implementacja serwera GraphQL dla .NET, rozwijana przez ChilliCream. Wersja 15 (2026) wprowadza ulepszone Federation v2, Fusion (distributed GraphQL) i usprawniony model konfiguracji.</p>
+
+  <div class="card blue">
+    <strong>GraphQL vs REST — kiedy co wybrac:</strong>
+    <ul style="margin-top:8px">
+      <li><strong>GraphQL:</strong> Elastyczne pobieranie danych, wiele klientow o roznych potrzebach, agregacja wielu zrodel, real-time subscriptions</li>
+      <li><strong>REST:</strong> Proste CRUD API, caching HTTP, publiczne API z ustabilizowanym kontraktem</li>
+    </ul>
+  </div>
+
+  <h2>Setup — konfiguracja Hot Chocolate v15</h2>
+  <pre><code>// dotnet add package HotChocolate.AspNetCore
+// dotnet add package HotChocolate.Data
+// dotnet add package HotChocolate.Data.EntityFramework
+
+// Program.cs
+builder.Services
+    .AddGraphQLServer()
+    .AddQueryType&lt;Query&gt;()
+    .AddMutationType&lt;Mutation&gt;()
+    .AddSubscriptionType&lt;Subscription&gt;()
+    .AddTypeExtension&lt;ProductTypeExtension&gt;()
+    .AddFiltering()
+    .AddSorting()
+    .AddProjections()
+    .AddPagingArguments()
+    .RegisterDbContext&lt;AppDbContext&gt;()
+    .AddInMemorySubscriptions()       // lub .AddRedisSubscriptions()
+    .AddAuthorization();
+
+var app = builder.Build();
+app.UseWebSockets();  // wymagane dla subscriptions
+app.MapGraphQL("/graphql");
+app.MapBananaCakePop("/graphql-ui");  // Banana Cake Pop UI
+app.Run();</code></pre>
+
+  <h2>Query — pobieranie danych</h2>
+  <pre><code>// Typ Query — annotation-based (code-first)
+[QueryType]
+public class Query
+{
+    // Proste zapytanie z filtrowaniem, sortowaniem i stronicowaniem
+    [UsePaging(IncludeTotalCount = true)]
+    [UseProjection]
+    [UseFiltering]
+    [UseSorting]
+    public IQueryable&lt;Product&gt; GetProducts(AppDbContext db)
+        =&gt; db.Products.AsNoTracking();
+
+    // Zapytanie po Id — zwraca null jesli nie istnieje
+    [UseProjection]
+    public Task&lt;Product?&gt; GetProductAsync(
+        int id,
+        AppDbContext db,
+        CancellationToken ct)
+        =&gt; db.Products.FirstOrDefaultAsync(p =&gt; p.Id == id, ct);
+
+    // Zapytanie z DataLoader
+    public Task&lt;Product?&gt; GetProductByIdAsync(
+        int id,
+        ProductByIdDataLoader loader,
+        CancellationToken ct)
+        =&gt; loader.LoadAsync(id, ct);
+
+    // Zapytanie z paginacja bazujaca na kursorze
+    [UsePaging(MaxPageSize = 50, DefaultPageSize = 20)]
+    [UseFiltering]
+    [UseSorting]
+    public IQueryable&lt;Order&gt; GetOrders(
+        [Service] AppDbContext db,
+        [HotChocolate.Data.Filters.Filter] Expression&lt;Func&lt;Order, bool&gt;&gt;? where)
+        =&gt; db.Orders.AsNoTracking();
+}
+
+// Przykladowe zapytanie GraphQL
+// query {
+//   products(
+//     first: 10
+//     where: { price: { gte: 100 } }
+//     order: [{ name: ASC }]
+//   ) {
+//     totalCount
+//     nodes {
+//       id
+//       name
+//       price
+//       category { name }
+//     }
+//     pageInfo {
+//       hasNextPage
+//       endCursor
+//     }
+//   }
+// }</code></pre>
+
+  <h2>DataLoader — rozwiazanie problemu N+1</h2>
+  <p>DataLoader grupuje (batch) zapytania do bazy danych, eliminujac problem N+1 zapytan. Zamiast N osobnych zapytan dla N obiektow — jedno zapytanie <code>WHERE Id IN (...)</code>.</p>
+
+  <pre><code>// DataLoader dla produktow
+public class ProductByIdDataLoader
+    : BatchDataLoader&lt;int, Product&gt;
+{
+    private readonly IDbContextFactory&lt;AppDbContext&gt; _factory;
+
+    public ProductByIdDataLoader(
+        IDbContextFactory&lt;AppDbContext&gt; factory,
+        IBatchScheduler scheduler,
+        DataLoaderOptions options)
+        : base(scheduler, options)
+    {
+        _factory = factory;
+    }
+
+    protected override async Task&lt;IReadOnlyDictionary&lt;int, Product&gt;&gt;
+        LoadBatchAsync(
+            IReadOnlyList&lt;int&gt; keys,
+            CancellationToken ct)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        return await db.Products
+            .AsNoTracking()
+            .Where(p =&gt; keys.Contains(p.Id))
+            .ToDictionaryAsync(p =&gt; p.Id, ct);
+    }
+}
+
+// DataLoader dla kolekcji (produkty danej kategorii)
+public class ProductsByCategoryDataLoader
+    : GroupedDataLoader&lt;int, Product&gt;
+{
+    private readonly IDbContextFactory&lt;AppDbContext&gt; _factory;
+
+    public ProductsByCategoryDataLoader(
+        IDbContextFactory&lt;AppDbContext&gt; factory,
+        IBatchScheduler scheduler,
+        DataLoaderOptions options)
+        : base(scheduler, options)
+    {
+        _factory = factory;
+    }
+
+    protected override async Task&lt;ILookup&lt;int, Product&gt;&gt;
+        LoadGroupedBatchAsync(
+            IReadOnlyList&lt;int&gt; categoryIds,
+            CancellationToken ct)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        var products = await db.Products
+            .AsNoTracking()
+            .Where(p =&gt; categoryIds.Contains(p.CategoryId))
+            .ToListAsync(ct);
+        return products.ToLookup(p =&gt; p.CategoryId);
+    }
+}
+
+// Rejestracja DataLoaderow (automatyczna przez Hot Chocolate)
+// wystarczy uzyc w zapytaniu jako parametr</code></pre>
+
+  <h2>Mutation — modyfikacja danych</h2>
+  <pre><code>// Input types dla mutacji
+public record CreateProductInput(
+    string Name,
+    decimal Price,
+    int Stock,
+    int CategoryId,
+    string? Description);
+
+public record UpdateProductInput(
+    int Id,
+    Optional&lt;string&gt; Name,
+    Optional&lt;decimal&gt; Price,
+    Optional&lt;int&gt; Stock);
+
+// Payload types (wzorzec "mutation payload")
+public record CreateProductPayload(Product? Product, UserError? Error);
+public record UpdateProductPayload(Product? Product, UserError? Error);
+public record UserError(string Message, string Code);
+
+// Typ Mutation
+[MutationType]
+public class Mutation
+{
+    public async Task&lt;CreateProductPayload&gt; CreateProductAsync(
+        CreateProductInput input,
+        IProductService service,
+        IValidator&lt;CreateProductInput&gt; validator,
+        CancellationToken ct)
+    {
+        var validation = await validator.ValidateAsync(input, ct);
+        if (!validation.IsValid)
+            return new CreateProductPayload(null,
+                new UserError(
+                    string.Join("; ", validation.Errors.Select(e =&gt; e.ErrorMessage)),
+                    "VALIDATION_ERROR"));
+
+        var product = await service.CreateAsync(input, ct);
+        return new CreateProductPayload(product, null);
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    public async Task&lt;UpdateProductPayload&gt; UpdateProductAsync(
+        UpdateProductInput input,
+        IProductService service,
+        CancellationToken ct)
+    {
+        var product = await service.UpdateAsync(input, ct);
+        return product is null
+            ? new UpdateProductPayload(null,
+                new UserError($"Produkt {input.Id} nie istnieje", "NOT_FOUND"))
+            : new UpdateProductPayload(product, null);
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    public async Task&lt;bool&gt; DeleteProductAsync(
+        int id,
+        IProductService service,
+        CancellationToken ct)
+        =&gt; await service.DeleteAsync(id, ct);
+}
+
+// Przykladowa mutacja GraphQL:
+// mutation {
+//   createProduct(input: {
+//     name: "Laptop Pro"
+//     price: 3999.99
+//     stock: 50
+//     categoryId: 1
+//   }) {
+//     product { id name price }
+//     error { message code }
+//   }
+// }</code></pre>
+
+  <h2>Subscription — real-time</h2>
+  <pre><code>// Typ Subscription
+[SubscriptionType]
+public class Subscription
+{
+    [Subscribe]
+    [Topic("ProductCreated")]
+    public Product OnProductCreated(
+        [EventMessage] Product product)
+        =&gt; product;
+
+    [Subscribe]
+    [Topic("{categoryId}")]
+    public Product OnProductUpdatedInCategory(
+        int categoryId,
+        [EventMessage] Product product)
+        =&gt; product;
+}
+
+// Publikowanie zdarzen w Mutation / serwisie
+public class ProductService : IProductService
+{
+    private readonly ITopicEventSender _events;
+
+    public ProductService(ITopicEventSender events)
+    {
+        _events = events;
+    }
+
+    public async Task&lt;Product&gt; CreateAsync(
+        CreateProductInput input,
+        CancellationToken ct)
+    {
+        // ... zapis do bazy ...
+        var product = new Product { /* ... */ };
+
+        // Wyslij zdarzenie do subskrybentow
+        await _events.SendAsync("ProductCreated", product, ct);
+        await _events.SendAsync(
+            $"{product.CategoryId}", product, ct);  // temat per kategoria
+
+        return product;
+    }
+}
+
+// Przykladowa subskrypcja GraphQL:
+// subscription {
+//   onProductCreated {
+//     id name price
+//     category { name }
+//   }
+// }</code></pre>
+
+  <h2>Type Extensions — rozszerzanie typow</h2>
+  <pre><code>// Rozszerzenie encji Product o pole obliczane i relacje przez DataLoader
+[ExtendObjectType&lt;Product&gt;]
+public class ProductTypeExtension
+{
+    // Pole obliczane
+    public string GetDisplayPrice([Parent] Product product)
+        =&gt; $"{product.Price:C2}";
+
+    // Relacja przez DataLoader (rozwiazuje N+1)
+    public Task&lt;Category?&gt; GetCategoryAsync(
+        [Parent] Product product,
+        CategoryByIdDataLoader loader,
+        CancellationToken ct)
+        =&gt; loader.LoadAsync(product.CategoryId, ct);
+
+    // Pole chronione
+    [Authorize]
+    public async Task&lt;int&gt; GetOrderCountAsync(
+        [Parent] Product product,
+        AppDbContext db,
+        CancellationToken ct)
+        =&gt; await db.OrderItems
+            .CountAsync(i =&gt; i.ProductId == product.Id, ct);
+}</code></pre>
+
+  <h2>Persisted Operations</h2>
+  <pre><code>// Persisted operations — klient wysyla tylko Id operacji
+// Zapobiega dowolnym zapytaniom (security) i redukuje payload
+
+// Program.cs — wlaczenie persisted operations
+builder.Services
+    .AddGraphQLServer()
+    .UsePersistedOperationPipeline()
+    .AddReadOnlyFileSystemOperationDocumentStorage("./persisted-operations");
+
+// Plik: ./persisted-operations/{hash}.graphql
+// GetProducts_abc123def456
+// { products { nodes { id name price } } }
+
+// Klient wysyla:
+// POST /graphql
+// { "id": "GetProducts_abc123def456" }</code></pre>
+
+  <div class="card green">
+    <strong>Hot Chocolate v15 — Fusion:</strong> Fusion to nowe podejscie do GraphQL Federation w .NET. Pozwala laczyc wiele subgrafow (podgrafow) w jeden unified graph bez potrzeby pisania resolverow federacji recznie. Konfiguracja przez <code>AddFusionGatewayServer()</code>.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="07-grpc-services.html">← 07-grpc-services.html</a>
+    <a href="09-openapi-swagger.html">09-openapi-swagger.html →</a>
+  </div>
+</div>
+</body>
+</html>

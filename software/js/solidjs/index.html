@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SolidJS – Fine-grained Reactivity</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:36px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);text-align:center}
+.footer a{color:var(--accent);text-decoration:none;font-weight:500}.footer a:hover{color:var(--accent-hover)}
+tr:nth-child(even) td{background:rgba(30,41,59,.5)}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a href="../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../index.html">JS-TS</a>
+  <span class="sep">/</span>
+  <span class="title">SolidJS</span>
+</nav>
+
+<div class="container">
+  <h1>SolidJS</h1>
+  <p class="subtitle">Fine-grained reactivity. JSX bez Virtual DOM. Performance jak Svelte, DX jak React.</p>
+
+  <!-- 1. Co to SolidJS -->
+  <h2>1. Co to SolidJS</h2>
+  <p>SolidJS to biblioteka UI stworzona przez Ryana Carniato. Jej glowna cecha to <strong>fine-grained reactivity</strong> — system reaktywnosci sledzacy dokladnie, ktore fragmenty DOM zaleza od ktorych danych, i aktualizujacy tylko te konkretne fragmenty bez ponownego renderowania calego komponentu.</p>
+  <div class="card blue">
+    <p><strong>Bez Virtual DOM</strong> — React uzywa Virtual DOM do wyliczania roznic (diffing) i stosuje je w batchu. Svelte eliminuje VDOM przez kompilacje. SolidJS eliminuje VDOM przez fine-grained subscriptions — kazdy fragment DOM subskrybuje bezposrednio do sygnalu.</p>
+  </div>
+  <ul>
+    <li><strong>Dirty checking</strong> (Angular, stary Vue): framework co jakis czas sprawdza caly stan aplikacji — kosztowne</li>
+    <li><strong>Virtual DOM diffing</strong> (React, Vue 3 default): porownuje drzewa — tanie per komponent, ale skaluje sie liniowo</li>
+    <li><strong>Fine-grained</strong> (SolidJS, Svelte runes, Vue reactivity internals): tylko zalezsnosci — O(1) per aktualizacje</li>
+  </ul>
+  <p>Komponenty SolidJS sa uruchamiane <strong>raz</strong> i nigdy nie sa re-renderowane. Zamiast tego reaktywne prymitywy (signals, memos, effects) subskrybuja sie do danych i aktualizuja DOM bezposrednio.</p>
+
+  <!-- 2. Instalacja -->
+  <h2>2. Instalacja</h2>
+  <p>Najszybszy start to oficjalny template przez Vite:</p>
+  <pre><code># oficjalny kreator (pyta o template: bare, ts, router, tanstack-router)
+npm create solid@latest moja-aplikacja
+cd moja-aplikacja
+npm install
+npm run dev
+
+# albo bezposrednio przez Vite z templatem
+npm create vite@latest moja-app -- --template solid-ts</code></pre>
+  <p>Wymagania: Node 18+. Template <code>solid-ts</code> daje TypeScript + Vite + vite-plugin-solid.</p>
+  <div class="card green">
+    <strong>Zalecany stack 2026:</strong> SolidJS + TypeScript + Vite + SolidStart (full-stack) lub solid-router (SPA).
+  </div>
+  <pre><code># instalacja do istniejacego projektu Vite
+npm install solid-js
+npm install -D vite-plugin-solid
+
+# vite.config.ts
+import { defineConfig } from 'vite';
+import solid from 'vite-plugin-solid';
+export default defineConfig({ plugins: [solid()] });</code></pre>
+
+  <!-- 3. Signals -->
+  <h2>3. Signals — createSignal()</h2>
+  <p>Signal to reaktywna wartosc. <code>createSignal</code> zwraca tuple <code>[getter, setter]</code>. Getter to <strong>funkcja</strong> — nie wlasciwosc — co pozwala systemowi sledzic zalezsnosci podczas wywolania.</p>
+  <pre><code>import { createSignal } from 'solid-js';
+
+// [getter, setter] — getter jest FUNKCJA, nie wartoscia
+const [count, setCount] = createSignal(0);
+const [name, setName] = createSignal('Anna');
+
+// odczyt (subskrybuje aktualny kontekst reaktywny)
+console.log(count());   // 0
+console.log(name());    // "Anna"
+
+// zapis
+setCount(1);
+setCount(prev => prev + 1);   // updater function
+setName('Jan');
+
+// w JSX — automatyczna subskrypcja
+function Counter() {
+  const [count, setCount] = createSignal(0);
+  return (
+    &lt;button onClick={() =&gt; setCount(c =&gt; c + 1)}&gt;
+      Kliknieto: {count()}   {/* tylko ten fragment DOM sie aktualizuje */}
+    &lt;/button&gt;
+  );
+}</code></pre>
+  <div class="card orange">
+    <strong>Kluczowa roznica od React useState:</strong> ustawianie tego samego sygnalu wielokrotnie nie powoduje wielu renderow. Solid batchuje aktualizacje automatycznie. Kompontent <em>nigdy</em> sie nie re-renderuje — tylko konkretny fragment DOM.
+  </div>
+
+  <!-- 4. Computed -->
+  <h2>4. Computed — createMemo()</h2>
+  <p><code>createMemo</code> tworzy obliczona wartosc, ktora automatycznie aktualizuje sie gdy jej zaleznosci (sygnaly) ulegna zmianie. Lazy — obliczany tylko gdy ktos go odczytuje. Cachowany — wielokrotne odczyty bez zmiany wejsc nie przeliczaja wartosci.</p>
+  <pre><code>import { createSignal, createMemo } from 'solid-js';
+
+const [firstName, setFirstName] = createSignal('Jan');
+const [lastName, setLastName] = createSignal('Kowalski');
+
+// memo jest obliczany tylko gdy firstName lub lastName sie zmieni
+const fullName = createMemo(() =&gt; `${firstName()} ${lastName()}`);
+
+// wielokrotne odczyty — obliczane raz
+console.log(fullName());  // "Jan Kowalski"
+console.log(fullName());  // "Jan Kowalski" — z cache, bez przeliczania
+
+setFirstName('Adam');
+console.log(fullName());  // "Adam Kowalski" — przeliczone po zmianie
+
+// memo z wartoscia poczatkowa (przydatne dla typow)
+const doubled = createMemo&lt;number&gt;((prev = 0) =&gt; {
+  const n = count();
+  return prev + n;
+});</code></pre>
+
+  <!-- 5. Effects -->
+  <h2>5. Effects — createEffect, onMount, onCleanup</h2>
+  <p><code>createEffect</code> uruchamia side effecty gdy reaktywne zaleznosci sie zmienia. Automatycznie slucha sygnali odczytywanych wewnatrz.</p>
+  <pre><code>import { createSignal, createEffect, onMount, onCleanup } from 'solid-js';
+
+const [query, setQuery] = createSignal('');
+
+// effect uruchamia sie po kazdej zmianie query()
+createEffect(() =&gt; {
+  console.log('Szukam:', query());
+  // cleanup poprzedniej operacji
+  const timer = setTimeout(() =&gt; fetchResults(query()), 300);
+  onCleanup(() =&gt; clearTimeout(timer));
+});
+
+// onMount — odpowiednik useEffect(fn, []) w React
+function MyComponent() {
+  onMount(() =&gt; {
+    console.log('Komponent zamontowany');
+    const unsub = subscribe();
+    onCleanup(unsub);   // cleanup przy odmontowaniu
+  });
+  return &lt;div&gt;...&lt;/div&gt;;
+}
+
+// createEffect z poprzednia wartoscia
+createEffect&lt;string&gt;(prev =&gt; {
+  const current = name();
+  console.log(`Zmiana z "${prev}" na "${current}"`);
+  return current;  // staje sie prev w nastepnym wywolaniu
+}, 'poczatkowa');</code></pre>
+
+  <!-- 6. Components -->
+  <h2>6. Components — JSX, props przez Proxy</h2>
+  <p>Komponenty SolidJS to zwykle funkcje zwracajace JSX. Kluczowa roznica: <strong>sa wywolywane raz</strong> podczas montowania. Props sa dostepne przez reaktywny Proxy — odczyt <code>props.value</code> wewnatrz reaktywnego kontekstu automatycznie subskrybuje sie do zmiany.</p>
+  <pre><code>import { createSignal, mergeProps, splitProps } from 'solid-js';
+
+// component wywolywany RAZ — nie re-renderuje sie
+function Greeting(props) {
+  // NIE destrukturyzuj props poza reactive context!
+  // const { name } = props;  // ZLE — utrata reaktywnosci
+  return &lt;div&gt;Czesc, {props.name}!&lt;/div&gt;;  // OK
+}
+
+// mergeProps — domyslne wartosci
+function Button(props) {
+  const merged = mergeProps({ type: 'button', disabled: false }, props);
+  return &lt;button type={merged.type} disabled={merged.disabled}&gt;{merged.children}&lt;/button&gt;;
+}
+
+// splitProps — rozdzielenie na "własne" i "przekazywane dalej"
+function StyledInput(props) {
+  const [local, rest] = splitProps(props, ['class', 'style']);
+  return &lt;input class={`input ${local.class}`} style={local.style} {...rest} /&gt;;
+}
+
+// typowanie TypeScript
+interface CounterProps {
+  initialValue?: number;
+  onIncrement?: (value: number) =&gt; void;
+}
+
+function Counter(props: CounterProps) {
+  const [count, setCount] = createSignal(props.initialValue ?? 0);
+  return (
+    &lt;button onClick={() =&gt; {
+      setCount(c =&gt; c + 1);
+      props.onIncrement?.(count());
+    }}&gt;{count()}&lt;/button&gt;
+  );
+}</code></pre>
+
+  <!-- 7. Control Flow -->
+  <h2>7. Control Flow — Show, For, Switch, Suspense</h2>
+  <p>SolidJS dostarcza reaktywne komponenty do sterowania przeplywem — sa wydajniejsze niz zwykle wyrazenia warunkowe w JSX, bo optymalizuja re-rendering.</p>
+  <pre><code>import { Show, For, Switch, Match, Suspense, ErrorBoundary } from 'solid-js';
+
+// Show — warunkowe renderowanie z opcjonalnym fallback
+&lt;Show when={isLoggedIn()} fallback={&lt;LoginButton /&gt;}&gt;
+  &lt;Dashboard /&gt;
+&lt;/Show&gt;
+
+// For — iteracja po tablicy (efektywna — minimalne aktualizacje DOM)
+&lt;For each={items()} fallback={&lt;p&gt;Brak elementow&lt;/p&gt;}&gt;
+  {(item, index) =&gt; (
+    &lt;li&gt;{index() + 1}. {item.name}&lt;/li&gt;
+  )}
+&lt;/For&gt;
+
+// Switch / Match
+&lt;Switch fallback={&lt;p&gt;Nieznany status&lt;/p&gt;}&gt;
+  &lt;Match when={status() === 'loading'}&gt;&lt;Spinner /&gt;&lt;/Match&gt;
+  &lt;Match when={status() === 'error'}&gt;&lt;ErrorMsg /&gt;&lt;/Match&gt;
+  &lt;Match when={status() === 'success'}&gt;&lt;Data /&gt;&lt;/Match&gt;
+&lt;/Switch&gt;
+
+// Suspense — lazy loading z fallback
+&lt;Suspense fallback={&lt;Spinner /&gt;}&gt;
+  &lt;LazyComponent /&gt;
+&lt;/Suspense&gt;
+
+// ErrorBoundary
+&lt;ErrorBoundary fallback={(err, reset) =&gt; (
+  &lt;div&gt;Blad: {err.message} &lt;button onClick={reset}&gt;Sprobuj ponownie&lt;/button&gt;&lt;/div&gt;
+)}&gt;
+  &lt;RiskyComponent /&gt;
+&lt;/ErrorBoundary&gt;</code></pre>
+
+  <!-- 8. Stores -->
+  <h2>8. Stores — createStore, produce()</h2>
+  <p><code>createStore</code> tworzy zagniezdzone reaktywne obiekty. W odrozneniu od sygnalu, store pozwala na granularne subskrypcje do poszczegolnych pol, nawet gleboko zagniezdonych.</p>
+  <pre><code>import { createStore, produce, reconcile } from 'solid-js/store';
+
+interface Todo {
+  id: number;
+  text: string;
+  done: boolean;
+}
+
+interface State {
+  todos: Todo[];
+  filter: 'all' | 'done' | 'pending';
+}
+
+const [state, setState] = createStore&lt;State&gt;({
+  todos: [],
+  filter: 'all'
+});
+
+// proste ustawianie pola
+setState('filter', 'done');
+
+// sciezka do zagniezdzonego pola
+setState('todos', 0, 'done', true);
+
+// funkcja — immer-like mutations
+setState(produce(state =&gt; {
+  state.todos.push({ id: Date.now(), text: 'Nowe zadanie', done: false });
+}));
+
+// filtrowanie przez funktor
+setState('todos', todo =&gt; !todo.done, 'text', t =&gt; t.toUpperCase());
+
+// reconcile — pelna podmiana danych (np. z API) z minimalnymi aktualizacjami DOM
+const data = await fetchTodos();
+setState('todos', reconcile(data));
+
+// odczyt w komponencie (fine-grained — tylko ten todo sie aktualizuje)
+&lt;For each={state.todos}&gt;
+  {todo =&gt; &lt;li class:done={todo.done}&gt;{todo.text}&lt;/li&gt;}
+&lt;/For&gt;</code></pre>
+
+  <!-- 9. SolidStart -->
+  <h2>9. SolidStart — meta-framework</h2>
+  <p>SolidStart to oficjalny meta-framework dla SolidJS (jak Next.js dla React). Dostarcza routing oparty na plikach, server functions, SSR, SSG i streaming.</p>
+  <pre><code># instalacja
+npm create solid@latest -- --template with-router
+# lub
+npm create solid@latest  # wybierz "SolidStart"
+
+# struktura projektu
+src/
+  routes/
+    index.tsx          # /
+    about.tsx          # /about
+    blog/
+      [slug].tsx       # /blog/:slug
+      index.tsx        # /blog
+  app.tsx              # root layout</code></pre>
+  <div class="card green">
+    <h3>Server Functions</h3>
+    <p>SolidStart umozliwia definiowanie funkcji serwerowych bezposrednio obok kodu klienta. Sa kompilowane i wykonywane wylacznie na serwerze — nie trafiaja do bundle klienta.</p>
+  </div>
+  <pre><code>// server function — uruchamiana tylko na serwerze
+"use server";
+import { query, action } from '@solidjs/router';
+
+// query — cachowane zapytanie (GET semantics)
+const getUser = query(async (id: string) =&gt; {
+  const user = await db.users.findById(id);
+  return user;
+}, 'user');
+
+// action — mutacja (POST semantics)
+const createPost = action(async (formData: FormData) =&gt; {
+  const title = formData.get('title') as string;
+  await db.posts.create({ title });
+  return redirect('/posts');
+});
+
+// w komponencie
+function UserProfile({ id }: { id: string }) {
+  const user = createAsync(() =&gt; getUser(id));
+  return &lt;Show when={user()}&gt;{u =&gt; &lt;h1&gt;{u.name}&lt;/h1&gt;}&lt;/Show&gt;;
+}</code></pre>
+
+  <!-- 10. Porownanie -->
+  <h2>10. Porownanie: SolidJS vs React vs Svelte vs Vue</h2>
+  <table>
+    <tr>
+      <th>Cecha</th>
+      <th>SolidJS</th>
+      <th>React 19</th>
+      <th>Svelte 5</th>
+      <th>Vue 3</th>
+    </tr>
+    <tr>
+      <td>Bundle size (hello world)</td>
+      <td>~7 KB</td>
+      <td>~45 KB</td>
+      <td>~2 KB</td>
+      <td>~33 KB</td>
+    </tr>
+    <tr>
+      <td>Model reaktywnosci</td>
+      <td>Fine-grained signals</td>
+      <td>Virtual DOM diffing</td>
+      <td>Compile-time runes</td>
+      <td>Proxy-based reactivity</td>
+    </tr>
+    <tr>
+      <td>Re-render komponentu</td>
+      <td>Nigdy — DOM patch only</td>
+      <td>Tak — caly subtree</td>
+      <td>Nigdy — DOM patch only</td>
+      <td>Wirtualny re-render</td>
+    </tr>
+    <tr>
+      <td>Krzywa uczenia</td>
+      <td>Srednia (JSX + nowe koncepty)</td>
+      <td>Niska-srednia</td>
+      <td>Niska (.svelte files)</td>
+      <td>Niska (Options API) / Srednia (Composition)</td>
+    </tr>
+    <tr>
+      <td>Meta-framework</td>
+      <td>SolidStart</td>
+      <td>Next.js, Remix</td>
+      <td>SvelteKit</td>
+      <td>Nuxt 3</td>
+    </tr>
+    <tr>
+      <td>JSX</td>
+      <td>Tak (natywny)</td>
+      <td>Tak (natywny)</td>
+      <td>Nie (HTML-like)</td>
+      <td>Opcjonalnie</td>
+    </tr>
+    <tr>
+      <td>TypeScript support</td>
+      <td>Doskonaly</td>
+      <td>Doskonaly</td>
+      <td>Bardzo dobry</td>
+      <td>Bardzo dobry (Volar)</td>
+    </tr>
+    <tr>
+      <td>Ecosystem / spolecznosc</td>
+      <td>Rosnacy, mniejszy</td>
+      <td>Ogromny</td>
+      <td>Sredni, aktywny</td>
+      <td>Duzy (zwl. Azja)</td>
+    </tr>
+    <tr>
+      <td>Dojrzalosc</td>
+      <td>Stabilna v1.x</td>
+      <td>Bardzo dojrzaly</td>
+      <td>Dojrzaly</td>
+      <td>Dojrzaly</td>
+    </tr>
+    <tr>
+      <td>Kiedy wybrac</td>
+      <td>Performance-critical, znasz React</td>
+      <td>Ecosystem, team hiring</td>
+      <td>Maly bundle, prostota</td>
+      <td>Laravel/PHP ekosystem</td>
+    </tr>
+  </table>
+
+  <div class="card orange">
+    <strong>Wskazowka:</strong> SolidJS to idealny wybor dla deweloperow znajacych React, ktorzy chca lepszej wydajnosci bez rezygnacji z JSX. Koncepcja dzialania jest jednak inna — zwlaszcza brak re-renderowania komponentow wymaga przestawienia myslenia.
+  </div>
+
+  <h2>Kompletny przyklad: Lista Zadan</h2>
+  <pre><code>import { createSignal, createMemo, For, Show } from 'solid-js';
+import { createStore, produce } from 'solid-js/store';
+
+interface Todo { id: number; text: string; done: boolean; }
+
+function TodoApp() {
+  const [input, setInput] = createSignal('');
+  const [todos, setTodos] = createStore&lt;Todo[]&gt;([]);
+
+  const remaining = createMemo(() =&gt; todos.filter(t =&gt; !t.done).length);
+
+  const addTodo = () =&gt; {
+    const text = input().trim();
+    if (!text) return;
+    setTodos(produce(t =&gt; t.push({ id: Date.now(), text, done: false })));
+    setInput('');
+  };
+
+  const toggle = (id: number) =&gt;
+    setTodos(t =&gt; t.id === id, 'done', d =&gt; !d);
+
+  const removeDone = () =&gt;
+    setTodos(todos.filter(t =&gt; !t.done));
+
+  return (
+    &lt;div&gt;
+      &lt;h2&gt;Zadania ({remaining()} pozostalo)&lt;/h2&gt;
+      &lt;input
+        value={input()}
+        onInput={e =&gt; setInput(e.target.value)}
+        onKeyDown={e =&gt; e.key === 'Enter' &amp;&amp; addTodo()}
+        placeholder="Nowe zadanie..."
+      /&gt;
+      &lt;button onClick={addTodo}&gt;Dodaj&lt;/button&gt;
+      &lt;For each={todos} fallback={&lt;p&gt;Brak zadan&lt;/p&gt;}&gt;
+        {todo =&gt; (
+          &lt;div&gt;
+            &lt;input type="checkbox" checked={todo.done}
+              onChange={() =&gt; toggle(todo.id)} /&gt;
+            &lt;span style={{ 'text-decoration': todo.done ? 'line-through' : 'none' }}&gt;
+              {todo.text}
+            &lt;/span&gt;
+          &lt;/div&gt;
+        )}
+      &lt;/For&gt;
+      &lt;Show when={todos.some(t =&gt; t.done)}&gt;
+        &lt;button onClick={removeDone}&gt;Usun ukonczone&lt;/button&gt;
+      &lt;/Show&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+
+  <div class="footer">
+    <a href="../index.html">← Wroc do JS/TS</a>
+  </div>
+</div>
+</body>
+</html>

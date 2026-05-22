@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eloquent ORM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">PHP</a><span class="sep">/</span>
+  <span class="title">Eloquent ORM</span>
+</div>
+<div class="container">
+  <h1>Eloquent ORM</h1>
+  <p class="subtitle">Modele, migracje, relacje, eager loading, scopes, eventy i przetwarzanie duzych zbiorow danych</p>
+
+  <h2>Czym jest Eloquent?</h2>
+  <p>Eloquent to ORM (Object-Relational Mapper) wbudowany w Laravel, oparty na wzorcu Active Record. Kazdy model Eloquent reprezentuje tabele w bazie danych, a instancja modelu odpowiada pojedynczemu wierszowi. Eloquent oferuje bogaty, ekspresywny interfejs do operacji na danych — od prostych zapytan CRUD po zaawansowane relacje i zakresy zapytan.</p>
+  <p>W porownaniu do Data Mapper (jak Doctrine), Active Record laczy logike dostepy do danych z logika domenowa w jednej klasie. Podejscie to jest szybsze w implementacji, ale moze prowadzic do naruszen zasady Single Responsibility w duzych projektach.</p>
+
+  <h2>Definicja modelu</h2>
+  <p>Model Eloquent to klasa dziedziczaca po <code>Illuminate\Database\Eloquent\Model</code>. Eloquent automatycznie mapuje nazwe klasy na nazwe tabeli (konwencja snake_case plural), ale mozna to nadpisac. Klucz glowny domyslnie to <code>id</code> (auto-increment integer).</p>
+
+<pre><code>&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+
+class Post extends Model
+{
+    use SoftDeletes;
+
+    // Nadpisanie domyslnej nazwy tabeli (domyslnie: posts)
+    protected $table = 'blog_posts';
+
+    // Pola dozwolone do mass-assignment
+    protected $fillable = [
+        'title', 'slug', 'body', 'status', 'user_id', 'published_at',
+    ];
+
+    // Alternatywa — pola WYKLUCZONE z mass-assignment (uzyj jednego z dwoch)
+    // protected $guarded = ['id', 'created_at', 'updated_at'];
+
+    // Pola ukryte w serializacji (toArray, toJson)
+    protected $hidden = ['deleted_at'];
+
+    // Automatyczne rzutowanie typow
+    protected $casts = [
+        'published_at' => 'datetime',
+        'is_featured'  => 'boolean',
+        'metadata'     => 'array',       // JSON kolumna → PHP array
+        'status'       => PostStatus::class, // PHP 8.1 Enum
+    ];
+
+    // Accessor (PHP 8 / Laravel 9+ syntax)
+    protected function title(): Attribute
+    {
+        return Attribute::make(
+            get: fn(string $value) => ucfirst($value),
+            set: fn(string $value) => strtolower(trim($value)),
+        );
+    }
+
+    // Pole obliczone (appended)
+    protected $appends = ['reading_time'];
+
+    protected function readingTime(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => (int) ceil(str_word_count($this->body) / 200) . ' min',
+        );
+    }
+}
+</code></pre>
+
+  <h2>Migracje — Schema Builder</h2>
+  <p>Migracje to wersjonowane skrypty zmian schematu bazy danych. Kazda migracja ma metode <code>up()</code> (aplikacja zmiany) i <code>down()</code> (cofniecie zmiany). Migracje sa uruchamiane przez <code>php artisan migrate</code> i sledzone w tabeli <code>migrations</code>.</p>
+
+<pre><code>&lt;?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('blog_posts', function (Blueprint $table) {
+            $table->id();                                    // BIGINT UNSIGNED AUTO_INCREMENT PK
+            $table->foreignId('user_id')                    // BIGINT UNSIGNED
+                  ->constrained()                           // FK → users.id
+                  ->cascadeOnDelete();                      // ON DELETE CASCADE
+            $table->string('title', 255);
+            $table->string('slug', 255)->unique();
+            $table->longText('body');
+            $table->enum('status', ['draft', 'published', 'archived'])->default('draft');
+            $table->boolean('is_featured')->default(false);
+            $table->json('metadata')->nullable();
+            $table->timestamp('published_at')->nullable();
+            $table->softDeletes();                          // deleted_at TIMESTAMP NULL
+            $table->timestamps();                           // created_at, updated_at
+
+            $table->index(['status', 'published_at']);      // indeks zlozony
+            $table->fullText('body');                       // full-text search (MySQL)
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('blog_posts');
+    }
+};
+</code></pre>
+
+  <h2>Relacje Eloquent</h2>
+
+  <table>
+    <thead>
+      <tr><th>Relacja</th><th>Metoda</th><th>Przyklad</th><th>Klucz obcy</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Jeden do jednego</td><td>hasOne()</td><td>User → Profile</td><td>profiles.user_id</td></tr>
+      <tr><td>Odwrotna 1:1</td><td>belongsTo()</td><td>Profile → User</td><td>profiles.user_id</td></tr>
+      <tr><td>Jeden do wielu</td><td>hasMany()</td><td>User → Posts</td><td>posts.user_id</td></tr>
+      <tr><td>Odwrotna 1:N</td><td>belongsTo()</td><td>Post → User</td><td>posts.user_id</td></tr>
+      <tr><td>Wiele do wielu</td><td>belongsToMany()</td><td>Post ↔ Tag</td><td>tabela posrednia</td></tr>
+      <tr><td>Polimorficzna</td><td>morphMany()</td><td>Image dla Post/User</td><td>imageable_type + id</td></tr>
+      <tr><td>Przez posrednika</td><td>hasManyThrough()</td><td>Country → Posts przez Users</td><td>users.country_id</td></tr>
+    </tbody>
+  </table>
+
+<pre><code>class User extends Model
+{
+    // Jeden uzytkownik ma wiele postow
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class);
+    }
+
+    // Wiele do wielu z tabelka posrednia roles_users
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class)
+            ->withPivot('assigned_at', 'expires_at')  // dodatkowe kolumny w tabeli pivot
+            ->withTimestamps();
+    }
+}
+
+class Post extends Model
+{
+    // Kazdy post nalezy do uzytkownika
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    // Polimorficzne komentarze (Comment moze nalezec do Post lub Video)
+    public function comments(): MorphMany
+    {
+        return $this->morphMany(Comment::class, 'commentable');
+    }
+}
+
+// Eager Loading — ladowanie relacji w jednym zapytaniu
+$posts = Post::with(['author', 'comments.author', 'tags'])
+    ->where('status', 'published')
+    ->latest('published_at')
+    ->paginate(15);
+
+// Bez eager loading — N+1 problem!
+// foreach ($posts as $post) { $post->author->name; } // N+1 zapytan
+</code></pre>
+
+  <h2>Query Scopes — lokalne i globalne</h2>
+  <p>Scopes to metody modelu enkapsulujace czesto uzywane warunki zapytania. <strong>Lokalne scopes</strong> sa wywoywane recznie (np. <code>->published()</code>), <strong>globalne scopes</strong> sa stosowane automatycznie do kazdego zapytania na modelu.</p>
+
+  <div class="card blue">
+    <strong>Lokalne i globalne scopes</strong>
+    <pre style="margin:8px 0 0"><code>class Post extends Model
+{
+    // Lokalny scope — ->published()
+    public function scopePublished(Builder $query): void
+    {
+        $query->where('status', 'published')
+              ->whereNotNull('published_at')
+              ->where('published_at', '<=', now());
+    }
+
+    // Globalny scope — stosowany automatycznie
+    protected static function booted(): void
+    {
+        static::addGlobalScope('active', function (Builder $query) {
+            $query->whereNull('deleted_at'); // SoftDeletes juz to robi
+        });
+    }
+}
+
+// Uzycie lokalnego scope
+$posts = Post::published()->latest()->get();
+
+// Pominiecie globalnego scope
+$posts = Post::withoutGlobalScope('active')->get();
+</code></pre>
+  </div>
+
+  <h2>Eloquent Events i Observers</h2>
+  <p>Eloquent emituje eventy w kluczowych momentach cyklu zycia modelu: <code>creating</code>, <code>created</code>, <code>updating</code>, <code>updated</code>, <code>deleting</code>, <code>deleted</code>, <code>saving</code>, <code>saved</code>. Mozna je obsluzyc w modelu (metoda <code>booted()</code>) lub w dedykowanym Observerze.</p>
+
+  <h2>chunk() — przetwarzanie duzych zbiorow</h2>
+  <p>Ladowanie tysiecy rekordow naraz do pamieci moze spowodowac wyczerpanie limitu pamieci PHP. Metoda <code>chunk()</code> pobiera i przetwarza rekordy partiami, co utrzymuje stale zuzycie pamieci niezaleznie od rozmiaru zbioru.</p>
+
+  <div class="card orange">
+    <strong>Przetwarzanie duzych zbiorow danych</strong>
+    <pre style="margin:8px 0 0"><code>// chunk() — pobiera partie rekordow
+Post::where('status', 'draft')
+    ->chunk(200, function (Collection $posts) {
+        foreach ($posts as $post) {
+            // Przetworzenie kazdego posta
+            $post->update(['status' => 'archived']);
+        }
+    });
+
+// chunkById() — bezpieczniejsze (nie resetuje offsetu po zmianach)
+Post::where('status', 'draft')
+    ->chunkById(200, function (Collection $posts) {
+        // ...
+    });
+
+// lazy() — generator, jeden rekord na raz (PHP 8+)
+foreach (Post::lazy() as $post) {
+    // Minimalne zuzycie pamieci
+    processPost($post);
+}
+
+// lazyById() — z kursorowym pobieraniem
+Post::where('views', '>', 1000)->lazyById(100)->each(function (Post $post) {
+    $post->increment('featured_score');
+});
+</code></pre>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="05-slim-framework.html">← 05-slim-framework.html</a>
+    <a href="07-doctrine-orm.html">07-doctrine-orm.html →</a>
+  </div>
+</div>
+</body>
+</html>

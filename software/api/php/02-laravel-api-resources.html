@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laravel API Resources</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">PHP</a><span class="sep">/</span>
+  <span class="title">Laravel API Resources</span>
+</div>
+<div class="container">
+  <h1>Laravel API Resources</h1>
+  <p class="subtitle">Transformacja modeli Eloquent, Resource Collections, warunkowe atrybuty i routing API</p>
+
+  <h2>Czym sa API Resources?</h2>
+  <p>Laravel API Resources to warstwa transformacji miedzy modelami Eloquent a odpowiedziami JSON zwracanymi przez API. Zamiast serializowac modele bezposrednio (co ujawnia wszystkie kolumny, w tym wrazliwe dane), Resource definiuje dokladnie, jakie pola i w jakiej strukturze trafiaja do klienta.</p>
+  <p>Resources rozwiazuja kilka problemow naraz: ukrywanie wewnetrznej struktury bazy danych, formatowanie danych (np. daty), dolaczanie relacji tylko gdy sa zaladowane oraz dodawanie obliczonych pol (np. <code>full_name</code> z <code>first_name</code> + <code>last_name</code>).</p>
+
+  <div class="card blue">
+    <strong>Generowanie Resource przez Artisan</strong>
+    <pre style="margin:8px 0 0"><code># Resource dla pojedynczego modelu
+php artisan make:resource UserResource
+
+# Resource Collection (lista modeli)
+php artisan make:resource UserCollection
+
+# Alternatywnie — kolekcja z metoda collection() na Resource
+php artisan make:resource UserResource
+# i uzycie UserResource::collection($users)
+</code></pre>
+  </div>
+
+  <h2>Podstawowa struktura API Resource</h2>
+  <p>Kazdy Resource rozszerza <code>Illuminate\Http\Resources\Json\JsonResource</code> i implementuje metode <code>toArray()</code>, ktora zwraca tablice reprezentujaca zasob. Wewnatrz metody dostep do modelu odbywa sie przez <code>$this</code>.</p>
+
+<pre><code>&lt;?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class UserResource extends JsonResource
+{
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array&lt;string, mixed&gt;
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id'         => $this->id,
+            'name'       => $this->name,
+            'email'      => $this->email,
+            'created_at' => $this->created_at->toISOString(),
+
+            // Pole obliczone — nie istnieje w bazie danych
+            'initials' => strtoupper(substr($this->name, 0, 1)),
+
+            // Warunkowe wlaczenie pola (tylko gdy zaladowane)
+            'email_verified' => $this->when(
+                $this->email_verified_at !== null,
+                true,
+                false
+            ),
+
+            // Relacja — dolaczana tylko gdy eager-loaded
+            'posts' => PostResource::collection(
+                $this->whenLoaded('posts')
+            ),
+
+            // Warunkowe dolaczenie wielu pol naraz
+            $this->mergeWhen($request->user()?->isAdmin(), [
+                'ip_address'    => $this->last_login_ip,
+                'admin_notes'   => $this->admin_notes,
+            ]),
+        ];
+    }
+}
+</code></pre>
+
+  <h2>Resource Collection</h2>
+  <p>Resource Collection sluzy do transformowania list modeli. Mozna uzywac anonimowej kolekcji (<code>UserResource::collection($users)</code>) lub dedykowanej klasy kolekcji, ktora pozwala dodac metadane na poziomie calej kolekcji (np. statystyki, linki paginacji).</p>
+
+<pre><code>&lt;?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\ResourceCollection;
+
+class UserCollection extends ResourceCollection
+{
+    // Typ elementu kolekcji (opcjonalne — domyslnie przez nazwe)
+    public $collects = UserResource::class;
+
+    public function toArray(Request $request): array
+    {
+        return [
+            'data' => $this->collection,
+
+            // Dodatkowe metadane na poziomie kolekcji
+            'meta' => [
+                'total'       => $this->total(),
+                'per_page'    => $this->perPage(),
+                'current_page'=> $this->currentPage(),
+                'last_page'   => $this->lastPage(),
+            ],
+
+            'links' => [
+                'self'  => $request->url(),
+                'first' => $this->url(1),
+                'last'  => $this->url($this->lastPage()),
+                'prev'  => $this->previousPageUrl(),
+                'next'  => $this->nextPageUrl(),
+            ],
+        ];
+    }
+
+    // Dodanie naglowkow do odpowiedzi kolekcji
+    public function withResponse(Request $request, $response): void
+    {
+        $response->header('X-Total-Count', $this->total());
+    }
+}
+
+// Uzycie w kontrolerze
+public function index(Request $request): UserCollection
+{
+    $users = User::with('posts')
+        ->latest()
+        ->paginate(15);
+
+    return new UserCollection($users);
+}
+</code></pre>
+
+  <h2>Warunkowe atrybuty — when i mergeWhen</h2>
+  <p>Metoda <code>when()</code> dolacza pole tylko gdy warunek jest spelniony. Jesli warunek jest falszywy, pole jest calkowicie pomijane w JSON (nie pojawia sie jako <code>null</code>). Metoda <code>mergeWhen()</code> dolacza tablice pol warunkowo — uzyteczne gdy chcemy dodac kilka pol dla konkretnej roli uzytkownika.</p>
+  <p>Metoda <code>whenLoaded()</code> to specjalny przypadek — dolacza relacje tylko jesli zostala juz zaladowana (eager loading). Dzieki temu unikamy N+1 problem i nie wymuszamy ladowania relacji, ktore moga nie byc potrzebne w danym endpoincie.</p>
+
+  <h2>Routing API w Laravel</h2>
+  <p>Laravel rozdziela routing webowy (<code>routes/web.php</code>) od API (<code>routes/api.php</code>). Trasy API domyslnie maja prefiks <code>/api</code> i korzystaja z middleware grupy <code>api</code> (stateless, bez sesji, z throttle).</p>
+
+  <div class="card green">
+    <strong>routes/api.php — typowa konfiguracja</strong>
+    <pre style="margin:8px 0 0"><code>&lt;?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\PostController;
+
+// Resourceful routes — generuje wszystkie 7 tras CRUD
+Route::apiResource('users', UserController::class);
+// GET    /api/users          → index
+// POST   /api/users          → store
+// GET    /api/users/{user}   → show
+// PUT    /api/users/{user}   → update
+// PATCH  /api/users/{user}   → update
+// DELETE /api/users/{user}   → destroy
+
+// Grupowanie z prefiksem i middleware
+Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::apiResource('posts', PostController::class);
+
+    // Zagniezdzone zasoby (posts/{post}/comments)
+    Route::apiResource('posts.comments', CommentController::class)
+        ->shallow(); // shallow — komentarze maja wlasne routes bez posta
+});
+
+// Versjonowanie przez prefix
+Route::prefix('v2')->group(function () {
+    Route::apiResource('users', \App\Http\Controllers\Api\V2\UserController::class);
+});
+</code></pre>
+  </div>
+
+  <h2>Response Macros</h2>
+  <p>Response macros pozwalaja definiowac wlasne metody na obiekcie Response, ktore mozna potem wielokrotnie uzywac w calej aplikacji. Rejestruje sie je w ServiceProvider, najczesciej w <code>AppServiceProvider::boot()</code>.</p>
+
+  <h2>Tabela: Fractal vs Laravel API Resources</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Funkcja</th>
+        <th>Laravel API Resources</th>
+        <th>Fractal (league/fractal)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Integracja z Laravel</td>
+        <td>Natywna, zero konfiguracji</td>
+        <td>Wymaga adaptera (laravel-fractal)</td>
+      </tr>
+      <tr>
+        <td>Krzywa uczenia</td>
+        <td>Niska — prosty toArray()</td>
+        <td>Wieksza — Transformer, Manager, Serializer</td>
+      </tr>
+      <tr>
+        <td>Relacje warunkowe</td>
+        <td>whenLoaded(), when()</td>
+        <td>includes (includes=posts w query)</td>
+      </tr>
+      <tr>
+        <td>Paginacja</td>
+        <td>Automatyczna z Eloquent paginate()</td>
+        <td>Reczna konfiguracja paginatora</td>
+      </tr>
+      <tr>
+        <td>Sparse fieldsets</td>
+        <td>Brak wbudowanego wsparcia</td>
+        <td>Brak natywnie (mozliwe recznie)</td>
+      </tr>
+      <tr>
+        <td>JSON:API format</td>
+        <td>Nie (wlasna struktura)</td>
+        <td>Tak (JsonApiSerializer)</td>
+      </tr>
+      <tr>
+        <td>Cache transformacji</td>
+        <td>Brak</td>
+        <td>Brak</td>
+      </tr>
+      <tr>
+        <td>Frameworki inne niz Laravel</td>
+        <td>Tylko Laravel</td>
+        <td>Dowolny PHP projekt</td>
+      </tr>
+      <tr>
+        <td>Aktywny rozwoj</td>
+        <td>Tak (core Laravel)</td>
+        <td>Maintenance mode od 2021</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Dobre praktyki z API Resources</h2>
+  <ul>
+    <li>Zawsze uzywaj <code>whenLoaded()</code> dla relacji — chroni przed N+1</li>
+    <li>Nigdy nie zwracaj modelu bezposrednio z kontrolera — zawsze przez Resource</li>
+    <li>Uzyj dedykowanej klasy kolekcji gdy potrzebujesz metadanych poza <code>data</code></li>
+    <li>Grupuj pola logicznie (dane podstawowe, relacje, metadane administracyjne)</li>
+    <li>Stosuj <code>mergeWhen()</code> dla pol zaleznych od uprawnien uzytkownika</li>
+    <li>Dodaj metode <code>withResponse()</code> w kolekcji, aby ustawic naglowki HTTP</li>
+  </ul>
+
+  <div class="nav-bottom">
+    <a href="01-podstawy-php-api.html">← 01-podstawy-php-api.html</a>
+    <a href="03-laravel-sanctum-passport.html">03-laravel-sanctum-passport.html →</a>
+  </div>
+</div>
+</body>
+</html>

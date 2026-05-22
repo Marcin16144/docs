@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TypeScript — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">TypeScript</span>
+</div>
+<div class="container">
+<h1>📘 TypeScript — zaawansowane wzorce</h1>
+<p class="lead">Branded types, discriminated unions, mapped types, Zod walidacja, narrowing. TypeScript 5.7+.</p>
+
+<h2>1. Branded types — zapobiegnij pomieszaniu ID</h2>
+<pre data-lang="typescript"><code><span class="com">// ❌ Bez brand — łatwo wstawić user id zamiast order id</span>
+<span class="kw">function</span> <span class="fn">getOrder</span>(orderId: <span class="kw">string</span>) { ... }
+<span class="kw">const</span> userId: <span class="kw">string</span> = <span class="str">"user-123"</span>;
+<span class="fn">getOrder</span>(userId);  <span class="com">// ❌ kompilator nie zauważy!</span>
+
+<span class="com">// ✅ Z brand</span>
+<span class="kw">type</span> Brand&lt;K, T&gt; = K &amp; { __brand: T };
+<span class="kw">type</span> UserId = Brand&lt;<span class="kw">string</span>, <span class="str">'UserId'</span>&gt;;
+<span class="kw">type</span> OrderId = Brand&lt;<span class="kw">string</span>, <span class="str">'OrderId'</span>&gt;;
+
+<span class="kw">function</span> <span class="fn">userId</span>(s: <span class="kw">string</span>): UserId { <span class="kw">return</span> s <span class="kw">as</span> UserId; }
+<span class="kw">function</span> <span class="fn">orderId</span>(s: <span class="kw">string</span>): OrderId { <span class="kw">return</span> s <span class="kw">as</span> OrderId; }
+
+<span class="kw">function</span> <span class="fn">getOrder</span>(id: OrderId) { ... }
+
+<span class="kw">const</span> u = <span class="fn">userId</span>(<span class="str">"user-123"</span>);
+<span class="fn">getOrder</span>(u);   <span class="com">// ❌ Type 'UserId' is not assignable to 'OrderId'</span>
+<span class="fn">getOrder</span>(<span class="fn">orderId</span>(<span class="str">"ord-456"</span>));  <span class="com">// ✅</span></code></pre>
+
+<h2>2. Discriminated unions — type-safe state</h2>
+<pre data-lang="typescript"><code><span class="kw">type</span> AsyncState&lt;T&gt; =
+    | { status: <span class="str">'idle'</span> }
+    | { status: <span class="str">'loading'</span> }
+    | { status: <span class="str">'success'</span>; data: T }
+    | { status: <span class="str">'error'</span>; error: Error };
+
+<span class="kw">function</span> <span class="fn">render</span>&lt;T&gt;(state: AsyncState&lt;T&gt;): <span class="kw">string</span> {
+    <span class="kw">switch</span> (state.status) {
+        <span class="kw">case</span> <span class="str">'idle'</span>:    <span class="kw">return</span> <span class="str">'Ready'</span>;
+        <span class="kw">case</span> <span class="str">'loading'</span>: <span class="kw">return</span> <span class="str">'Loading...'</span>;
+        <span class="kw">case</span> <span class="str">'success'</span>: <span class="kw">return</span> `Got: ${JSON.<span class="fn">stringify</span>(state.data)}`;
+        <span class="kw">case</span> <span class="str">'error'</span>:   <span class="kw">return</span> `Error: ${state.error.message}`;
+        <span class="kw">default</span>: {
+            <span class="kw">const</span> _exhaustive: <span class="kw">never</span> = state;  <span class="com">// kompilator pilnuje exhaustywności!</span>
+            <span class="kw">throw new</span> Error(_exhaustive);
+        }
+    }
+}
+
+<span class="com">// Jeśli dodasz nowy variant 'cancelled' i nie obsłużysz w switch,
+// TypeScript natychmiast zaprotestuje przy linii _exhaustive.</span></code></pre>
+
+<h2>3. Mapped types — przekształcanie kształtu</h2>
+<pre data-lang="typescript"><code><span class="kw">type</span> User = { id: <span class="kw">string</span>; name: <span class="kw">string</span>; email: <span class="kw">string</span>; age: <span class="kw">number</span> };
+
+<span class="com">// Wszystkie pola optional</span>
+<span class="kw">type</span> PartialUser = Partial&lt;User&gt;;
+
+<span class="com">// Tylko wybrane</span>
+<span class="kw">type</span> UserPreview = Pick&lt;User, <span class="str">'id'</span> | <span class="str">'name'</span>&gt;;
+
+<span class="com">// Bez wybranych</span>
+<span class="kw">type</span> UserPublic = Omit&lt;User, <span class="str">'email'</span>&gt;;
+
+<span class="com">// Wszystkie readonly</span>
+<span class="kw">type</span> Frozen = Readonly&lt;User&gt;;
+
+<span class="com">// Własny mapped type — wszystkie pola jako string</span>
+<span class="kw">type</span> AllStrings&lt;T&gt; = { [K <span class="kw">in keyof</span> T]: <span class="kw">string</span> };
+<span class="kw">type</span> UserForm = AllStrings&lt;User&gt;;
+<span class="com">// = { id: string; name: string; email: string; age: string }</span>
+
+<span class="com">// Nullable wszystko</span>
+<span class="kw">type</span> Nullable&lt;T&gt; = { [K <span class="kw">in keyof</span> T]: T[K] | <span class="kw">null</span> };
+
+<span class="com">// Tylko właściwości danego typu</span>
+<span class="kw">type</span> KeysOfType&lt;T, V&gt; = { [K <span class="kw">in keyof</span> T]: T[K] <span class="kw">extends</span> V <span class="kw">?</span> K : <span class="kw">never</span> }[<span class="kw">keyof</span> T];
+<span class="kw">type</span> StringKeys = KeysOfType&lt;User, <span class="kw">string</span>&gt;;   <span class="com">// 'id' | 'name' | 'email'</span>
+<span class="kw">type</span> NumberKeys = KeysOfType&lt;User, <span class="kw">number</span>&gt;;   <span class="com">// 'age'</span></code></pre>
+
+<h2>4. Template literal types</h2>
+<pre data-lang="typescript"><code><span class="kw">type</span> Method = <span class="str">'GET'</span> | <span class="str">'POST'</span> | <span class="str">'PUT'</span> | <span class="str">'DELETE'</span>;
+<span class="kw">type</span> Path = <span class="str">'/users'</span> | <span class="str">'/orders'</span> | <span class="str">'/products'</span>;
+<span class="kw">type</span> Route = `${Method} ${Path}`;
+<span class="com">// = "GET /users" | "GET /orders" | ... 12 kombinacji</span>
+
+<span class="com">// Event handler names</span>
+<span class="kw">type</span> EventName = <span class="str">'click'</span> | <span class="str">'focus'</span> | <span class="str">'blur'</span>;
+<span class="kw">type</span> Handler&lt;T <span class="kw">extends string</span>&gt; = `on${Capitalize&lt;T&gt;}`;
+<span class="kw">type</span> Handlers = Handler&lt;EventName&gt;;
+<span class="com">// = "onClick" | "onFocus" | "onBlur"</span>
+
+<span class="com">// Path parameter extraction</span>
+<span class="kw">type</span> ExtractParams&lt;T <span class="kw">extends string</span>&gt; =
+    T <span class="kw">extends</span> `${infer _}/:${infer Param}/${infer Rest}`
+        <span class="kw">?</span> Param | ExtractParams&lt;`/${Rest}`&gt;
+        : T <span class="kw">extends</span> `${infer _}/:${infer Param}`
+            <span class="kw">?</span> Param
+            : <span class="kw">never</span>;
+
+<span class="kw">type</span> P = ExtractParams&lt;<span class="str">'/users/:userId/posts/:postId'</span>&gt;;
+<span class="com">// = "userId" | "postId"</span></code></pre>
+
+<h2>5. Zod — walidacja runtime + typy compile-time</h2>
+<pre data-lang="typescript"><code><span class="kw">import</span> { z } <span class="kw">from</span> <span class="str">'zod'</span>;
+
+<span class="kw">const</span> UserSchema = z.<span class="fn">object</span>({
+    id: z.<span class="fn">string</span>().<span class="fn">uuid</span>(),
+    name: z.<span class="fn">string</span>().<span class="fn">min</span>(<span class="num">1</span>).<span class="fn">max</span>(<span class="num">100</span>),
+    email: z.<span class="fn">string</span>().<span class="fn">email</span>(),
+    role: z.<span class="fn">enum</span>([<span class="str">'admin'</span>, <span class="str">'user'</span>, <span class="str">'guest'</span>]),
+    age: z.<span class="fn">number</span>().<span class="fn">int</span>().<span class="fn">min</span>(<span class="num">0</span>).<span class="fn">max</span>(<span class="num">150</span>),
+    createdAt: z.<span class="fn">string</span>().<span class="fn">datetime</span>().<span class="fn">transform</span>(s =&gt; <span class="kw">new</span> Date(s)),
+    tags: z.<span class="fn">array</span>(z.<span class="fn">string</span>()).<span class="fn">default</span>([]),
+    address: z.<span class="fn">object</span>({
+        city: z.<span class="fn">string</span>(),
+        zip: z.<span class="fn">string</span>().<span class="fn">regex</span>(/^\d{<span class="num">2</span>}-\d{<span class="num">3</span>}$/, <span class="str">'Format: NN-NNN'</span>)
+    }).<span class="fn">optional</span>()
+});
+
+<span class="kw">type</span> User = z.infer&lt;<span class="kw">typeof</span> UserSchema&gt;;
+<span class="com">// Type wnioskowany automatycznie z schematu!</span>
+
+<span class="com">// Walidacja</span>
+<span class="kw">const</span> result = UserSchema.<span class="fn">safeParse</span>(rawData);
+<span class="kw">if</span> (!result.success) {
+    console.<span class="fn">log</span>(result.error.flatten());
+    <span class="com">// { fieldErrors: { email: ['Invalid email'], age: ['Number must be &gt;= 0'] } }</span>
+} <span class="kw">else</span> {
+    <span class="kw">const</span> user: User = result.data;  <span class="com">// pełna pewność typu i wartości</span>
+}</code></pre>
+
+<h2>6. Type guards i narrowing</h2>
+<pre data-lang="typescript"><code><span class="com">// User-defined type guard</span>
+<span class="kw">function</span> <span class="fn">isError</span>(value: <span class="kw">unknown</span>): value <span class="kw">is</span> Error {
+    <span class="kw">return</span> value <span class="kw">instanceof</span> Error;
+}
+
+<span class="kw">try</span> {
+    <span class="fn">someOperation</span>();
+} <span class="kw">catch</span> (err) {
+    <span class="kw">if</span> (<span class="fn">isError</span>(err)) {
+        console.<span class="fn">log</span>(err.message, err.stack);  <span class="com">// TS wie że to Error</span>
+    } <span class="kw">else if</span> (<span class="kw">typeof</span> err === <span class="str">'string'</span>) {
+        console.<span class="fn">log</span>(err);
+    }
+}
+
+<span class="com">// Assertion function — rzuca jeśli warunek false</span>
+<span class="kw">function</span> <span class="fn">assertDefined</span>&lt;T&gt;(value: T | <span class="kw">undefined</span>, name: <span class="kw">string</span>): asserts value <span class="kw">is</span> T {
+    <span class="kw">if</span> (value === <span class="kw">undefined</span>) <span class="kw">throw new</span> Error(`${name} is undefined`);
+}
+
+<span class="kw">function</span> <span class="fn">process</span>(maybeUser: User | <span class="kw">undefined</span>) {
+    <span class="fn">assertDefined</span>(maybeUser, <span class="str">'user'</span>);
+    console.<span class="fn">log</span>(maybeUser.name);  <span class="com">// TS wie że nie undefined</span>
+}</code></pre>
+
+<h2>7. const assertions + as const</h2>
+<pre data-lang="typescript"><code><span class="com">// Bez as const</span>
+<span class="kw">const</span> colors = [<span class="str">'red'</span>, <span class="str">'green'</span>, <span class="str">'blue'</span>];  <span class="com">// string[]</span>
+
+<span class="com">// Z as const</span>
+<span class="kw">const</span> colors = [<span class="str">'red'</span>, <span class="str">'green'</span>, <span class="str">'blue'</span>] <span class="kw">as const</span>;
+<span class="com">// readonly ['red', 'green', 'blue']</span>
+<span class="kw">type</span> Color = (<span class="kw">typeof</span> colors)[<span class="kw">number</span>];  <span class="com">// 'red' | 'green' | 'blue'</span>
+
+<span class="com">// Konfiguracja z preserved literals</span>
+<span class="kw">const</span> config = {
+    apiUrl: <span class="str">'https://api.example.com'</span>,
+    timeout: <span class="num">5000</span>,
+    methods: [<span class="str">'GET'</span>, <span class="str">'POST'</span>]
+} <span class="kw">as const</span>;
+<span class="com">// Wszystkie pola readonly, literały zachowane</span>
+
+<span class="kw">type</span> Method = (<span class="kw">typeof</span> config.methods)[<span class="kw">number</span>];  <span class="com">// 'GET' | 'POST'</span></code></pre>
+
+<h2>8. Utility types — własna biblioteka</h2>
+<pre data-lang="typescript"><code><span class="com">// Deep partial — wszystkie zagnieżdżone pola optional</span>
+<span class="kw">type</span> DeepPartial&lt;T&gt; = T <span class="kw">extends</span> <span class="kw">object</span>
+    <span class="kw">?</span> { [P <span class="kw">in keyof</span> T]<span class="kw">?</span>: DeepPartial&lt;T[P]&gt; }
+    : T;
+
+<span class="com">// Deep readonly</span>
+<span class="kw">type</span> DeepReadonly&lt;T&gt; = T <span class="kw">extends</span> <span class="kw">object</span>
+    <span class="kw">?</span> { <span class="kw">readonly</span> [P <span class="kw">in keyof</span> T]: DeepReadonly&lt;T[P]&gt; }
+    : T;
+
+<span class="com">// Promise unwrap</span>
+<span class="kw">type</span> Awaited&lt;T&gt; = T <span class="kw">extends</span> Promise&lt;infer U&gt; <span class="kw">?</span> Awaited&lt;U&gt; : T;
+<span class="com">// (już built-in od TS 4.5)</span>
+
+<span class="com">// Function arguments &amp; return</span>
+<span class="kw">type</span> Params = Parameters&lt;<span class="kw">typeof</span> fetch&gt;;
+<span class="kw">type</span> Result = ReturnType&lt;<span class="kw">typeof</span> fetch&gt;;
+<span class="kw">type</span> Resolved = Awaited&lt;ReturnType&lt;<span class="kw">typeof</span> fetch&gt;&gt;;  <span class="com">// Response</span>
+
+<span class="com">// Distributed union — nieparami</span>
+<span class="kw">type</span> NonNull&lt;T&gt; = T <span class="kw">extends</span> <span class="kw">null</span> | <span class="kw">undefined</span> <span class="kw">?</span> <span class="kw">never</span> : T;
+<span class="com">// = built-in NonNullable&lt;T&gt;</span></code></pre>
+
+<h2>9. tsconfig.json — strict settings dla 2026</h2>
+<pre data-lang="json"><code>{
+  <span class="str">"compilerOptions"</span>: {
+    <span class="str">"target"</span>: <span class="str">"ES2024"</span>,
+    <span class="str">"module"</span>: <span class="str">"ESNext"</span>,
+    <span class="str">"moduleResolution"</span>: <span class="str">"bundler"</span>,
+    <span class="str">"strict"</span>: <span class="kw">true</span>,
+    <span class="str">"noUncheckedIndexedAccess"</span>: <span class="kw">true</span>,
+    <span class="str">"noImplicitOverride"</span>: <span class="kw">true</span>,
+    <span class="str">"noPropertyAccessFromIndexSignature"</span>: <span class="kw">true</span>,
+    <span class="str">"exactOptionalPropertyTypes"</span>: <span class="kw">true</span>,
+    <span class="str">"verbatimModuleSyntax"</span>: <span class="kw">true</span>,
+    <span class="str">"isolatedModules"</span>: <span class="kw">true</span>,
+    <span class="str">"esModuleInterop"</span>: <span class="kw">true</span>,
+    <span class="str">"forceConsistentCasingInFileNames"</span>: <span class="kw">true</span>,
+    <span class="str">"skipLibCheck"</span>: <span class="kw">true</span>,
+    <span class="str">"resolveJsonModule"</span>: <span class="kw">true</span>,
+    <span class="str">"lib"</span>: [<span class="str">"ES2024"</span>, <span class="str">"DOM"</span>]
+  }
+}</code></pre>
+
+<div class="next-prev">
+    <a href="rust.html"><div class="label">← Poprzedni</div><div class="title">Rust</div></a>
+    <a href="frontend-css.html"><div class="label">Następny →</div><div class="title">CSS</div></a>
+</div>
+</div>
+</body>
+</html>

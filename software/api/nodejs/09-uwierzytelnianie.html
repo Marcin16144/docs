@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uwierzytelnianie Node.js</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Node.js</a>
+  <span class="sep">/</span>
+  <span class="title">Uwierzytelnianie Node.js</span>
+</div>
+
+<div class="container">
+  <h1>Uwierzytelnianie Node.js</h1>
+  <p class="subtitle">passport.js, JWT, refresh tokens, sesje, Auth0, Lucia auth i bezpieczenstwo cookies</p>
+
+  <h2>Przeglad metod uwierzytelniania</h2>
+  <p>Uwierzytelnianie (autentykacja) to proces weryfikacji tozsamosci uzytkownika. W aplikacjach Node.js mamy kilka podstawowych podejsc: <strong>sesje po stronie serwera</strong> (tradycyjne, stanowe), <strong>JWT</strong> (bezstanowe tokeny), <strong>OAuth 2.0</strong> (logowanie przez zewnetrznego dostawce) oraz <strong>rozwiazania managed</strong> (Auth0, Clerk, Firebase Auth — outsourcing calej warstwy auth).</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Metoda</th>
+        <th>Stanowos</th>
+        <th>Skalowalnosc</th>
+        <th>Zlozonosc</th>
+        <th>Zastosowanie</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Sesje + cookies</td>
+        <td>Stanowa (serwer)</td>
+        <td>Wymaga shared store (Redis)</td>
+        <td>Srednia</td>
+        <td>Tradycyjne aplikacje webowe, SSR</td>
+      </tr>
+      <tr>
+        <td>JWT (access token)</td>
+        <td>Bezstanowy</td>
+        <td>Doskonala (stateless)</td>
+        <td>Srednia</td>
+        <td>API, SPA, mobile, mikroserwisy</td>
+      </tr>
+      <tr>
+        <td>JWT + refresh token</td>
+        <td>Polstanowy</td>
+        <td>Dobra</td>
+        <td>Wysoka</td>
+        <td>Produkcja — kompromis bezp./UX</td>
+      </tr>
+      <tr>
+        <td>OAuth 2.0 / OIDC</td>
+        <td>Zalezna od impl.</td>
+        <td>Dobra</td>
+        <td>Wysoka</td>
+        <td>Logowanie przez Google/GitHub/etc</td>
+      </tr>
+      <tr>
+        <td>Managed (Auth0/Clerk)</td>
+        <td>Zewnetrzna</td>
+        <td>Doskonala</td>
+        <td>Niska (dla dewelopera)</td>
+        <td>Szybki start, MFA, enterprise SSO</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>JWT — jsonwebtoken</h2>
+  <p>JWT (JSON Web Token) sklada sie z trzech czesci: <strong>header</strong> (algorytm), <strong>payload</strong> (claims — dane uzytkownika) i <strong>signature</strong> (podpis weryfikujacy autentycznosc). Payload jest zakodowany Base64, nie zaszyfrowany — nie przechowuj w nim hasel ani wrazliwych danych.</p>
+
+  <pre><code>import jwt from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
+
+const JWT_SECRET         = process.env.JWT_SECRET!;        // min 256-bit klucz
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
+
+// Typy tokenow
+interface AccessTokenPayload {
+  sub: string;         // user ID (subject)
+  email: string;
+  role: 'admin' | 'user';
+  type: 'access';
+}
+
+interface RefreshTokenPayload {
+  sub: string;
+  jti: string;         // JWT ID — unikalny identyfikator tokena (do revokacji)
+  type: 'refresh';
+}
+
+// Generowanie tokenow
+function generateTokens(user: { id: string; email: string; role: string }) {
+  const accessToken = jwt.sign(
+    { sub: user.id, email: user.email, role: user.role, type: 'access' } satisfies AccessTokenPayload,
+    JWT_SECRET,
+    { expiresIn: '15m', algorithm: 'HS256' } // krotki czas zycia access tokena
+  );
+
+  const jti = randomBytes(32).toString('hex'); // unikalny ID refresh tokena
+  const refreshToken = jwt.sign(
+    { sub: user.id, jti, type: 'refresh' } satisfies RefreshTokenPayload,
+    JWT_REFRESH_SECRET,
+    { expiresIn: '7d', algorithm: 'HS256' }
+  );
+
+  return { accessToken, refreshToken, jti };
+}
+
+// Weryfikacja access tokena
+function verifyAccessToken(token: string): AccessTokenPayload {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as AccessTokenPayload;
+    if (payload.type !== 'access') throw new Error('Nieprawidlowy typ tokena');
+    return payload;
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) throw new AppError('Token wygasl', 401, 'TOKEN_EXPIRED');
+    if (err instanceof jwt.JsonWebTokenError)  throw new AppError('Nieprawidlowy token', 401, 'INVALID_TOKEN');
+    throw err;
+  }
+}
+
+// Middleware Express — weryfikacja JWT z nagłówka Authorization
+export const jwtMiddleware = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer '))
+    return res.status(401).json({ error: 'Brak tokena autoryzacji' });
+
+  try {
+    req.user = verifyAccessToken(authHeader.slice(7));
+    next();
+  } catch (err) {
+    next(err);
+  }
+};</code></pre>
+
+  <h2>Refresh Token Rotation</h2>
+  <p>Access token ma krotki czas zycia (15 min) — zmniejsza ryzyko naduzycia przy wycieku. Refresh token ma dlugi czas zycia (7 dni) i sluzy do generowania nowych access tokenow. <strong>Rotation</strong> oznacza, ze kazde uzycie refresh tokena generuje NOWY refresh token i uniewa<code>z</code>nia stary — wykrywa krazenie skradzionych tokenow.</p>
+
+  <pre><code>// Refresh token rotation z detekcja ponownego uzycia (reuse detection)
+app.post('/auth/refresh', async (req, res) => {
+  const { refreshToken } = req.cookies; // refresh token w httpOnly cookie
+  if (!refreshToken) return res.status(401).json({ error: 'Brak refresh tokena' });
+
+  let payload: RefreshTokenPayload;
+  try {
+    payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as RefreshTokenPayload;
+  } catch {
+    return res.status(401).json({ error: 'Nieprawidlowy refresh token' });
+  }
+
+  // Sprawdz czy token istnieje w bazie (nie zostal uniewa<code>z</code>niony)
+  const storedToken = await db.refreshToken.findUnique({ where: { jti: payload.jti } });
+
+  if (!storedToken) {
+    // TOKEN REUSE DETECTED — ktos uzywa odwolane tokenow!
+    // Uniewa<code>z</code>nij WSZYSTKIE sesje tego uzytkownika
+    await db.refreshToken.deleteMany({ where: { userId: payload.sub } });
+    console.warn(`[SECURITY] Refresh token reuse detected for user ${payload.sub}`);
+    return res.status(401).json({ error: 'Wykryto nieprawidlowa aktywnosc — zaloguj sie ponownie' });
+  }
+
+  // Uniewa<code>z</code>nij stary token i wygeneruj nowy
+  const user = await db.user.findUnique({ where: { id: payload.sub } });
+  const { accessToken, refreshToken: newRefreshToken, jti: newJti } = generateTokens(user);
+
+  await db.$transaction([
+    db.refreshToken.delete({ where: { jti: payload.jti } }),
+    db.refreshToken.create({ data: { jti: newJti, userId: user.id, expiresAt: addDays(new Date(), 7) } }),
+  ]);
+
+  // Refresh token w httpOnly cookie, access token w body (lub tez w cookie)
+  res.cookie('refreshToken', newRefreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dni w ms
+    path: '/auth/refresh',            // cookie widoczne tylko dla /auth/refresh
+  });
+
+  res.json({ accessToken });
+});</code></pre>
+
+  <h2>passport.js — strategie uwierzytelniania</h2>
+  <p>Passport.js to middleware uwierzytelniania z ponad 500 strategiami. Abstrakcja pozwala uzyc tej samej logiki dla roznych metod logowania. Strategie: <code>LocalStrategy</code> (email/haslo), <code>JWTStrategy</code>, <code>GoogleStrategy</code>, <code>GitHubStrategy</code>, <code>OAuth2Strategy</code>.</p>
+
+  <h2>express-session + connect-redis</h2>
+  <p>Sesje serwerowe przechowuja dane uzytkownika na serwerze (Redis) i wysylaja klientowi tylko ID sesji w cookie. Bezpieczniejsze niz JWT gdy chodzi o natychmiastowa revokacje sesji, ale wymagaja wspoldzielonego store dla wielu instancji serwera.</p>
+
+  <h2>Cookie Security — najlepsze praktyki</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Atrybut cookie</th>
+        <th>Opis</th>
+        <th>Zalecana wartosc</th>
+        <th>Chroni przed</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>httpOnly</code></td>
+        <td>Cookie niedostepne dla JavaScript</td>
+        <td><strong>true</strong></td>
+        <td>XSS, kradzie<code>z</code> tokena przez JS</td>
+      </tr>
+      <tr>
+        <td><code>secure</code></td>
+        <td>Cookie tylko przez HTTPS</td>
+        <td><strong>true</strong> (produkcja)</td>
+        <td>MITM, podsłuchiwanie</td>
+      </tr>
+      <tr>
+        <td><code>sameSite</code></td>
+        <td>Kontrola cross-site wysylania</td>
+        <td><strong>strict</strong> lub <strong>lax</strong></td>
+        <td>CSRF ataki</td>
+      </tr>
+      <tr>
+        <td><code>maxAge</code></td>
+        <td>Czas zycia cookie (ms)</td>
+        <td>Zalezny od kontekstu</td>
+        <td>Dlugotrwale sesje po kradzie<code>z</code>y</td>
+      </tr>
+      <tr>
+        <td><code>path</code></td>
+        <td>Sciezka, dla której cookie jest wysylane</td>
+        <td>Jak najwezszy</td>
+        <td>Nieautoryzowane uzycie na innych sciezkach</td>
+      </tr>
+      <tr>
+        <td><code>domain</code></td>
+        <td>Domena cookie</td>
+        <td>Domyslny (biezaca domena)</td>
+        <td>Wyciek do subdomen</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Lucia Auth — nowoczesna alternatywa (2025/2026)</h2>
+  <p>Lucia to biblioteka zarzadzania sesjami skupiona na bezpieczenstwie i prostocie. Nie jest opiniujaca jesli chodzi o baze danych — wspiera Prisma, Drizzle, MongoDB, libSQL. W odroznieniu od Auth0/Clerk, Lucia jest self-hosted i open source. W wersji 3.x Lucia uproscila API i skupila sie wylacznie na sesjach (bez social OAuth — to robisz osobno przez Arctic).</p>
+
+  <div class="card blue">
+    <strong>Auth0 SDK dla Node.js</strong>
+    <p style="margin-top:8px;margin-bottom:0">Auth0 to managed authentication platform. SDK <code>auth0</code> (npm) umozliwia weryfikacje tokenow, zarzadzanie uzytkownikami przez Management API i integracje z Express przez <code>express-oauth2-jwt-bearer</code>. Idealny gdy potrzebujesz: MFA, enterprise SSO (SAML), zaawansowanego zarzadzania uzytkownikami bez budowania od zera.</p>
+  </div>
+
+  <div class="card red">
+    <strong>Najczestsze bledy bezpieczenstwa auth</strong>
+    <p style="margin-top:8px;margin-bottom:0">1. Przechowywanie refresh tokenow w localStorage (podatne na XSS) — uzywaj httpOnly cookies. 2. Zbyt dluga waznosc access tokenow — max 15-60 minut. 3. Brak rotacji refresh tokenow. 4. Slaby sekret JWT — min 256 bit losowych danych. 5. Brak rate limiting na endpointach auth — umozliwia brute force.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="08-trpc.html">← 08-trpc.html</a>
+    <a href="10-deployment.html">10-deployment.html →</a>
+  </div>
+</div>
+</body>
+</html>

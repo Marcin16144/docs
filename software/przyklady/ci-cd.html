@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CI/CD — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">CI/CD</span>
+</div>
+<div class="container">
+<h1>🔄 CI/CD — GitHub Actions workflow</h1>
+<p class="lead">Build, test, security scan, deploy. Cache, matrix, secrets, environments — produkcyjny pipeline.</p>
+
+<h2>1. Pełny pipeline Node.js / TypeScript</h2>
+<pre data-lang="yaml"><code><span class="com"># .github/workflows/ci.yml</span>
+<span class="kw">name</span>: CI/CD
+
+<span class="kw">on</span>:
+  <span class="kw">push</span>:
+    <span class="kw">branches</span>: [main]
+  <span class="kw">pull_request</span>:
+
+<span class="kw">concurrency</span>:    <span class="com"># anuluj poprzednie runs tej samej gałęzi</span>
+  <span class="kw">group</span>: ${{ github.workflow }}-${{ github.ref }}
+  <span class="kw">cancel-in-progress</span>: <span class="kw">true</span>
+
+<span class="kw">jobs</span>:
+  <span class="kw">test</span>:
+    <span class="kw">runs-on</span>: ubuntu-latest
+    <span class="kw">strategy</span>:
+      <span class="kw">matrix</span>:
+        <span class="kw">node</span>: [<span class="num">20</span>, <span class="num">22</span>]
+    <span class="kw">services</span>:
+      <span class="kw">postgres</span>:
+        <span class="kw">image</span>: postgres:<span class="num">17</span>-alpine
+        <span class="kw">env</span>: { POSTGRES_PASSWORD: test }
+        <span class="kw">ports</span>: [<span class="str">"5432:5432"</span>]
+        <span class="kw">options</span>: &gt;-
+          --health-cmd <span class="str">"pg_isready -U postgres"</span>
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    <span class="kw">steps</span>:
+      - <span class="kw">uses</span>: actions/checkout@v4
+
+      - <span class="kw">name</span>: Setup Node ${{ matrix.node }}
+        <span class="kw">uses</span>: actions/setup-node@v4
+        <span class="kw">with</span>:
+          <span class="kw">node-version</span>: ${{ matrix.node }}
+          <span class="kw">cache</span>: <span class="str">'npm'</span>
+
+      - <span class="kw">run</span>: npm ci
+      - <span class="kw">run</span>: npm run lint
+      - <span class="kw">run</span>: npm run typecheck
+      - <span class="kw">name</span>: Test
+        <span class="kw">env</span>:
+          <span class="kw">DATABASE_URL</span>: postgres://postgres:test@localhost:<span class="num">5432</span>/postgres
+        <span class="kw">run</span>: npm test -- --coverage
+
+      - <span class="kw">name</span>: Upload coverage
+        <span class="kw">uses</span>: codecov/codecov-action@v4
+        <span class="kw">with</span>:
+          <span class="kw">token</span>: ${{ secrets.CODECOV_TOKEN }}
+
+  <span class="kw">security</span>:
+    <span class="kw">runs-on</span>: ubuntu-latest
+    <span class="kw">steps</span>:
+      - <span class="kw">uses</span>: actions/checkout@v4
+
+      - <span class="kw">name</span>: NPM audit
+        <span class="kw">run</span>: npm audit --audit-level=high
+
+      - <span class="kw">name</span>: Trivy filesystem scan
+        <span class="kw">uses</span>: aquasecurity/trivy-action@master
+        <span class="kw">with</span>:
+          <span class="kw">scan-type</span>: <span class="str">'fs'</span>
+          <span class="kw">severity</span>: <span class="str">'CRITICAL,HIGH'</span>
+          <span class="kw">exit-code</span>: <span class="str">'1'</span>
+
+      - <span class="kw">name</span>: Detect secrets
+        <span class="kw">uses</span>: gitleaks/gitleaks-action@v2
+        <span class="kw">env</span>: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+
+  <span class="kw">build-and-push</span>:
+    <span class="kw">needs</span>: [test, security]
+    <span class="kw">if</span>: github.ref == <span class="str">'refs/heads/main'</span>
+    <span class="kw">runs-on</span>: ubuntu-latest
+    <span class="kw">permissions</span>:
+      <span class="kw">contents</span>: read
+      <span class="kw">packages</span>: write
+      <span class="kw">id-token</span>: write   <span class="com"># dla OIDC z cloud</span>
+    <span class="kw">steps</span>:
+      - <span class="kw">uses</span>: actions/checkout@v4
+
+      - <span class="kw">name</span>: Setup buildx
+        <span class="kw">uses</span>: docker/setup-buildx-action@v3
+
+      - <span class="kw">name</span>: Login to GHCR
+        <span class="kw">uses</span>: docker/login-action@v3
+        <span class="kw">with</span>:
+          <span class="kw">registry</span>: ghcr.io
+          <span class="kw">username</span>: ${{ github.actor }}
+          <span class="kw">password</span>: ${{ secrets.GITHUB_TOKEN }}
+
+      - <span class="kw">name</span>: Metadata (tags, labels)
+        <span class="kw">id</span>: meta
+        <span class="kw">uses</span>: docker/metadata-action@v5
+        <span class="kw">with</span>:
+          <span class="kw">images</span>: ghcr.io/${{ github.repository }}
+          <span class="kw">tags</span>: |
+            type=ref,event=branch
+            type=sha,prefix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - <span class="kw">name</span>: Build &amp; push
+        <span class="kw">uses</span>: docker/build-push-action@v5
+        <span class="kw">with</span>:
+          <span class="kw">context</span>: .
+          <span class="kw">push</span>: <span class="kw">true</span>
+          <span class="kw">tags</span>: ${{ steps.meta.outputs.tags }}
+          <span class="kw">labels</span>: ${{ steps.meta.outputs.labels }}
+          <span class="kw">cache-from</span>: type=gha
+          <span class="kw">cache-to</span>: type=gha,mode=max
+          <span class="kw">provenance</span>: <span class="kw">true</span>
+          <span class="kw">sbom</span>: <span class="kw">true</span>
+
+  <span class="kw">deploy</span>:
+    <span class="kw">needs</span>: build-and-push
+    <span class="kw">runs-on</span>: ubuntu-latest
+    <span class="kw">environment</span>:
+      <span class="kw">name</span>: production
+      <span class="kw">url</span>: https://api.example.com
+    <span class="kw">steps</span>:
+      - <span class="kw">name</span>: Configure AWS via OIDC (bez secrets!)
+        <span class="kw">uses</span>: aws-actions/configure-aws-credentials@v4
+        <span class="kw">with</span>:
+          <span class="kw">role-to-assume</span>: arn:aws:iam::<span class="num">123456789012</span>:role/github-deploy
+          <span class="kw">aws-region</span>: eu-central-<span class="num">1</span>
+
+      - <span class="kw">name</span>: Deploy to ECS
+        <span class="kw">run</span>: |
+          aws ecs update-service --cluster prod \
+            --service api --force-new-deployment</code></pre>
+
+<h2>2. Cache — przyspieszanie buildów</h2>
+<pre data-lang="yaml"><code><span class="com"># Node.js</span>
+- <span class="kw">uses</span>: actions/setup-node@v4
+  <span class="kw">with</span>: { node-version: <span class="num">22</span>, cache: <span class="str">'npm'</span> }
+
+<span class="com"># Python (uv)</span>
+- <span class="kw">uses</span>: actions/setup-python@v5
+  <span class="kw">with</span>: { python-version: <span class="str">'3.13'</span>, cache: <span class="str">'pip'</span> }
+- <span class="kw">run</span>: pip install uv &amp;&amp; uv sync --frozen
+
+<span class="com"># Rust</span>
+- <span class="kw">uses</span>: Swatinem/rust-cache@v2
+
+<span class="com"># .NET</span>
+- <span class="kw">uses</span>: actions/setup-dotnet@v4
+  <span class="kw">with</span>: { dotnet-version: <span class="str">'9.0.x'</span> }
+- <span class="kw">uses</span>: actions/cache@v4
+  <span class="kw">with</span>:
+    <span class="kw">path</span>: ~/.nuget/packages
+    <span class="kw">key</span>: ${{ runner.os }}-nuget-${{ hashFiles(<span class="str">'**/packages.lock.json'</span>) }}
+
+<span class="com"># Docker layers (BuildKit cache)</span>
+- <span class="kw">uses</span>: docker/build-push-action@v5
+  <span class="kw">with</span>:
+    <span class="kw">cache-from</span>: type=gha
+    <span class="kw">cache-to</span>: type=gha,mode=max</code></pre>
+
+<h2>3. Environments + manual approval</h2>
+<pre data-lang="yaml"><code><span class="com"># GitHub repo → Settings → Environments → "production"</span>
+<span class="com"># - Required reviewers: [twoj-team]</span>
+<span class="com"># - Wait timer: 5 min</span>
+<span class="com"># - Branch restriction: main</span>
+
+<span class="kw">jobs</span>:
+  <span class="kw">deploy-prod</span>:
+    <span class="kw">environment</span>:
+      <span class="kw">name</span>: production
+      <span class="kw">url</span>: ${{ steps.deploy.outputs.url }}
+    <span class="kw">steps</span>:
+      - <span class="kw">id</span>: deploy
+        <span class="kw">run</span>: |
+          echo <span class="str">"url=https://api.example.com"</span> &gt;&gt; $GITHUB_OUTPUT
+          ./deploy.sh prod</code></pre>
+
+<h2>4. Reusable workflow (call from many repos)</h2>
+<pre data-lang="yaml"><code><span class="com"># .github/workflows/reusable-test.yml</span>
+<span class="kw">name</span>: Reusable Test Workflow
+<span class="kw">on</span>:
+  <span class="kw">workflow_call</span>:
+    <span class="kw">inputs</span>:
+      <span class="kw">node-version</span>:
+        <span class="kw">type</span>: string
+        <span class="kw">default</span>: <span class="str">"22"</span>
+    <span class="kw">secrets</span>:
+      <span class="kw">CODECOV_TOKEN</span>: { required: <span class="kw">true</span> }
+
+<span class="kw">jobs</span>:
+  <span class="kw">test</span>:
+    <span class="kw">runs-on</span>: ubuntu-latest
+    <span class="kw">steps</span>:
+      - <span class="kw">uses</span>: actions/checkout@v4
+      - <span class="kw">uses</span>: actions/setup-node@v4
+        <span class="kw">with</span>: { node-version: ${{ inputs.node-version }} }
+      - <span class="kw">run</span>: npm ci &amp;&amp; npm test
+
+<span class="com"># .github/workflows/ci.yml — w innym repo</span>
+<span class="kw">jobs</span>:
+  <span class="kw">call-tests</span>:
+    <span class="kw">uses</span>: my-org/shared-workflows/.github/workflows/reusable-test.yml@v<span class="num">1</span>
+    <span class="kw">with</span>: { node-version: <span class="str">"20"</span> }
+    <span class="kw">secrets</span>: inherit</code></pre>
+
+<h2>5. Quality gates — blokuj merge przy regresji</h2>
+<pre data-lang="yaml"><code><span class="com"># Coverage musi nie spaść poniżej 80%</span>
+- <span class="kw">name</span>: Coverage gate
+  <span class="kw">run</span>: |
+    coverage=$(jq <span class="str">'.total.lines.pct'</span> coverage/summary.json)
+    <span class="kw">if</span> (( $(echo <span class="str">"$coverage &lt; 80"</span> | bc -l) )); <span class="kw">then</span>
+      echo <span class="str">"::error::Coverage $coverage% below 80%"</span>
+      exit <span class="num">1</span>
+    <span class="kw">fi</span>
+
+<span class="com"># Performance regression (Lighthouse CI)</span>
+- <span class="kw">uses</span>: treosh/lighthouse-ci-action@v11
+  <span class="kw">with</span>:
+    <span class="kw">urls</span>: |
+      https://staging.example.com
+    <span class="kw">configPath</span>: <span class="str">'./.lighthouserc.json'</span>
+    <span class="kw">temporaryPublicStorage</span>: <span class="kw">true</span>
+    <span class="kw">budgetPath</span>: <span class="str">'./.lh-budget.json'</span>
+
+<span class="com"># Bundle size check</span>
+- <span class="kw">uses</span>: andresz1/size-limit-action@v1
+  <span class="kw">with</span>:
+    <span class="kw">github_token</span>: ${{ secrets.GITHUB_TOKEN }}</code></pre>
+
+<h2>6. Secrets — bezpiecznie</h2>
+<pre data-lang="yaml"><code><span class="com"># ❌ ŹLE: hardcoded</span>
+<span class="kw">env</span>:
+  <span class="kw">API_KEY</span>: <span class="str">"sk_live_abc123"</span>
+
+<span class="com"># ✅ DOBRZE: secret z UI / org-level</span>
+<span class="kw">env</span>:
+  <span class="kw">API_KEY</span>: ${{ secrets.API_KEY }}
+
+<span class="com"># ✅ JESZCZE LEPIEJ: OIDC do AWS/GCP/Azure (bez secrets w ogóle)</span>
+- <span class="kw">uses</span>: aws-actions/configure-aws-credentials@v4
+  <span class="kw">with</span>:
+    <span class="kw">role-to-assume</span>: arn:aws:iam::ACCOUNT:role/github-deploy
+    <span class="kw">aws-region</span>: eu-central-<span class="num">1</span>
+
+<span class="com"># ✅ Multi-environment secrets</span>
+<span class="kw">jobs</span>:
+  <span class="kw">deploy</span>:
+    <span class="kw">environment</span>: ${{ inputs.env }}  <span class="com"># staging | production</span>
+    <span class="kw">steps</span>:
+      - <span class="kw">env</span>: { DB_URL: ${{ secrets.DB_URL }} }  <span class="com"># secret per env</span>
+        <span class="kw">run</span>: ./deploy.sh</code></pre>
+
+<h2>7. Komendy debug, gdy CI się sypie</h2>
+<pre data-lang="bash"><code><span class="com"># Re-run failed jobs tylko</span>
+gh run rerun &lt;run-id&gt; --failed
+
+<span class="com"># Watch live</span>
+gh run watch
+
+<span class="com"># Pobierz logi</span>
+gh run view &lt;run-id&gt; --log
+
+<span class="com"># SSH na runnera (action-tmate)</span>
+- <span class="kw">name</span>: Debug via SSH (5 min)
+  <span class="kw">if</span>: failure()
+  <span class="kw">uses</span>: mxschmitt/action-tmate@v3
+  <span class="kw">with</span>: { limit-access-to-actor: <span class="kw">true</span> }
+<span class="com"># Logi wyświetlą SSH command — wklej w terminal</span>
+
+<span class="com"># Lokalna replikacja workflow (act)</span>
+brew install act    <span class="com"># lub: choco install act-cli</span>
+act -j test         <span class="com"># uruchom job &quot;test&quot; lokalnie</span></code></pre>
+
+<h2>8. Najczęstsze błędy</h2>
+<table>
+<tr><th>Symptom</th><th>Fix</th></tr>
+<tr><td>"Permission denied" przy push do GHCR</td><td>Dodaj <code>permissions: { packages: write }</code></td></tr>
+<tr><td>Test passe lokalnie, fail w CI</td><td>Sprawdź timezone, locale, file paths (case sensitive!)</td></tr>
+<tr><td>Cache nie działa</td><td>Klucz cache musi być deterministyczny (hash lockfile)</td></tr>
+<tr><td>Build trwa 30 min</td><td>Włącz BuildKit cache, paraleluj jobs, użyj larger runner</td></tr>
+<tr><td>Random flaky failures</td><td>Concurrency in jobs, race conditions w testach, brak <code>wait</code></td></tr>
+<tr><td>"Out of disk space"</td><td><code>sudo rm -rf /usr/share/dotnet /opt/ghc</code> na początku (GHA runner)</td></tr>
+</table>
+
+<div class="next-prev">
+    <a href="testowanie.html"><div class="label">← Poprzedni</div><div class="title">Testowanie</div></a>
+    <a href="index.html"><div class="label">Wróć do</div><div class="title">Spisu przykładów</div></a>
+</div>
+</div>
+</body>
+</html>

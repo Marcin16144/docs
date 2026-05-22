@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Symfony API Platform</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">PHP</a><span class="sep">/</span>
+  <span class="title">Symfony API Platform</span>
+</div>
+<div class="container">
+  <h1>Symfony API Platform</h1>
+  <p class="subtitle">ApiResource, operacje, serializacja, filtry, GraphQL, JSON-LD i Mercure</p>
+
+  <h2>Czym jest API Platform?</h2>
+  <p>API Platform to framework zbudowany na Symfony, zaprojektowany specjalnie do tworzenia API. Automatycznie generuje endpointy CRUD, dokumentacje OpenAPI, obsluge JSON-LD/Hydra oraz GraphQL na podstawie prostych klas PHP opatrzonych atrybutami. To podejscie "API-first" — definiujesz model, a infrastruktura powstaje automatycznie.</p>
+
+  <div class="card blue">
+    <strong>Instalacja API Platform</strong>
+    <pre style="margin:8px 0 0"><code># Nowy projekt Symfony z API Platform
+composer create-project api-platform/api-platform my-api
+
+# Lub dodanie do istniejacego projektu Symfony
+composer require api-platform/core
+
+# Uruchomienie dev serwera
+symfony serve --daemon
+
+# API dostepne pod: https://localhost:8000/api
+# Swagger UI:       https://localhost:8000/api/docs
+# JSON-LD context:  https://localhost:8000/api/contexts/Product
+</code></pre>
+  </div>
+
+  <h2>ApiResource — definicja zasobu</h2>
+  <p>Atrybut <code>#[ApiResource]</code> przeksztalca zwykla klase PHP (encje Doctrine lub dowolna klase) w zasob API. API Platform automatycznie generuje wszystkie operacje REST, dokumentacje OpenAPI i obsluge wielu formatow (JSON, JSON-LD, CSV, XML).</p>
+
+<pre><code>&lt;?php
+
+namespace App\Entity;
+
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\Put;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\RangeFilter;
+use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
+use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
+
+#[ApiResource(
+    shortName: 'Product',
+    description: 'Zasob reprezentujacy produkt w katalogu',
+    operations: [
+        new GetCollection(normalizationContext: ['groups' => ['product:list']]),
+        new Get(normalizationContext: ['groups' => ['product:detail']]),
+        new Post(
+            normalizationContext:   ['groups' => ['product:detail']],
+            denormalizationContext: ['groups' => ['product:write']],
+            security: "is_granted('ROLE_ADMIN')"
+        ),
+        new Put(
+            denormalizationContext: ['groups' => ['product:write']],
+            security: "is_granted('ROLE_ADMIN') or object.getOwner() == user"
+        ),
+        new Patch(
+            denormalizationContext: ['groups' => ['product:write']],
+            security: "is_granted('ROLE_ADMIN')"
+        ),
+        new Delete(security: "is_granted('ROLE_ADMIN')"),
+    ],
+    paginationItemsPerPage: 20,
+    paginationMaximumItemsPerPage: 100,
+)]
+#[ApiFilter(SearchFilter::class, properties: [
+    'name'     => 'partial',  // LIKE %name%
+    'category' => 'exact',    // category = ?
+    'sku'      => 'start',    // LIKE sku%
+])]
+#[ApiFilter(RangeFilter::class, properties: ['price', 'stock'])]
+#[ApiFilter(DateFilter::class, properties: ['createdAt'])]
+#[ORM\Entity]
+class Product
+{
+    #[ORM\Id, ORM\GeneratedValue, ORM\Column]
+    #[Groups(['product:list', 'product:detail'])]
+    private ?int $id = null;
+
+    #[ORM\Column(length: 255)]
+    #[Assert\NotBlank, Assert\Length(min: 2, max: 255)]
+    #[Groups(['product:list', 'product:detail', 'product:write'])]
+    private string $name = '';
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+    #[Assert\Positive]
+    #[Groups(['product:list', 'product:detail', 'product:write'])]
+    private string $price = '0.00';
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    #[Groups(['product:detail', 'product:write'])]
+    private ?string $description = null;
+
+    #[ORM\Column]
+    #[Groups(['product:detail'])]
+    private \DateTimeImmutable $createdAt;
+
+    public function __construct()
+    {
+        $this->createdAt = new \DateTimeImmutable();
+    }
+
+    // Gettery i settery...
+    public function getId(): ?int { return $this->id; }
+    public function getName(): string { return $this->name; }
+    public function setName(string $name): static { $this->name = $name; return $this; }
+    public function getPrice(): string { return $this->price; }
+    public function setPrice(string $price): static { $this->price = $price; return $this; }
+}
+</code></pre>
+
+  <h2>Grupy serializacji (#[Groups])</h2>
+  <p>Grupy serializacji to mechanizm kontrolujacy, ktore pola encji sa widoczne w odpowiedziach API i ktore moga byc zapisywane przez klientow. Kazda operacja moze miec inny <code>normalizationContext</code> (do JSON) i <code>denormalizationContext</code> (z JSON). Dzieki temu mozna na przyklad udostepniac mniej pol w kolekcji (szybciej) a wiecej w szczegolach pojedynczego zasobu.</p>
+
+  <h2>Custom State Providers i Processors</h2>
+  <p>State Providers zastepuja domyslna integracje z Doctrine — uzyteczne gdy dane pochodza z zewnetrznego API, cache'u Redis lub innego zrodla. State Processors definiuja co dzieje sie z danymi przy zapisie (POST/PUT/PATCH/DELETE).</p>
+
+<pre><code>&lt;?php
+
+namespace App\State;
+
+use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\ProviderInterface;
+use App\Repository\ProductRepository;
+
+// Custom Provider — pobieranie danych ze specyficznego zrodla
+class ProductProvider implements ProviderInterface
+{
+    public function __construct(
+        private readonly ProductRepository $repository,
+    ) {}
+
+    public function provide(
+        Operation $operation,
+        array $uriVariables = [],
+        array $context = []
+    ): object|array|null {
+        // Dla operacji GetCollection
+        if ($operation instanceof GetCollection) {
+            return $this->repository->findAllWithCache();
+        }
+
+        // Dla operacji Get (pojedynczy zasob)
+        return $this->repository->findWithRelations($uriVariables['id']);
+    }
+}
+
+// Custom Processor — logika przy zapisie
+class ProductProcessor implements ProcessorInterface
+{
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly SluggerInterface $slugger,
+    ) {}
+
+    public function process(
+        mixed $data,
+        Operation $operation,
+        array $uriVariables = [],
+        array $context = []
+    ): Product {
+        // Automatyczne generowanie slug przed zapisem
+        $data->setSlug($this->slugger->slug($data->getName())->lower());
+
+        $this->em->persist($data);
+        $this->em->flush();
+
+        return $data;
+    }
+}
+</code></pre>
+
+  <h2>JSON-LD i Hydra</h2>
+  <p>API Platform domyslnie serwuje odpowiedzi w formacie <strong>JSON-LD</strong> z rozszerzeniem <strong>Hydra</strong>. JSON-LD to standard W3C dodajacy kontekst semantyczny do JSON — kazdy zasob ma unikalny <code>@id</code> (IRI) i <code>@type</code>. Hydra rozszerza JSON-LD o opis operacji API (hypermedia). Dzieki temu klienci moga dynamicznie odkrywac mozliwosci API bez znajomosci dokumentacji.</p>
+
+  <h2>GraphQL — wbudowane wsparcie</h2>
+  <p>API Platform posiada wbudowane wsparcie GraphQL — bez dodatkowej konfiguracji API jest dostepne rowniez przez endpoint GraphQL. Automatycznie generuje schemat GraphQL na podstawie atrybutow ApiResource, obsluguje queries, mutations i subscriptions (przez Mercure).</p>
+
+  <h2>Mercure — real-time push</h2>
+  <p>Mercure to protokol oparty na Server-Sent Events (SSE) do wysylania aktualizacji w czasie rzeczywistym z serwera do klientow. API Platform integruje sie z Mercure — po kazdym zapisie zasobu automatycznie publikuje aktualizacje do zasubskrybowanych klientow.</p>
+
+  <h2>OpenAPI — automatyczna dokumentacja</h2>
+  <p>API Platform automatycznie generuje specyfikacje OpenAPI 3.x na podstawie atrybutow PHP. Dokumentacja jest dostepna pod <code>/api/docs.json</code> (JSON) i <code>/api/docs.yaml</code> (YAML). Wbudowany Swagger UI jest dostepny pod <code>/api/docs</code>.</p>
+
+  <table>
+    <thead>
+      <tr><th>Funkcja</th><th>API Platform</th><th>Reczne REST API (Symfony)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>CRUD boilerplate</td><td>Automatyczny</td><td>Recznie pisany</td></tr>
+      <tr><td>OpenAPI docs</td><td>Auto-generowana</td><td>Reczna (NelmioApiDocBundle)</td></tr>
+      <tr><td>Filtry</td><td>Gotowe (Search, Range, Date)</td><td>Recznie w QueryBuilder</td></tr>
+      <tr><td>Paginacja</td><td>Wbudowana</td><td>Reczna implementacja</td></tr>
+      <tr><td>GraphQL</td><td>Wbudowane (1 pakiet)</td><td>Wymaga webonyx/graphql-php</td></tr>
+      <tr><td>JSON-LD / Hydra</td><td>Domyslny format</td><td>Brak</td></tr>
+      <tr><td>Real-time (Mercure)</td><td>Wbudowana integracja</td><td>Reczna integracja</td></tr>
+      <tr><td>Elastycznosc</td><td>Srednia (conventions)</td><td>Pelna</td></tr>
+    </tbody>
+  </table>
+
+  <div class="nav-bottom">
+    <a href="03-laravel-sanctum-passport.html">← 03-laravel-sanctum-passport.html</a>
+    <a href="05-slim-framework.html">05-slim-framework.html →</a>
+  </div>
+</div>
+</body>
+</html>

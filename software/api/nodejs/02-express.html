@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Express.js</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Node.js</a>
+  <span class="sep">/</span>
+  <span class="title">Express.js</span>
+</div>
+
+<div class="container">
+  <h1>Express.js</h1>
+  <p class="subtitle">Najpopularniejszy framework webowy dla Node.js — routing, middleware, walidacja i bezpieczenstwo</p>
+
+  <h2>Wprowadzenie do Express</h2>
+  <p>Express.js to minimalistyczny, nieopiniujacy (unopinionated) framework HTTP dla Node.js. Nie narzuca struktury projektu — sam decydujesz, jak zorganizowac kod. Jest fundamentem dla wiekszosci frameworkow wyzszego rzedu (NestJS, LoopBack). Aktualna stabilna wersja to Express 4.x; Express 5 jest w fazie RC.</p>
+
+  <div class="card blue">
+    <strong>Express 5 — co nowego?</strong>
+    <p style="margin-top:8px;margin-bottom:0">Express 5 (RC) wprowadza: automatyczna propagacje bledow z async handlerów (nie trzeba <code>try/catch + next(err)</code>), usunieto przestarzale metody (<code>res.sendfile</code>, <code>req.param</code>), lepsze wsparcie Promise.</p>
+  </div>
+
+  <h2>Podstawowa konfiguracja</h2>
+  <pre><code>import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import { json } from 'express';
+
+const app = express();
+
+// --- Middleware globalne ---
+app.use(helmet());            // Nagłówki bezpieczenstwa (CSP, HSTS, X-Frame-Options...)
+app.use(cors({
+  origin: ['https://myapp.com', 'http://localhost:3000'],
+  credentials: true,          // pozwala na cookies cross-origin
+  methods: ['GET','POST','PUT','DELETE','PATCH'],
+}));
+app.use(compression());       // Gzip/Brotli kompresja odpowiedzi
+app.use(json({ limit: '1mb' }));  // Parsowanie JSON body
+
+// --- Pliki statyczne ---
+app.use('/static', express.static('public', {
+  maxAge: '1d',               // Cache-Control: max-age=86400
+  etag: true,
+}));
+
+app.listen(3000, () => console.log('Serwer na porcie 3000'));</code></pre>
+
+  <h2>Routing — metody i parametry</h2>
+  <p>Express wspiera wszystkie metody HTTP. Parametry sciezki (<code>:id</code>) sa dostepne przez <code>req.params</code>, query string przez <code>req.query</code>, a body przez <code>req.body</code> (po uzyciu parsera).</p>
+
+  <pre><code>import { Router } from 'express';
+const router = Router();
+
+// GET /users — lista
+router.get('/', async (req, res) => {
+  const { page = 1, limit = 20, sort = 'createdAt' } = req.query;
+  const users = await userService.findAll({ page: +page, limit: +limit, sort });
+  res.json({ data: users, meta: { page: +page, limit: +limit } });
+});
+
+// GET /users/:id — jeden rekord
+router.get('/:id', async (req, res, next) => {
+  try {
+    const user = await userService.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'Nie znaleziono uzytkownika' });
+    res.json(user);
+  } catch (err) {
+    next(err); // Przekaz do error middleware
+  }
+});
+
+// POST /users — tworzenie
+router.post('/', validateBody(createUserSchema), async (req, res) => {
+  const user = await userService.create(req.body);
+  res.status(201).json(user);
+});
+
+// PUT /users/:id — pelna aktualizacja
+router.put('/:id', validateBody(updateUserSchema), async (req, res) => {
+  const user = await userService.update(req.params.id, req.body);
+  res.json(user);
+});
+
+// DELETE /users/:id
+router.delete('/:id', async (req, res) => {
+  await userService.remove(req.params.id);
+  res.status(204).send();
+});
+
+export default router;
+// Rejestracja: app.use('/users', router);</code></pre>
+
+  <h2>Middleware stack</h2>
+  <p>Middleware to funkcje z sygnatura <code>(req, res, next)</code>. Wykonuja sie po kolei — kazda musi wywolac <code>next()</code>, aby przekazac kontrole dalej, lub zakonczyc odpowiedz (<code>res.send()</code>). Kolejnosc rejestracji ma znaczenie krytyczne.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Rodzaj middleware</th>
+        <th>Sygnatura</th>
+        <th>Zastosowanie</th>
+        <th>Przyklad</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Aplikacyjne</td>
+        <td><code>app.use(fn)</code></td>
+        <td>Dziala dla wszystkich tras</td>
+        <td>Logger, CORS, body parser</td>
+      </tr>
+      <tr>
+        <td>Routerowe</td>
+        <td><code>router.use(fn)</code></td>
+        <td>Dziala dla tras routera</td>
+        <td>Autentykacja dla /api</td>
+      </tr>
+      <tr>
+        <td>Obslugi bledow</td>
+        <td><code>app.use((err,req,res,next))</code></td>
+        <td>Przechwytuje bledy z next(err)</td>
+        <td>Globalny error handler</td>
+      </tr>
+      <tr>
+        <td>Wbudowane</td>
+        <td><code>express.json()</code></td>
+        <td>Parsowanie body, pliki statyczne</td>
+        <td>express.static, express.urlencoded</td>
+      </tr>
+      <tr>
+        <td>Zewnetrzne</td>
+        <td>npm package</td>
+        <td>Rozszerzenia spolecznosci</td>
+        <td>helmet, cors, compression, morgan</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Error handling middleware</h2>
+  <p>Error middleware przyjmuje <strong>4 argumenty</strong> — <code>(err, req, res, next)</code>. Musi byc zarejestrowane <strong>po wszystkich routach</strong>. Gdy przekazujesz blad przez <code>next(err)</code>, Express pomija normalne middleware i przechodzi wprost do error handlera.</p>
+
+  <pre><code>// Niestandardowa klasa bledu
+class AppError extends Error {
+  constructor(
+    public message: string,
+    public statusCode: number = 500,
+    public code?: string
+  ) {
+    super(message);
+    this.name = 'AppError';
+  }
+}
+
+// Middleware walidacji (przyklad z express-validator / Zod)
+function validateBody(schema) {
+  return (req, res, next) => {
+    const result = schema.safeParse(req.body);
+    if (!result.success) {
+      return next(new AppError(
+        'Blad walidacji danych wejsciowych',
+        400,
+        'VALIDATION_ERROR'
+      ));
+    }
+    req.body = result.data; // nadpisz zwalidowanymi danymi
+    next();
+  };
+}
+
+// Globalny error handler — rejestruj PO wszystkich trasach
+app.use((err, req, res, next) => {
+  const isDev = process.env.NODE_ENV === 'development';
+
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({
+      error: { message: err.message, code: err.code }
+    });
+  }
+
+  // Nieoczekiwany blad
+  console.error('[ERROR]', err);
+  res.status(500).json({
+    error: {
+      message: isDev ? err.message : 'Wewnetrzny blad serwera',
+      stack: isDev ? err.stack : undefined,
+    }
+  });
+});</code></pre>
+
+  <h2>Walidacja z Zod</h2>
+  <p>Zod to biblioteka walidacji z doskonalym wsparciem TypeScript. Generuje typy automatycznie ze schematow, eliminujac duplication. Middleware walidacyjne mozna napisac ogolne i uzyc dla kazdej trasy.</p>
+
+  <h3>Integracja Zod z Express</h3>
+  <p>Schemat Zod definiuje ksztalt danych wejsciowych. Metoda <code>safeParse</code> nie rzuca wyjatku — zwraca obiekt z polem <code>success</code>, co umozliwia kontrolowane obsluze bledow.</p>
+
+  <h2>Bezpieczenstwo — helmet i CORS</h2>
+  <p><strong>helmet</strong> ustawia kilkanascie nagłówkow HTTP poprawiajacych bezpieczenstwo: <code>Content-Security-Policy</code>, <code>X-Frame-Options</code>, <code>Strict-Transport-Security</code>, <code>X-Content-Type-Options</code> i inne. Kazdy mozna skonfigurowac osobno.</p>
+
+  <div class="card orange">
+    <strong>CORS — typowe pulapki</strong>
+    <p style="margin-top:8px;margin-bottom:0">Ustawianie <code>origin: '*'</code> z <code>credentials: true</code> jest nieprawidlowe i odrzucane przez przegladarki. Przy cookies cross-origin musisz podac konkretne domeny w tablicy <code>origin</code>. Preflight OPTIONS musi byc obsluzony — <code>cors()</code> robi to automatycznie.</p>
+  </div>
+
+  <h2>express-validator</h2>
+  <p>Alternatywa dla Zod — middleware <code>check()</code> i <code>validationResult()</code> z pakietu <code>express-validator</code>. Starsza, ale bardzo popularna biblioteka, szczegolnie w projektach bez TypeScript.</p>
+
+  <h2>Organizacja projektu Express</h2>
+  <ul>
+    <li><strong>src/routes/</strong> — definicje tras (Router instances)</li>
+    <li><strong>src/controllers/</strong> — handlery HTTP (req/res logic)</li>
+    <li><strong>src/services/</strong> — logika biznesowa (bez HTTP)</li>
+    <li><strong>src/middleware/</strong> — wspoldzielone middleware</li>
+    <li><strong>src/models/</strong> — definicje danych / ORM</li>
+    <li><strong>src/utils/</strong> — funkcje pomocnicze</li>
+  </ul>
+
+  <div class="card green">
+    <strong>Tip: async wrapper dla Express 4</strong>
+    <p style="margin-top:8px;margin-bottom:0">W Express 4 niezlapany blad z async handlera nie trafia do error middleware. Uzywaj wrappera: <code>const asyncHandler = fn => (req,res,next) => Promise.resolve(fn(req,res,next)).catch(next);</code> lub pakietu <code>express-async-errors</code>. Express 5 rozwiazuje ten problem natywnie.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="01-podstawy-nodejs.html">← 01-podstawy-nodejs.html</a>
+    <a href="03-fastify.html">03-fastify.html →</a>
+  </div>
+</div>
+</body>
+</html>

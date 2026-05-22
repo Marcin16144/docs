@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REST API Design</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../index.html">API</a><span class="sep">/</span>
+  <span class="title">REST API Design</span>
+</div>
+<div class="container">
+  <h1>REST API Design</h1>
+  <p class="subtitle">Zasady projektowania interfejsow REST, konwencje, metody HTTP i kody statusow.</p>
+
+  <h2>Richardson Maturity Model</h2>
+  <p>Model Richardsona opisuje cztery poziomy dojrzalosci API REST. Im wyzszy poziom, tym bardziej "prawdziwie" RESTful jest interfejs.</p>
+
+  <div class="card blue">
+    <h3>Poziom 0 — The Swamp of POX</h3>
+    <p>Pojedynczy punkt koncowy, wszystkie operacje realizowane przez POST. Brak rozroznienia zasobow. Przyklad: stare API SOAP lub XML-RPC. Nie ma tu mowy o REST — to po prostu HTTP jako transport.</p>
+  </div>
+
+  <h3>Poziom 1 — Zasoby (Resources)</h3>
+  <p>Kazdy zasob ma swoj URL, ale wciaz uzywa sie tylko jednej metody HTTP (zazwyczaj POST). Rozrozniamy juz <code>/users</code> od <code>/orders</code>, lecz semantyka HTTP nie jest wykorzystywana.</p>
+
+  <h3>Poziom 2 — Metody HTTP</h3>
+  <p>Stosujemy odpowiednie metody: GET do odczytu, POST do tworzenia, PUT/PATCH do aktualizacji, DELETE do usuwania. Kody statusow HTTP sa znaczace (200, 201, 404, 422). To poziom, na ktorym dziala wiekszosc wspolczesnych API.</p>
+
+  <h3>Poziom 3 — HATEOAS</h3>
+  <p>Odpowiedzi zawieraja hiperlinki do powiazanych operacji. Klient nie musi znac z gory struktury URL — odkrywa mozliwe akcje dynamicznie z odpowiedzi serwera. Rzadko stosowany w praktyce, ale teoretycznie najwyzszy poziom REST.</p>
+
+  <h2>Naming Conventions</h2>
+  <p>Dobra konwencja nazewnictwa URL jest kluczem do czytelnego i przewidywalnego API.</p>
+  <ul>
+    <li><strong>Rzeczowniki, nie czasowniki</strong> — <code>/users</code> zamiast <code>/getUsers</code></li>
+    <li><strong>Liczba mnoga</strong> — <code>/articles</code>, <code>/products</code>, <code>/orders</code></li>
+    <li><strong>Lowercase z myslnikami</strong> — <code>/user-profiles</code>, nie <code>/UserProfiles</code></li>
+    <li><strong>Hierarchia zasobow</strong> — <code>/users/42/orders/7</code> dla zasobow zagniezdonych</li>
+    <li><strong>Brak rozszerzenia pliku</strong> — <code>/users</code>, nie <code>/users.json</code></li>
+    <li><strong>Filtry jako query params</strong> — <code>/products?category=books&amp;sort=price</code></li>
+  </ul>
+
+  <div class="card green">
+    <h3>Zasada jednolitosci</h3>
+    <p>Stosuj te same wzorce we wszystkich zasobach. Jesli jeden endpoint uzywa <code>/kebab-case</code>, wszystkie powinny. Niespojnosc to najczestszy blad w projektowaniu API.</p>
+  </div>
+
+  <h2>Metody HTTP</h2>
+  <p>Kazda metoda HTTP ma okreslona semantyke i powinna byc stosowana zgodnie z przeznaczeniem.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Metoda</th>
+        <th>Operacja</th>
+        <th>Idempotentna</th>
+        <th>Safe</th>
+        <th>Przyklad uzycia</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>GET</code></td>
+        <td>Odczyt zasobu</td>
+        <td>Tak</td>
+        <td>Tak</td>
+        <td>Pobierz liste uzytkownikow lub jednego uzytkownika</td>
+      </tr>
+      <tr>
+        <td><code>POST</code></td>
+        <td>Tworzenie zasobu</td>
+        <td>Nie</td>
+        <td>Nie</td>
+        <td>Utworz nowego uzytkownika, zamowienie</td>
+      </tr>
+      <tr>
+        <td><code>PUT</code></td>
+        <td>Pelna aktualizacja</td>
+        <td>Tak</td>
+        <td>Nie</td>
+        <td>Zamien caly dokument uzytkownika</td>
+      </tr>
+      <tr>
+        <td><code>PATCH</code></td>
+        <td>Czesciowa aktualizacja</td>
+        <td>Nie*</td>
+        <td>Nie</td>
+        <td>Zmien tylko email uzytkownika</td>
+      </tr>
+      <tr>
+        <td><code>DELETE</code></td>
+        <td>Usuniecie zasobu</td>
+        <td>Tak</td>
+        <td>Nie</td>
+        <td>Usun uzytkownika o danym ID</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>* PATCH moze byc idempotentny, jezeli implementacja tego nie wymaga (np. <code>SET field=value</code> vs <code>INCREMENT field</code>).</p>
+
+  <h2>CRUD Endpoints — przyklad</h2>
+  <pre><code># Kolekcja zasobow
+GET    /api/v1/users          # lista uzytkownikow (z paginacja)
+POST   /api/v1/users          # utworz nowego uzytkownika
+
+# Pojedynczy zasob
+GET    /api/v1/users/{id}     # pobierz uzytkownika
+PUT    /api/v1/users/{id}     # pelna aktualizacja
+PATCH  /api/v1/users/{id}     # czesciowa aktualizacja
+DELETE /api/v1/users/{id}     # usun uzytkownika
+
+# Zagniezdzone zasoby
+GET    /api/v1/users/{id}/orders          # zamowienia uzytkownika
+POST   /api/v1/users/{id}/orders          # nowe zamowienie
+GET    /api/v1/users/{id}/orders/{oid}    # konkretne zamowienie</code></pre>
+
+  <h2>Kody statusow HTTP</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Kod</th>
+        <th>Nazwa</th>
+        <th>Kiedy uzywac</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>200</td><td>OK</td><td>Poprawny GET, PUT, PATCH. Zwroc zasob w body.</td></tr>
+      <tr><td>201</td><td>Created</td><td>Poprawny POST — zasob zostal utworzony. Dodaj nagloek Location.</td></tr>
+      <tr><td>204</td><td>No Content</td><td>DELETE lub PUT bez body w odpowiedzi.</td></tr>
+      <tr><td>400</td><td>Bad Request</td><td>Niepoprawna skladnia, brakujace pole, zla wartosc.</td></tr>
+      <tr><td>401</td><td>Unauthorized</td><td>Brak lub nieważny token uwierzytelniania.</td></tr>
+      <tr><td>403</td><td>Forbidden</td><td>Uwierzytelniony, ale brak uprawnien do zasobu.</td></tr>
+      <tr><td>404</td><td>Not Found</td><td>Zasob nie istnieje pod podanym URL.</td></tr>
+      <tr><td>409</td><td>Conflict</td><td>Konflikt stanu — np. duplikat emaila.</td></tr>
+      <tr><td>422</td><td>Unprocessable Entity</td><td>Poprawna skladnia, ale walidacja biznesowa nieudana.</td></tr>
+      <tr><td>429</td><td>Too Many Requests</td><td>Przekroczono limit zapytan (rate limiting).</td></tr>
+      <tr><td>500</td><td>Internal Server Error</td><td>Nieoczekiwany blad serwera.</td></tr>
+      <tr><td>503</td><td>Service Unavailable</td><td>Serwer tymczasowo niedostepny (maintenance, przeciazenie).</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Format odpowiedzi bledu</h2>
+  <pre><code>{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Validation failed for request body",
+    "details": [
+      {
+        "field": "email",
+        "code": "INVALID_FORMAT",
+        "message": "Email address is not valid"
+      },
+      {
+        "field": "age",
+        "code": "OUT_OF_RANGE",
+        "message": "Age must be between 0 and 150"
+      }
+    ],
+    "requestId": "req_01HXYZ123456",
+    "timestamp": "2025-05-08T12:34:56Z"
+  }
+}</code></pre>
+
+  <h2>Paginacja</h2>
+  <p>Dla duzych kolekcji zawsze stosuj paginacje. Popularne podejscia to cursor-based (najlepsza wydajnosc) i offset-based (prostota implementacji).</p>
+
+  <pre><code># Offset paginacja — query params
+GET /api/v1/products?page=2&amp;limit=20&amp;sort=created_at&amp;order=desc
+
+# Odpowiedz z metadanymi
+{
+  "data": [...],
+  "meta": {
+    "total": 1543,
+    "page": 2,
+    "limit": 20,
+    "pages": 78
+  },
+  "links": {
+    "self":  "/api/v1/products?page=2&amp;limit=20",
+    "first": "/api/v1/products?page=1&amp;limit=20",
+    "prev":  "/api/v1/products?page=1&amp;limit=20",
+    "next":  "/api/v1/products?page=3&amp;limit=20",
+    "last":  "/api/v1/products?page=78&amp;limit=20"
+  }
+}
+
+# Naglowki paginacji (alternatywnie)
+X-Total-Count: 1543
+X-Page: 2
+X-Per-Page: 20
+Link: &lt;/products?page=3&gt;; rel="next", &lt;/products?page=78&gt;; rel="last"</code></pre>
+
+  <h2>HATEOAS</h2>
+  <p>Hypermedia As The Engine Of Application State — klient odkrywa mozliwe akcje z odpowiedzi serwera, bez hardkodowania URL-i. Spelnia najwyzszy poziom modelu Richardsona.</p>
+  <pre><code>{
+  "id": 42,
+  "name": "Jan Kowalski",
+  "status": "active",
+  "_links": {
+    "self":    { "href": "/api/v1/users/42" },
+    "orders":  { "href": "/api/v1/users/42/orders" },
+    "disable": { "href": "/api/v1/users/42/disable", "method": "POST" },
+    "delete":  { "href": "/api/v1/users/42", "method": "DELETE" }
+  }
+}</code></pre>
+
+  <h2>Idempotency</h2>
+  <p>Idempotentne operacje moga byc wykonane wielokrotnie z tym samym rezultatem. GET, PUT, DELETE sa idempotentne. POST — nie.</p>
+  <p>Dla POST mozna implementowac idempotency key: klient generuje unikalny klucz i dolacza go do naglowka. Serwer zapamietuje wynik i przy ponownym zadaniu z tym samym kluczem zwraca ten sam rezultat bez duplikowania operacji.</p>
+  <pre><code>POST /api/v1/payments
+Idempotency-Key: a8098c1a-f86e-11da-bd1a-00112444be1e
+
+{
+  "amount": 9900,
+  "currency": "PLN",
+  "recipient": "acc_xyz123"
+}</code></pre>
+
+  <h2>Versioning — przeglad strategii</h2>
+  <p>Wersjonowanie API pozwala wprowadzac zmiany bez zrywania kompatybilnosci z istniejacymi klientami.</p>
+  <ul>
+    <li><strong>URL versioning</strong> — <code>/api/v1/users</code>, <code>/api/v2/users</code>. Najczytelniejszy, najlatiwejszy do routowania i cachowania.</li>
+    <li><strong>Header versioning</strong> — <code>Accept: application/vnd.myapi+json;version=2</code>. Czysty URL, ale mniej oczywisty.</li>
+    <li><strong>Content-Type negotiation</strong> — <code>Content-Type: application/vnd.myapi.v2+json</code>. Stosowany przez GitHub API.</li>
+  </ul>
+
+  <h2>Dobry vs zly REST design</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Wzorzec</th>
+        <th>Zle</th>
+        <th>Dobrze</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Nazwy zasobow</td>
+        <td><code>/getUser</code>, <code>/deleteOrder</code></td>
+        <td><code>/users/{id}</code>, <code>/orders/{id}</code></td>
+      </tr>
+      <tr>
+        <td>Metody HTTP</td>
+        <td>POST do wszystkiego</td>
+        <td>GET/POST/PUT/PATCH/DELETE wg semantyki</td>
+      </tr>
+      <tr>
+        <td>Kody odpowiedzi</td>
+        <td>Zawsze 200, blad w body</td>
+        <td>200/201/400/404/422 wg sytuacji</td>
+      </tr>
+      <tr>
+        <td>Bledy</td>
+        <td><code>{"status": "error", "msg": "not found"}</code></td>
+        <td>RFC 7807 Problem Details lub spojny schemat</td>
+      </tr>
+      <tr>
+        <td>Paginacja</td>
+        <td>Zwracaj wszystko bez limitu</td>
+        <td>Cursor lub offset z metadanymi</td>
+      </tr>
+      <tr>
+        <td>Wersjonowanie</td>
+        <td>Brak wersjonowania, breaking changes w produkcji</td>
+        <td>URL versioning z polityka deprecacji</td>
+      </tr>
+      <tr>
+        <td>Walidacja</td>
+        <td>500 przy blednych danych wejsciowych</td>
+        <td>422 z lista bledow per pole</td>
+      </tr>
+      <tr>
+        <td>Filtry</td>
+        <td>POST body z filtrami do GET</td>
+        <td>Query params: <code>?status=active&amp;page=2</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card orange">
+    <h3>Najczestsze bledy w REST API</h3>
+    <ul>
+      <li>Uzycie czasownikow w URL (<code>/createUser</code>) zamiast rzeczownikow (<code>/users</code> + POST)</li>
+      <li>Ignorowanie kodow statusow HTTP — zawsze 200, blad w body JSON</li>
+      <li>Brak paginacji na kolekcjach — zwracanie tysiecy rekordow naraz</li>
+      <li>Niespojny format odpowiedzi — inne pola bledu w roznych endpointach</li>
+      <li>Brak wersjonowania — breaking changes bez ostrzezenia</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="index.html">← API Index</a>
+    <a href="02-graphql.html">GraphQL →</a>
+  </div>
+</div>
+</body>
+</html>

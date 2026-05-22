@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenAPI / Swagger w .NET 9 — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">OpenAPI / Swagger w .NET 9</span>
+</div>
+<div class="container">
+  <h1>OpenAPI / Swagger w .NET 9</h1>
+  <p class="subtitle">Microsoft.AspNetCore.OpenApi, Swashbuckle, NSwag, Scalar UI i generowanie klientow TypeScript</p>
+
+  <h2>Wbudowane OpenAPI w .NET 9</h2>
+  <p>Od .NET 9 framework zawiera pakiet <code>Microsoft.AspNetCore.OpenApi</code> — natywna implementacja generowania dokumentacji OpenAPI 3.1 bez zewnetrznych zaleznosci. Jest szybszy i lepiej zintegrowany niz Swashbuckle.</p>
+
+  <pre><code>// Program.cs — .NET 9 natywne OpenAPI
+builder.Services.AddOpenApi(options =&gt;
+{
+    options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_1;
+
+    // Transformator dokumentu
+    options.AddDocumentTransformer((document, context, ct) =&gt;
+    {
+        document.Info = new OpenApiInfo
+        {
+            Title = "Products API",
+            Version = "v1",
+            Description = "API do zarzadzania produktami",
+            Contact = new OpenApiContact
+            {
+                Name = "Zespol API",
+                Email = "api@example.com"
+            },
+            License = new OpenApiLicense
+            {
+                Name = "MIT",
+                Url = new Uri("https://opensource.org/licenses/MIT")
+            }
+        };
+        return Task.CompletedTask;
+    });
+
+    // Schemat bezpieczenstwa JWT
+    options.AddDocumentTransformer&lt;BearerSecuritySchemeTransformer&gt;();
+});
+
+// Udostepnienie dokumentu JSON
+app.MapOpenApi();  // /openapi/v1.json
+
+// Wersjonowanie dokumentow
+builder.Services.AddOpenApi("v1");
+builder.Services.AddOpenApi("v2");
+app.MapOpenApi("/openapi/{documentName}.json");</code></pre>
+
+  <h3>BearerSecuritySchemeTransformer</h3>
+  <pre><code>public class BearerSecuritySchemeTransformer
+    : IOpenApiDocumentTransformer
+{
+    private readonly IAuthenticationSchemeProvider _schemes;
+
+    public BearerSecuritySchemeTransformer(
+        IAuthenticationSchemeProvider schemes)
+    {
+        _schemes = schemes;
+    }
+
+    public async Task TransformAsync(
+        OpenApiDocument document,
+        OpenApiDocumentTransformerContext context,
+        CancellationToken ct)
+    {
+        var authSchemes = await _schemes.GetAllSchemesAsync();
+        if (!authSchemes.Any(s =>
+            s.Name == JwtBearerDefaults.AuthenticationScheme))
+            return;
+
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes.Add("Bearer",
+            new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT",
+                Description = "Podaj token JWT w formacie: Bearer {token}"
+            });
+    }
+}</code></pre>
+
+  <h2>Scalar UI — nastepca Swagger UI</h2>
+  <p>Scalar to nowoczesny, szybki interfejs dla OpenAPI — nastepca Swagger UI. Od .NET 9 jest rekomendowanym UI dla dokumentacji API.</p>
+
+  <pre><code>// dotnet add package Scalar.AspNetCore
+
+// Program.cs
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference(options =&gt;
+    {
+        options.Title = "Products API";
+        options.Theme = ScalarTheme.Purple;
+        options.DefaultHttpClient =
+            new(ScalarTarget.CSharp, ScalarClient.HttpClient);
+        options.Authentication = new ScalarAuthenticationOptions
+        {
+            PreferredSecurityScheme = "Bearer"
+        };
+    });
+    // Dostepne pod: /scalar/v1
+}</code></pre>
+
+  <h2>Adnotacje XML Comments</h2>
+  <pre><code>&lt;!-- .csproj — wlaczenie generowania XML --&gt;
+&lt;PropertyGroup&gt;
+  &lt;GenerateDocumentationFile&gt;true&lt;/GenerateDocumentationFile&gt;
+  &lt;NoWarn&gt;$(NoWarn);1591&lt;/NoWarn&gt;
+&lt;/PropertyGroup&gt;</code></pre>
+
+  <pre><code>/// &lt;summary&gt;
+/// Pobiera produkt po identyfikatorze.
+/// &lt;/summary&gt;
+/// &lt;param name="id"&gt;Unikalny identyfikator produktu.&lt;/param&gt;
+/// &lt;returns&gt;Dane produktu lub 404 jesli nie istnieje.&lt;/returns&gt;
+/// &lt;response code="200"&gt;Produkt znaleziony&lt;/response&gt;
+/// &lt;response code="404"&gt;Produkt nie istnieje&lt;/response&gt;
+[HttpGet("{id:int}")]
+[ProducesResponseType&lt;ProductDto&gt;(200)]
+[ProducesResponseType&lt;ProblemDetails&gt;(404)]
+public async Task&lt;ActionResult&lt;ProductDto&gt;&gt; GetById(int id) { ... }
+
+// Rejestracja XML comments w OpenAPI (.NET 9)
+builder.Services.AddOpenApi(options =&gt;
+{
+    options.AddSchemaTransformer((schema, context, ct) =&gt;
+    {
+        // XML comments sa automatycznie czytane przez nowe API
+        return Task.CompletedTask;
+    });
+});
+
+// Dla Swashbuckle (legacy)
+builder.Services.AddSwaggerGen(c =&gt;
+{
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+});</code></pre>
+
+  <h2>NSwag — generowanie klientow TypeScript</h2>
+  <pre><code>// dotnet add package NSwag.AspNetCore
+// dotnet tool install -g NSwag.ConsoleX
+
+// nswag.json — konfiguracja generowania klienta
+{
+  "runtime": "Net90",
+  "documentGenerator": {
+    "fromDocument": {
+      "url": "http://localhost:5000/openapi/v1.json"
+    }
+  },
+  "codeGenerators": {
+    "openApiToTypeScriptClient": {
+      "className": "ProductsApiClient",
+      "template": "Fetch",
+      "generateClientInterfaces": true,
+      "generateOptionalParameters": true,
+      "nullValue": "Undefined",
+      "output": "../frontend/src/api/products-client.ts"
+    },
+    "openApiToCSharpClient": {
+      "className": "ProductsClient",
+      "namespace": "MyApp.ApiClient",
+      "generateClientInterfaces": true,
+      "output": "../MyApp.Client/ProductsClient.cs"
+    }
+  }
+}
+
+# Generowanie klienta z CLI
+nswag run nswag.json
+
+# Lub z MSBuild (auto-generowanie przy kompilacji)
+# dotnet add package NSwag.MSBuild</code></pre>
+
+  <pre><code>&lt;!-- .csproj — NSwag MSBuild integration --&gt;
+&lt;Target Name="NSwag" AfterTargets="PostBuildEvent"
+        Condition=" '$(Configuration)' == 'Debug' "&gt;
+  &lt;Exec WorkingDirectory="$(ProjectDir)"
+        Command="$(NSwagExe) run nswag.json /variables:Configuration=$(Configuration)" /&gt;
+&lt;/Target&gt;</code></pre>
+
+  <h2>IOperationFilter — Swashbuckle (legacy)</h2>
+  <pre><code>// Swashbuckle nadal uzywa sie w projektach .NET 6-8
+// dotnet add package Swashbuckle.AspNetCore
+
+// Niestandardowy filter operacji — dodaje naglowek autoryzacji
+public class AuthOperationFilter : IOperationFilter
+{
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    {
+        var authAttributes = context.MethodInfo
+            .GetCustomAttributes(true)
+            .Union(context.MethodInfo.DeclaringType!
+                .GetCustomAttributes(true))
+            .OfType&lt;AuthorizeAttribute&gt;();
+
+        if (!authAttributes.Any()) return;
+
+        operation.Security.Add(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty&lt;string&gt;()
+            }
+        });
+    }
+}
+
+// Rejestracja
+builder.Services.AddSwaggerGen(c =&gt;
+{
+    c.OperationFilter&lt;AuthOperationFilter&gt;();
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+});</code></pre>
+
+  <h2>Porownanie narzedzi — 2026</h2>
+  <table>
+    <thead>
+      <tr><th>Narzedzie</th><th>Status (2026)</th><th>Zalety</th><th>Wady</th><th>Rekomendacja</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Microsoft.AspNetCore.OpenApi</strong></td>
+        <td>Aktywny rozwoj (.NET 9+)</td>
+        <td>Wbudowany, brak zaleznosci, szybki, OpenAPI 3.1</td>
+        <td>Brak UI — wymaga Scalar lub innego</td>
+        <td>Tak — dla nowych projektow .NET 9+</td>
+      </tr>
+      <tr>
+        <td><strong>Swashbuckle</strong></td>
+        <td>Maintenance mode</td>
+        <td>Dojrzaly, duza spolecznosc, wiele pluginow</td>
+        <td>Brak aktywnego rozwoju, problemy z .NET 9</td>
+        <td>Tylko dla istniejacych projektow .NET 6-8</td>
+      </tr>
+      <tr>
+        <td><strong>NSwag</strong></td>
+        <td>Aktywny</td>
+        <td>Generowanie klientow C#/TS, MSBuild integration</td>
+        <td>Wolniejszy startup, wieksze zaleznosci</td>
+        <td>Tak — gdy potrzebujesz generowania klientow</td>
+      </tr>
+      <tr>
+        <td><strong>Scalar UI</strong></td>
+        <td>Aktywny (v2026)</td>
+        <td>Nowoczesny UI, szybki, wiele motywow, autentykacja</td>
+        <td>Stosunkowo nowy — mniejsza historia</td>
+        <td>Tak — nastepca Swagger UI</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <strong>Rekomendacja 2026:</strong> Dla nowych projektow .NET 9: uzywaj <code>Microsoft.AspNetCore.OpenApi</code> + <code>Scalar.AspNetCore</code> jako UI + <code>NSwag</code> do generowania klientow TypeScript/C#. Swashbuckle pozostaw tylko jesli masz istniejaca baze kodow na .NET 6-8.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="08-graphql-hot-chocolate.html">← 08-graphql-hot-chocolate.html</a>
+    <a href="10-error-handling.html">10-error-handling.html →</a>
+  </div>
+</div>
+</body>
+</html>

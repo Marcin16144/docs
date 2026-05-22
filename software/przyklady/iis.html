@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IIS i Windows Server — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">IIS / Windows Server</span>
+</div>
+<div class="container">
+<h1>🪟 IIS i Windows Server — gotowe konfiguracje</h1>
+<p class="lead">Reverse proxy z ARR, FastCGI dla PHP, Let's Encrypt przez win-acme, hardening TLS.</p>
+
+<h2>1. Instalacja IIS + Application Request Routing (PowerShell)</h2>
+<pre data-lang="powershell"><code><span class="com"># Windows Server 2025</span>
+Install-WindowsFeature -Name Web-Server -IncludeManagementTools
+Install-WindowsFeature -Name Web-Asp-Net45, Web-Net-Ext45
+
+<span class="com"># URL Rewrite + ARR (z chocolatey)</span>
+choco install urlrewrite -y
+choco install iis-arr -y
+
+<span class="com"># Włącz proxy globalnie</span>
+Import-Module WebAdministration
+Set-WebConfigurationProperty -Filter <span class="str">"system.webServer/proxy"</span> `
+    -Name <span class="str">"enabled"</span> -Value $<span class="kw">true</span> -PSPath IIS:\</code></pre>
+
+<h2>2. Reverse proxy do Node.js / .NET Core (web.config)</h2>
+<pre data-lang="xml"><code>&lt;<span class="kw">?xml</span> version=<span class="str">"1.0"</span> encoding=<span class="str">"UTF-8"</span>?&gt;
+&lt;<span class="kw">configuration</span>&gt;
+  &lt;<span class="kw">system.webServer</span>&gt;
+    &lt;<span class="kw">rewrite</span>&gt;
+      &lt;<span class="kw">rules</span>&gt;
+        &lt;<span class="kw">rule</span> <span class="fn">name</span>=<span class="str">"ReverseProxyToKestrel"</span> <span class="fn">stopProcessing</span>=<span class="str">"true"</span>&gt;
+          &lt;<span class="kw">match</span> <span class="fn">url</span>=<span class="str">"(.*)"</span> /&gt;
+          &lt;<span class="kw">action</span> <span class="fn">type</span>=<span class="str">"Rewrite"</span> <span class="fn">url</span>=<span class="str">"http://localhost:5000/{R:1}"</span> /&gt;
+          &lt;<span class="kw">serverVariables</span>&gt;
+            &lt;<span class="kw">set</span> <span class="fn">name</span>=<span class="str">"HTTP_X_FORWARDED_FOR"</span> <span class="fn">value</span>=<span class="str">"{REMOTE_ADDR}"</span> /&gt;
+            &lt;<span class="kw">set</span> <span class="fn">name</span>=<span class="str">"HTTP_X_FORWARDED_PROTO"</span> <span class="fn">value</span>=<span class="str">"https"</span> /&gt;
+            &lt;<span class="kw">set</span> <span class="fn">name</span>=<span class="str">"HTTP_X_FORWARDED_HOST"</span> <span class="fn">value</span>=<span class="str">"{HTTP_HOST}"</span> /&gt;
+          &lt;/<span class="kw">serverVariables</span>&gt;
+        &lt;/<span class="kw">rule</span>&gt;
+      &lt;/<span class="kw">rules</span>&gt;
+    &lt;/<span class="kw">rewrite</span>&gt;
+
+    <span class="com">&lt;!-- HTTPS redirect --&gt;</span>
+    &lt;<span class="kw">rewrite</span>&gt;
+      &lt;<span class="kw">rules</span>&gt;
+        &lt;<span class="kw">rule</span> <span class="fn">name</span>=<span class="str">"HTTPS"</span> <span class="fn">stopProcessing</span>=<span class="str">"true"</span>&gt;
+          &lt;<span class="kw">match</span> <span class="fn">url</span>=<span class="str">"(.*)"</span> /&gt;
+          &lt;<span class="kw">conditions</span>&gt;
+            &lt;<span class="kw">add</span> <span class="fn">input</span>=<span class="str">"{HTTPS}"</span> <span class="fn">pattern</span>=<span class="str">"off"</span> /&gt;
+          &lt;/<span class="kw">conditions</span>&gt;
+          &lt;<span class="kw">action</span> <span class="fn">type</span>=<span class="str">"Redirect"</span> <span class="fn">url</span>=<span class="str">"https://{HTTP_HOST}/{R:1}"</span> <span class="fn">redirectType</span>=<span class="str">"Permanent"</span> /&gt;
+        &lt;/<span class="kw">rule</span>&gt;
+      &lt;/<span class="kw">rules</span>&gt;
+    &lt;/<span class="kw">rewrite</span>&gt;
+
+    <span class="com">&lt;!-- Security headers --&gt;</span>
+    &lt;<span class="kw">httpProtocol</span>&gt;
+      &lt;<span class="kw">customHeaders</span>&gt;
+        &lt;<span class="kw">add</span> <span class="fn">name</span>=<span class="str">"Strict-Transport-Security"</span> <span class="fn">value</span>=<span class="str">"max-age=63072000; includeSubDomains; preload"</span> /&gt;
+        &lt;<span class="kw">add</span> <span class="fn">name</span>=<span class="str">"X-Content-Type-Options"</span> <span class="fn">value</span>=<span class="str">"nosniff"</span> /&gt;
+        &lt;<span class="kw">add</span> <span class="fn">name</span>=<span class="str">"X-Frame-Options"</span> <span class="fn">value</span>=<span class="str">"DENY"</span> /&gt;
+        &lt;<span class="kw">add</span> <span class="fn">name</span>=<span class="str">"Referrer-Policy"</span> <span class="fn">value</span>=<span class="str">"strict-origin-when-cross-origin"</span> /&gt;
+        &lt;<span class="kw">remove</span> <span class="fn">name</span>=<span class="str">"X-Powered-By"</span> /&gt;
+      &lt;/<span class="kw">customHeaders</span>&gt;
+    &lt;/<span class="kw">httpProtocol</span>&gt;
+  &lt;/<span class="kw">system.webServer</span>&gt;
+&lt;/<span class="kw">configuration</span>&gt;</code></pre>
+
+<h2>3. FastCGI dla PHP 8.4</h2>
+<pre data-lang="powershell"><code><span class="com"># Pobierz PHP 8.4 Non-Thread Safe x64 z windows.php.net</span>
+Expand-Archive -Path php-<span class="num">8.4</span>.<span class="num">0</span>-nts-Win<span class="num">32</span>-vs<span class="num">17</span>-x<span class="num">64</span>.zip -DestinationPath C:\php
+
+<span class="com"># php.ini — minimalna konfiguracja</span>
+Copy-Item C:\php\php.ini-production C:\php\php.ini
+<span class="com"># Edytuj: extension_dir, fastcgi.impersonate=1, cgi.fix_pathinfo=0</span>
+
+<span class="com"># Zarejestruj w IIS FastCGI</span>
+Add-WebConfiguration -Filter <span class="str">"/system.webServer/fastCgi"</span> -Value @{
+    fullPath = <span class="str">"C:\php\php-cgi.exe"</span>
+    arguments = <span class="str">""</span>
+    maxInstances = <span class="num">0</span>      <span class="com"># auto-scale</span>
+    idleTimeout = <span class="num">300</span>
+    activityTimeout = <span class="num">30</span>
+    requestTimeout = <span class="num">90</span>
+    instanceMaxRequests = <span class="num">10000</span>  <span class="com"># recycle</span>
+    protocol = <span class="str">"NamedPipe"</span>
+}
+
+<span class="com"># Mapowanie .php → FastCGI</span>
+New-WebHandler -Name <span class="str">"PHP-FastCGI"</span> -Path <span class="str">"*.php"</span> -Verb <span class="str">"*"</span> `
+    -Modules FastCgiModule -ScriptProcessor <span class="str">"C:\php\php-cgi.exe"</span> `
+    -ResourceType Either</code></pre>
+
+<h2>4. Let's Encrypt — win-acme (wacs)</h2>
+<pre data-lang="powershell"><code><span class="com"># Pobierz win-acme z github.com/win-acme/win-acme/releases</span>
+<span class="com"># Uruchom jako Administrator</span>
+.\wacs.exe
+
+<span class="com"># Interaktywnie:</span>
+<span class="com">#  N — create certificate</span>
+<span class="com">#  1 — read bindings from IIS</span>
+<span class="com">#  Wybierz site, potwierdź email, accept TOS</span>
+
+<span class="com"># Albo bezobsługowo (CI/CD)</span>
+.\wacs.exe --target iis --siteid <span class="num">1</span> --installation iis --emailaddress admin@example.com `
+    --accepttos --usedefaulttaskuser
+
+<span class="com"># Auto-renewal jest dodawany jako scheduled task — sprawdź:</span>
+Get-ScheduledTask -TaskName <span class="str">"win-acme renew*"</span></code></pre>
+<div class="tip">💡 win-acme jest <strong>darmowy</strong> i robi auto-renewal co 60 dni. Lepszy niż płatne narzędzia w 95% przypadków.</div>
+
+<h2>5. Hardening TLS (IIS Crypto przez PowerShell)</h2>
+<pre data-lang="powershell"><code><span class="com"># Wyłącz stare protokoły (Schannel)</span>
+<span class="kw">function</span> Disable-Protocol {
+    <span class="kw">param</span>([<span class="kw">string</span>]$Protocol)
+    $base = <span class="str">"HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\$Protocol"</span>
+    <span class="kw">foreach</span> ($role <span class="kw">in</span> <span class="str">"Client"</span>, <span class="str">"Server"</span>) {
+        $path = <span class="str">"$base\$role"</span>
+        <span class="kw">if</span> (!(Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+        New-ItemProperty -Path $path -Name <span class="str">"Enabled"</span> -Value <span class="num">0</span> -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -Path $path -Name <span class="str">"DisabledByDefault"</span> -Value <span class="num">1</span> -PropertyType DWord -Force | Out-Null
+    }
+}
+
+<span class="kw">foreach</span> ($p <span class="kw">in</span> <span class="str">"SSL 2.0"</span>, <span class="str">"SSL 3.0"</span>, <span class="str">"TLS 1.0"</span>, <span class="str">"TLS 1.1"</span>) {
+    Disable-Protocol $p
+}
+
+<span class="com"># Wymuś TLS 1.3 + TLS 1.2 (TLS 1.3 wymaga Win Server 2022+)</span>
+<span class="kw">foreach</span> ($p <span class="kw">in</span> <span class="str">"TLS 1.2"</span>, <span class="str">"TLS 1.3"</span>) {
+    $base = <span class="str">"HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\$p"</span>
+    <span class="kw">foreach</span> ($role <span class="kw">in</span> <span class="str">"Client"</span>, <span class="str">"Server"</span>) {
+        $path = <span class="str">"$base\$role"</span>
+        <span class="kw">if</span> (!(Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+        New-ItemProperty -Path $path -Name <span class="str">"Enabled"</span> -Value <span class="num">1</span> -PropertyType DWord -Force
+        New-ItemProperty -Path $path -Name <span class="str">"DisabledByDefault"</span> -Value <span class="num">0</span> -PropertyType DWord -Force
+    }
+}
+
+Restart-Computer  <span class="com"># wymagane</span></code></pre>
+
+<h2>6. Application Pool — recycle + identity</h2>
+<pre data-lang="powershell"><code><span class="com"># Utwórz app pool</span>
+New-WebAppPool -Name <span class="str">"MyAppPool"</span>
+
+<span class="com"># Recycle co noc</span>
+Set-ItemProperty -Path <span class="str">"IIS:\AppPools\MyAppPool"</span> `
+    -Name recycling.periodicRestart.schedule -Value @{value=<span class="str">"03:00:00"</span>}
+
+<span class="com"># Bez recyklingu po zmianie pamięci (tylko po czasie)</span>
+Set-ItemProperty -Path <span class="str">"IIS:\AppPools\MyAppPool"</span> `
+    -Name recycling.periodicRestart.memory -Value <span class="num">0</span>
+Set-ItemProperty -Path <span class="str">"IIS:\AppPools\MyAppPool"</span> `
+    -Name recycling.periodicRestart.privateMemory -Value <span class="num">0</span>
+
+<span class="com"># Dedykowany użytkownik (zamiast ApplicationPoolIdentity)</span>
+Set-ItemProperty -Path <span class="str">"IIS:\AppPools\MyAppPool"</span> `
+    -Name processModel -Value @{
+        identityType = <span class="str">"SpecificUser"</span>
+        userName = <span class="str">"DOMAIN\svc-myapp"</span>
+        password = <span class="str">"REDACTED"</span>
+    }
+
+<span class="com"># Always-running (dla Node/Core, by nie czekać 10s na pierwszy request)</span>
+Set-ItemProperty -Path <span class="str">"IIS:\AppPools\MyAppPool"</span> `
+    -Name startMode -Value <span class="str">"AlwaysRunning"</span></code></pre>
+
+<h2>7. Monitoring i logi</h2>
+<pre data-lang="powershell"><code><span class="com"># Strumieniuj logi IIS na żywo</span>
+Get-Content C:\inetpub\logs\LogFiles\W<span class="num">3</span>SVC<span class="num">1</span>\*.log -Wait -Tail <span class="num">20</span>
+
+<span class="com"># PerfMon counters</span>
+Get-Counter <span class="str">'\Web Service(_Total)\Current Connections'</span>
+Get-Counter <span class="str">'\ASP.NET Apps v4.0.30319(__Total__)\Requests/Sec'</span>
+
+<span class="com"># Event Log — błędy aplikacji</span>
+Get-WinEvent -LogName Application -MaxEvents <span class="num">50</span> |
+    Where-Object Level -eq <span class="num">2</span> | Format-Table TimeCreated, Message -Wrap
+
+<span class="com"># Failed Request Tracing (FREB) — diagnoza 500-tek</span>
+<span class="com"># Włącz w IIS Manager &gt; Site &gt; Failed Request Tracing</span>
+<span class="com"># Pliki XML: C:\inetpub\logs\FailedReqLogFiles\</span></code></pre>
+
+<div class="next-prev">
+    <a href="bezpieczenstwo.html"><div class="label">← Poprzedni</div><div class="title">Bezpieczeństwo</div></a>
+    <a href="linux-bash.html"><div class="label">Następny →</div><div class="title">Linux / Bash</div></a>
+</div>
+</div>
+</body>
+</html>

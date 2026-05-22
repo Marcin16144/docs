@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uwierzytelnianie i autoryzacja API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../index.html">API</a><span class="sep">/</span>
+  <span class="title">Uwierzytelnianie i autoryzacja API</span>
+</div>
+<div class="container">
+  <h1>Uwierzytelnianie i autoryzacja API</h1>
+  <p class="subtitle">JWT, OAuth 2.0, OpenID Connect, API Keys, mTLS, RBAC/ABAC i integracje z dostawcami identity.</p>
+
+  <h2>JWT — JSON Web Token</h2>
+  <p>JWT to otwarty standard (RFC 7519) reprezentowania claims miedzy dwiema stronami. Token sklada sie z trzech czesci oddzielonych kropkami: <strong>Header.Payload.Signature</strong>, kazda zakodowana w Base64URL.</p>
+
+  <h3>Struktura JWT</h3>
+  <pre><code># Header — algorytm i typ tokenu
+{
+  "alg": "RS256",
+  "typ": "JWT",
+  "kid": "key-id-2025-01"    # ID klucza publicznego (do rotacji kluczy)
+}
+
+# Payload — claims
+{
+  "sub":   "user_01HXYZ",          # Subject — ID uzytkownika
+  "iss":   "https://auth.example.com",  # Issuer
+  "aud":   ["https://api.example.com"], # Audience
+  "exp":   1746705600,             # Expiry (Unix timestamp)
+  "iat":   1746619200,             # Issued At
+  "jti":   "jwt_unique_id_123",    # JWT ID — do blacklistingu
+  "email": "jan@example.com",
+  "roles": ["user", "editor"],
+  "org":   "org_ABC"
+}
+
+# Signature (RS256)
+RSA_SIGN(
+  base64url(header) + "." + base64url(payload),
+  PRIVATE_KEY
+)
+</code></pre>
+
+  <h3>RS256 vs HS256</h3>
+  <ul>
+    <li><strong>HS256 (HMAC-SHA256)</strong> — jeden wspolny sekret do podpisywania i weryfikacji. Prosty, ale kazda uslugi musi znac sekret. Przy wycieku mozna podrabiac tokeny.</li>
+    <li><strong>RS256 (RSA-SHA256)</strong> — para kluczy: prywatny do podpisywania (tylko serwer auth), publiczny do weryfikacji (mozna udostepnic). Bezpieczniejszy dla architektury mikroserwisow.</li>
+    <li><strong>ES256 (ECDSA-SHA256)</strong> — krotszy klucz niz RSA przy tym samym poziomie bezpieczenstwa. Zalecany dla nowych systemow.</li>
+  </ul>
+
+  <h3>Refresh Tokens</h3>
+  <p>Access token ma krotki czas zycia (5-15 minut). Refresh token (dlugi — dni/tygodnie) sluzy do pobierania nowych access tokenow bez ponownego logowania. Przechowuj refresh tokeny w HttpOnly cookie, nigdy w localStorage.</p>
+
+  <pre><code>// Weryfikacja JWT w Node.js (jose library)
+import { jwtVerify, createRemoteJWKSet } from 'jose';
+
+const JWKS = createRemoteJWKSet(
+  new URL('https://auth.example.com/.well-known/jwks.json')
+);
+
+async function verifyToken(token: string) {
+  try {
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer:   'https://auth.example.com',
+      audience: 'https://api.example.com',
+    });
+    return payload;
+  } catch (err) {
+    if (err.code === 'ERR_JWT_EXPIRED') throw new Error('Token expired');
+    if (err.code === 'ERR_JWS_INVALID')  throw new Error('Invalid signature');
+    throw err;
+  }
+}
+
+// Middleware Express
+export async function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing Bearer token' });
+  }
+
+  const token = authHeader.slice(7);
+  try {
+    req.user = await verifyToken(token);
+    next();
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+}
+</code></pre>
+
+  <h2>OAuth 2.0 Flows</h2>
+  <p>OAuth 2.0 (RFC 6749) to framework autoryzacji, nie uwierzytelniania. Definiuje kilka przepływow (flows/grants) dostosowanych do roznych scenariuszy.</p>
+
+  <h3>Authorization Code + PKCE (aplikacje webowe i mobilne)</h3>
+  <pre><code># Krok 1 — klient generuje code_verifier i code_challenge
+code_verifier  = random_string(43-128 chars, URL-safe)
+code_challenge = BASE64URL(SHA256(code_verifier))
+
+# Krok 2 — redirect do authorization server
+GET https://auth.example.com/authorize?
+  response_type=code
+  &client_id=my_app
+  &redirect_uri=https://myapp.com/callback
+  &scope=openid+profile+email+offline_access
+  &state=random_csrf_token
+  &code_challenge=BASE64URL_CHALLENGE
+  &code_challenge_method=S256
+
+# Krok 3 — exchange code na tokeny
+POST https://auth.example.com/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code
+&code=AUTH_CODE_FROM_CALLBACK
+&redirect_uri=https://myapp.com/callback
+&client_id=my_app
+&code_verifier=ORIGINAL_VERIFIER
+
+# Odpowiedz
+{
+  "access_token":  "eyJhbGci...",
+  "token_type":    "Bearer",
+  "expires_in":    900,
+  "refresh_token": "rt_abc123...",
+  "id_token":      "eyJhbGci..."  # OpenID Connect
+}
+</code></pre>
+
+  <h3>Client Credentials (M2M)</h3>
+  <pre><code># Dla komunikacji serwer-serwer bez uzytkownika
+POST https://auth.example.com/token
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic BASE64(client_id:client_secret)
+
+grant_type=client_credentials
+&scope=read:users+write:orders
+&audience=https://api.example.com
+</code></pre>
+
+  <h2>OpenID Connect</h2>
+  <p>OpenID Connect (OIDC) to warstwa uwierzytelniania zbudowana na OAuth 2.0. Dodaje <strong>ID Token</strong> (JWT z informacjami o uzytkowniku) oraz endpoint <code>/userinfo</code>. Discovery document pod <code>/.well-known/openid-configuration</code> zawiera wszystkie endpointy i wspierane algorytmy.</p>
+
+  <div class="card blue">
+    <h3>OAuth 2.0 vs OpenID Connect</h3>
+    <p>OAuth 2.0 odpowiada na pytanie <em>"Co mozesz robic?"</em> (autoryzacja). OpenID Connect odpowiada na <em>"Kim jestes?"</em> (uwierzytelnianie). Uzywaj OIDC gdy potrzebujesz wiedziec kto jest zalogowany, OAuth gdy chcesz tylko dostep do zasobu.</p>
+  </div>
+
+  <h2>API Keys</h2>
+  <p>Klucze API to proste tokeny do uwierzytelniania — glownie dla dostepow M2M, webhookow i integracji zewnetrznych. Nie zawieraja informacji o sesji jak JWT.</p>
+  <ul>
+    <li><strong>Format</strong> — uzyj prefiksu identyfikujacego produkt: <code>sk_live_abc123...</code>, <code>pk_test_xyz...</code></li>
+    <li><strong>Przechowywanie</strong> — przechowuj hash (bcrypt lub SHA-256), nigdy plaintext</li>
+    <li><strong>Rotacja</strong> — umoz latwa rotacje bez przestojow (overlap period)</li>
+    <li><strong>Zakres</strong> — ogranicz klucze do konkretnych zasobow lub operacji</li>
+    <li><strong>Naglowek</strong> — <code>Authorization: Bearer sk_live_...</code> lub <code>X-API-Key: sk_live_...</code></li>
+  </ul>
+
+  <pre><code># Uzycie klucza API w request
+GET /api/v1/users
+Authorization: Bearer sk_live_abc123xyz456def789
+
+# Alternatywny naglowek
+GET /api/v1/users
+X-API-Key: sk_live_abc123xyz456def789
+
+# Nigdy w URL (pojawi sie w logach!)
+# ZLE: GET /api/v1/users?api_key=sk_live_...
+</code></pre>
+
+  <h2>mTLS — Mutual TLS</h2>
+  <p>W standardowym TLS tylko klient weryfikuje certyfikat serwera. W mTLS obydwie strony wymieniaja i weryfikuja certyfikaty. Stosowane w architekturach zero-trust i komunikacji miedzy mikroserwisami (service mesh: Istio, Linkerd).</p>
+
+  <h2>RBAC vs ABAC</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Kryterium</th>
+        <th>RBAC (Role-Based)</th>
+        <th>ABAC (Attribute-Based)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Zasada</td>
+        <td>Uprawnienia przypisane do rol, role do uzytkownikow</td>
+        <td>Decyzja na podstawie atrybutow: uzytkownik, zasob, srodowisko</td>
+      </tr>
+      <tr>
+        <td>Zlozonosc</td>
+        <td>Prosta — latwa do zrozumienia i audytu</td>
+        <td>Wysoka — elastyczna ale trudna w debugowaniu</td>
+      </tr>
+      <tr>
+        <td>Przyklad</td>
+        <td><code>role=admin</code> moze wszystko, <code>role=viewer</code> tylko GET</td>
+        <td>Moze edytowac jezeli <code>owner=true AND dept=same AND time=business_hours</code></td>
+      </tr>
+      <tr>
+        <td>Skalowalnosc</td>
+        <td>Problem z eksplozja rol przy zlozonych wymaganiach</td>
+        <td>Skaluje sie lepiej przy zlozonych politykach</td>
+      </tr>
+      <tr>
+        <td>Kiedy</td>
+        <td>Wiekszosc aplikacji biznesowych, prostsze systemy</td>
+        <td>Rzad, healthcare, fintech z regulacjami compliance</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Integracje z dostawcami identity</h2>
+  <p>Zamiast implementowac uwierzytelnianie od zera, skorzystaj z gotowych dostawcow:</p>
+  <ul>
+    <li><strong>Auth0</strong> — elastyczny, bogaty ekosystem, Machine-to-Machine apps, Actions (webhooks)</li>
+    <li><strong>Clerk</strong> — developer-first, swietny DX, wbudowane UI komponenty, organizacje/teams</li>
+    <li><strong>Okta</strong> — enterprise, compliance (SOC2, HIPAA), zaawansowane polityki</li>
+    <li><strong>Azure AD / Entra ID</strong> — integracja z Microsoft 365, enterprise SSO, B2C dla konsumentow</li>
+    <li><strong>Keycloak</strong> — open-source, self-hosted, pelen kontrola danych</li>
+  </ul>
+
+  <pre><code>// Clerk — middleware Next.js
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+
+const isPublicRoute = createRouteMatcher([
+  '/sign-in(.*)', '/sign-up(.*)', '/api/webhooks(.*)'
+]);
+
+export default clerkMiddleware((auth, request) => {
+  if (!isPublicRoute(request)) {
+    auth().protect();
+  }
+});
+
+// Pobranie uzytkownika w Server Component
+import { currentUser } from '@clerk/nextjs/server';
+
+export default async function Dashboard() {
+  const user = await currentUser();
+  if (!user) redirect('/sign-in');
+  return &lt;div&gt;Hello, {user.firstName}!&lt;/div&gt;;
+}
+</code></pre>
+
+  <h2>Metody uwierzytelniania — kiedy co stosowac</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Metoda</th>
+        <th>Kiedy stosowac</th>
+        <th>Zalety</th>
+        <th>Wady</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>JWT (stateless)</strong></td>
+        <td>SPA, mobile, mikroserwisy, distributed systems</td>
+        <td>Bezstanowy, skaluje sie bez sesji, self-contained</td>
+        <td>Nie mozna uniewa&zacute;nic przed wygasniecia, rozmiar tokena</td>
+      </tr>
+      <tr>
+        <td><strong>Session cookie</strong></td>
+        <td>Tradycyjne aplikacje webowe, SSR</td>
+        <td>Latwa rewokacja, maly payload, HttpOnly cookie</td>
+        <td>Wymaga sesji po stronie serwera (Redis), problemy z CORS</td>
+      </tr>
+      <tr>
+        <td><strong>API Key</strong></td>
+        <td>M2M, CLI tools, webhooks, integracje zewnetrzne</td>
+        <td>Prostosc, latwa do zrozumienia, dlugi czas zycia</td>
+        <td>Brak info o uzytkownikach, trudny audyt, latwa do wycieku</td>
+      </tr>
+      <tr>
+        <td><strong>OAuth 2.0</strong></td>
+        <td>Delegowany dostep do zasobow stron trzecich</td>
+        <td>Standard, nie udostepniasz hasla, granularny zakres</td>
+        <td>Zlozonosc implementacji, wiele krokow flow</td>
+      </tr>
+      <tr>
+        <td><strong>mTLS</strong></td>
+        <td>Zero-trust, service mesh, wewnetrzne mikroserwisy</td>
+        <td>Bardzo silne uwierzytelnianie, bez tokenow w naglowkach</td>
+        <td>Zarzadzanie certyfikatami, infrastruktura PKI</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <h3>Security checklist dla API</h3>
+    <ul>
+      <li>Zawsze HTTPS — nigdy HTTP dla API produkcyjnych</li>
+      <li>Krotki TTL access tokenow (5-15 min), dlugi refresh (7-30 dni)</li>
+      <li>Przechowuj refresh tokeny w HttpOnly Secure SameSite=Strict cookie</li>
+      <li>Weryfikuj <code>aud</code> i <code>iss</code> claims w JWT</li>
+      <li>Rotuj klucze podpisujace (JWKS rotation) bez przestojow</li>
+      <li>Implementuj rate limiting na endpoint logowania (brute force)</li>
+      <li>Loguj wszystkie nieudane autentykacje z IP i user-agent</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="03-grpc.html">← gRPC</a>
+    <a href="05-dokumentacja-api.html">Dokumentacja API →</a>
+  </div>
+</div>
+</body>
+</html>

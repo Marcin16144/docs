@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rocket</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f97316;--accent-hover:#fb923c;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Rust</a>
+  <span class="sep">/</span>
+  <span class="title">Rocket</span>
+</div>
+<div class="container">
+  <h1>Rocket</h1>
+  <p class="subtitle">Framework webowy stawiajacy na ergonomie i bezpieczenstwo typow. Od wersji 0.5 w pelni asynchroniczny, oparty na Tokio.</p>
+
+  <h2>Punkt wejscia — #[launch] i #[rocket::main]</h2>
+  <p>Rocket oferuje dwa sposoby uruchomienia aplikacji. <code>#[launch]</code> jest zalecany — funkcja zwraca <code>Rocket&lt;Build&gt;</code>, a Rocket sam uruchamia runtime. <code>#[rocket::main]</code> daje pelna kontrole nad inicjalizacja.</p>
+
+  <pre><code>use rocket::{launch, routes, get, post, Build, Rocket};
+
+// Zalecane — Rocket sam uruchamia runtime
+#[launch]
+fn rocket() -> Rocket&lt;Build&gt; {
+    rocket::build()
+        .mount("/", routes![index, health])
+        .mount("/api/v1", routes![
+            list_users, get_user, create_user, update_user, delete_user
+        ])
+        .attach(DbFairing::init())
+        .attach(AdHoc::config::&lt;AppConfig&gt;())
+        .manage(/* shared state */)
+}
+
+// Alternatywa z pelna kontrola
+#[rocket::main]
+async fn main() -> Result&lt;(), rocket::Error&gt; {
+    let _rocket = rocket::build()
+        .mount("/", routes![index])
+        .launch()
+        .await?;
+    Ok(())
+}</code></pre>
+
+  <h2>Route macros — #[get], #[post] i inne</h2>
+  <p>Trasy definiujemy makrami atrybutowymi bezposrednio nad funkcjami. Rocket parsuje sciezke, metode HTTP i format w czasie kompilacji, wykrywajac konflikty i bledy przed uruchomieniem.</p>
+
+  <pre><code>use rocket::{get, post, put, delete, patch};
+use rocket::serde::json::Json;
+use rocket::http::Status;
+
+// GET /users — zwraca JSON
+#[get("/users?&lt;page&gt;&lt;limit&gt;")]
+async fn list_users(
+    db: &amp;State&lt;DbPool&gt;,
+    page: Option&lt;u32&gt;,
+    limit: Option&lt;u32&gt;,
+) -> Json&lt;Vec&lt;User&gt;&gt; {
+    Json(vec![])
+}
+
+// GET /users/&lt;id&gt;
+#[get("/users/&lt;id&gt;")]
+async fn get_user(db: &amp;State&lt;DbPool&gt;, id: i64) -> Option&lt;Json&lt;User&gt;&gt; {
+    // None zwraca 404 automatycznie
+    None
+}
+
+// POST /users — akceptuje JSON
+#[post("/users", format = "json", data = "&lt;body&gt;")]
+async fn create_user(
+    db: &amp;State&lt;DbPool&gt;,
+    body: Json&lt;CreateUserRequest&gt;,
+) -> (Status, Json&lt;User&gt;) {
+    (Status::Created, Json(/* nowy user */))
+}
+
+// DELETE /users/&lt;id&gt;
+#[delete("/users/&lt;id&gt;")]
+async fn delete_user(db: &amp;State&lt;DbPool&gt;, id: i64) -> Status {
+    Status::NoContent
+}</code></pre>
+
+  <h2>FromParam i FromForm — parametry sciezki i formularzy</h2>
+  <p>Rocket automatycznie konwertuje segmenty sciezki na typy implementujace <code>FromParam</code>. Standardowe typy (i64, String, uuid::Uuid) sa juz obslugiwane. Wlasne typy wymagaja implementacji traitu.</p>
+
+  <pre><code>use rocket::request::FromParam;
+use rocket::http::RawStr;
+
+struct UserId(i64);
+
+impl&lt;'r&gt; FromParam&lt;'r&gt; for UserId {
+    type Error = &amp;'r str;
+
+    fn from_param(param: &amp;'r str) -> Result&lt;Self, Self::Error&gt; {
+        param.parse::&lt;i64&gt;()
+            .map(UserId)
+            .map_err(|_| param)
+    }
+}
+
+// FromForm — dla query params i form data
+use rocket::form::{Form, FromForm};
+
+#[derive(FromForm)]
+struct SearchParams {
+    q: Option&lt;String&gt;,
+    #[field(validate = range(1..=100))]
+    limit: Option&lt;u32&gt;,
+    page: Option&lt;u32&gt;,
+}
+
+#[get("/search?&lt;params..&gt;")]
+async fn search(params: Form&lt;SearchParams&gt;) -> Json&lt;Vec&lt;User&gt;&gt; {
+    Json(vec![])
+}</code></pre>
+
+  <h2>Request Guards — FromRequest</h2>
+  <p>Request guards to mechanizm walidacji i ekstrakcji danych z requestu przed wywolaniem handlera. Jesli guard zawiedzie, Rocket zwraca blad lub przekazuje do nastepnego pasujacego routea (forward).</p>
+
+  <pre><code>use rocket::request::{FromRequest, Outcome, Request};
+use rocket::http::Status;
+
+struct AuthenticatedUser {
+    id: i64,
+    email: String,
+}
+
+#[rocket::async_trait]
+impl&lt;'r&gt; FromRequest&lt;'r&gt; for AuthenticatedUser {
+    type Error = String;
+
+    async fn from_request(req: &amp;'r Request&lt;'_&gt;) -> Outcome&lt;Self, Self::Error&gt; {
+        let token = req.headers()
+            .get_one("Authorization")
+            .and_then(|v| v.strip_prefix("Bearer "));
+
+        match token {
+            Some(t) => match verify_jwt(t) {
+                Ok(claims) => Outcome::Success(AuthenticatedUser {
+                    id: claims.sub,
+                    email: claims.email,
+                }),
+                Err(e) => Outcome::Error((Status::Unauthorized, e.to_string())),
+            },
+            None => Outcome::Error((Status::Unauthorized, "Brak tokena".into())),
+        }
+    }
+}
+
+// Guard jako parametr handlera — Rocket wywola go automatycznie
+#[get("/profile")]
+async fn get_profile(user: AuthenticatedUser) -> Json&lt;Profile&gt; {
+    Json(Profile { user_id: user.id, email: user.email })
+}</code></pre>
+
+  <h2>Fairings — cykl zycia aplikacji</h2>
+  <p>Fairings to odpowiednik middleware lifecycle hooks w Rocket. <code>AdHoc</code> pozwala definiowac je bez implementacji pelnego traitu.</p>
+
+  <pre><code>use rocket::fairing::AdHoc;
+use rocket::fairing::{Fairing, Info, Kind};
+
+// Prosty fairing przez AdHoc
+let timing_fairing = AdHoc::on_response("Timing", |_req, res| {
+    Box::pin(async move {
+        res.set_header(rocket::http::Header::new("X-Powered-By", "Rocket"));
+    })
+});
+
+// Inicjalizacja bazy danych
+let db_fairing = AdHoc::try_on_ignite("Database", |rocket| async {
+    match PgPool::connect(&amp;std::env::var("DATABASE_URL").unwrap()).await {
+        Ok(pool) => Ok(rocket.manage(pool)),
+        Err(e) => {
+            eprintln!("Blad polaczenia z DB: {e}");
+            Err(rocket)
+        }
+    }
+});
+
+rocket::build()
+    .attach(timing_fairing)
+    .attach(db_fairing)</code></pre>
+
+  <h2>Responders — Custom&lt;T&gt; i Json&lt;T&gt;</h2>
+  <p>Kazdy typ zwracany przez handler musi implementowac trait <code>Responder</code>. Rocket dostarcza <code>Json&lt;T&gt;</code>, <code>Html&lt;&amp;str&gt;</code>, <code>Redirect</code>, <code>Status</code> oraz <code>Custom&lt;T&gt;</code> do budowania odpowiedzi z dowolnym statusem.</p>
+
+  <pre><code>use rocket::response::status::Custom;
+use rocket::http::Status;
+use rocket::serde::json::Json;
+
+// Odpowiedz z dowolnym statusem
+#[post("/resource")]
+fn create_resource() -> Custom&lt;Json&lt;serde_json::Value&gt;&gt; {
+    Custom(
+        Status::Created,
+        Json(serde_json::json!({"id": 42, "created": true}))
+    )
+}
+
+// Wlasny Responder
+use rocket::{Request, Response};
+use rocket::response::{self, Responder};
+
+struct ApiResponse&lt;T: serde::Serialize&gt; {
+    status: Status,
+    data: T,
+}
+
+impl&lt;'r, T: serde::Serialize&gt; Responder&lt;'r, 'static&gt; for ApiResponse&lt;T&gt; {
+    fn respond_to(self, req: &amp;'r Request&lt;'_&gt;) -> response::Result&lt;'static&gt; {
+        let json = serde_json::to_string(&amp;self.data).unwrap();
+        Response::build()
+            .status(self.status)
+            .header(rocket::http::ContentType::JSON)
+            .sized_body(json.len(), std::io::Cursor::new(json))
+            .ok()
+    }
+}</code></pre>
+
+  <h2>Rocket.toml — konfiguracja</h2>
+  <p>Rocket czyta konfiguracje z <code>Rocket.toml</code> lub zmiennych srodowiskowych z prefiksem <code>ROCKET_</code>. Profile <code>[debug]</code> i <code>[release]</code> pozwalaja na rozne ustawienia per srodowisko.</p>
+
+  <pre><code>[default]
+address = "0.0.0.0"
+port = 8080
+workers = 4
+max_blocking = 512
+keep_alive = 5
+log_level = "normal"
+
+[debug]
+port = 8080
+log_level = "debug"
+
+[release]
+port = 80
+log_level = "critical"
+secret_key = "$(ROCKET_SECRET_KEY)"</code></pre>
+
+  <h2>Kiedy Rocket vs Axum</h2>
+
+  <table>
+    <thead>
+      <tr><th>Kryterium</th><th>Rocket</th><th>Axum</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Ergonomia API</td><td>bardzo wysoka, makra atrybutowe</td><td>wysoka, extractory jako argumenty</td></tr>
+      <tr><td>Walidacja w compile-time</td><td>tak (konflikty tras, typy)</td><td>czesciowo</td></tr>
+      <tr><td>Middleware</td><td>Fairings (ograniczone)</td><td>tower — pelny ekosystem</td></tr>
+      <tr><td>Wydajnosc</td><td>dobra</td><td>bardzo dobra</td></tr>
+      <tr><td>WebSocket</td><td>rocket_ws (osobny crate)</td><td>wbudowany</td></tr>
+      <tr><td>Dojrzalosc async</td><td>od v0.5 (stable)</td><td>od poczatku async</td></tr>
+      <tr><td>Wybierz gdy</td><td>prototypy, czytelnosc kodu</td><td>produkcja, middleware, performance</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <strong>Rocket v0.5</strong> to pierwsza stabilna wersja z pelnym wsparciem async/await. Wczesniejsze wersje (0.4) uzywaly thread-per-request i wymagaly nightly Rust. Jesli znajdziesz stare tutoriale — zwroc uwage na wersje.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="04-actix-web.html">← 04-actix-web.html</a>
+    <a href="06-sqlx.html">06-sqlx.html →</a>
+  </div>
+</div>
+</body>
+</html>

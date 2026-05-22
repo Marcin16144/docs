@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fastify</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Node.js</a>
+  <span class="sep">/</span>
+  <span class="title">Fastify</span>
+</div>
+
+<div class="container">
+  <h1>Fastify</h1>
+  <p class="subtitle">Wydajny, schema-first framework Node.js z pelnym wsparciem TypeScript i systemem pluginow</p>
+
+  <h2>Dlaczego Fastify?</h2>
+  <p>Fastify to framework webowy skupiony na maksymalnej wydajnosci i dobrej ergonomii deweloperskiej. Walidacja oparta na JSON Schema (kompilowana do szybkiego kodu przez <strong>ajv</strong>) pozwala osiagnac nawet 30 000 req/s na prostym endpoincie — znacznie wiecej niz Express. Poza wydajnoscia, Fastify oferuje: system pluginow z izolacja zaleznosci, hooki cyklu zycia, dekoratory i pelne wsparcie TypeScript out-of-the-box.</p>
+
+  <div class="card green">
+    <strong>Fastify vs Express — kluczowa roznica</strong>
+    <p style="margin-top:8px;margin-bottom:0">Express przetwarza JSON przez <code>JSON.parse()</code> bez walidacji. Fastify kompiluje schemat do zoptymalizowanego walidatora i serializatora — JSON odpowiedzi jest <strong>2-5x szybszy</strong> niz <code>JSON.stringify()</code>. Schemat jest wymagany, nie opcjonalny.</p>
+  </div>
+
+  <h2>Inicjalizacja i konfiguracja</h2>
+  <pre><code>import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import compress from '@fastify/compress';
+
+const fastify = Fastify({
+  logger: {
+    level: 'info',
+    transport: process.env.NODE_ENV === 'development'
+      ? { target: 'pino-pretty', options: { colorize: true } }
+      : undefined, // produkcja: JSON do stdout (dla log aggregatorow)
+  },
+  ajv: {
+    customOptions: {
+      strict: 'log',       // ostrzez o nieznanych polach zamiast rzucac bledem
+      allErrors: true,     // zbierz WSZYSTKIE bledy walidacji naraz
+    }
+  },
+  trustProxy: true,        // wazne za reverse proxy (X-Forwarded-For)
+});
+
+// Rejestracja pluginow
+await fastify.register(helmet);
+await fastify.register(cors, {
+  origin: ['https://myapp.com'],
+  credentials: true,
+});
+await fastify.register(compress, { global: false }); // kompresja per-route
+
+// Uruchomienie
+await fastify.listen({ port: 3000, host: '0.0.0.0' });
+console.log(fastify.server.address());</code></pre>
+
+  <h2>Walidacja schematu — JSON Schema i TypeBox</h2>
+  <p>Kazda trasa w Fastify moze (i powinna) miec schemat. Fastify uzywa <strong>ajv</strong> do kompilacji schematu do funkcji walidacyjnej przy starcie, nie przy kazdym zapytaniu. Pakiet <code>@sinclair/typebox</code> pozwala pisac schematy jako typy TypeScript — zero duplikacji kodu.</p>
+
+  <pre><code>import { Type, Static } from '@sinclair/typebox';
+
+// Schemat zdefiniowany raz — uzyty do walidacji I typowania
+const UserSchema = Type.Object({
+  id:    Type.String({ format: 'uuid' }),
+  name:  Type.String({ minLength: 2, maxLength: 100 }),
+  email: Type.String({ format: 'email' }),
+  role:  Type.Union([Type.Literal('admin'), Type.Literal('user')]),
+  age:   Type.Optional(Type.Integer({ minimum: 0, maximum: 120 })),
+});
+
+type User = Static&lt;typeof UserSchema&gt;;  // TypeScript type z schematu
+
+const CreateUserBody = Type.Omit(UserSchema, ['id']);
+type CreateUserBody = Static&lt;typeof CreateUserBody&gt;;
+
+// Trasa z pelnym typowaniem i walidacja
+fastify.post&lt;{ Body: CreateUserBody; Reply: User }&gt;(
+  '/users',
+  {
+    schema: {
+      body: CreateUserBody,
+      response: {
+        201: UserSchema,
+        400: Type.Object({ error: Type.String() }),
+      },
+    },
+  },
+  async (request, reply) => {
+    // request.body jest w pelni typowany jako CreateUserBody
+    const user = await userService.create(request.body);
+    return reply.status(201).send(user);
+    // Fastify serializuje odpowiedz uzywajac schematu — szybko i bezpiecznie
+  }
+);</code></pre>
+
+  <h2>Hooki cyklu zycia</h2>
+  <p>Fastify definiuje precyzyjny cykl zycia zapytania. Hooki pozwalaja wtretic sie w kazdy etap. Sa rejestrowane przez <code>fastify.addHook()</code> (globalnie) lub jako opcja trasy (lokalnie).</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Hook</th>
+        <th>Etap</th>
+        <th>Typowe zastosowanie</th>
+        <th>Mozliwy wynik</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>onRequest</code></td>
+        <td>Pierwsze zdarzenie — przed parsowaniem</td>
+        <td>Rate limiting, metryki, IP blocking</td>
+        <td>Przerwanie z reply.send()</td>
+      </tr>
+      <tr>
+        <td><code>preParsing</code></td>
+        <td>Przed parsowaniem body</td>
+        <td>Transformacja strumienia, HMAC weryfikacja body</td>
+        <td>Modyfikacja strumienia</td>
+      </tr>
+      <tr>
+        <td><code>preValidation</code></td>
+        <td>Przed walidacja schematu</td>
+        <td>Deserializacja, transformacja danych wejsciowych</td>
+        <td>Modyfikacja request.body</td>
+      </tr>
+      <tr>
+        <td><code>preHandler</code></td>
+        <td>Przed handlerem trasy</td>
+        <td>Autentykacja JWT, autoryzacja (RBAC)</td>
+        <td>Przerwanie lub modyfikacja request</td>
+      </tr>
+      <tr>
+        <td><code>preSerialization</code></td>
+        <td>Przed serializacja odpowiedzi</td>
+        <td>Filtrowanie pol odpowiedzi, logowanie</td>
+        <td>Modyfikacja payload</td>
+      </tr>
+      <tr>
+        <td><code>onSend</code></td>
+        <td>Przed wyslaniem — po serializacji</td>
+        <td>Ustawianie nagłówkow, kompresja</td>
+        <td>Modyfikacja serializowanego payload</td>
+      </tr>
+      <tr>
+        <td><code>onResponse</code></td>
+        <td>Po wyslaniu odpowiedzi</td>
+        <td>Logowanie czasu odpowiedzi, metryki</td>
+        <td>Tylko side effects</td>
+      </tr>
+      <tr>
+        <td><code>onError</code></td>
+        <td>Po wystapnieniu bledu</td>
+        <td>Mapowanie bledow, alerting</td>
+        <td>Modyfikacja bledu</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <pre><code>// Hook globalny — autentykacja JWT dla wszystkich tras
+fastify.addHook('preHandler', async (request, reply) => {
+  try {
+    await request.jwtVerify(); // @fastify/jwt dekorator
+  } catch (err) {
+    reply.status(401).send({ error: 'Brak autoryzacji' });
+  }
+});
+
+// Hook lokalny — tylko dla tej trasy (nadpisuje globalny)
+fastify.get('/public', {
+  onRequest: [], // pusta tablica — brak hookow preHandler dla tej trasy
+  handler: async (request, reply) => {
+    return { message: 'Publiczny endpoint' };
+  }
+});
+
+// Hook onSend — dodanie naglowkow
+fastify.addHook('onSend', async (request, reply, payload) => {
+  reply.header('X-Request-Id', request.id);
+  reply.header('X-Response-Time', `${Date.now() - request.startTime}ms`);
+  return payload; // zwroc niezmieniony payload
+});</code></pre>
+
+  <h2>System pluginow i dekoratory</h2>
+  <p>System pluginow Fastify oparty jest na <strong>Avvio</strong> — bibliotece asynchronicznej inicjalizacji z izolacja kontekstu. Kazdy plugin dostaje wlasny "zakres" — zmienne i dekoratory zarejestrowane wewnatrz nie sa widoczne na zewnatrz (chyba ze uzyjemy <code>fastify-plugin</code>).</p>
+
+  <h3>fastify-plugin (fp)</h3>
+  <p>Uzycie <code>fastify-plugin</code> (importowanego jako <code>fp</code>) wylacza enkapsulacje — plugin rejestruje swoje dekoratory w kontekscie nadrzednym. Uzywa sie go dla wspoldzielonych uslug: bazy danych, cache, konfiguracji.</p>
+
+  <h3>Dekoratory</h3>
+  <p>Dekoratory rozszerzaja instancje <code>fastify</code>, <code>request</code> lub <code>reply</code> o nowe wlasciwosci lub metody. Przykladowo <code>@fastify/jwt</code> dodaje <code>request.jwtVerify()</code> i <code>reply.jwtSign()</code>.</p>
+
+  <h2>reply.send vs return</h2>
+  <p>W Fastify mozna wyslac odpowiedz na dwa sposoby. Oba sa poprawne, ale roznia sie semantyką w kontekscie hookow i asynchronicznosci.</p>
+
+  <ul>
+    <li><strong>return wartosci</strong> — Fastify automatycznie serializuje zwrocona wartosc i wysyla jako odpowiedz. Preferowany sposob w async handlerach.</li>
+    <li><strong>reply.send(dane)</strong> — jawne wyslanie. Konieczne gdy chcesz wyslac odpowiedz wewnatrz callbacku lub gdy zwrocona wartosc ma byc inna niz payload odpowiedzi.</li>
+  </ul>
+
+  <div class="card orange">
+    <strong>Uwaga: nie mieszaj return i reply.send()</strong>
+    <p style="margin-top:8px;margin-bottom:0">Wywolanie <code>reply.send()</code> a nastepnie <code>return</code> innej wartosci spowoduje blad. Fastify wykrywa podwojne wysylanie i loguje ostrzezenie. Wybierz jeden styl i trzymaj sie go konsekwentnie w projekcie.</p>
+  </div>
+
+  <h2>Fastify vs Express vs Hono — porownanie</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cecha</th>
+        <th>Express 4</th>
+        <th>Fastify 4</th>
+        <th>Hono</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Wydajnosc (req/s)</td>
+        <td>~14 000</td>
+        <td>~30 000</td>
+        <td>~40 000+</td>
+      </tr>
+      <tr>
+        <td>Walidacja wbudowana</td>
+        <td>Nie (zewnetrzna)</td>
+        <td>Tak (JSON Schema / ajv)</td>
+        <td>Tak (Zod middleware)</td>
+      </tr>
+      <tr>
+        <td>TypeScript DX</td>
+        <td>Srednia</td>
+        <td>Bardzo dobra</td>
+        <td>Doskonala</td>
+      </tr>
+      <tr>
+        <td>Ekosystem pluginow</td>
+        <td>Ogromny</td>
+        <td>Duzy (@fastify/*)</td>
+        <td>Rosnacy</td>
+      </tr>
+      <tr>
+        <td>Wsparcie edge/serverless</td>
+        <td>Ograniczone</td>
+        <td>Ograniczone</td>
+        <td>Natywne (Workers, Deno)</td>
+      </tr>
+      <tr>
+        <td>Rozmiar paczki</td>
+        <td>~200 KB</td>
+        <td>~400 KB</td>
+        <td>~12 KB</td>
+      </tr>
+      <tr>
+        <td>Krzywa uczenia sie</td>
+        <td>Niska</td>
+        <td>Srednia</td>
+        <td>Niska</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card blue">
+    <strong>Kiedy wybrac Fastify?</strong>
+    <p style="margin-top:8px;margin-bottom:0">Fastify to idealny wybor gdy: zalezy Ci na wydajnosci, pracujesz z TypeScript, chcesz schema-first development z automatyczna walidacja i serializacja, lub budujesz API, gdzie czas odpowiedzi jest krytyczny (fintech, gaming, IoT).</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="02-express.html">← 02-express.html</a>
+    <a href="04-nestjs.html">04-nestjs.html →</a>
+  </div>
+</div>
+</body>
+</html>

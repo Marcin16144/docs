@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment PHP API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">PHP</a><span class="sep">/</span>
+  <span class="title">Deployment PHP API</span>
+</div>
+<div class="container">
+  <h1>Deployment PHP API</h1>
+  <p class="subtitle">PHP-FPM, Nginx, Laravel Octane, FrankenPHP, Docker multi-stage i zarzadzanie konfiguracja</p>
+
+  <h2>PHP-FPM — konfiguracja pool</h2>
+  <p>PHP-FPM (FastCGI Process Manager) to menazer procesow PHP obslugujacy zadania HTTP przez protokol FastCGI. Nginx odbiera zadania HTTP i przekazuje je do PHP-FPM przez socket Unix lub TCP. Konfiguracja puli procesow ma kluczowy wplyw na wydajnosc i stabilnosc serwera pod obciazeniem.</p>
+  <p>PHP-FPM wspiera trzy tryby zarzadzania procesami: <strong>static</strong> (stala liczba procesow), <strong>dynamic</strong> (elastyczna — skaluje miedzy min a max) i <strong>ondemand</strong> (procesy tworzone na zadanie, zabijane po idle_timeout). Dla API produkcyjnych zalecany jest tryb <code>dynamic</code>.</p>
+
+  <div class="card blue">
+    <strong>Konfiguracja puli PHP-FPM (/etc/php/8.3/fpm/pool.d/www.conf)</strong>
+    <pre style="margin:8px 0 0"><code>[www]
+user  = www-data
+group = www-data
+
+; Socket Unix — szybszy niz TCP dla komunikacji lokalnej
+listen = /run/php/php8.3-fpm.sock
+listen.owner = www-data
+listen.group = www-data
+listen.mode  = 0660
+
+; Tryb dynamic — elastyczna liczba procesow
+pm = dynamic
+
+; Maksymalna liczba jednoczesnych procesow worker
+; Regula: (RAM - system_overhead) / avg_process_memory
+; Przyklad: (4096 MB - 512 MB) / ~35 MB = ~100 procesow
+pm.max_children = 50
+
+; Liczba procesow uruchamianych przy starcie FPM
+pm.start_servers = 10
+
+; Minimalna liczba procesow idle (oczekujacych)
+pm.min_spare_servers = 5
+
+; Maksymalna liczba procesow idle — nadmiarowe sa zabijane
+pm.max_spare_servers = 20
+
+; Liczba zapytan po ktorej worker jest restartowany (ochrona przed wyciekami pamieci)
+pm.max_requests = 500
+
+; Timeout dla pojedynczego zadania (sekundy)
+request_terminate_timeout = 60
+
+; Logowanie slow requests (powyzej N sekund)
+slowlog = /var/log/php-fpm/www-slow.log
+request_slowlog_timeout = 5s
+
+; Zmienne srodowiskowe dla procesow worker
+env[APP_ENV]  = production
+env[APP_KEY]  = $APP_KEY
+env[DB_HOST]  = $DB_HOST
+
+; Status page (monitoring)
+pm.status_path = /fpm-status
+ping.path      = /fpm-ping
+</code></pre>
+  </div>
+
+  <h2>Nginx + PHP-FPM — konfiguracja</h2>
+  <p>Nginx sluzy jako reverse proxy i serwer statycznych plikow. Przekazuje dynamiczne zadania PHP do PHP-FPM przez socket Unix. Prawidlowa konfiguracja Nginx obejmuje kompresje Gzip, caching naglowkow, timeouty i bezpieczne naglowki HTTP.</p>
+
+<pre><code># /etc/nginx/sites-available/api.example.com
+
+upstream php_fpm {
+    server unix:/run/php/php8.3-fpm.sock;
+    keepalive 32;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api.example.com;
+    root /var/www/api/public;
+
+    # TLS
+    ssl_certificate     /etc/letsencrypt/live/api.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.example.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+
+    # Bezpieczne naglowki HTTP
+    add_header X-Content-Type-Options    nosniff;
+    add_header X-Frame-Options           DENY;
+    add_header X-XSS-Protection          "1; mode=block";
+    add_header Referrer-Policy           strict-origin-when-cross-origin;
+    add_header Content-Security-Policy   "default-src 'none'";
+
+    # Gzip dla API responses
+    gzip on;
+    gzip_types application/json application/javascript text/plain;
+    gzip_min_length 1024;
+
+    # Glowna lokalizacja — przekierowanie do index.php (Laravel/Slim)
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # Blokowanie dostepu do ukrytych plikow (.env, .git)
+    location ~ /\. { deny all; }
+
+    # Obsluga PHP przez FPM
+    location ~ \.php$ {
+        fastcgi_pass   php_fpm;
+        fastcgi_index  index.php;
+        fastcgi_param  SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include        fastcgi_params;
+
+        # Timeouty
+        fastcgi_read_timeout   60;
+        fastcgi_send_timeout   60;
+        fastcgi_connect_timeout 10;
+
+        # Buforowanie odpowiedzi FPM
+        fastcgi_buffer_size    32k;
+        fastcgi_buffers        8 16k;
+    }
+}
+
+# Redirect HTTP → HTTPS
+server {
+    listen 80;
+    server_name api.example.com;
+    return 301 https://$host$request_uri;
+}
+</code></pre>
+
+  <h2>Laravel Octane — serwer aplikacji PHP</h2>
+  <p>Laravel Octane uruchamia aplikacje Laravel jako dlugozywy proces serwera, ladujac framework jeden raz i obslugujac wiele zapytan bez ponownego bootstrapowania. Eliminuje overhead inicjalizacji frameworka przy kazdym zadaniu — typowy wzrost wydajnosci to 5–20x wzgledem PHP-FPM.</p>
+
+  <table>
+    <thead>
+      <tr><th>Kryterium</th><th>Swoole</th><th>RoadRunner</th><th>FrankenPHP</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Jezyk implementacji</td><td>C (rozszerzenie PHP)</td><td>Go</td><td>Go + Caddy</td></tr>
+      <tr><td>Instalacja</td><td>Rozszerzenie PECL</td><td>Binary (Go)</td><td>Binary all-in-one</td></tr>
+      <tr><td>HTTP/2 i HTTP/3</td><td>HTTP/2</td><td>HTTP/1.1 (HTTP/2 przez proxy)</td><td>HTTP/1.1, 2, 3 (QUIC)</td></tr>
+      <tr><td>WebSockets</td><td>Natywne</td><td>Przez plugin</td><td>Przez Mercure</td></tr>
+      <tr><td>Wspoldzielony stan</td><td>Swoole Tables, Channels</td><td>Ograniczony</td><td>Ograniczony</td></tr>
+      <tr><td>Kompatybilnosc</td><td>Wymaga Swoole ext.</td><td>Dowolny PHP</td><td>Dowolny PHP</td></tr>
+      <tr><td>Aktywny rozwoj</td><td>Tak</td><td>Tak</td><td>Tak (2023+)</td></tr>
+      <tr><td>Kompleksowosc serwera</td><td>Wymaga Nginx/Caddy</td><td>Wymaga Nginx/Caddy</td><td>Wbudowany Caddy</td></tr>
+    </tbody>
+  </table>
+
+  <h2>FrankenPHP — all-in-one serwer</h2>
+  <p>FrankenPHP to nowoczesny serwer PHP zbudowany w Go, bazujacy na Caddy. Laczy serwer HTTP (z HTTPS automatycznym przez Let's Encrypt), PHP runtime i Mercure w jednym binarnym pliku. Nie wymaga osobnego Nginx ani Apache.</p>
+
+  <div class="card green">
+    <strong>FrankenPHP z Laravel Octane</strong>
+    <pre style="margin:8px 0 0"><code># Instalacja FrankenPHP (binary)
+curl -L https://github.com/dunglas/frankenphp/releases/latest/download/frankenphp-linux-x86_64 \
+  -o /usr/local/bin/frankenphp && chmod +x /usr/local/bin/frankenphp
+
+# composer.json — Laravel z Octane i FrankenPHP
+composer require laravel/octane
+php artisan octane:install --server=frankenphp
+
+# Uruchomienie
+php artisan octane:frankenphp --workers=8 --max-requests=500
+
+# Produkcyjne uruchomienie z Caddyfile
+# Caddyfile
+{
+    frankenphp
+    order php_server before file_server
+}
+
+api.example.com {
+    root * /var/www/api/public
+    php_server
+    encode gzip
+}
+</code></pre>
+  </div>
+
+  <h2>Docker multi-stage build</h2>
+  <p>Multi-stage build pozwala zbudowac obraz produkcyjny bez narzedzi deweloperskich (Composer, dev dependencies). Kazdy stage zaczyna od osobnego obrazu bazowego — tylko artefakty z wybranych stagow trafiaja do finalnego obrazu.</p>
+
+<pre><code># Dockerfile — multi-stage dla Laravel API
+
+# Stage 1: Composer dependencies
+FROM composer:2.7 AS composer_stage
+
+WORKDIR /app
+COPY composer.json composer.lock ./
+
+# Instalacja zaleznosci produkcyjnych (bez dev)
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist \
+    --optimize-autoloader
+
+COPY . .
+RUN composer dump-autoload --optimize --no-dev
+
+# Stage 2: Finalny obraz produkcyjny
+FROM php:8.3-fpm-alpine AS production
+
+# Instalacja rozszerzen PHP
+RUN apk add --no-cache \
+        libpng-dev libjpeg-dev libwebp-dev \
+        libzip-dev oniguruma-dev icu-dev && \
+    docker-php-ext-install \
+        pdo_mysql mbstring zip intl opcache pcntl && \
+    docker-php-ext-enable opcache
+
+# Konfiguracja OPcache dla produkcji
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+
+# Konfiguracja PHP-FPM
+COPY docker/php/fpm-pool.conf /usr/local/etc/php-fpm.d/www.conf
+
+WORKDIR /var/www/api
+
+# Kopiowanie tylko potrzebnych plikow (bez docker/, tests/, .git/)
+COPY --chown=www-data:www-data --from=composer_stage /app/vendor ./vendor
+COPY --chown=www-data:www-data . .
+
+# Optymalizacje Laravel
+RUN php artisan config:cache && \
+    php artisan route:cache  && \
+    php artisan view:cache   && \
+    php artisan event:cache
+
+USER www-data
+EXPOSE 9000
+
+CMD ["php-fpm"]
+
+# docker-compose.yml (prod)
+# services:
+#   api:
+#     build:
+#       context: .
+#       target: production
+#     environment:
+#       APP_ENV: production
+#     secrets:
+#       - app_key
+#       - db_password
+</code></pre>
+
+  <h2>Laravel Forge i Ploi — managed deployment</h2>
+  <p><strong>Laravel Forge</strong> to oficjalny panel do provisioningu i deploymentu serwerow Laravel. Automatycznie konfiguruje Nginx, PHP-FPM, SSL, baze danych i kolejki. Integruje sie z DigitalOcean, AWS, Hetzner i Linode. <strong>Ploi</strong> to tansza alternatywa z podobnymi funkcjami i wsparciem dla dodatkowych frameworkow PHP.</p>
+
+  <h2>Zarzadzanie konfiguracja — .env i Vault</h2>
+  <p>Konfiguracja srodowiskowa (klucze API, hasla bazy danych) nigdy nie powinna byc commitowana do repozytorium. W malych projektach wystarczy plik <code>.env</code> na serwerze. W wiekszych wdrozeniach (Kubernetes, multi-region) zalecany jest dedykowany system zarzadzania sekretami.</p>
+
+  <div class="card orange">
+    <strong>Hierarchia konfiguracji dla PHP API</strong>
+    <ol style="margin-top:8px;margin-bottom:0">
+      <li><strong>Development:</strong> plik <code>.env</code> lokalnie, <code>.env.example</code> commitowany do repo (bez wartosci)</li>
+      <li><strong>Staging/CI:</strong> zmienne srodowiskowe w ustawieniach CI (GitHub Actions secrets, GitLab CI variables)</li>
+      <li><strong>Produkcja (VPS):</strong> <code>.env</code> na serwerze poza katalogiem web, chmod 600, owner www-data</li>
+      <li><strong>Produkcja (Kubernetes):</strong> Kubernetes Secrets + External Secrets Operator z HashiCorp Vault lub AWS Secrets Manager</li>
+      <li><strong>Laravel Forge/Ploi:</strong> panel webowy do zarzadzania zmiennymi srodowiskowymi (szyfrowane w bazie panelu)</li>
+    </ol>
+  </div>
+
+  <h3>OPcache Preloading — optymalizacja startu</h3>
+  <p>Preloading (PHP 7.4+) laduje klasy frameworka do OPcache przy starcie PHP-FPM. Laravel i Symfony maja wbudowane skrypty preload. Przy deploymencie nalezy zresetowac OPcache — najlatwiej przez restart PHP-FPM (<code>systemctl reload php8.3-fpm</code> lub <code>kill -USR2 $(cat /run/php/php8.3-fpm.pid)</code>).</p>
+
+  <div class="card red">
+    <strong>Checklist deploymentu PHP API na produkcje</strong>
+    <ul style="margin-top:8px;margin-bottom:0">
+      <li>Wlacz OPcache z <code>validate_timestamps=0</code></li>
+      <li>Uruchom <code>composer install --no-dev --optimize-autoloader</code></li>
+      <li>Uruchom <code>php artisan config:cache route:cache view:cache</code> (Laravel)</li>
+      <li>Ustaw <code>APP_ENV=production</code> i <code>APP_DEBUG=false</code></li>
+      <li>Skonfiguruj PHP-FPM pool z odpowiednia liczba procesow</li>
+      <li>Wlacz HTTPS z automatycznym odnowieniem (Let's Encrypt)</li>
+      <li>Skonfiguruj rate limiting i naglowki bezpieczenstwa w Nginx</li>
+      <li>Skonfiguruj logowanie bledow do centralnego systemu (Sentry, Datadog)</li>
+      <li>Uruchom migracje bazy danych (<code>php artisan migrate --force</code>)</li>
+      <li>Zrestartuj PHP-FPM po deploymencie (reset OPcache)</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="09-openapi-php.html">← 09-openapi-php.html</a>
+    <a href="../index.html">../index.html →</a>
+  </div>
+</div>
+</body>
+</html>

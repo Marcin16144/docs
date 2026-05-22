@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11-04 — Pomiar uziemienia</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">11 Pomiary</a><span class="sep">/</span><span class="title">11-04 Pomiar uziemienia</span>
+</div>
+<div class="container">
+<h1>Pomiar rezystancji uziemienia (Rz)</h1>
+<p class="subtitle">Trzy metody — 4-pin Wennera, 3-pin 62%, cęgi pętlowe; dopuszczalne wartości TT/LPS, korekcja sezonowa, napięcie zakłócające.</p>
+
+<h2>Powiązanie z 09-02</h2>
+<p>Pełna teoria oraz dopuszczalne wartości Rz są w <strong><a href="../09-uziemienie/09-02-pomiar-rezystancji.html">09-02 Pomiar rezystancji uziemienia</a></strong>. Tutaj — <strong>strona pomiarowa od strony protokołu odbiorowego</strong>.</p>
+
+<h2>Trzy metody pomiaru</h2>
+<table>
+<thead><tr><th>Metoda</th><th>Mernik</th><th>Dokładność</th><th>Wymaga sond?</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td><strong>4-pin Wennera</strong></td><td>MRU-105/200</td><td>najlepsza</td><td>tak (4 sondy)</td><td>rezystywność gruntu ρ, projekt uziomu</td></tr>
+<tr><td><strong>3-pin spadek napięcia 62%</strong></td><td>MRU-105/120</td><td>dobra</td><td>tak (2 sondy)</td><td>standardowy pomiar gotowego uziomu</td></tr>
+<tr><td><strong>Cęgi pętlowe / iClamp</strong></td><td>MRU-120/200, Fluke 1630</td><td>wystarczająca</td><td>NIE</td><td>szybki pomiar w TN bez odłączania</td></tr>
+</tbody>
+</table>
+
+<h2>Metoda 1 — 4-pinowa (Wenner)</h2>
+<p>Stosujemy do pomiaru <strong>rezystywności gruntu ρ [Ω·m]</strong> — niezbędna przy <strong>projektowaniu uziomu</strong>.</p>
+<pre><code>[C1] ─── a ─── [P1] ─── a ─── [P2] ─── a ─── [C2]
+
+ρ = 2π · a · R</code></pre>
+<ul>
+<li>4 sondy w jednej linii z równymi odstępami <strong>a</strong> (2 m, 4 m, 8 m, 16 m — dla różnych głębokości),</li>
+<li>prąd pomiarowy między C1 i C2, napięcie między P1 i P2,</li>
+<li>mernik liczy R, dalej ρ wg wzoru.</li>
+</ul>
+<p>Wynikiem jest <strong>wykres ρ(a)</strong> — pokazuje strukturę warstw gruntu.</p>
+
+<h2>Metoda 2 — 3-pinowa (62%)</h2>
+<p><strong>Standardowa metoda pomiaru istniejącego uziomu</strong> w odbiorze instalacji.</p>
+<pre><code>[Uziom E] ─── 15,5 m ─── [P] ─── 9,5 m ─── [H]
+                                          (sonda prądowa)
+            (sonda potencjałowa, 62% od E do H)</code></pre>
+<ul>
+<li>sonda prądowa H w odległości <strong>min. 25–30 m</strong> od uziomu,</li>
+<li>sonda potencjałowa P na <strong>62% odległości E→H</strong>,</li>
+<li>mernik wymusza prąd I (E→H), mierzy U (E→P),</li>
+<li><strong>Rz = U / I</strong>.</li>
+</ul>
+<div class="tip"><strong>Kontrola błędu metody:</strong> przesuń P o ±2 m. Różnice powinny być &lt; 5%. Jeśli więcej — H za blisko, oddal.</div>
+
+<h3>Procedura krok po kroku</h3>
+<ol>
+<li><strong>Odłącz uziom od instalacji</strong> (rozkręć zacisk w studzience lub na ścianie).</li>
+<li><strong>Rozłóż przewody pomiarowe</strong>:
+<ul>
+<li>czerwony 5–10 m (do badanego uziomu),</li>
+<li>żółty 15,5 m (do sondy P),</li>
+<li>zielony/niebieski 25 m (do sondy H),</li>
+<li>sondy w jednej linii, najlepiej <strong>prostopadle do osi uziomu</strong>, w odległości od konstrukcji metalowych.</li>
+</ul>
+</li>
+<li><strong>Wbij sondy</strong> na min. 30 cm głębokości, polej wodą jeśli grunt suchy.</li>
+<li><strong>Podłącz mernik</strong> zgodnie z opisem na obudowie (E / P / H lub rE / P / H).</li>
+<li><strong>Sprawdź napięcie zakłócające</strong> (mernik zwykle pokazuje przed pomiarem) — powinno być &lt; 10 V, optymalnie &lt; 3 V.</li>
+<li><strong>Wykonaj pomiar</strong> — odczyt Rz [Ω].</li>
+<li><strong>Przesuń P o ±2 m</strong> — pomiar kontrolny.</li>
+<li><strong>Zapisz wynik</strong> + warunki: pogoda, wilgotność gruntu, odległości sond.</li>
+<li><strong>Podłącz uziom z powrotem</strong> do instalacji.</li>
+</ol>
+
+<h2>Metoda 3 — cęgi (iClamp)</h2>
+<p><strong>Szybka metoda bez odłączania</strong> uziomu — kiedy mamy układ z <strong>pętlą zerową</strong> (TN z połączeniem do PEN, multi-grounded).</p>
+<p>Mernik MRU-120/200 lub Fluke 1630 ma <strong>dwie cęgi</strong>:</p>
+<ul>
+<li>jedna wymusza napięcie indukowane,</li>
+<li>druga mierzy prąd w pętli.</li>
+</ul>
+<pre><code>Rz = U / I</code></pre>
+<p><strong>Ograniczenie:</strong> mierzy uziom w obecności równoległej pętli. Dla pojedynczego uziomu domu w TT — metoda <strong>niemożliwa</strong> (brak pętli zwarcia).</p>
+<p>Stosowane w:</p>
+<ul>
+<li>stacjach trafo z wieloma uziomami,</li>
+<li>liniach napowietrznych z multi-grounding,</li>
+<li>LPS z kilkoma przewodami odprowadzającymi.</li>
+</ul>
+
+<h2>Mierniki — typowe modele</h2>
+<table>
+<thead><tr><th>Model</th><th>Producent</th><th>Metody</th><th>Cena</th></tr></thead>
+<tbody>
+<tr><td><strong>MRU-105</strong></td><td>Sonel</td><td>3-pin, 4-pin Wenner</td><td>~3500 zł</td></tr>
+<tr><td><strong>MRU-120</strong></td><td>Sonel</td><td>+ cęgi</td><td>~5500 zł</td></tr>
+<tr><td><strong>MRU-200</strong></td><td>Sonel</td><td>+ Bluetooth, pamięć</td><td>~7000 zł</td></tr>
+<tr><td><strong>Fluke 1625-2</strong></td><td>Fluke</td><td>wszystkie metody, IP56</td><td>~10 000 zł</td></tr>
+<tr><td><strong>Fluke 1630-2 FC</strong></td><td>Fluke</td><td>cęgi z FC</td><td>~6000 zł</td></tr>
+<tr><td><strong>Kyoritsu 4140A</strong></td><td>Kyoritsu</td><td>3-pin podstawowy</td><td>~2500 zł</td></tr>
+</tbody>
+</table>
+<div class="warning"><strong>Wzorcowanie</strong>: co 13 miesięcy w akredytowanym laboratorium.</div>
+
+<h2>Dopuszczalne wartości</h2>
+<table>
+<thead><tr><th>Zastosowanie</th><th>Maks. Rz</th></tr></thead>
+<tbody>
+<tr><td>Układ TT (domowy z RCD 30 mA)</td><td><strong>&lt;30 Ω</strong> (praktyka &lt;10 Ω)</td></tr>
+<tr><td>LPS — instalacja odgromowa</td><td><strong>&lt;10 Ω</strong></td></tr>
+<tr><td>Centralka p.poż</td><td>&lt;10 Ω</td></tr>
+<tr><td>Stacja transformatorowa</td><td>&lt;5 Ω</td></tr>
+</tbody>
+</table>
+
+<h2>Korekcja sezonowa</h2>
+<p>Rezystancja uziomu silnie zależy od wilgotności i temperatury gruntu:</p>
+<table>
+<thead><tr><th>Pora roku</th><th>Mnożnik wartości suchej (latem)</th></tr></thead>
+<tbody>
+<tr><td>Lato (suche)</td><td>×1,0</td></tr>
+<tr><td>Wiosna / jesień (wilgotna)</td><td>×0,7–0,9</td></tr>
+<tr><td>Zima (zamarznięty grunt)</td><td><strong>×3–5</strong></td></tr>
+<tr><td>Po pomiarze w deszczowy dzień</td><td>mnoż przez ×1,5 do oceny</td></tr>
+</tbody>
+</table>
+<p><strong>Najlepsza pora pomiaru:</strong> <strong>lato suche</strong> (warunek najgorszy w cyklu rocznym) lub <strong>jesień</strong>.</p>
+
+<h2>Pomiar napięcia zakłócającego</h2>
+<p>Przed pomiarem mernik mierzy <strong>napięcie zewnętrzne</strong> na sondach:</p>
+<table>
+<thead><tr><th>U_zakł</th><th>Działanie</th></tr></thead>
+<tbody>
+<tr><td>&lt; 3 V</td><td>OK, pomiar dokładny</td></tr>
+<tr><td>3 – 10 V</td><td>dopuszczalne, niektóre mierniki kompensują</td></tr>
+<tr><td>&gt; 10 V</td><td><strong>NIE mierz</strong> — wynik nieważny</td></tr>
+</tbody>
+</table>
+<p>Przyczyny wysokiego U_zakł: prądy błądzące, linie 110/220 kV w pobliżu, elektrolitka w gruncie, bliskość stacji trafo. Rozwiązanie: przesuń sondy, mierz w innej porze dnia.</p>
+
+<h2>Najczęstsze błędy</h2>
+<table>
+<thead><tr><th>Błąd</th><th>Skutek</th></tr></thead>
+<tbody>
+<tr><td>Nie odłączono uziomu od instalacji</td><td>mierzymy „uziom + cała pętla sieci" — wynik zaniżony</td></tr>
+<tr><td>Sondy za blisko uziomu</td><td>zakres w „strefie wpływu" uziomu — niedokładny</td></tr>
+<tr><td>Sondy w jednej linii z uziomem otokowym</td><td>trzeba prostopadle lub min. 90° od osi uziomu</td></tr>
+<tr><td>Sondy w bardzo suchym piasku</td><td>wysokie R sondy, mernik nie wymusi prądu — polej wodą</td></tr>
+<tr><td>Mernik źle skalibrowany</td><td>wynik fałszywy o stały błąd — wzorcuj co 13 mies.</td></tr>
+</tbody>
+</table>
+
+<h2>Przykład — protokół</h2>
+<pre><code>Mernik: Sonel MRU-105, S/N 56789, kal. 2024-09
+Metoda: 3-pin (62%)
+Pogoda: 18 °C, słonecznie, grunt suchy
+Lokalizacja: dom jednorodzinny, uziom otokowy FeZn 30×4
+
+Konfiguracja:
+  uziom E: studzienka kontrolna SW od budynku
+  sonda P: 15,5 m od E (prostopadle do ściany)
+  sonda H: 25 m od E
+
+Pomiary:
+  Pomiar 1: Rz = 18,2 Ω
+  Pomiar 2 (P +2 m): Rz = 17,9 Ω      (różnica 1,6%, &lt;5% ✓)
+  Pomiar 3 (P -2 m): Rz = 18,6 Ω      (różnica 2,2%, &lt;5% ✓)
+
+Wartość średnia: Rz = 18,2 Ω
+Wymóg (TT z RCD 30 mA, bez LPS): &lt; 30 Ω → OK ✓</code></pre>
+
+<div class="nav-bottom">
+<a href="11-03-test-rcd.html">⟵ Test RCD</a>
+<a href="11-05-ciaglosc.html">Ciągłość PE →</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiber Framework</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Go</a>
+  <span class="sep">/</span>
+  <span class="title">Fiber Framework</span>
+</div>
+<div class="container">
+  <h1>Fiber Framework</h1>
+  <p class="subtitle">Express-inspirowany framework oparty na fasthttp — maksymalna wydajnosc i minimalne zuzycie pamieci</p>
+
+  <h2>fiber.New() i konfiguracja</h2>
+  <p>Fiber jest zbudowany na bibliotece <strong>fasthttp</strong> zamiast standardowego <code>net/http</code>. Dzieki temu osiaga znacznie wyzszy throughput i nizsze zuzycie pamieci niz Gin czy Echo. Interfejs API jest inspirowany Express.js, co sprawia, ze jest intuicyjny dla deweloperow Node.js.</p>
+  <p>Glowne zastrzezenie: Fiber nie jest kompatybilny z <code>net/http</code> — middleware napisane dla Gin/Echo nie beda dzialac bezposrednio. To wazna decyzja architektoniczna przy wyborze frameworka.</p>
+
+<pre><code>package main
+
+import (
+    "log"
+    "time"
+
+    "github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v2/middleware/cors"
+    "github.com/gofiber/fiber/v2/middleware/helmet"
+    "github.com/gofiber/fiber/v2/middleware/limiter"
+    "github.com/gofiber/fiber/v2/middleware/logger"
+)
+
+func main() {
+    app := fiber.New(fiber.Config{
+        AppName:               "MyAPI v1.0",
+        ReadTimeout:           10 * time.Second,
+        WriteTimeout:          10 * time.Second,
+        IdleTimeout:           30 * time.Second,
+        BodyLimit:             4 * 1024 * 1024, // 4 MB
+        EnablePrintRoutes:     true,
+        ErrorHandler:          customErrorHandler,
+    })
+
+    // Middleware bezpieczenstwa
+    app.Use(helmet.New())
+    app.Use(cors.New(cors.Config{
+        AllowOrigins: "https://example.com",
+        AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+        AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+    }))
+
+    // Rate limiting: 20 req/min per IP
+    app.Use(limiter.New(limiter.Config{
+        Max:        20,
+        Expiration: 1 * time.Minute,
+    }))
+
+    app.Use(logger.New())
+
+    // Routing
+    api := app.Group("/api/v1")
+    api.Get("/users", listUsers)
+    api.Post("/users", createUser)
+    api.Get("/users/:id", getUser)
+
+    log.Fatal(app.Listen(":8080"))
+}</code></pre>
+
+  <h2>Routing i parametry</h2>
+  <p>Fiber uzywa podobnej skladni do Express. Parametry sciezki sa dostepne przez <code>c.Params("name")</code>, query params przez <code>c.Query("name")</code>, a naglowki przez <code>c.Get("Header-Name")</code>.</p>
+
+  <h3>Grupy i prefiksy</h3>
+  <ul>
+    <li><code>app.Group("/prefix")</code> — tworzy grupe tras z prefiksem</li>
+    <li><code>app.Route("/path", func(r fiber.Router){ ... })</code> — zagniezdzona konfiguracja</li>
+    <li>Grupy dziedzicza middleware zarejestrowane przez <code>group.Use()</code></li>
+  </ul>
+
+  <h3>Parametry i wildcards</h3>
+  <ul>
+    <li><code>/users/:id</code> — wymagany parametr</li>
+    <li><code>/files/*</code> — wildcard (wszystko po /files/)</li>
+    <li><code>/users/:id?</code> — opcjonalny parametr</li>
+    <li><code>c.Params("*")</code> — wartosc wildcard</li>
+  </ul>
+
+  <h2>ctx.BodyParser i ctx.JSON</h2>
+  <p><code>ctx.BodyParser(v)</code> automatycznie wykrywa format ciala na podstawie <code>Content-Type</code> i deserializuje do wskazanej struktury. Obsluguje JSON, XML, form-data i URL-encoded. <code>ctx.JSON(data)</code> serializuje odpowiedz do JSON z kodem 200.</p>
+
+<pre><code>type CreateOrderRequest struct {
+    ProductID int     `json:"product_id" validate:"required"`
+    Quantity  int     `json:"quantity"   validate:"required,min=1"`
+    Address   string  `json:"address"    validate:"required"`
+    Total     float64 `json:"total"`
+}
+
+func createOrder(c *fiber.Ctx) error {
+    var req CreateOrderRequest
+
+    if err := c.BodyParser(&req); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "niepoprawny format danych",
+        })
+    }
+
+    // Walidacja (np. go-playground/validator)
+    if req.Quantity < 1 {
+        return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+            "error": "ilosc musi byc wieksza od 0",
+        })
+    }
+
+    // Dostep do naglowkow i metadanych
+    userID := c.Locals("userID")
+    ip := c.IP()
+    _ = ip
+
+    return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+        "order_id":   1234,
+        "user_id":    userID,
+        "product_id": req.ProductID,
+        "status":     "pending",
+    })
+}
+
+// Wlasny handler bledow
+func customErrorHandler(c *fiber.Ctx, err error) error {
+    code := fiber.StatusInternalServerError
+    if e, ok := err.(*fiber.Error); ok {
+        code = e.Code
+    }
+    return c.Status(code).JSON(fiber.Map{
+        "error": err.Error(),
+        "code":  code,
+    })
+}</code></pre>
+
+  <h2>fasthttp internals — dlaczego Fiber jest szybszy</h2>
+  <p>Standardowe <code>net/http</code> alokuje nowy obiekt <code>http.Request</code> dla kazdego zadania. fasthttp uzywa <strong>puli obiektow</strong> — <code>RequestCtx</code> jest reuzywany miedzy zadaniami, co drastycznie redukuje presje na garbage collector.</p>
+
+  <div class="card orange">
+    <h3>Wazne ostrzezenie dotyczace goroutines</h3>
+    <p>Poniewaz <code>fiber.Ctx</code> jest reuzywany po zakonczeniu handlera, <strong>nie mozna przekazywac go do goroutine</strong> bez wczesniejszego skopiowania danych. Uzyj <code>c.Body()</code> i skopiuj dane przed uruchomieniem goroutine, albo uzyj <code>c.Context()</code> ktory zwraca kontekst z dluzsza zywotnoscia.</p>
+  </div>
+
+  <h2>WebSocket w Fiber</h2>
+  <p>Fiber ma wbudowane wsparcie WebSocket przez pakiet <code>github.com/gofiber/websocket/v2</code>. Upgrade polaczenia odbywa sie przez middleware <code>websocket.New()</code>.</p>
+
+  <h2>Fiber vs Gin vs Echo — porownanie</h2>
+  <table>
+    <thead>
+      <tr><th>Cecha</th><th>Fiber v2</th><th>Gin v1</th><th>Echo v4</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>HTTP engine</td><td>fasthttp</td><td>net/http</td><td>net/http</td></tr>
+      <tr><td>Kompatybilnosc net/http</td><td>Brak</td><td>Pelna</td><td>Pelna</td></tr>
+      <tr><td>Throughput (req/s)</td><td>Najwyzszy</td><td>Wysoki</td><td>Wysoki</td></tr>
+      <tr><td>Zuzycie pamieci</td><td>Najnizsze</td><td>Niskie</td><td>Niskie</td></tr>
+      <tr><td>Latencja p99</td><td>Najnizsza</td><td>Niska</td><td>Niska</td></tr>
+      <tr><td>Goroutine safety ctx</td><td>Uwaga (reuse)</td><td>Bezpieczny</td><td>Bezpieczny</td></tr>
+      <tr><td>Ekosystem middleware</td><td>Rosnie szybko</td><td>Bardzo duzy</td><td>Duzy</td></tr>
+      <tr><td>Krzywa uczenia</td><td>Mala (Express-like)</td><td>Mala</td><td>Srednia</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <h3>Kiedy wybrac Fiber?</h3>
+    <ul>
+      <li>Budujesz API o bardzo wysokim ruchu gdzie kazda milisekunda ma znaczenie</li>
+      <li>Chcesz minimalizowac zuzycie pamieci (np. srodowiska kontenerowe z limitami)</li>
+      <li>Twoj zespol zna Express.js i chce podobnego interfejsu w Go</li>
+      <li>Nie potrzebujesz interoperacyjnosci z istniejacym ekosystemem net/http</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="03-echo.html">&#8592; 03-echo.html</a>
+    <a href="05-chi.html">05-chi.html &#8594;</a>
+  </div>
+</div>
+</body>
+</html>

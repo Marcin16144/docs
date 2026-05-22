@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>12-05 — Magazyn energii</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">12 Fotowoltaika</a><span class="sep">/</span><span class="title">12-05 Magazyn energii</span>
+</div>
+<div class="container">
+<h1>Magazyn energii</h1>
+<p class="subtitle">Akumulatory LiFePO4 vs NMC, topologia AC/DC, dobór pojemności, ekonomia, EMS, dotacja Mój Prąd.</p>
+
+<h2>Po co magazyn</h2>
+<p>W systemie <strong>net-billing</strong> każda kWh oddana do sieci jest warta 0,30-0,40 zł, a kupiona — 0,80 zł. Magazyn pozwala <strong>przechowywać własną nadwyżkę</strong> i wykorzystywać ją wieczorem zamiast oddawać do sieci.</p>
+<p>Drugie zastosowanie — <strong>zasilanie awaryjne</strong> (gdy zniknie napięcie z sieci, magazyn + inwerter hybrydowy może podtrzymać kluczowe obwody w trybie <em>backup</em>).</p>
+
+<h2>Chemia akumulatora</h2>
+<table>
+<thead><tr><th>Typ</th><th>Cykli</th><th>DoD</th><th>Bezpieczeństwo</th><th>Cena</th></tr></thead>
+<tbody>
+<tr><td><strong>LiFePO4 (LFP)</strong></td><td>6000-8000</td><td>100 %</td><td>wysokie (nieaktywna chemia, niska temperatura)</td><td>średnia</td></tr>
+<tr><td><strong>NMC (lit-jon)</strong></td><td>3000-5000</td><td>90 %</td><td>średnie (ryzyko thermal runaway)</td><td>wyższa</td></tr>
+<tr><td>Kwasowo-ołowiowe AGM</td><td>500-1500</td><td>50 %</td><td>wysokie</td><td>niska, ale niski TCO</td></tr>
+</tbody>
+</table>
+<p><strong>LiFePO4 jest standardem</strong> dla magazynów domowych w 2024-2025. Bezpieczne (chemia praktycznie niepalna w warunkach domowych), wytrzymują 100 % rozładowania, długa żywotność ~15-20 lat.</p>
+<p><strong>DoD</strong> (<em>Depth of Discharge</em>) — głębokość rozładowania. LFP 100 % = wykorzystujesz całą pojemność.</p>
+
+<h2>Dobór pojemności</h2>
+<p>Reguła kciuka: <strong>50-100 % zużycia dobowego</strong>.</p>
+<table>
+<thead><tr><th>Zużycie dobowe domu</th><th>Magazyn</th></tr></thead>
+<tbody>
+<tr><td>8-10 kWh (małe mieszkanie)</td><td>5 kWh</td></tr>
+<tr><td>12-15 kWh (typowy dom)</td><td>5-10 kWh</td></tr>
+<tr><td>20-30 kWh (dom + pompa ciepła + EV)</td><td>10-15 kWh</td></tr>
+</tbody>
+</table>
+<p>Magazyn większy niż dobowe zużycie ma marginalny zysk — zostaje niewykorzystany latem (gdy produkcja &gt;&gt; zużycie) i nie pomaga zimą (gdy produkcja &lt;&lt; zużycie).</p>
+
+<h2>Topologia AC vs DC</h2>
+<h3>Magazyn DC (DC-coupled)</h3>
+<p>Akumulator podłączony do <strong>inwertera hybrydowego</strong> przez magistralę DC.</p>
+<pre><code>PV ─DC─→ inwerter hybrydowy ─AC─→ sieć/dom
+              ↓ DC
+           magazyn</code></pre>
+<ul>
+<li>Sprawność round-trip 92-95 % (jedna konwersja)</li>
+<li>Wymaga inwertera hybrydowego od początku lub wymiany</li>
+<li>Łatwiejszy backup (inwerter steruje wszystkim)</li>
+</ul>
+<h3>Magazyn AC (AC-coupled)</h3>
+<p>Akumulator z własnym inwerterem ładująco-rozładowującym podłączony do sieci AC domu.</p>
+<pre><code>PV ─DC─→ inwerter PV ─AC─→ sieć/dom
+                              ↑
+                          inwerter magazynu ↔ akumulator</code></pre>
+<ul>
+<li>Sprawność round-trip 85-90 % (dwie konwersje DC-AC-DC-AC)</li>
+<li><strong>Modernizacja istniejącej instalacji</strong> PV bez wymiany inwertera</li>
+<li>Drożej (dodatkowy inwerter magazynu)</li>
+<li>Tesla Powerwall, Sonnen, Huawei LUNA AC</li>
+</ul>
+
+<h2>Ekonomia</h2>
+<p>Aktualne ceny (PL, 2024-2025):</p>
+<table>
+<thead><tr><th>Pojemność</th><th>Cena pakietu (akumulator + BMS)</th><th>Cena z montażem</th></tr></thead>
+<tbody>
+<tr><td>5 kWh LFP</td><td>8-12 tys. zł</td><td>12-18 tys. zł</td></tr>
+<tr><td>10 kWh LFP</td><td>14-22 tys. zł</td><td>20-32 tys. zł</td></tr>
+<tr><td>15 kWh LFP</td><td>22-32 tys. zł</td><td>30-45 tys. zł</td></tr>
+</tbody>
+</table>
+<p><strong>~3-5 zł/Wh</strong> = 3000-5000 zł/kWh — taki jest aktualny zakres cen. Ceny spadają ~10 %/rok.</p>
+<h3>Roczny zysk z magazynu 10 kWh</h3>
+<pre><code>Cykli rocznie ~280 (latem 1 cykl, zimą 0)
+Energia "uratowana" rocznie: 280 × 10 × 0,9 = 2520 kWh
+Wartość: 2520 × (0,80 - 0,35) = ~1100 zł/rok</code></pre>
+<p>Czas zwrotu: <strong>15-25 lat</strong> bez dotacji, <strong>8-12 lat</strong> z dotacją Mój Prąd 16 000 zł.</p>
+<div class="callout">Magazyn ekonomicznie sensowny dziś <strong>tylko z dotacją</strong> lub w roli backupu (gdy ważne jest podtrzymanie zasilania).</div>
+
+<h2>Funkcje EMS i HEMS</h2>
+<p><strong>EMS</strong> (<em>Energy Management System</em>) — wbudowany w inwerter hybrydowy algorytm:</p>
+<ul>
+<li>ładuje magazyn z nadwyżki PV</li>
+<li>rozładowuje wieczorem</li>
+<li>czasem ładuje z sieci w taryfie nocnej G12 (dla taryf dynamicznych z tanim okresem)</li>
+</ul>
+<p><strong>HEMS</strong> (<em>Home Energy Management System</em>) — szerszy system zarządzający też pompą ciepła, EV, AGD na podstawie produkcji PV i cen energii. Realizowany przez Home Assistant, EVCC, OpenWB, dedykowane systemy producentów (Solaredge, Huawei).</p>
+
+<h2>Bezpieczeństwo i montaż</h2>
+<ul>
+<li><strong>Pomieszczenie</strong>: garaż / kotłownia / piwnica, temp. 5-35 °C, dobra wentylacja</li>
+<li><strong>PE i uziemienie</strong> obowiązkowe</li>
+<li><strong>Czujnik dymu</strong> zalecany w pobliżu</li>
+<li><strong>Klasa palności</strong> ścian wokół magazynu — większe (&gt;20 kWh) wymagają wydzielonej strefy p-poż</li>
+<li><strong>Zgłoszenie OSD</strong> dla instalacji magazynu z PV — analogicznie do PV</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="12-04-net-billing.html">⟵ Net-billing</a>
+<a href="../13-smart-home/index.html">Smart home →</a>
+</div>
+</div>
+</body>
+</html>

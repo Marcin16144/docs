@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03-06-wzmacniacz-operacyjny - Wzmacniacz operacyjny (op-amp)</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:850px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:24px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:22px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text-muted);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6;white-space:pre}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}        .schem{background:#0a0e1a;border:1px solid var(--border);border-radius:12px;padding:20px;margin:18px 0 24px;display:flex;justify-content:center}
+        .schem svg{width:100%;max-width:520px;height:auto}
+        .schem .wire{stroke:#cbd5e1;stroke-width:1.8;fill:none;stroke-linecap:round}
+        .schem .wire-pos{stroke:#f87171;stroke-width:1.8;fill:none}
+        .schem .comp{stroke:#f1f5f9;stroke-width:1.6;fill:none}
+        .schem .comp-fill{fill:#f1f5f9;stroke:#f1f5f9}
+        .schem .node{fill:#38bdf8}
+        .schem .label{fill:#94a3b8;font-family:'Segoe UI',sans-serif;font-size:11px}
+        .schem .label-val{fill:#4ade80;font-family:'Cascadia Code',monospace;font-size:10px}
+        .schem .label-pin{fill:#fbbf24;font-family:'Cascadia Code',monospace;font-size:9px}
+        .schem .label-pos{fill:#f87171;font-family:'Cascadia Code',monospace;font-size:11px;font-weight:600}
+        .schem .gnd{stroke:#94a3b8;stroke-width:1.6;fill:none}
+        .schem .ic-body{fill:#1e293b;stroke:#f1f5f9;stroke-width:1.5}
+        .schem .ic-label{fill:#e2e8f0;font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:600;text-anchor:middle}
+        .schem-ascii{background:#0a0e1a;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:8px 16px;margin:16px 0 24px}
+        .schem-ascii::before{content:'SCHEMAT (ASCII) - wersja SVG: schematy.html';display:block;font-size:.72rem;color:var(--accent);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+        .schem-ascii pre{background:transparent;border:none;padding:6px 0 12px;margin:0}
+        .schem-banner{background:linear-gradient(135deg,rgba(56,189,248,0.12),rgba(167,139,250,0.08));border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:14px 20px;margin:16px 0 24px;font-size:.92rem;display:flex;align-items:center;gap:12px}
+        .schem-banner .icon{font-size:1.5rem}
+        .schem-banner a{color:var(--accent);font-weight:600;text-decoration:none}
+        .schem-banner a:hover{text-decoration:underline}
+
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Strona glowna</a>
+        <span class="sep">/</span>
+        <a href="03-elementy-polprzewodnikowe.html">03 - Polprzewodniki</a>
+        <span class="sep">/</span>
+        <span class="title">03-06-wzmacniacz-operacyjny</span>
+    </div>
+    <div class="container">
+        <h1>Wzmacniacz operacyjny (op-amp)</h1>
+        <div class="schem-banner">
+            <span class="icon">[SVG]</span>
+            <span>Wszystkie schematy z tej strony w pelnej wersji SVG (symbole IEC, kolory, etykiety) - zobacz na stronie <a href="schematy.html">Schematy elektroniczne</a>.</span>
+        </div>
+<h2>Czym jest op-amp</h2>
+<p><strong>Wzmacniacz różnicowy</strong> o bardzo dużym wzmocnieniu napięciowym (10⁵-10⁶), wysokiej impedancji wejścia i niskiej wyjścia. Podstawowy "klocek" elektroniki analogowej.</p>
+<p>Nazwa "operacyjny" — bo pierwotnie służył do realizacji operacji matematycznych w komputerach analogowych (dodawanie, całkowanie, różniczkowanie).</p>
+<h3>Symbol</h3>
+<div class="schem-ascii"><pre><code>
+         +V (zasilanie +)
+            │
+    + ───┐  │
+         │\ │
+         │ \│
+         │  &gt;─── wyjście (Vout)
+         │ /
+         │/
+    − ───┘
+            │
+         -V (lub GND)
+</code></pre></div>
+<ul>
+<li><strong>+</strong> (wejście nieodwracające, non-inverting)</li>
+<li><strong>−</strong> (wejście odwracające, inverting)</li>
+<li><strong>Vout</strong> wyjście</li>
+<li><strong>+V, -V</strong> zasilanie (jednonapięciowe lub symetryczne)</li>
+</ul>
+<h3>Podstawowa zasada</h3>
+<pre><code>
+Vout = A · (V+ − V−)
+
+A — wzmocnienie open-loop (typowo 100 000+)
+</code></pre>
+<p>Czyli wyjście to wzmocniona różnica napięć wejść. Praktycznie zawsze stosujemy ze sprzężeniem zwrotnym — wtedy wzór upraszcza się dramatycznie.</p>
+<h2>"Złote zasady" op-ampa (z ujemnym sprzężeniem zwrotnym)</h2>
+<ol>
+<li><strong>Wejścia mają takie samo napięcie</strong> — V+ = V- (op-amp dąży do tego stanu)</li>
+<li><strong>Wejścia nie pobierają prądu</strong> — I_in ≈ 0</li>
+</ul>
+<p>To dwa założenia idealizacji. W praktyce trzymane są z dużą dokładnością.</p>
+<h2>Parametry rzeczywistego op-ampa</h2>
+<table>
+<thead><tr>
+<th>Parametr</th>
+<th>Symbol</th>
+<th>Idealnie</th>
+<th>Typowo</th>
+</tr></thead><tbody>
+<tr>
+<td>Wzmocnienie open-loop</td>
+<td>A_OL</td>
+<td>∞</td>
+<td>100 000 – 10 000 000</td>
+</tr>
+<tr>
+<td>Impedancja wejścia</td>
+<td>Z_in</td>
+<td>∞</td>
+<td>10⁶-10¹² Ω</td>
+</tr>
+<tr>
+<td>Impedancja wyjścia</td>
+<td>Z_out</td>
+<td>0</td>
+<td>10-100 Ω</td>
+</tr>
+<tr>
+<td>Pasmo (GBP)</td>
+<td>f_T</td>
+<td>∞</td>
+<td>1 MHz – 100 MHz</td>
+</tr>
+<tr>
+<td>Prąd polaryzacji wej.</td>
+<td>I_B</td>
+<td>0</td>
+<td>nA – pA</td>
+</tr>
+<tr>
+<td>Offset napięciowy</td>
+<td>V_OS</td>
+<td>0</td>
+<td>μV – mV</td>
+</tr>
+<tr>
+<td>Slew rate</td>
+<td>SR</td>
+<td>∞</td>
+<td>0,5-100 V/μs</td>
+</tr>
+<tr>
+<td>Zakres CMRR</td>
+<td>CMRR</td>
+<td>∞</td>
+<td>70-120 dB</td>
+</tr>
+</tbody></table>
+<h3>Slew Rate</h3>
+<p>Maksymalna szybkość zmiany napięcia wyjścia. Ogranicza pasmo dla dużych amplitud.</p>
+<p>LM741: SR = 0,5 V/μs → niemożliwe wyjście 10 V/100 kHz (potrzebuje 6,28 V/μs).</p>
+<h3>GBP — Gain-Bandwidth Product</h3>
+<p>Iloczyn wzmocnienia i pasma jest stały. Stąd:</p>
+<ul>
+<li>Wzmocnienie 1 → pasmo = GBP</li>
+<li>Wzmocnienie 100 → pasmo = GBP / 100</li>
+</ul>
+<p>LM358 ma GBP ≈ 1 MHz. Przy wzmocnieniu 10 → maks. f = 100 kHz.</p>
+<h2>Popularne op-ampy</h2>
+<table>
+<thead><tr>
+<th>Model</th>
+<th>Typ</th>
+<th>Zasilanie</th>
+<th>GBP</th>
+<th>SR</th>
+<th>Cena</th>
+</tr></thead><tbody>
+<tr>
+<td>LM741</td>
+<td>klasyk</td>
+<td>±5 do ±18 V</td>
+<td>1 MHz</td>
+<td>0,5 V/μs</td>
+<td>grosze</td>
+</tr>
+<tr>
+<td>LM358 / LM324</td>
+<td>single-supply</td>
+<td>3-32 V</td>
+<td>1 MHz</td>
+<td>0,5 V/μs</td>
+<td>grosze</td>
+</tr>
+<tr>
+<td>TL072 / TL082</td>
+<td>JFET, audio</td>
+<td>±5 do ±18 V</td>
+<td>3 MHz</td>
+<td>13 V/μs</td>
+<td>tanie</td>
+</tr>
+<tr>
+<td>TL081</td>
+<td>JFET single</td>
+<td>jw</td>
+<td>jw</td>
+<td>jw</td>
+<td>tani</td>
+</tr>
+<tr>
+<td>NE5532</td>
+<td>audio premium</td>
+<td>±5 do ±18 V</td>
+<td>10 MHz</td>
+<td>9 V/μs</td>
+<td>nieco droższy</td>
+</tr>
+<tr>
+<td>OPA2134</td>
+<td>premium audio</td>
+<td>±5 do ±15 V</td>
+<td>8 MHz</td>
+<td>20 V/μs</td>
+<td>drogi</td>
+</tr>
+<tr>
+<td>LM4562</td>
+<td>very low noise</td>
+<td>jw</td>
+<td>55 MHz</td>
+<td>20 V/μs</td>
+<td>drogi</td>
+</tr>
+<tr>
+<td>MCP6002</td>
+<td>rail-to-rail</td>
+<td>1,8-6 V</td>
+<td>1 MHz</td>
+<td>0,6 V/μs</td>
+<td>tani</td>
+</tr>
+<tr>
+<td>LM393</td>
+<td>komparator</td>
+<td>jw</td>
+<td>—</td>
+<td>—</td>
+<td>tani</td>
+</tr>
+</tbody></table>
+<h2>Konfiguracje podstawowe</h2>
+<h3>1. Wtórnik napięciowy (voltage follower / buffer)</h3>
+<div class="schem-ascii"><pre><code>
+   in ──┬─── + 
+        │    &gt;─── out (Vout = Vin)
+        │   −
+        │   │
+        └───┴
+</code></pre></div>
+<p>Wzmocnienie = 1. Stosowany jako bufor — wysoka impedancja wejścia, niska wyjścia. <strong>Najczęstsze użycie op-ampa.</strong></p>
+<h3>2. Wzmacniacz nieodwracający</h3>
+<div class="schem-ascii"><pre><code>
+   in ──── + 
+            &gt;─── out
+       ┌── −
+       │   │
+      [R2] │
+       │   │
+      GND  │
+       │   │
+      [R1] │
+       │   │
+       ●───┘
+</code></pre></div>
+<p>Wzmocnienie:</p>
+<pre><code>
+A = 1 + R1/R2
+</code></pre>
+<p>Wejście wysokoimpedancyjne, sygnał w fazie.</p>
+<h3>3. Wzmacniacz odwracający</h3>
+<div class="schem-ascii"><pre><code>
+        ┌──[R_f]──┐
+        │         │
+  in ──[R_in]──── ─       
+              │   &gt;─── out
+              + 
+              │   
+             GND
+</code></pre></div>
+<p>Wzmocnienie:</p>
+<pre><code>
+A = − R_f / R_in
+</code></pre>
+<p>Sygnał odwrócony (180°). Impedancja wejściowa = R_in.</p>
+<h3>4. Sumator (mixer)</h3>
+<p>Wiele wejść równolegle z osobnymi rezystorami:</p>
+<div class="schem-ascii"><pre><code>
+   in1 ──[R1]──┐
+   in2 ──[R2]──●──── ─
+   in3 ──[R3]──┘     &gt;── out
+                +
+               GND
+   
+   sprzężenie zwrotne: out ─[Rf]─ punkt sumujący
+</code></pre></div>
+<pre><code>
+Vout = −(Vin1·Rf/R1 + Vin2·Rf/R2 + Vin3·Rf/R3)
+</code></pre>
+<p>Stosowane w mikserach audio.</p>
+<h3>5. Wzmacniacz różnicowy (instrumentation)</h3>
+<p>Z dwoma wejściami, wzmacnia ich różnicę, tłumi sygnał wspólny (common mode).</p>
+<pre><code>
+Vout = (R2/R1) · (V2 - V1)
+</code></pre>
+<p>Klasyczna konfiguracja używa <strong>trzech op-ampów</strong> lub gotowych ICs (INA126, AD623).</p>
+<h3>6. Komparator</h3>
+<p>Bez sprzężenia zwrotnego. Wyjście = +V_sat lub -V_sat zależnie od relacji V+ i V-.</p>
+<pre><code>
+V+ &gt; V-  →  Vout = +V_sat
+V+ &lt; V-  →  Vout = -V_sat
+</code></pre>
+<p>LM393 jest dedykowanym komparatorem (z otwartym kolektorem).</p>
+<h3>7. Komparator z histerezą (Schmitt trigger)</h3>
+<p>Dodatkowe sprzężenie zwrotne dodatnie. Daje histerezę — odporność na szumy.</p>
+<pre><code>
+V_TH_high = V_ref · (1 + R1/R2) + Vout_min · R1/R2
+V_TH_low  = V_ref · (1 + R1/R2) + Vout_max · R1/R2
+</code></pre>
+<h3>8. Integrator</h3>
+<div class="schem-ascii"><pre><code>
+       ┌──[C]──┐
+       │       │
+  in ─[R]──────●── ─
+                  &gt;─── out (całka po sygnale)
+              +
+             GND
+</code></pre></div>
+<pre><code>
+Vout = −(1/RC) · ∫ Vin dt
+</code></pre>
+<p>Wyjście jest <strong>całką</strong> napięcia wejściowego. Stosowane w filtrach, generatorach przebiegów piłowych, regulatorach PID.</p>
+<h3>9. Różniczkator</h3>
+<div class="schem-ascii"><pre><code>
+        ┌──[R]──┐
+        │       │
+  in ─[C]──────●── ─
+                   &gt;─── out (pochodna)
+              +
+             GND
+</code></pre></div>
+<pre><code>
+Vout = −RC · dVin/dt
+</code></pre>
+<p>Wzmacnia szumy HF — w praktyce dodaje się ograniczenia.</p>
+<h3>10. Filtr aktywny</h3>
+<p>Op-amp + RC daje filtr o znanej charakterystyce (Butterworth, Chebyshev, Bessel). Pozwala robić aktywne filtry górno-, dolno- i pasmowoprzepustowe bez dużych cewek.</p>
+<h2>Zasilanie op-ampa</h2>
+<h3>Symetryczne (dual supply)</h3>
+<p>±5 V, ±12 V, ±15 V. Pozwala sygnałowi przejść przez 0 V. Standard w audio i pomiarze.</p>
+<h3>Pojedyncze (single supply)</h3>
+<p>Tylko +V i GND. Trzeba sygnał "przesunąć" w połowę V (virtual ground). Dodatkowy dzielnik i kondensator. LM358 i LM324 są zaprojektowane do single-supply.</p>
+<h3>Rail-to-rail</h3>
+<p>Op-amp, którego wyjście dochodzi praktycznie do +V i 0 V. Typowo "zwykły" op-amp daje wyjście maks. V+ − 1,5 V i nie dochodzi do GND. Rail-to-rail (np. MCP6002) — ważne przy niskich napięciach (3,3 V).</p>
+<h2>Praktyczne wskazówki</h2>
+<h3>1. Kondensatory blokujące</h3>
+<p><strong>Każdy</strong> op-amp musi mieć 100 nF między +V a GND (i -V a GND) <strong>tuż przy nóżkach</strong>. Bez tego oscylacje, zakłócenia.</p>
+<h3>2. Sprzężenie zwrotne zawsze</h3>
+<p>Op-amp bez ujemnego sprzężenia zwrotnego = komparator (lub oscylator). Z dodatnim — oscylator.</p>
+<h3>3. Ograniczenia wejścia (input common-mode range)</h3>
+<p>Nie każdy op-amp lubi wejście blisko +V lub GND. Sprawdź w datasheet — niektóre wymagają sygnału w zakresie V+1V do V--1V.</p>
+<h3>4. Obciążenie wyjścia</h3>
+<p>Op-amp może dać 5-50 mA wyjścia. Jeśli potrzeba więcej — buforuj tranzystorem.</p>
+<h3>5. Wirtualna masa (single supply)</h3>
+<div class="schem-ascii"><pre><code>
+   +V
+    │
+   [R]
+    │
+    ●── virtual GND (V/2)
+    │
+   [R]
+    │
+   GND
+   
+   plus kondensator 10 μF do GND
+</code></pre></div>
+<p>Sygnał pracujący wokół V/2.</p>
+<h2>Pomiary z op-ampem</h2>
+<h3>Wzmacniacz pomiarowy (instrumentation amp)</h3>
+<p>Wzmacnia różnicę dwóch sygnałów, tłumi sygnał wspólny. Stosowane: tensometry, EKG, czujniki różnicowe.</p>
+<h3>Konwerter prąd-napięcie (transimpedance)</h3>
+<p>Klasyczne dla fotodiod, czujników z wyjściem prądowym.</p>
+<div class="schem-ascii"><pre><code>
+       ┌──[R_f]──┐
+       │         │
+       ────────── ─
+                  &gt;─── Vout = -I · R_f
+              + 
+             GND
+</code></pre></div>
+<p>I (prąd z fotodiody) → V proporcjonalne.</p>
+<h2>Niestabilność i oscylacje</h2>
+<p>Op-amp z ujemnym sprzężeniem zwrotnym <strong>musi być stabilny</strong>. Przyczyny oscylacji:</p>
+<ul>
+<li>Sprzężenie zwrotne przez pojemność na PCB</li>
+<li>Duża pojemność na wyjściu (kabel) — opóźnienie w pętli sprzężenia</li>
+<li>Brak kondensatorów blokujących</li>
+</ul>
+<p>Rozwiązania:</p>
+<ul>
+<li>Mały kondensator (10-50 pF) równolegle do R_f</li>
+<li>Rezystor szeregowo z wyjściem (isolation R)</li>
+<li>Lepsze projektowanie PCB</li>
+</ul>
+<h2>Wybór op-ampa — checklist</h2>
+<ol>
+<li><strong>Napięcie zasilania</strong> — single czy dual? Jakie?</li>
+<li><strong>Pasmo (GBP)</strong> — wystarczające dla zamierzonego wzmocnienia</li>
+<li><strong>Slew Rate</strong> — dla pełnej amplitudy</li>
+<li><strong>Szum</strong> — krytyczny w audio i precyzyjnych pomiarach</li>
+<li><strong>Prąd polaryzacji</strong> (I_B) — krytyczny dla wysokoimpedancyjnych źródeł</li>
+<li><strong>Offset napięciowy</strong> — w precyzyjnym DC</li>
+<li><strong>Rail-to-rail</strong> — niskie napięcia</li>
+<li><strong>Liczba w obudowie</strong> (single, dual, quad)</li>
+</ul>
+<h2>Częste błędy</h2>
+<ol>
+<li><strong>Brak kondensatorów blokujących</strong> — niestabilność, oscylacje.</li>
+<li><strong>Sprzężenie zwrotne dodatnie</strong> zamiast ujemnego — generator zamiast wzmacniacza.</li>
+<li><strong>Wzmocnienie 1000 z LM358</strong> — przekroczone GBP, pasmo szczątkowe.</li>
+<li><strong>Op-amp na granicy zakresu wejść</strong> — wyjście "klikuje", nieliniowe.</li>
+<li><strong>Op-amp obciążony pojemnościowo (długi kabel)</strong> — oscylacje.</li>
+<li><strong>Niedopasowane wzmocnienia komparatora</strong> — chaotyczne przełączanie. Dodaj histerezę.</li>
+<li><strong>Naruszenie maks. napięcia wejściowego</strong> (single supply, sygnał ujemny) — zatrzaśnięcie op-ampa, czasem trwałe uszkodzenie.</li>
+</ul>
+
+        <div class="nav-bottom">
+            <a href="03-05-tyrystor-triak.html">&larr; 03-05 Tyrystor</a>
+            <a href="04-uklady-scalone.html">04 Uklady scalone &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

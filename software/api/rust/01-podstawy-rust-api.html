@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy Rust dla API dev</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f97316;--accent-hover:#fb923c;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Rust</a>
+  <span class="sep">/</span>
+  <span class="title">Podstawy Rust dla API dev</span>
+</div>
+<div class="container">
+  <h1>Podstawy Rust dla API dev</h1>
+  <p class="subtitle">Cargo, tokio, ownership, serde, error handling i structured logging — fundament kazdego projektu API w Rust.</p>
+
+  <h2>Cargo i struktura projektu</h2>
+  <p>Cargo to oficjalny menedzer pakietow i system budowania w Rust. W projektach API kluczowe sa pliki <strong>Cargo.toml</strong> oraz opcjonalnie <strong>Cargo.lock</strong> (zawsze commituj dla aplikacji, pomijaj dla bibliotek).</p>
+
+  <h3>Cargo.toml — typowy plik dla API</h3>
+  <p>Sekcja <code>[dependencies]</code> zawiera zaleznosci runtime, a <code>[dev-dependencies]</code> — narzedzia uzywane tylko podczas testow. Sekcja <code>[profile.release]</code> pozwala na agresywna optymalizacje binariow produkcyjnych.</p>
+
+  <pre><code>[package]
+name = "my-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "macros"] }
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true</code></pre>
+
+  <h3>Workspace (monorepo)</h3>
+  <p>Gdy projekt sklada sie z wielu skrzyni (crates), np. <code>api</code>, <code>core</code>, <code>migrations</code>, uzyj workspace w glownym <code>Cargo.toml</code>:</p>
+
+  <pre><code>[workspace]
+members = [
+    "api",
+    "core",
+    "migrations",
+]
+resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }</code></pre>
+
+  <p>Dzieki temu kazda skrzynia w <code>members</code> moze dziedziczyc zaleznosci z workspace za pomoca <code>serde.workspace = true</code> zamiast powielac wersje.</p>
+
+  <h3>Features — warunkowa kompilacja</h3>
+  <p>Features pozwalaja wlaczac fragmenty kodu lub opcjonalne zaleznosci. Przyklad: <code>sqlx = &#123; version = "0.7", features = ["runtime-tokio", "postgres"] &#125;</code>. Mozna tez definiowac wlasne features w <code>[features]</code>.</p>
+
+  <h2>Tokio runtime — async/await</h2>
+  <p>Rust sam w sobie nie ma wbudowanego runtime dla asynchronicznosci. <strong>Tokio</strong> to najpopularniejszy wybor dla API — zapewnia reaktor I/O, pule watkow i prymitywy synchronizacyjne.</p>
+
+  <h3>Punkt wejscia aplikacji</h3>
+  <p>Makro <code>#[tokio::main]</code> transformuje funkcje <code>main</code> tak, by uruchomila runtime Tokio i wykonala cialo funkcji jako future:</p>
+
+  <pre><code>use tokio::net::TcpListener;
+
+#[tokio::main]
+async fn main() -> anyhow::Result&lt;()&gt; {
+    // inicjalizacja loggera
+    tracing_subscriber::fmt()
+        .with_env_filter("info,my_api=debug")
+        .init();
+
+    dotenvy::dotenv().ok();
+    let addr = std::env::var("LISTEN_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0:8080".to_string());
+
+    let listener = TcpListener::bind(&addr).await?;
+    tracing::info!("Serwer nasluchuje na {addr}");
+
+    // axum::serve(listener, app).await?;
+    Ok(())
+}</code></pre>
+
+  <p>Slowo kluczowe <code>async fn</code> zamienia funkcje w funkcje zwracajaca <code>impl Future</code>. Operator <code>.await</code> zawiesza wykonanie do momentu gotowosci future — bez blokowania watku OS.</p>
+
+  <h2>Ownership w kontekscie API</h2>
+
+  <h3>String vs &amp;str</h3>
+  <p>W API czesto pojawia sie pytanie: kiedy <code>String</code>, a kiedy <code>&amp;str</code>? Prosta zasada: jesli wartosc musi zyc dluzej niz biezacy scope lub jest budowana dynamicznie — uzyj <code>String</code>. Jesli jedynie czytasz — <code>&amp;str</code>.</p>
+
+  <table>
+    <thead>
+      <tr><th>Typ</th><th>Ownership</th><th>Typowe uzycie w API</th><th>Uwagi</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>String</code></td><td>wlascicel</td><td>pola struct, zwracane wartosci</td><td>alokacja na stercie</td></tr>
+      <tr><td><code>&amp;str</code></td><td>pozyczenie</td><td>parametry funkcji, literal</td><td>zero-copy, ograniczony lifetime</td></tr>
+      <tr><td><code>&amp;'static str</code></td><td>pozyczenie statyczne</td><td>stale komunikaty bledu</td><td>zyje przez caly czas dzialania</td></tr>
+      <tr><td><code>Cow&lt;'_, str&gt;</code></td><td>zalezy</td><td>elastyczne API</td><td>unika klonowan gdy niepotrzebne</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Clone i Arc dla wspoldzielonego stanu</h3>
+  <p>Handlery w Axum/Actix sa uruchamiane wspolbieznie, wiec wspoldzelony stan musi byc thread-safe. Standardowy wzorzec to <strong>Arc&lt;T&gt;</strong> — licznik referencji atomowy:</p>
+
+  <pre><code>use std::sync::Arc;
+use tokio::sync::RwLock;
+
+#[derive(Clone)]
+struct AppState {
+    db: sqlx::PgPool,
+    config: Arc&lt;Config&gt;,
+    cache: Arc&lt;RwLock&lt;std::collections::HashMap&lt;String, String&gt;&gt;&gt;,
+}
+
+// przekazywanie stanu do handlera:
+// State(state): State&lt;Arc&lt;AppState&gt;&gt;
+// state.db.fetch_one(...).await?;</code></pre>
+
+  <p><code>Clone</code> na <code>AppState</code> jest tani — klonuje tylko <code>Arc</code>, nie wewnetrzne dane. <code>RwLock</code> z Tokio (nie std) nie blokuje watku OS — zawiesza future.</p>
+
+  <h2>Serde — serializacja i deserializacja</h2>
+  <p>Crate <strong>serde</strong> z <code>features = ["derive"]</code> generuje implementacje <code>Serialize</code> i <code>Deserialize</code> dla twoich struct przy uzyciu makr proceduralnych:</p>
+
+  <pre><code>use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateUserRequest {
+    pub first_name: String,
+    pub last_name: String,
+    pub email: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone: Option&lt;String&gt;,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserResponse {
+    pub id: i64,
+    #[serde(rename = "fullName")]
+    pub full_name: String,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub created_at: chrono::DateTime&lt;chrono::Utc&gt;,
+}</code></pre>
+
+  <p>Atrybuty serde: <code>rename_all = "camelCase"</code> zmienia nazwy pol (snake_case -&gt; camelCase), <code>skip_serializing_if</code> pomija pole gdy predykat jest spelniony, <code>with</code> umozliwia uzywanie niestandardowych funkcji (de)serializacji.</p>
+
+  <h2>Error handling — thiserror i anyhow</h2>
+  <p>Dobre API wymaga czytelnego obslugi bledow. Rust wyraza bledy przez typ <code>Result&lt;T, E&gt;</code>. Dwie popularne biblioteki uzupelniaja sie nawzajem:</p>
+
+  <div class="card blue">
+    <strong>thiserror</strong> — do definiowania wlasnych typow bledow bibliotecznych/domenowych. Generuje implementacje <code>Display</code>, <code>Error</code> i opcjonalnie konwersje <code>From</code>.
+  </div>
+  <div class="card green">
+    <strong>anyhow</strong> — do kodu aplikacyjnego. <code>anyhow::Result&lt;T&gt;</code> przyjmuje dowolny blad implementujacy <code>std::error::Error</code>. Operator <code>?</code> dziala ze wszystkim.
+  </div>
+
+  <pre><code>use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum AppError {
+    #[error("Zasob nie znaleziony: {0}")]
+    NotFound(String),
+
+    #[error("Nieautoryzowany dostep")]
+    Unauthorized,
+
+    #[error("Blad bazy danych: {0}")]
+    Database(#[from] sqlx::Error),
+
+    #[error("Blad walidacji: {0}")]
+    Validation(String),
+}
+
+// implementacja IntoResponse dla Axum (patrz 02-axum.html)</code></pre>
+
+  <p>Operator <code>#[from]</code> generuje automatyczna konwersje <code>sqlx::Error</code> -&gt; <code>AppError::Database</code>, wiec <code>?</code> dziala bez <code>.map_err()</code>.</p>
+
+  <h2>Tracing — structured logging</h2>
+  <p>Crate <strong>tracing</strong> zastepuje klasyczne <code>log</code> — umozliwia structured logging (klucz-wartosc), spans (kontekst czasowy) i jest kompatybilny z Tokio.</p>
+
+  <pre><code>use tracing::{info, warn, error, instrument, Span};
+
+#[instrument(skip(db), fields(user_id = %id))]
+async fn get_user(id: i64, db: &amp;sqlx::PgPool) -> anyhow::Result&lt;User&gt; {
+    info!("Pobieranie uzytkownika");
+
+    let user = sqlx::query_as!(User, "SELECT * FROM users WHERE id = $1", id)
+        .fetch_optional(db)
+        .await?;
+
+    match user {
+        Some(u) => {
+            info!(email = %u.email, "Uzytkownik znaleziony");
+            Ok(u)
+        }
+        None => {
+            warn!("Uzytkownik nie istnieje");
+            Err(AppError::NotFound(format!("user {id}")).into())
+        }
+    }
+}</code></pre>
+
+  <p>Makro <code>#[instrument]</code> automatycznie tworzy span z nazwa funkcji i argumentami. <code>skip</code> wyklucza parametry, ktore nie powinny byc logowane (np. pool polaczen). <code>fields</code> dodaje dodatkowe pola do spana.</p>
+
+  <div class="card orange">
+    <strong>Inicjalizacja subscribera:</strong> Uzyj <code>tracing-subscriber</code> z <code>EnvFilter</code>, by kontrolowac poziom logow przez zmienna <code>RUST_LOG=info,my_api=debug</code>. W produkcji rozwaz <code>tracing-bunyan-formatter</code> lub <code>tracing-opentelemetry</code> dla eksportu do Grafana Loki / Jaeger.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="index.html">← index.html</a>
+    <a href="02-axum.html">02-axum.html →</a>
+  </div>
+</div>
+</body>
+</html>

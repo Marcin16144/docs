@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11 — Search i nawigacja</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--pink:#ec4899;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.prompt-block{background:var(--code-bg);border:2px solid var(--accent);border-radius:10px;padding:24px;margin:24px 0;position:relative}
+.prompt-label{position:absolute;top:-12px;left:16px;background:var(--bg);padding:0 12px;color:var(--accent);font-weight:600;font-size:.85rem}
+.prompt-block pre{background:transparent;border:none;padding:0;margin:0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style></head><body>
+<div class="topbar">
+<a href="../../index.html">Glowna</a>
+<span class="sep">/</span>
+<a href="../index.html">Prompty</a>
+<span class="sep">/</span>
+<span class="title">Search i nawigacja</span>
+</div>
+<div class="container">
+<h1>11. Prompty per search i nawigacja</h1>
+<p class="subtitle">Generowanie main index, drzewa nawigacji, client-side search, breadcrumbs, prev/next links, cross-references.</p>
+
+<h2>Filozofia nawigacji</h2>
+
+<div class="card blue">
+<p>Bez search dokumentacja 200 plikow jest <strong>nieuzywalna</strong>. Bez breadcrumbs czytelnik gubi sie po 3 klikach. Nawigacja musi byc <strong>spojna na kazdej stronie</strong> (topbar) + <strong>predictable</strong> (prev/next).</p>
+</div>
+
+<h2>Prompt: Generowanie main index.html</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — Main index</span>
+<pre><code>Stworz glowny index.html dla calej dokumentacji (D:/docs/index.html).
+
+STRUKTURA:
+- Topbar minimalny (tylko tytul "Dokumentacja", brak breadcrumb)
+- H1 z gradient text "Dokumentacja techniczna"
+- Sekcja "Search" (input z client-side search, opisana w prompt 2)
+- Drzewo kategorii (12 glownych) z .breadcrumb pattern:
+  * 01 — Jezyki (ikona, krotka opis, link)
+  * 02 — Frontend
+  * 03 — Backend
+  * 04 — Devops
+  * 05 — LLM/AI
+  * 06 — Audio/VST
+  * 07 — Architektura
+  * 08 — Narzedzia
+  * 09 — Prompty (meta)
+  * itd.
+
+KAZDA KATEGORIA:
+&lt;li&gt;
+  &lt;a href="kategoria/index.html"&gt;
+    &lt;span class="num"&gt;NN&lt;/span&gt;
+    &lt;span class="title"&gt;Nazwa&lt;/span&gt;
+    &lt;span class="meta"&gt;X plikow, ~Y godzin&lt;/span&gt;
+    &lt;span class="desc"&gt;Krotki opis 1 zdanie&lt;/span&gt;
+  &lt;/a&gt;
+&lt;/li&gt;
+
+DODAJ:
+- Sekcja "Recently updated" (top 5 ostatnio zmienionych)
+- Sekcja "Most read" (jesli masz analitykę)
+- Footer z linkiem do GitHub source
+
+ROZMIAR: 8-15 KB</code></pre>
+</div>
+
+<h2>Prompt: Client-side search (vanilla JS + JSON index)</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — Client search</span>
+<pre><code>Stworz client-side search dla statycznej dokumentacji (vanilla JS,
+zero dependencies, zadnego buildera).
+
+ARCHITEKTURA:
+1. Build-time: parser przechodzi przez .html files,
+   ekstraktuje H1/H2/H3, pierwsze 200 slow tekstu, generuje
+   search-index.json (~ 50-200 KB dla 200 plikow)
+
+2. Run-time: search.js laduje search-index.json przy pierwszym
+   interakcji (lazy load), index w pamieci
+
+3. Search algorithm: simple substring + tokenization
+   (split na bialych znakach, lowercase), score
+   za pomocy MiniSearch lub Fuse.js (CDN, zero deps)
+
+4. UI: input fixed-top z dropdown wynikami (max 10),
+   ESC closes, ARROW UP/DOWN navigates, ENTER opens
+
+5. Highlight matching tokens w wynikach
+
+CODE EXAMPLE: pelny generator (Node.js) + pelny search.js
+(client) + integration w &lt;head&gt;
+
+ALTERNATIVES:
+- Pagefind (best-in-class static search, Rust-built, zero JS deps)
+- DocSearch (Algolia, free dla OSS docs)
+- Lunr.js (battle-tested, larger bundle)
+- MiniSearch (lightweight 7KB)
+
+REKOMENDACJA: Pagefind dla nowych projektow (najlepszy DX
+2024-2026), MiniSearch jako vanilla JS embedded.</code></pre>
+</div>
+
+<h2>Prompt: Breadcrumbs pattern</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — Breadcrumbs</span>
+<pre><code>Generuj breadcrumbs spojnie w calej dokumentacji.
+
+DWA WZORCE:
+
+1) .breadcrumb (pionowa lista, tylko na index pages):
+&lt;ul class="breadcrumb"&gt;
+  &lt;li&gt;&lt;a href="01-podstawy.html"&gt;
+    &lt;span class="num"&gt;01&lt;/span&gt;
+    &lt;span class="title"&gt;Podstawy&lt;/span&gt;
+    &lt;span class="meta"&gt;~15 min&lt;/span&gt;
+  &lt;/a&gt;&lt;/li&gt;
+  ...
+&lt;/ul&gt;
+
+CSS:
+.breadcrumb{list-style:none;padding:0}
+.breadcrumb li{margin:8px 0}
+.breadcrumb a{display:flex;gap:16px;padding:14px 18px;
+  background:var(--surface);border-radius:8px;
+  border-left:3px solid var(--accent);text-decoration:none;
+  color:var(--text)}
+.breadcrumb a:hover{background:var(--code-bg);transform:translateX(4px)}
+.breadcrumb .num{color:var(--accent);font-weight:600;
+  min-width:32px}
+.breadcrumb .title{flex:1;font-weight:500}
+.breadcrumb .meta{color:var(--text-muted);font-size:.85rem}
+
+2) .topbar (sticky, na podstronach):
+&lt;div class="topbar"&gt;
+  &lt;a href="../../index.html"&gt;Glowna&lt;/a&gt;
+  &lt;span class="sep"&gt;/&lt;/span&gt;
+  &lt;a href="../index.html"&gt;Kategoria&lt;/a&gt;
+  &lt;span class="sep"&gt;/&lt;/span&gt;
+  &lt;span class="title"&gt;Nazwa biezacej strony&lt;/span&gt;
+&lt;/div&gt;
+
+UWAGA: ostatni element to TEKST (nie link) — biezaca strona.
+Sticky pozwala na szybki powrot.</code></pre>
+</div>
+
+<h2>Prompt: Auto-generowanie nav-bottom prev/next</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — Nav-bottom prev/next</span>
+<pre><code>Generuj nav-bottom (prev/next) automatycznie na podstawie
+nazewnictwa plikow.
+
+KONWENCJA:
+NN-temat.html w kazdej kategorii, gdzie NN to numer porzadku.
+
+ALGORYTM (build-time script):
+1. Lista wszystkich .html w kategorii, sort alphabetic.
+2. Dla pliku NN-temat.html:
+   - prev = NN-1 file (lub index.html jesli NN=01)
+   - next = NN+1 file (lub null/inny link jesli ostatni)
+3. Inject &lt;div class="nav-bottom"&gt; przed &lt;/div&gt;&lt;/body&gt;
+
+PYTHON SCRIPT (przyklad):
+import os, re
+files = sorted(f for f in os.listdir('docs') if f.endswith('.html'))
+for i, f in enumerate(files):
+    prev = files[i-1] if i &gt; 0 else 'index.html'
+    nxt = files[i+1] if i &lt; len(files)-1 else None
+    # ... inject nav-bottom
+
+WZORZEC HTML:
+&lt;div class="nav-bottom"&gt;
+  &lt;a href="PREV_FILE"&gt;&amp;larr; PREV_TITLE&lt;/a&gt;
+  &lt;a href="NEXT_FILE"&gt;NEXT_TITLE &amp;rarr;&lt;/a&gt;
+&lt;/div&gt;
+
+CSS:
+.nav-bottom{display:flex;justify-content:space-between;
+  margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+
+EDGE CASE: ostatni plik nie ma "next", uzyj link do parent
+("Wroc do indeksu &amp;rarr;").</code></pre>
+</div>
+
+<h2>Prompt: Linkowanie miedzy rozdzialami (cross-references)</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — Cross-references</span>
+<pre><code>Twoze cross-references miedzy rozdzialami konsekwentnie.
+
+WZORCE:
+
+1) "See also" sekcja na koncu rozdzialu:
+&lt;h2&gt;Powiazane tematy&lt;/h2&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href="../docker/index.html"&gt;Docker&lt;/a&gt; — runtime kontenerow&lt;/li&gt;
+  &lt;li&gt;&lt;a href="../linux/05-firewall.html"&gt;Firewall (Linux)&lt;/a&gt; — security warstwa&lt;/li&gt;
+&lt;/ul&gt;
+
+2) Inline link w tekscie (sparingly):
+"Dla szczegolow setup zobacz &lt;a href="../docker/02-dockerfile.html"&gt;
+Dockerfile&lt;/a&gt;."
+
+3) Sidebar "powiazane" (na wieksze strony):
+&lt;aside class="related"&gt;
+  &lt;h3&gt;Powiazane&lt;/h3&gt;
+  &lt;a href="..."&gt;Link 1&lt;/a&gt;
+  &lt;a href="..."&gt;Link 2&lt;/a&gt;
+&lt;/aside&gt;
+
+REGULY:
+- Max 5 cross-refs na rozdzial (wiecej = noise)
+- Tylko relevant (czytelnik bedzie chcial po przeczytaniu)
+- Z krotkim opisem ("Docker — runtime"), nie sam link
+- Wzgledne sciezki (../kategoria/plik.html)
+- NIGDY absolute (file:///D:/docs/...)
+
+ANTI-PATTERN: link do innej strony bez wyjasnienia ("zobacz tez X")</code></pre>
+</div>
+
+<h2>Wzorce nawigacji per typ strony</h2>
+
+<table>
+<tr><th>Typ strony</th><th>Topbar</th><th>Breadcrumb</th><th>Nav-bottom</th><th>Search</th></tr>
+<tr><td>Main index (D:/docs/index.html)</td><td>Tylko tytul</td><td>.breadcrumb (12 kategorii)</td><td>Brak</td><td>Tak</td></tr>
+<tr><td>Kategoria index</td><td>Glowna / Kategoria</td><td>.breadcrumb (rozdzialy)</td><td>Brak / link do main</td><td>Tak (lub global)</td></tr>
+<tr><td>Rozdzial</td><td>Glowna / Kategoria / Rozdzial</td><td>Brak (TOC w prawej?)</td><td>prev/next</td><td>Wspolne</td></tr>
+<tr><td>Sub-page</td><td>Glowna / Kat / Rozdz / Sub</td><td>Brak</td><td>prev=parent, next=NN+1</td><td>Wspolne</td></tr>
+</table>
+
+<h2>Anatomia main index — ASCII diagram</h2>
+
+<pre><code>D:/docs/
++- index.html              (main, 12 kategorii .breadcrumb)
++- search-index.json        (build-time generated)
++- search.js                (client-side search)
++- jezyki/
+|   +- index.html           (kategoria index, .breadcrumb 6 jezykow)
+|   +- php/
+|   |   +- index.html       (sub-kategoria, .breadcrumb 5 rozdzialow)
+|   |   +- 01-podstawy.html (rozdzial, .topbar)
+|   |   +- 02-modern.html
+|   |   +- ...
+|   +- python/...
++- frontend/
+|   +- index.html
+|   +- react/...
+|   +- vue/...
++- promt/
+|   +- index.html           (kategoria meta-promptow)
+|   +- docs/
+|       +- 01-meta-prompt-master.html
+|       +- 02-prompty-szablon-html.html
+|       +- ...</code></pre>
+
+<h2>Tabela porownawcza search engines</h2>
+
+<table>
+<tr><th>Tool</th><th>Typ</th><th>Bundle</th><th>Cena</th><th>Sweet spot</th></tr>
+<tr><td>Pagefind</td><td>Static, Rust-built</td><td>~30 KB JS + index chunks</td><td>Free</td><td>Static docs site, najnowoczesniejsze</td></tr>
+<tr><td>MiniSearch</td><td>Vanilla JS, in-memory</td><td>~7 KB</td><td>Free</td><td>Maly site &lt;100 stron</td></tr>
+<tr><td>Lunr.js</td><td>JS, in-memory</td><td>~30 KB</td><td>Free</td><td>Battle-tested, English-focused</td></tr>
+<tr><td>Fuse.js</td><td>JS, fuzzy</td><td>~10 KB</td><td>Free</td><td>Fuzzy matching ("typo-tolerant")</td></tr>
+<tr><td>Algolia DocSearch</td><td>Hosted</td><td>~10 KB JS</td><td>Free dla OSS docs</td><td>Wieksze dokumentacje, OSS projekty</td></tr>
+<tr><td>Typesense</td><td>Self-hosted</td><td>Server-side</td><td>Free OSS</td><td>Self-hosted Algolia alternative</td></tr>
+<tr><td>Meilisearch</td><td>Self-hosted</td><td>Server-side</td><td>Free OSS / Cloud paid</td><td>Self-hosted, Rust-built</td></tr>
+</table>
+
+<h2>Rekomendacja architektury</h2>
+
+<div class="card green">
+<h3>Maly site (&lt;50 stron)</h3>
+<p>MiniSearch z embedded JSON index w &lt;script&gt; tag. Zero requests, zero dependencies. Bundle ~10 KB total.</p>
+</div>
+
+<div class="card green">
+<h3>Sredni site (50-500 stron)</h3>
+<p><strong>Pagefind</strong> — build CLI generuje shardowany index, lazy load chunkow per query. Najnowoczesniejsze rozwiazanie 2024-2026, recommended dla wiekszosci.</p>
+</div>
+
+<div class="card green">
+<h3>Duzy site (500+ stron)</h3>
+<p>Algolia DocSearch (free dla OSS), albo self-hosted Typesense / Meilisearch. Real-time indexing, faceted search, analytics.</p>
+</div>
+
+<h2>Anti-patterns nawigacji</h2>
+
+<div class="card red">
+<h3>Brak prev/next</h3>
+<p>Czytelnik konczy rozdzial i nie wie co dalej. Wraca do index. Frustracja. Zawsze prev/next na dole rozdzialu.</p>
+</div>
+
+<div class="card red">
+<h3>Nieaktualne breadcrumbs</h3>
+<p>"Glowna / Frontend / React" gdy faktycznie jesteamy w "Vue". Build-time scripts to sprawdzaja, ale ludzie copy-paste robia bledy. Auto-generuj.</p>
+</div>
+
+<div class="card red">
+<h3>Search ktory wymaga full reload</h3>
+<p>Klikasz wynik -> ladowanie 3s. Source: typowe Lunr.js setup. Lekarstwo: fetch + render preview w panel zamiast nawigacji.</p>
+</div>
+
+<div class="card orange">
+<h3>Linki absolutne zamiast wzglednych</h3>
+<p><code>file:///D:/docs/...</code> dziala lokalnie, nie dziala po deploy na webserver. Zawsze <code>../kategoria/plik.html</code>.</p>
+</div>
+
+<h2>Workflow: dodanie nowego rozdzialu</h2>
+
+<ol>
+<li>Stworz NN-temat.html (kopiuj wzorzec z 01)</li>
+<li>Update kategoria-index.html — dodaj wpis w .breadcrumb</li>
+<li>Update PREV pliku (NN-1) — zmien link "next" na nowy plik</li>
+<li>Update NEXT pliku (NN+1) — zmien link "prev" na nowy plik</li>
+<li>Re-build search index (Pagefind: <code>pagefind --site docs</code>)</li>
+<li>Test linkow (broken-link-checker, lychee)</li>
+<li>Commit + push</li>
+</ol>
+
+<div class="nav-bottom">
+<a href="10-prompty-narrative-i-tone.html">&larr; Narracja i tone</a>
+<a href="12-prompty-ekspansja-rozdzialow.html">Ekspansja rozdzialow &rarr;</a>
+</div>
+</div></body></html>

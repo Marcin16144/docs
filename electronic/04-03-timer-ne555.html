@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04-03-timer-ne555 - Timer NE555</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:850px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:24px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:22px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text-muted);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6;white-space:pre}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}        .schem{background:#0a0e1a;border:1px solid var(--border);border-radius:12px;padding:20px;margin:18px 0 24px;display:flex;justify-content:center}
+        .schem svg{width:100%;max-width:520px;height:auto}
+        .schem .wire{stroke:#cbd5e1;stroke-width:1.8;fill:none;stroke-linecap:round}
+        .schem .wire-pos{stroke:#f87171;stroke-width:1.8;fill:none}
+        .schem .comp{stroke:#f1f5f9;stroke-width:1.6;fill:none}
+        .schem .comp-fill{fill:#f1f5f9;stroke:#f1f5f9}
+        .schem .node{fill:#38bdf8}
+        .schem .label{fill:#94a3b8;font-family:'Segoe UI',sans-serif;font-size:11px}
+        .schem .label-val{fill:#4ade80;font-family:'Cascadia Code',monospace;font-size:10px}
+        .schem .label-pin{fill:#fbbf24;font-family:'Cascadia Code',monospace;font-size:9px}
+        .schem .label-pos{fill:#f87171;font-family:'Cascadia Code',monospace;font-size:11px;font-weight:600}
+        .schem .gnd{stroke:#94a3b8;stroke-width:1.6;fill:none}
+        .schem .ic-body{fill:#1e293b;stroke:#f1f5f9;stroke-width:1.5}
+        .schem .ic-label{fill:#e2e8f0;font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:600;text-anchor:middle}
+        .schem-ascii{background:#0a0e1a;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:8px 16px;margin:16px 0 24px}
+        .schem-ascii::before{content:'SCHEMAT (ASCII) - wersja SVG: schematy.html';display:block;font-size:.72rem;color:var(--accent);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+        .schem-ascii pre{background:transparent;border:none;padding:6px 0 12px;margin:0}
+        .schem-banner{background:linear-gradient(135deg,rgba(56,189,248,0.12),rgba(167,139,250,0.08));border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:14px 20px;margin:16px 0 24px;font-size:.92rem;display:flex;align-items:center;gap:12px}
+        .schem-banner .icon{font-size:1.5rem}
+        .schem-banner a{color:var(--accent);font-weight:600;text-decoration:none}
+        .schem-banner a:hover{text-decoration:underline}
+
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Strona glowna</a>
+        <span class="sep">/</span>
+        <a href="04-uklady-scalone.html">04 - Uklady scalone</a>
+        <span class="sep">/</span>
+        <span class="title">04-03-timer-ne555</span>
+    </div>
+    <div class="container">
+        <h1>Timer NE555</h1>
+        <div class="schem-banner">
+            <span class="icon">[SVG]</span>
+            <span>Wszystkie schematy z tej strony w pelnej wersji SVG (symbole IEC, kolory, etykiety) - zobacz na stronie <a href="schematy.html">Schematy elektroniczne</a>.</span>
+        </div>
+<h2>Czym jest NE555</h2>
+<p>Najsłynniejszy układ scalony w historii. Zaprojektowany w 1971 przez Hansa Camenzinda. Produkowany do dziś <strong>miliardami sztuk rocznie</strong>.</p>
+<p>Funkcjonalność: generator opóźnień, oscylator, modulator PWM, układ wyzwalania, dzielnik częstotliwości i wiele więcej.</p>
+<h2>Wyprowadzenia (DIP-8)</h2>
+<div class="schem-ascii"><pre><code>
+       NE555
+   ┌──────────┐
+   │1 GND    8│ VCC
+   │2 TRIG   7│ DISCH
+   │3 OUT    6│ THRESH
+   │4 RESET  5│ CTRL
+   └──────────┘
+</code></pre></div>
+<table>
+<thead><tr>
+<th>Pin</th>
+<th>Nazwa</th>
+<th>Opis</th>
+</tr></thead><tbody>
+<tr>
+<td>1</td>
+<td>GND</td>
+<td>masa</td>
+</tr>
+<tr>
+<td>2</td>
+<td>TRIGGER</td>
+<td>wejście wyzwalania (aktywne LOW)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>OUT</td>
+<td>wyjście</td>
+</tr>
+<tr>
+<td>4</td>
+<td>RESET</td>
+<td>reset (aktywne LOW), zwykle do VCC</td>
+</tr>
+<tr>
+<td>5</td>
+<td>CTRL</td>
+<td>sterowanie napięciem progu</td>
+</tr>
+<tr>
+<td>6</td>
+<td>THRESHOLD</td>
+<td>wejście progowe</td>
+</tr>
+<tr>
+<td>7</td>
+<td>DISCHARGE</td>
+<td>wyjście do rozładowania kondensatora</td>
+</tr>
+<tr>
+<td>8</td>
+<td>VCC</td>
+<td>zasilanie 4,5-16 V (5-15 V typowo)</td>
+</tr>
+</tbody></table>
+<h2>Struktura wewnętrzna</h2>
+<p>Wewnątrz:</p>
+<ul>
+<li>Dzielnik 3× R (czyli 5 kΩ, 5 kΩ, 5 kΩ) → tworzy progi 1/3 V_CC i 2/3 V_CC</li>
+<li>Dwa komparatory porównujące z tymi progami</li>
+<li>Flip-flop SR sterujący wyjściem i tranzystorem rozładowania</li>
+<li>Stopień wyjściowy push-pull (do 200 mA)</li>
+</ul>
+<h2>Wersje NE555</h2>
+<table>
+<thead><tr>
+<th>Wersja</th>
+<th>Charakterystyka</th>
+</tr></thead><tbody>
+<tr>
+<td>NE555 (bipolarny)</td>
+<td>klasyczny, większy pobór, do 15 V</td>
+</tr>
+<tr>
+<td>LM555, MC1455</td>
+<td>warianty bipolarne</td>
+</tr>
+<tr>
+<td>7555 (TLC555, ICM7555)</td>
+<td>CMOS, niski pobór (~60 μA), do 18 V</td>
+</tr>
+<tr>
+<td>556</td>
+<td>podwójny 555 (DIP-14)</td>
+</tr>
+<tr>
+<td>558</td>
+<td>poczwórny</td>
+</tr>
+</tbody></table>
+<h2>Tryby pracy</h2>
+<h3>1. Astabilny (multivibrator) — generator</h3>
+<p>Generuje <strong>prostokątne fale</strong> o zadanej częstotliwości i wypełnieniu.</p>
+<div class="schem-ascii"><pre><code>
+        VCC
+         │
+        [Ra]
+         │
+         ●─── (do pinu 7 DISCH)
+         │
+        [Rb]
+         │
+         ●─── (do pinów 2 i 6 TRIG/THRESH)
+         │
+        [C]
+         │
+        GND
+        
+        + pin 4 RESET do VCC, pin 5 CTRL przez 10nF do GND
+</code></pre></div>
+<h4>Wzory</h4>
+<pre><code>
+T_H = 0,693 · (Ra + Rb) · C    (czas HIGH)
+T_L = 0,693 · Rb · C            (czas LOW)
+T = T_H + T_L = 0,693 · (Ra + 2·Rb) · C
+
+f = 1 / T = 1,44 / ((Ra + 2·Rb) · C)
+
+D (duty cycle) = T_H / T = (Ra + Rb) / (Ra + 2·Rb)
+</code></pre>
+<p>Wypełnienie zawsze &gt; 50%! Aby zejść poniżej 50%, dodaj diodę.</p>
+<h4>Przykład: oscylator 1 kHz</h4>
+<pre><code>
+Ra = 4,7 kΩ, Rb = 4,7 kΩ, C = ?
+T = 1/1000 = 1 ms
+1·10⁻³ = 0,693 · (4700 + 2·4700) · C
+C = 0,001 / (0,693 · 14100) ≈ 102 nF → 100 nF
+</code></pre>
+<h4>Duty cycle 50%</h4>
+<p>Z diodą przez Rb:</p>
+<div class="schem-ascii"><pre><code>
+   Ra ── (do 7)
+         │
+         ▷│ dioda
+         │
+   Rb (do 7)
+         │
+   ──── do TRIG/THRESH
+</code></pre></div>
+<p>Wtedy:</p>
+<pre><code>
+T_H ≈ 0,693 · Ra · C
+T_L ≈ 0,693 · Rb · C
+</code></pre>
+<p>Przy Ra = Rb → duty 50%.</p>
+<h3>2. Monostabilny (one-shot) — pojedynczy impuls</h3>
+<p>Generuje <strong>jeden impuls</strong> o określonej długości po wyzwoleniu.</p>
+<div class="schem-ascii"><pre><code>
+        VCC
+         │
+        [R]
+         │
+         ●── (do 6 i 7)
+         │
+        [C]
+         │
+        GND
+        
+   pin 2 (TRIG) ── przycisk lub sygnał wyzwalający
+                  z pull-upem do VCC (przycisk zwiera do GND)
+</code></pre></div>
+<h4>Wzór czasu impulsu</h4>
+<pre><code>
+T = 1,1 · R · C
+</code></pre>
+<h4>Przykład: opóźnienie 1 sekunda</h4>
+<pre><code>
+R = 100 kΩ, C = ?
+T = 1,1 · R · C
+1 = 1,1 · 100 000 · C
+C = 9,1 μF → 10 μF
+</code></pre>
+<h4>Działanie</h4>
+<ol>
+<li>Spoczynek: OUT = LOW, kondensator rozładowany.</li>
+<li>Krótki LOW na TRIG (pin 2) → flip-flop ustawiony, OUT = HIGH, tranzystor rozładowania wyłączony.</li>
+<li>Kondensator ładuje się przez R.</li>
+<li>Gdy U na C osiągnie 2/3 VCC, drugi komparator resetuje flip-flop → OUT = LOW, kondensator rozładowuje się przez pin 7.</li>
+<li>Powrót do spoczynku.</li>
+</ul>
+<h3>3. Bistable (latch / SR flip-flop)</h3>
+<p>NE555 jako prosty zatrzask SR. Pin 2 (TRIG, set) ustawia OUT na HIGH, pin 4 (RESET) lub przyłożenie pin 6 do HIGH resetuje.</p>
+<h3>4. Schmitt Trigger</h3>
+<p>Połącz piny 2 i 6 razem — wejście porównuje się z 1/3 i 2/3 VCC. Działa jak komparator z histerezą.</p>
+<h2>Zastosowania praktyczne</h2>
+<h3>Migający LED</h3>
+<p>Astabilny ~1 Hz, R_a = 10 kΩ, R_b = 100 kΩ, C = 10 μF → f ≈ 0,67 Hz.</p>
+<div class="schem-ascii"><pre><code>
+   +5V─[Ra]─●─[Rb]─●─ TRIG/THRES (2/6)
+              7    │
+              │   [C]
+              │    │
+              ●── GND
+        
+   OUT (3) ─[R 220]─ ▷│ LED ─ GND
+</code></pre></div>
+<h3>Sygnalizacja dźwiękowa</h3>
+<p>Astabilny ~1 kHz → wyjście do głośnika piezo lub przez tranzystor do głośnika dynamicznego.</p>
+<h3>Generator PWM (sterowanie jasnością LED, prędkością silnika)</h3>
+<p>CTRL (pin 5) sterowany sygnałem analogowym → zmienia próg → zmienia wypełnienie. Albo Ra i Rb z potencjometrami.</p>
+<h3>Debounce przycisku</h3>
+<p>Monostabilny 50 ms wyzwalany przyciskiem. Wyjście jest stabilne nawet przy iskrzeniu styków.</p>
+<h3>Przedłużacz impulsu</h3>
+<p>Krótkie wyzwolenie → wyjście HIGH na zadany czas. Np. czujnik PIR z krótkim impulsem → sterowanie żarówką przez 5 minut.</p>
+<h3>Modulator szerokości impulsów</h3>
+<p>Sterowanie ESC (Electronic Speed Controller) modeli RC. NE555 z sygnałem analogowym na CTRL daje szerokość 1-2 ms.</p>
+<h3>Generator funkcyjny</h3>
+<p>NE555 + dodatkowe filtry RC → fala trójkątna, sinusoidalna.</p>
+<h3>Sirena policyjna / alarm</h3>
+<p>Dwa NE555 — jeden generuje wolną modulację (0,5 Hz), drugi szybką (1-2 kHz). Wyjście pierwszego steruje CTRL drugiego.</p>
+<h2>Wydajność wyjścia</h2>
+<p>NE555 może dostarczyć/przyjąć <strong>do 200 mA</strong> na wyjściu. Wystarczy bezpośrednio sterować:</p>
+<ul>
+<li>LED z rezystorem</li>
+<li>Przekaźnik (z diodą freewheel!)</li>
+<li>Mały głośnik</li>
+<li>Mosfet (przez rezystor bramki)</li>
+</ul>
+<h2>Praktyczne wskazówki</h2>
+<h3>Kondensator blokujący</h3>
+<p>Zawsze 100 nF między pin 8 (VCC) a pin 1 (GND), jak najbliżej.</p>
+<h3>Pin 5 (CTRL)</h3>
+<p>Jeśli nie używany, podłącz 10 nF do GND. Bez tego szumy mogą wpłynąć na progi.</p>
+<h3>Dłuższe czasy</h3>
+<p>Dla T &gt; 1 s:</p>
+<ul>
+<li>Większy C → ale ze stratami i prądem upływu (elektrolit, tantal)</li>
+<li>Większy R → ale wpływ prądów wejść CMOS</li>
+</ul>
+<p>Praktycznie: R do 10 MΩ, C do 100 μF. Dla dłuższych czasów (godziny) — używaj 7555 (CMOS, mały prąd upływu) lub kaskadowo z liczników.</p>
+<h3>Dokładność</h3>
+<p>NE555 nie jest precyzyjnym timerem:</p>
+<ul>
+<li>Tolerancja częstotliwości ~5-10%</li>
+<li>Wpływ temperatury ~0,005%/°C</li>
+<li>Drift z napięciem zasilania ~0,3%/V</li>
+</ul>
+<p>Do zegarów RTC, oscylatory kwarcowe, dedykowane RTC ICs (DS1307, DS3231).</p>
+<h3>Niezależność od VCC</h3>
+<p>Częstotliwość astabilnego prawie nie zależy od napięcia zasilania (oba progi są ułamkiem VCC, ładowanie i rozładowanie też). To rzadka cecha — wykorzystywana w aplikacjach bateryjnych.</p>
+<h3>Pin 4 (RESET)</h3>
+<p>Aktywny LOW. Jeśli nieużywany → podłącz do VCC. Inaczej szumy mogą zresetować układ.</p>
+<h2>Łączenie z innymi układami</h2>
+<h3>NE555 + przekaźnik</h3>
+<div class="schem-ascii"><pre><code>
+   OUT (pin 3) ── [Rb=1k] ── B ── tranzystor NPN (BD139)
+                              C ── przekaźnik
+                              E ── GND
+   + dioda freewheel na cewce
+</code></pre></div>
+<h3>NE555 + opto-triak</h3>
+<p>Sterowanie 230 V z izolacją. NE555 → MOC3041 → triak BT136.</p>
+<h3>Łańcuch dzielników</h3>
+<p>7555 (CMOS) + 4017 (dekada) — mała pobór, dziesięć wyjść kolejno aktywowanych.</p>
+<h2>NE555 a nowoczesne MCU</h2>
+<p>Pytanie: czemu jeszcze używać NE555 w 2026, kiedy mikrokontroler ATtiny85 lub ESP32 robi to samo i więcej?</p>
+<p><strong>Argumenty za NE555:</strong></p>
+<ul>
+<li>Brak programowania (analogowa elektronika)</li>
+<li>Wysoka niezawodność</li>
+<li>Tani (~1 zł / sztuka)</li>
+<li>Edukacyjny — uczy podstaw</li>
+<li>Mniej części w prostych aplikacjach</li>
+<li>Brak software bugs</li>
+</ul>
+<p><strong>Argumenty za MCU:</strong></p>
+<ul>
+<li>Większa elastyczność (zmiana czasów przez kod)</li>
+<li>Dokładność (zegar kwarcowy)</li>
+<li>Wiele funkcji na jednym chipie</li>
+<li>Wbudowany ADC, PWM, UART</li>
+</ul>
+<p>Dla <strong>jednego prostego timera</strong> — NE555 bije MCU prostotą. Dla <strong>systemu</strong> — MCU.</p>
+<h2>Częste błędy</h2>
+<ol>
+<li><strong>Brak kondensatora 100 nF na zasilaniu</strong> — niestabilność, drgania.</li>
+<li><strong>Otwarty pin 4 (RESET)</strong> — reset szumem, "magiczne" zachowania.</li>
+<li><strong>Otwarty pin 5 (CTRL)</strong> — zmienna częstotliwość.</li>
+<li><strong>Elektrolit C w astabilnym z plus do GND</strong> — wybuch.</li>
+<li><strong>Zbyt mały R (poniżej 1 kΩ)</strong> — duży prąd przez DISCH, grzanie pin 7.</li>
+<li><strong>Zbyt duży R (powyżej 10 MΩ)</strong> — niedokładność, wpływ wilgoci na PCB.</li>
+<li><strong>Zła obudowa dla NE555 (DIP-8)</strong> — pomyłka pinów. Pin 1 wskazany kropką!</li>
+<li><strong>Pomylenie monostabila z astabilem</strong> — różne podłączenia kondensatora.</li>
+</ul>
+
+        <div class="nav-bottom">
+            <a href="04-02-bramki-logiczne.html">&larr; 04-02 Bramki logiczne</a>
+            <a href="05-zasilanie.html">05 Zasilanie &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

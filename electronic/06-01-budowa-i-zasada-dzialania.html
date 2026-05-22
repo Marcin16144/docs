@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06-01-budowa-i-zasada-dzialania - Budowa i zasada dzialania transformatora</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:850px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:24px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:22px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text-muted);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6;white-space:pre}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}        .schem{background:#0a0e1a;border:1px solid var(--border);border-radius:12px;padding:20px;margin:18px 0 24px;display:flex;justify-content:center}
+        .schem svg{width:100%;max-width:520px;height:auto}
+        .schem .wire{stroke:#cbd5e1;stroke-width:1.8;fill:none;stroke-linecap:round}
+        .schem .wire-pos{stroke:#f87171;stroke-width:1.8;fill:none}
+        .schem .comp{stroke:#f1f5f9;stroke-width:1.6;fill:none}
+        .schem .comp-fill{fill:#f1f5f9;stroke:#f1f5f9}
+        .schem .node{fill:#38bdf8}
+        .schem .label{fill:#94a3b8;font-family:'Segoe UI',sans-serif;font-size:11px}
+        .schem .label-val{fill:#4ade80;font-family:'Cascadia Code',monospace;font-size:10px}
+        .schem .label-pin{fill:#fbbf24;font-family:'Cascadia Code',monospace;font-size:9px}
+        .schem .label-pos{fill:#f87171;font-family:'Cascadia Code',monospace;font-size:11px;font-weight:600}
+        .schem .gnd{stroke:#94a3b8;stroke-width:1.6;fill:none}
+        .schem .ic-body{fill:#1e293b;stroke:#f1f5f9;stroke-width:1.5}
+        .schem .ic-label{fill:#e2e8f0;font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:600;text-anchor:middle}
+        .schem-ascii{background:#0a0e1a;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:8px 16px;margin:16px 0 24px}
+        .schem-ascii::before{content:'SCHEMAT (ASCII) - wersja SVG: schematy.html';display:block;font-size:.72rem;color:var(--accent);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+        .schem-ascii pre{background:transparent;border:none;padding:6px 0 12px;margin:0}
+        .schem-banner{background:linear-gradient(135deg,rgba(56,189,248,0.12),rgba(167,139,250,0.08));border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:14px 20px;margin:16px 0 24px;font-size:.92rem;display:flex;align-items:center;gap:12px}
+        .schem-banner .icon{font-size:1.5rem}
+        .schem-banner a{color:var(--accent);font-weight:600;text-decoration:none}
+        .schem-banner a:hover{text-decoration:underline}
+
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Strona glowna</a>
+        <span class="sep">/</span>
+        <a href="06-transformatory.html">06 - Transformatory</a>
+        <span class="sep">/</span>
+        <span class="title">06-01-budowa-i-zasada-dzialania</span>
+    </div>
+    <div class="container">
+        <h1>Budowa i zasada dzialania transformatora</h1>
+        <div class="schem-banner">
+            <span class="icon">[SVG]</span>
+            <span>Wszystkie schematy z tej strony w pelnej wersji SVG (symbole IEC, kolory, etykiety) - zobacz na stronie <a href="schematy.html">Schematy elektroniczne</a>.</span>
+        </div>
+<h2>Czym jest transformator</h2>
+<p>Urządzenie elektromagnetyczne, które za pomocą indukcji elektromagnetycznej przekazuje energię z jednego obwodu do drugiego, <strong>zmieniając napięcie i prąd</strong> w określonym stosunku.</p>
+<p>Transformator NIE działa na DC — wymaga prądu zmiennego lub pulsującego.</p>
+<h2>Konstrukcja</h2>
+<p>Trzy podstawowe elementy:</p>
+<ol>
+<li><strong>Rdzeń magnetyczny</strong> — koncentruje pole magnetyczne (żelazo, ferryt)</li>
+<li><strong>Uzwojenie pierwotne</strong> (N₁) — podłączone do źródła</li>
+<li><strong>Uzwojenie wtórne</strong> (N₂) — odbiorca energii</li>
+</ul>
+<p>Może być więcej uzwojeń wtórnych (multi-tap).</p>
+<div class="schem-ascii"><pre><code>
+        ┌─────┐ rdzeń
+        │     │
+    ────┤UUUUU│─────
+    we  │     │  wy
+    ────┤UUUUU│─────
+        │     │
+        └─────┘
+   pierwotne   wtórne
+   N1 zwojów   N2 zwojów
+</code></pre></div>
+<h2>Zasada działania (krok po kroku)</h2>
+<ol>
+<li><strong>Napięcie AC na pierwotnym</strong> powoduje przepływ prądu magnesującego I_μ.</li>
+<li>Prąd wytwarza <strong>zmienne pole magnetyczne</strong> Φ w rdzeniu.</li>
+<li>Pole przenika <strong>uzwojenie wtórne</strong>.</li>
+<li>Zmienne pole indukuje <strong>napięcie indukowane</strong> w wtórnym (prawo Faradaya).</li>
+<li>Po podłączeniu obciążenia płynie prąd I₂, który wytwarza pole przeciwne (prawo Lenza).</li>
+<li>Pole z pierwotnego się zwiększa, aby kompensować — pobierany jest większy prąd I₁.</li>
+</ul>
+<p>W efekcie energia "przepływa" z pierwotnego do wtórnego, <strong>bez bezpośredniego połączenia elektrycznego</strong> (galwaniczna separacja).</p>
+<h2>Prawo Faradaya</h2>
+<p>Napięcie indukowane w uzwojeniu:</p>
+<pre><code>
+U = N · dΦ/dt
+</code></pre>
+<p>Dla sinusoidalnego pola: U_RMS = 4,44 · f · N · Φ_m = 4,44 · f · N · B_max · S</p>
+<p>Gdzie:</p>
+<ul>
+<li>f — częstotliwość [Hz]</li>
+<li>N — liczba zwojów</li>
+<li>Φ_m = B_max · S — strumień maksymalny [Wb]</li>
+<li>B_max — maksymalna indukcja magnetyczna [T]</li>
+<li>S — przekrój rdzenia [m²]</li>
+</ul>
+<p><strong>To kluczowy wzór</strong> — z niego wynika ilość zwojów potrzebnych przy danym rdzeniu.</p>
+<h3>Przykład: zwoje na wolt</h3>
+<p>Dla 50 Hz i typowego rdzenia (B_max = 1,2 T):</p>
+<pre><code>
+U/N = 4,44 · 50 · 1,2 · S = 266 · S    [V/zwój, jeśli S w m²]
+</code></pre>
+<p>Dla S = 4 cm² = 4·10⁻⁴ m²:</p>
+<pre><code>
+U/N ≈ 0,107 V/zwój
+N/V ≈ 9,4 zwojów/V
+</code></pre>
+<p>Czyli dla 230 V pierwotne: ~2160 zwojów.</p>
+<h2>Przekładnia transformatora</h2>
+<h3>Przekładnia napięciowa</h3>
+<pre><code>
+U₁/U₂ = N₁/N₂ = n  (przekładnia)
+</code></pre>
+<p>Jeśli N₂ &lt; N₁ → transformator obniżający.</p>
+<p>Jeśli N₂ &gt; N₁ → transformator podwyższający.</p>
+<h3>Przekładnia prądowa</h3>
+<p>Z zachowania energii (transformator idealny):</p>
+<pre><code>
+U₁·I₁ = U₂·I₂
+I₂/I₁ = N₁/N₂ = n
+</code></pre>
+<p>Czyli <strong>prądy w odwrotnej proporcji</strong> do napięć.</p>
+<h3>Przykład</h3>
+<p>Transformator 230 V / 12 V, obciążenie 12 V × 5 A = 60 W:</p>
+<pre><code>
+n = 230/12 ≈ 19,2
+I₁ = I₂/n = 5/19,2 ≈ 0,26 A  (po stronie pierwotnej)
+</code></pre>
+<p>W praktyce I₁ jest większy (ok. 0,30-0,35 A) ze względu na straty.</p>
+<h3>Przekładnia impedancji</h3>
+<pre><code>
+Z₁/Z₂ = (N₁/N₂)² = n²
+</code></pre>
+<p>Impedancja widziana z pierwotnego jest <strong>n² razy większa</strong> niż obciążenie po wtórnym. Stąd transformatory dopasowujące w audio (np. lampowy wzmacniacz 5 kΩ → 8 Ω wymaga n=√(5000/8)=25).</p>
+<h2>Transformator idealny</h2>
+<p>W idealizacji:</p>
+<ul>
+<li>Brak strat</li>
+<li>Sprzężenie magnetyczne 100%</li>
+<li>Brak indukcyjności rozproszenia</li>
+<li>μ_rdzenia = ∞</li>
+<li>Bez nasycenia</li>
+</ul>
+<p>W rzeczywistości:</p>
+<ul>
+<li>Sprawność 80-99% zależnie od mocy</li>
+<li>Sprzężenie 95-99%</li>
+<li>Indukcyjność rozproszenia (sygnały HF źle przechodzą)</li>
+<li>μ skończone, rdzeń się nasyca</li>
+</ul>
+<h2>Model zastępczy</h2>
+<p>Realny transformator można modelować jako:</p>
+<div class="schem-ascii"><pre><code>
+   pierwotne                wtórne
+   R₁ (rezyst. drutu)  R₂'
+   ─┤└─wwwwwww─┬─wwwwwww─┤└─
+                │
+                ●─ Z_m (impedancja magnesowania)
+                │  (R_Fe // X_μ)
+                │
+               GND
+</code></pre></div>
+<ul>
+<li>R₁, R₂ — rezystancje drutu (straty miedziane I²R)</li>
+<li>X_σ — indukcyjność rozproszenia</li>
+<li>R_Fe — straty w rdzeniu (histereza + wiroprądy)</li>
+<li>X_μ — indukcyjność magnesowania (prąd jałowy)</li>
+</ul>
+<h2>Sprawność transformatora</h2>
+<pre><code>
+η = P_wy / P_we = P_wy / (P_wy + P_strat)
+</code></pre>
+<p>Straty:</p>
+<ul>
+<li><strong>Miedziane</strong> P_Cu = I²·R (rosną z kwadratem prądu obciążenia)</li>
+<li><strong>Żelaza</strong> P_Fe = stałe, zależne od B_max i f</li>
+</ul>
+<pre><code>
+P_strat = P_Cu + P_Fe
+</code></pre>
+<p>Maksymalna sprawność jest osiągana gdy P_Cu = P_Fe. Stąd:</p>
+<ul>
+<li>Małe transformatory: max η przy 50-70% obciążenia</li>
+<li>Duże transformatory: max η przy 80-90% obciążenia</li>
+</ul>
+<h3>Typowe sprawności</h3>
+<table>
+<thead><tr>
+<th>Moc</th>
+<th>Sprawność</th>
+</tr></thead><tbody>
+<tr>
+<td>1 VA</td>
+<td>50-65%</td>
+</tr>
+<tr>
+<td>10 VA</td>
+<td>70-80%</td>
+</tr>
+<tr>
+<td>100 VA</td>
+<td>85-90%</td>
+</tr>
+<tr>
+<td>1 kVA</td>
+<td>93-95%</td>
+</tr>
+<tr>
+<td>10 kVA</td>
+<td>97%</td>
+</tr>
+<tr>
+<td>MVA</td>
+<td>99%</td>
+</tr>
+</tbody></table>
+<h2>Prąd jałowy (I₀)</h2>
+<p>Prąd pobierany przy braku obciążenia. Składa się z:</p>
+<ul>
+<li>Prądu magnesującego (reaktywny, magnesujący rdzeń)</li>
+<li>Prądu strat w żelazie (czynny, grzeje rdzeń)</li>
+</ul>
+<p>Typowo I₀ = 5-15% prądu znamionowego.</p>
+<h2>Prąd zwarciowy</h2>
+<p>Z próby zwarcia (krótkie zwarcie wtórnego przy obniżonym U₁):</p>
+<pre><code>
+u_z = U_zwarcia / U_nominalne · 100%  [%]
+</code></pre>
+<p>u_z = 3-8% w typowych transformatorach sieciowych. Im niższe, tym lepsza regulacja napięcia, ale większy prąd zwarciowy (szczyt).</p>
+<h2>Regulacja napięcia (load regulation)</h2>
+<p>Spadek napięcia na wtórnym przy obciążeniu:</p>
+<pre><code>
+ΔU = U_jałowo − U_obciąż
+ε = ΔU / U_jałowo · 100%
+</code></pre>
+<p>Typowe ε = 5-15%. Stąd transformator 12 V "bez obciążenia" daje 13-14 V, pod znamionowym obciążeniem 12 V.</p>
+<p>To trzeba uwzględnić projektując zasilacz!</p>
+<h2>Typy transformatorów</h2>
+<h3>Sieciowe (50/60 Hz)</h3>
+<p>Standard. Rdzeń z blachy trafo (transformatorowej). Stosowane od głośników po duże stacje rozdzielcze.</p>
+<h3>Impulsowe (HF)</h3>
+<p>Pracują 10 kHz – 2 MHz. Rdzeń ferrytowy. Małe, lekkie. Standard w SMPS.</p>
+<h3>Wysokoczęstotliwościowe RF</h3>
+<p>10 MHz+. Małe rdzenie ferrytowe, czasem powietrzne. Anteny, balun, dopasowanie.</p>
+<h3>Pomiarowe</h3>
+<p>Wysokiej dokładności do mierników. Transformatory napięciowe (VT) i prądowe (CT).</p>
+<h3>Specjalne</h3>
+<ul>
+<li>Spawalnicze (duży prąd zwarciowy, regulacja)</li>
+<li>Lampowe (audio, wyjściowe)</li>
+<li>Izolacyjne (1:1, separacja galwaniczna)</li>
+</ul>
+<h2>Kierunek nawijania i fazy</h2>
+<p>Dwa uzwojenia mogą być <strong>w fazie</strong> lub <strong>przesunięte o 180°</strong> w zależności od kierunku nawijania. Oznaczamy kropkami na schemacie:</p>
+<div class="schem-ascii"><pre><code>
+   ●──UUUU──        ●──UUUU──
+              ║                ║
+              ║                ║
+   ●──UUUU──        ──UUUU──●
+   w fazie           odwrócone
+</code></pre></div>
+<p>Kropki = początek uzwojenia. Sygnał na początku jednego = sygnał na początku drugiego (w fazie).</p>
+<p>Ważne w:</p>
+<ul>
+<li>Łączeniu równoległym (źle = zwarcie)</li>
+<li>Sumowaniu (np. push-pull)</li>
+<li>Falownikach trójfazowych</li>
+</ul>
+<h2>Tabliczka znamionowa</h2>
+<p>Na realnym transformatorze:</p>
+<ul>
+<li><strong>U₁, U₂</strong> — napięcia nominalne</li>
+<li><strong>S</strong> — moc pozorna [VA] (uwaga: NIE waty!)</li>
+<li><strong>f</strong> — częstotliwość pracy</li>
+<li><strong>u_z</strong> — napięcie zwarcia [%]</li>
+<li><strong>I_jał</strong> — prąd jałowy</li>
+<li><strong>Klasa izolacji</strong> (np. F = 155°C)</li>
+<li><strong>IP</strong> — stopień ochrony</li>
+</ul>
+<h2>Najprostszy schemat zasilacza</h2>
+<div class="schem-ascii"><pre><code>
+                        +V
+                        │
+   ~ 230V ─── prim ║ sek ─── mostek ─── filtr C ─── stab. ─── obciąż.
+                   ║
+   ~ N    ─── prim ║      
+                   ║
+                        │
+                        GND
+</code></pre></div>
+<p>Transformator to "serce" zasilacza liniowego.</p>
+<h2>Dlaczego transformator jest tak ważny</h2>
+<p>Bez transformatora:</p>
+<ul>
+<li>Nie byłoby przesyłu energii na duże odległości (HV → LV)</li>
+<li>Nie byłoby zasilaczy izolowanych</li>
+<li>Nie byłoby zasilaczy impulsowych (bo i tam pracuje transformator HF)</li>
+<li>Nie byłoby silników indukcyjnych (te same zasady)</li>
+</ul>
+<p>To <strong>jedno z najważniejszych</strong> odkryć elektrotechniki XIX wieku.</p>
+<h2>Historia</h2>
+<ul>
+<li><strong>1831</strong> — Michael Faraday odkrywa indukcję</li>
+<li><strong>1836</strong> — Nicholas Callan buduje pierwszy "indukcyjny" transformator</li>
+<li><strong>1880-1890</strong> — Westinghouse i Stanley komercjalizują transformator AC</li>
+<li><strong>1890</strong> — "wojna prądów" (AC vs DC) wygrana przez AC, dzięki transformatorom</li>
+<li><strong>1950+</strong> — pojawiają się ferryty → wysokie częstotliwości → SMPS</li>
+<li><strong>2000+</strong> — amorficzne i nanokrystaliczne rdzenie do najwyższej sprawności</li>
+</ul>
+<p>W kolejnych rozdziałach: jak różne rdzenie wpływają na konstrukcję, jak obliczać moc, jak samodzielnie nawijać transformator.</p>
+
+        <div class="nav-bottom">
+            <a href="06-transformatory.html">&larr; 06 Transformatory</a>
+            <a href="06-02-rdzenie-magnetyczne.html">06-02 Rdzenie magnetyczne &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

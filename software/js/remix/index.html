@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Remix / React Router 7 — JS/TS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:36px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);color:var(--text-muted);font-size:.9rem}
+.footer a{color:var(--accent);text-decoration:none}.footer a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">JS-TS</a>
+  <span class="sep">/</span>
+  <span class="title">Remix / React Router 7</span>
+</div>
+
+<div class="container">
+  <h1>Remix → React Router 7</h1>
+  <p class="subtitle">Web standards focused. Merged into React Router v7 (2024). Loaders + Actions.</p>
+
+  <h2>1. Historia: Remix merguje z React Router 7</h2>
+  <p>Remix zostal stworzony przez <strong>Ryana Florence i Michaela Jacksona</strong> — autorow React Router — i wydany publicznie w 2021 roku. W grudniu 2024 nastapil historyczny merge: Remix v3 stal sie <strong>React Router v7</strong>. Nie jest to porzucenie projektu — wrecz przeciwnie, to konsolidacja dwoch narzedzi w jedno.</p>
+
+  <h3>Co sie zmienilo po merge</h3>
+  <ul>
+    <li>Pakiet <code>remix</code> jest teraz <code>react-router</code> (v7+)</li>
+    <li>Framework mode (z loaderami, actions, SSR) jest teraz czescia React Router</li>
+    <li>Migracja z Remix v2: minimalne zmiany, glownie aliasy importow</li>
+    <li>React Router mozna uzywac jako czysty router kliencki LUB jako pelny framework (Vite plugin)</li>
+    <li>Nadal oparty na Vite — szybki DX, HMR, TypeScript natywnie</li>
+  </ul>
+
+  <div class="card blue">
+    <strong>React Router v7 = Remix v3</strong><br>
+    Jesli znasz Remix — znasz juz React Router 7 w trybie framework. Jesli znasz React Router 6 — framework mode to dla Ciebie nowosci: loaders, actions, SSR, file-based routing jako opcja.
+  </div>
+
+  <h3>Dwa tryby uzycia React Router v7</h3>
+  <ul>
+    <li><strong>Library mode</strong> — klasyczny React Router (tylko client-side routing, jak dotychczas)</li>
+    <li><strong>Framework mode</strong> — pelny SSR framework z loaderami i akcjami (to jest dawny Remix)</li>
+  </ul>
+
+  <h2>2. Filozofia Web Standards</h2>
+  <p>Remix / React Router 7 jest zbudowany wokol <strong>standardowych Web API</strong> — tych samych, ktore dzialaja w przegladarkach. Zamiast wymyslac nowe abstrakcje, Remix uzywa: <code>Request</code>, <code>Response</code>, <code>FormData</code>, <code>URL</code>, <code>Headers</code>, <code>fetch</code>.</p>
+  <p>To oznacza, ze kod Remix jest bardziej przenosny i blizszy temu, co faktycznie dzieje sie w sieci. Znajomosc Web API przeklada sie bezposrednio na znajomosc Remix.</p>
+
+  <ul>
+    <li><strong>Form zamiast fetch</strong> — natywny HTML Form z progressywnym ulepszeniem</li>
+    <li><strong>Loaders zamiast useEffect + fetch</strong> — dane ladowane po stronie serwera, przed renderowaniem</li>
+    <li><strong>Actions zamiast API routes</strong> — mutacje przez standardowy POST</li>
+    <li><strong>Cache headers</strong> — HTTP cache przez standardowe naglowki Cache-Control</li>
+    <li><strong>cookies()</strong> — standardowe HTTP cookies bez sesji po stronie serwera</li>
+  </ul>
+
+  <h2>3. Routing — file-based, nested routes, flat routes</h2>
+  <pre><code># Framework mode — inicjalizacja projektu
+npx create-react-router@latest moj-projekt
+cd moj-projekt
+npm install
+npm run dev
+
+# Struktura routingu (app/routes/):
+# app/routes/home.tsx           → /home
+# app/routes/blog.tsx           → /blog (layout dla /blog/*)
+# app/routes/blog._index.tsx    → /blog (index trasy)
+# app/routes/blog.$slug.tsx     → /blog/:slug
+# app/routes/users.$id.tsx      → /users/:id
+# app/routes/_auth.login.tsx    → /login (w grupie _auth bez URL prefix)
+# app/routes/_auth.register.tsx → /register
+
+# Alternatywa: folder-based routing (jak Next.js)
+# app/routes/blog/
+#   _layout.tsx    — layout dla wszystkich tras /blog/*
+#   index.tsx      — /blog
+#   $slug.tsx      — /blog/:slug
+
+// app/routes/blog.$slug.tsx — nested route
+import type { Route } from './+types/blog.$slug';  // auto-generowane typy!
+
+// Loader — serwer, przed renderowaniem
+export async function loader({ params }: Route.LoaderArgs) {
+  const post = await db.post.findUnique({ where: { slug: params.slug } });
+  if (!post) throw new Response('Not Found', { status: 404 });
+  return { post };
+}
+
+// Komponent — otrzymuje dane z loadera
+export default function BlogPost({ loaderData }: Route.ComponentProps) {
+  const { post } = loaderData;  // TypeScript zna typ z loadera!
+  return (
+    &lt;article&gt;
+      &lt;h1&gt;{post.title}&lt;/h1&gt;
+      &lt;p&gt;{post.body}&lt;/p&gt;
+    &lt;/article&gt;
+  );
+}</code></pre>
+
+  <h2>4. Loaders — dane z serwera</h2>
+  <p>Loader to funkcja uruchamiana po stronie serwera przed wyrenderowaniem komponentu. Zwraca dane dostepne w komponencie przez <code>loaderData</code>. Wspiera pelne HTTP — mozna ustawiac naglowki cache, cookies, statusy.</p>
+  <pre><code">// app/routes/products._index.tsx
+import type { Route } from './+types/products._index';
+
+export async function loader({ request, context }: Route.LoaderArgs) {
+  // Dostep do URL i query params
+  const url = new URL(request.url);
+  const page = Number(url.searchParams.get('page') ?? '1');
+  const q = url.searchParams.get('q') ?? '';
+
+  // Dostep do cookies
+  const session = await getSession(request.headers.get('Cookie'));
+  const userId = session.get('userId');
+
+  // Pobieranie danych
+  const [products, total] = await Promise.all([
+    db.product.findMany({
+      where: q ? { name: { contains: q } } : {},
+      skip: (page - 1) * 20,
+      take: 20
+    }),
+    db.product.count()
+  ]);
+
+  // Zwrot z naglowkami cache (HTTP caching!)
+  return Response.json(
+    { products, total, page, q },
+    {
+      headers: {
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300'
+      }
+    }
+  );
+}
+
+// Uzycie w komponencie
+export default function ProductsPage({ loaderData }: Route.ComponentProps) {
+  const { products, total, page } = loaderData;
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;Produkty ({total})&lt;/h1&gt;
+      {products.map(p =&gt; &lt;ProductCard key={p.id} product={p} /&gt;)}
+    &lt;/div&gt;
+  );
+}</code></pre>
+
+  <h2>5. Actions — mutacje formularzy</h2>
+  <p>Actions obsługują POST requesty — mutacje danych (tworzenie, aktualizacja, usuwanie). Sa uruchamiane po stronie serwera po submicie formularza lub wywolaniu <code>fetcher.submit()</code>.</p>
+  <pre><code">// app/routes/contacts.new.tsx
+import type { Route } from './+types/contacts.new';
+import { Form, redirect, useActionData } from 'react-router';
+import { z } from 'zod';
+
+const ContactSchema = z.object({
+  name: z.string().min(2, 'Imie musi miec min. 2 znaki'),
+  email: z.string().email('Niepoprawny email'),
+  message: z.string().min(10, 'Wiadomosc zbyt krotka')
+});
+
+// Action — wywolywane przez POST do tej trasy
+export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData();
+
+  const result = ContactSchema.safeParse({
+    name: formData.get('name'),
+    email: formData.get('email'),
+    message: formData.get('message')
+  });
+
+  // Zwrot bledow walidacji
+  if (!result.success) {
+    return { errors: result.error.flatten().fieldErrors };
+  }
+
+  // Zapis i przekierowanie
+  await db.contact.create({ data: result.data });
+  return redirect('/contacts?sent=true');
+}
+
+// Komponent z formularzem
+export default function NewContact({ actionData }: Route.ComponentProps) {
+  return (
+    // Form — standardowy HTML form + Remix enhancement
+    // Dziala bez JavaScript (progressywne usprawnienie)!
+    &lt;Form method="post"&gt;
+      &lt;div&gt;
+        &lt;input name="name" placeholder="Imie" required /&gt;
+        {actionData?.errors?.name &amp;&amp; (
+          &lt;p className="error"&gt;{actionData.errors.name[0]}&lt;/p&gt;
+        )}
+      &lt;/div&gt;
+      &lt;div&gt;
+        &lt;input name="email" type="email" placeholder="Email" required /&gt;
+        {actionData?.errors?.email &amp;&amp; (
+          &lt;p className="error"&gt;{actionData.errors.email[0]}&lt;/p&gt;
+        )}
+      &lt;/div&gt;
+      &lt;textarea name="message" placeholder="Wiadomosc" required /&gt;
+      &lt;button type="submit"&gt;Wyslij&lt;/button&gt;
+    &lt;/Form&gt;
+  );
+}</code></pre>
+
+  <h2>6. Error Boundaries per route</h2>
+  <p>Kazda trasa w React Router 7 moze miec wlasny error boundary. Blad w loaderze lub akcji jest "zlapany" przez najblizszy error boundary — reszta aplikacji dziala normalnie.</p>
+  <pre><code">// app/routes/products.$id.tsx
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  // Obsluguje bledy loader, action i renderowania dla tej trasy
+  if (isRouteErrorResponse(error)) {
+    // Bledy HTTP (np. throw new Response('Not Found', {status: 404}))
+    return (
+      &lt;div&gt;
+        &lt;h1&gt;{error.status} — {error.statusText}&lt;/h1&gt;
+        &lt;p&gt;{error.data}&lt;/p&gt;
+      &lt;/div&gt;
+    );
+  }
+
+  // Nieoczekiwany blad JavaScript
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;Nieoczekiwany blad&lt;/h1&gt;
+      &lt;p&gt;{error instanceof Error ? error.message : 'Nieznany blad'}&lt;/p&gt;
+    &lt;/div&gt;
+  );
+}
+
+// Rzucanie bledow HTTP w loaderze
+export async function loader({ params }: Route.LoaderArgs) {
+  const product = await db.product.findUnique({ where: { id: params.id } });
+
+  if (!product) {
+    // Zostanie zlapany przez ErrorBoundary tej trasy
+    throw new Response('Produkt nie znaleziony', { status: 404 });
+  }
+
+  return { product };
+}</code></pre>
+
+  <h2>7. Progressive Enhancement</h2>
+  <p>Progressive enhancement to jedna z glownych filozofii Remix / React Router 7. Aplikacja dziala nawet bez JavaScript — formularze wysylaja dane, nawigacja dziala. JavaScript tylko <strong>ulepsza</strong> doswiadczenie (pending states, optimistic UI, instant navigation).</p>
+  <pre><code">import { Form, useNavigation, useOptimistic } from 'react-router';
+
+// useNavigation — stan nawigacji / submitu formularza
+export default function NewPostForm() {
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === 'submitting';
+
+  return (
+    &lt;Form method="post"&gt;
+      &lt;input name="title" /&gt;
+      &lt;textarea name="body" /&gt;
+      &lt;button type="submit" disabled={isSubmitting}&gt;
+        {isSubmitting ? 'Zapisywanie...' : 'Zapisz post'}
+      &lt;/button&gt;
+    &lt;/Form&gt;
+  );
+}
+
+// useFetcher — submity bez nawigacji (np. like button, delete)
+import { useFetcher } from 'react-router';
+
+export function LikeButton({ postId, liked }: { postId: string; liked: boolean }) {
+  const fetcher = useFetcher();
+
+  // Optimistic UI — natychmiastowa odpowiedz UI przed odpowiedzia serwera
+  const optimisticLiked = fetcher.formData
+    ? fetcher.formData.get('action') === 'like'
+    : liked;
+
+  return (
+    &lt;fetcher.Form method="post" action={`/posts/${postId}/like`}&gt;
+      &lt;button
+        name="action"
+        value={optimisticLiked ? 'unlike' : 'like'}
+        type="submit"
+      &gt;
+        {optimisticLiked ? 'Polubiono' : 'Polub'}
+      &lt;/button&gt;
+    &lt;/fetcher.Form&gt;
+  );
+}</code></pre>
+
+  <h2>8. Streaming z defer i Suspense</h2>
+  <p>React Router 7 wspiera streaming — mozna wyslac czesc HTML natychmiast, a wolne dane zaladowac pozniej przez Suspense bez blokowania calej strony.</p>
+  <pre><code">import { Suspense } from 'react';
+import { Await } from 'react-router';
+
+export async function loader() {
+  // Szybkie dane — czekamy (blokujace)
+  const user = await db.user.findFirst();
+
+  // Wolne dane — NIE czekamy, zwracamy Promise
+  const recommendations = db.product.findMany({ take: 5 }); // bez await!
+
+  return {
+    user,                 // rozwiazane natychmiast
+    recommendations       // Promise — rozwiazywany przez Await
+  };
+}
+
+export default function Dashboard({ loaderData }: Route.ComponentProps) {
+  const { user, recommendations } = loaderData;
+
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;Czesc, {user.name}!&lt;/h1&gt;
+
+      &lt;Suspense fallback={&lt;p&gt;Ladowanie rekomendacji...&lt;/p&gt;}&gt;
+        &lt;Await resolve={recommendations}&gt;
+          {(items) =&gt; (
+            &lt;ul&gt;
+              {items.map(item =&gt; &lt;li key={item.id}&gt;{item.name}&lt;/li&gt;)}
+            &lt;/ul&gt;
+          )}
+        &lt;/Await&gt;
+      &lt;/Suspense&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+
+  <h2>9. Deployment — Vite plugin i adaptery</h2>
+  <pre><code"># Build produkcyjny
+npm run build
+
+# Uruchomienie (Node.js adapter — domyslny)
+npm start
+
+// react-router.config.ts — konfiguracja frameworku
+import type { Config } from '@react-router/dev/config';
+
+export default {
+  // SSR (domyslnie true)
+  ssr: true,
+
+  // Prerender — generowanie statycznych tras
+  async prerender() {
+    return ['/', '/about', '/blog'];
+  }
+} satisfies Config;
+
+// vite.config.ts — plugin frameworku
+import { defineConfig } from 'vite';
+import { reactRouter } from '@react-router/dev/vite';
+import tsconfigPaths from 'vite-tsconfig-paths';
+
+export default defineConfig({
+  plugins: [
+    reactRouter(),
+    tsconfigPaths()
+  ]
+});</code></pre>
+
+  <div class="card blue">
+    <strong>Dostepne adaptery deploymentu:</strong><br>
+    Node.js (<code>@react-router/node</code>) — domyslny<br>
+    Vercel (<code>@react-router/vercel</code>) — Vercel Functions<br>
+    Cloudflare Workers (<code>@react-router/cloudflare</code>)<br>
+    Netlify (<code>@react-router/netlify</code>)<br>
+    AWS Lambda, Deno Deploy — przez community adaptery
+  </div>
+
+  <h2>10. Kiedy Remix / React Router 7 vs Next.js</h2>
+
+  <table>
+    <tr><th>Cecha</th><th>Remix / RR7</th><th>Next.js 15</th><th>SvelteKit</th></tr>
+    <tr><td>Filozofia</td><td>Web standards first</td><td>React RSC first</td><td>Web standards + Svelte</td></tr>
+    <tr><td>Data fetching</td><td>Loaders (SSR, per-route)</td><td>Server Components (async)</td><td>load() functions</td></tr>
+    <tr><td>Mutacje</td><td>Actions (Form-based)</td><td>Server Actions</td><td>Form actions</td></tr>
+    <tr><td>Routing</td><td>Nested routes (kluczowe)</td><td>Nested layouts (App Router)</td><td>File-based</td></tr>
+    <tr><td>Progressive enhancement</td><td>Tak (pierwszorzedny)</td><td>Ograniczony</td><td>Tak</td></tr>
+    <tr><td>Bundle size</td><td>Mniejszy (bez RSC overhead)</td><td>Wiekszy (RSC runtime)</td><td>Minimalny (kompilacja)</td></tr>
+    <tr><td>Streaming</td><td>defer + Suspense</td><td>Natywny (RSC streaming)</td><td>streaming: true</td></tr>
+    <tr><td>Ekosystem</td><td>React (npm)</td><td>React + Vercel</td><td>Svelte</td></tr>
+    <tr><td>Kiedy wybrac</td><td>Web standards, forms-heavy, multi-host</td><td>RSC, Vercel, duzy ekosystem React</td><td>Svelte, maly bundle</td></tr>
+  </table>
+
+  <div class="card green">
+    <strong>Wybierz Remix / React Router 7 gdy:</strong> budujesz aplikacje intensywnie korzystajaca z formularzy i mutacji, chcesz blisko Web standards bez nowych abstrakcji, deployujesz na rozne platformy (nie tylko Vercel), lub zalezy Ci na progressywnym ulepszeniu (dostepnosc, wolne polaczenia).
+  </div>
+
+  <div class="card orange">
+    <strong>Wybierz Next.js gdy:</strong> korzytasz glownie z Vercel, zespol zna React Server Components, potrzebujesz duzego ekosystemu integracji (Auth.js, Prisma Accelerate, etc.) lub budujesz content-heavy e-commerce z ISR/PPR.
+  </div>
+
+  <div class="footer">
+    <a href="../../index.html">← Wroc do JS/TS</a>
+  </div>
+</div>
+
+</body>
+</html>

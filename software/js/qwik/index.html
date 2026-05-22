@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qwik — JS/TS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:36px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);color:var(--text-muted);font-size:.9rem}
+.footer a{color:var(--accent);text-decoration:none}.footer a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">JS-TS</a>
+  <span class="sep">/</span>
+  <span class="title">Qwik</span>
+</div>
+
+<div class="container">
+  <h1>Qwik</h1>
+  <p class="subtitle">Resumability zamiast hydration. Instant page load. Builder.io.</p>
+
+  <h2>1. Co to Qwik — resumability vs hydration</h2>
+  <p>Qwik to framework stworzony przez <strong>Misko Hevery'ego</strong> (tworca AngularJS) i rozwijany przez <strong>Builder.io</strong>. Jego fundamentalna innowacja to koncepcja <strong>resumability</strong> — radykalnie odmienna od hydration stosowanej przez React, Vue, Angular i wszystkie inne frameworki.</p>
+
+  <h3>Problem z hydration</h3>
+  <p>Tradycyjny SSR dziala tak: serwer generuje HTML, przeglądarka go wyswietla, potem pobiera caly bundle JavaScript i uruchamia proces <strong>hydration</strong> — odtworzenie stanu aplikacji po stronie klienta, podpiecie event listenerow, re-renderowanie wirtualnego DOM. Ten proces moze trwac od setek milisekund do kilku sekund dla duzych aplikacji — <strong>strona wyglada gotowo, ale nie jest interaktywna</strong> (problem TTI — Time to Interactive).</p>
+
+  <h3>Resumability — rozwiazanie Qwik</h3>
+  <p>Qwik serializuje <strong>caly stan aplikacji i listenery zdarzen</strong> bezposrednio do HTML jako atrybuty. Przeglądarka nie pobiera zadnego JavaScript przy starcie. JS jest pobierany <strong>leniwie, tylko gdy uzytkownik wykona akcje</strong> (np. kliknie przycisk). To jest resumption — kontynuowanie stanu serwera zamiast jego odtwarzania.</p>
+
+  <div class="card blue">
+    <strong>Kluczowa roznica:</strong><br>
+    Hydration: pobierz caly JS → wykonaj → podepnij eventy → aplikacja gotowa<br>
+    Resumability: wyswietl HTML → gotowe! JS pobierany dopiero gdy potrzebny
+  </div>
+
+  <h2>2. Instalacja</h2>
+  <pre><code># Nowy projekt Qwik (z QwikCity — meta-framework)
+npm create qwik@latest
+
+# Wybierz template:
+# - Empty App
+# - Starter App (z przykladami)
+# - Library (paczka npm)
+
+cd moj-projekt
+npm install
+npm run dev
+
+# Build produkcyjny
+npm run build
+
+# Podglad
+npm run preview
+
+# Dodanie integracji
+npm run qwik add react    # integracja z React
+npm run qwik add vitest   # testy
+npm run qwik add tailwind # Tailwind CSS</code></pre>
+
+  <div class="card green">
+    <strong>Struktura projektu Qwik (QwikCity)</strong><br>
+    <code>src/routes/</code> — routing oparty na plikach<br>
+    <code>src/components/</code> — komponenty Qwik<br>
+    <code>src/routes/layout.tsx</code> — layout (jak Next.js)<br>
+    <code>src/routes/index.tsx</code> — strona glowna /<br>
+    <code>src/global.css</code> — globalne style<br>
+    <code>vite.config.ts</code> — konfiguracja Vite + Qwik
+  </div>
+
+  <h2>3. Skladnia Qwik — component$ i sufiks $</h2>
+  <p>Qwik uzywa specjalnego sufiksu <code>$</code> do oznaczania granic lazy loading. Funkcje z <code>$</code> sa automatycznie wycinane do osobnych chunkow i pobierane tylko gdy potrzebne. To jest kluczowy mechanizm resumability.</p>
+  <pre><code>// Podstawowy komponent Qwik
+import { component$, useSignal } from '@builder.io/qwik';
+
+// component$() — oznacza granice lazy loading komponentu
+export const HelloWorld = component$(() => {
+  const name = useSignal('Swiecie');
+
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;Witaj, {name.value}!&lt;/h1&gt;
+      &lt;input
+        value={name.value}
+        onInput$={(e) =&gt; {
+          // onInput$ — handler jest lazy, pobierany tylko gdy uzytkownik pisze
+          name.value = (e.target as HTMLInputElement).value;
+        }}
+      /&gt;
+    &lt;/div&gt;
+  );
+});
+
+// Props komponentu
+interface ButtonProps {
+  label: string;
+  onClick$?: () =&gt; void;  // $ w nazwie propa = lazy handler
+}
+
+export const Button = component$&lt;ButtonProps&gt;(({ label, onClick$ }) =&gt; {
+  return (
+    &lt;button onClick$={onClick$}&gt;
+      {label}
+    &lt;/button&gt;
+  );
+});</code></pre>
+
+  <h2>4. Resumability — szczegoly techniczne</h2>
+  <p>Qwik serializuje stan do HTML przez specjalne atrybuty. Gdy uzytkownik kliknie element, Qwik pobiera <strong>tylko ten jeden chunk JS</strong> potrzebny do obslugi tego zdarzenia — nie cala aplikacje.</p>
+  <pre><code">// To co generuje Qwik w HTML (uproszczone):
+// &lt;button on:click="./chunk-abc123.js#handleClick"&gt;Kliknij&lt;/button&gt;
+// &lt;script type="qwik/json"&gt;{"state":{"count":0}}&lt;/script&gt;
+
+// Qwik Optimizer — plugin Vite ktory:
+// 1. Wykrywa wszystkie funkcje z sufiksem $
+// 2. Wycina je do osobnych plikow (chunks)
+// 3. Generuje manifest mapujacy symbole na pliki
+// 4. Wstrzykuje stan do HTML podczas SSR
+
+// Przyklad serialization — co trafia do HTML
+export const Counter = component$(() => {
+  const count = useSignal(0);  // serializowany do HTML jako {"count":0}
+
+  // Ten handler jest WYCIETY do osobnego pliku
+  // Pobierany tylko gdy uzytkownik kliknie
+  const increment = $(() =&gt; {
+    count.value++;
+  });
+
+  return &lt;button onClick$={increment}&gt;{count.value}&lt;/button&gt;;
+});
+
+// Miedzy server i klient — co jest serializowalne:
+// - Prymitywy: string, number, boolean, null
+// - Tablice i obiekty (JSON-serializable)
+// - Sygnaly (useSignal, useStore)
+// NIE: funkcje (chyba ze przez $), DOM elements, class instances</code></pre>
+
+  <h2>5. Signals — useSignal, useStore, useComputed$</h2>
+  <pre><code">import {
+  component$,
+  useSignal,
+  useStore,
+  useComputed$,
+  useTask$
+} from '@builder.io/qwik';
+
+export const ShoppingCart = component$(() => {
+  // useSignal — pojedyncza reaktywna wartosc
+  const discount = useSignal(0);
+
+  // useStore — reaktywny obiekt (deep reactive)
+  const cart = useStore({
+    items: [] as CartItem[],
+    isOpen: false
+  });
+
+  // useComputed$ — obliczana wartosc reaktywna (lazy)
+  const total = useComputed$(() =&gt; {
+    const subtotal = cart.items.reduce(
+      (sum, item) =&gt; sum + item.price * item.qty, 0
+    );
+    return subtotal * (1 - discount.value / 100);
+  });
+
+  // useTask$ — side effect (odpowiednik useEffect)
+  // Uruchamiany na serwerze I na kliencie
+  useTask$(({ track }) =&gt; {
+    track(() =&gt; cart.items.length);  // sledz zmiany
+    console.log(`Koszyk ma ${cart.items.length} elementow`);
+  });
+
+  return (
+    &lt;div&gt;
+      &lt;p&gt;Suma: {total.value} zl&lt;/p&gt;
+      &lt;p&gt;Produktow: {cart.items.length}&lt;/p&gt;
+      &lt;button onClick$={() =&gt; (cart.isOpen = !cart.isOpen)}&gt;
+        {cart.isOpen ? 'Zamknij' : 'Otworz'} koszyk
+      &lt;/button&gt;
+    &lt;/div&gt;
+  );
+});</code></pre>
+
+  <h2>6. Event handlers — sufiks $ jest kluczowy</h2>
+  <p>Kazdy event handler w Qwik musi uzywac sufiksu <code>$</code>. Bez niego handler nie zostanie prawidlowo wyciety i zbundlowany. Qwik optymizer sprawdza to podczas buildu.</p>
+  <pre><code">import { component$, useSignal, $ } from '@builder.io/qwik';
+
+export const EventDemo = component$(() => {
+  const log = useSignal('');
+
+  // Handler zdefiniowany inline z $() — wyciety do chunka
+  const handleClick = $((event: MouseEvent) =&gt; {
+    log.value = `Kliknieto: ${(event.target as HTMLElement).textContent}`;
+  });
+
+  return (
+    &lt;div&gt;
+      {/* Inline handler z sufixem $ */}
+      &lt;button onClick$={() =&gt; (log.value = 'Przycisk A')}&gt;A&lt;/button&gt;
+
+      {/* Referencja do handlera przez $ */}
+      &lt;button onClick$={handleClick}&gt;B&lt;/button&gt;
+
+      {/* Wiele handlerow (tablica) */}
+      &lt;button
+        onClick$={[
+          handleClick,
+          $(() =&gt; console.log('Drugi handler'))
+        ]}
+      &gt;C&lt;/button&gt;
+
+      {/* Formularze */}
+      &lt;form
+        onSubmit$={(e) =&gt; {
+          e.preventDefault();
+          // obsluza submit
+        }}
+        preventdefault:submit  {/* alternatywny sposob */}
+      &gt;
+        &lt;input name="search" /&gt;
+        &lt;button type="submit"&gt;Szukaj&lt;/button&gt;
+      &lt;/form&gt;
+
+      &lt;p&gt;Log: {log.value}&lt;/p&gt;
+    &lt;/div&gt;
+  );
+});</code></pre>
+
+  <h2>7. Routing z QwikCity</h2>
+  <p>QwikCity to meta-framework dla Qwik (jak Next.js dla React). Oferuje file-based routing, loaders (dane po stronie serwera), actions (mutacje) i layouts.</p>
+  <pre><code">// src/routes/products/[id]/index.tsx
+import { component$ } from '@builder.io/qwik';
+import {
+  routeLoader$,
+  routeAction$,
+  Form,
+  type DocumentHead
+} from '@builder.io/qwik-city';
+import { z } from 'zod';
+
+// routeLoader$ — pobieranie danych po stronie serwera
+// Wykonuje sie na serwerze, dane sa serializowane do HTML
+export const useProductLoader = routeLoader$(async ({ params, status }) =&gt; {
+  const product = await db.product.findUnique({
+    where: { id: params.id }
+  });
+
+  if (!product) {
+    status(404);
+    return null;
+  }
+
+  return product;
+});
+
+// routeAction$ — mutacje (submit formularzy, POST requests)
+export const useAddToCart = routeAction$(
+  async (data, { cookie, redirect }) =&gt; {
+    const cart = cookie.get('cart')?.json() ?? [];
+    cart.push({ productId: data.productId, qty: 1 });
+    cookie.set('cart', JSON.stringify(cart), { path: '/' });
+    throw redirect(302, '/cart');
+  },
+  // Walidacja przez Zod
+  z.object({ productId: z.string() })
+);
+
+export default component$(() =&gt; {
+  // useProductLoader() — wywolanie loadera w komponencie
+  const product = useProductLoader();
+  const addToCart = useAddToCart();
+
+  if (!product.value) return &lt;div&gt;Produkt nie istnieje&lt;/div&gt;;
+
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;{product.value.name}&lt;/h1&gt;
+      &lt;p&gt;{product.value.price} zl&lt;/p&gt;
+
+      {/* Form z action — progressywne usprawnienie, dziala bez JS! */}
+      &lt;Form action={addToCart}&gt;
+        &lt;input type="hidden" name="productId" value={product.value.id} /&gt;
+        &lt;button type="submit"&gt;Dodaj do koszyka&lt;/button&gt;
+      &lt;/Form&gt;
+    &lt;/div&gt;
+  );
+});
+
+// SEO metadata
+export const head: DocumentHead = ({ resolveValue }) =&gt; {
+  const product = resolveValue(useProductLoader);
+  return {
+    title: product?.name ?? 'Produkt',
+    meta: [{ name: 'description', content: product?.description }]
+  };
+};</code></pre>
+
+  <h2>8. Speculative Module Fetching</h2>
+  <p>Qwik 1.x wprowadzil <strong>Speculative Module Fetching</strong> — mechanizm prefetchowania modulow JS zanim uzytkownik je potrzebuje. Dziala przez Service Worker ktory pobiera i cache'uje chunki w tle, gdy przeglądarka jest bezczynna.</p>
+  <pre><code">// vite.config.ts — konfiguracja prefetchowania
+import { defineConfig } from 'vite';
+import { qwikVite } from '@builder.io/qwik/optimizer';
+import { qwikCity } from '@builder.io/qwik-city/vite';
+
+export default defineConfig(() =&gt; ({
+  plugins: [
+    qwikCity(),
+    qwikVite({
+      // Strategie prefetchowania:
+      // 'prefetch' — &lt;link rel="prefetch"&gt; w HTML
+      // 'preload' — &lt;link rel="preload"&gt; w HTML
+      // 'modulepreload' — &lt;link rel="modulepreload"&gt; w HTML
+      // 'none' — bez prefetchowania
+    })
+  ]
+}));</code></pre>
+
+  <div class="card orange">
+    <strong>Efekt Speculative Module Fetching:</strong> Po zaladowaniu strony, Service Worker pobiera w tle chunki JS dla interakcji ktore uzytkownik prawdopodobnie wykona. Gdy uzytkownik kliknie — kod jest juz w cache, wiec wczytuje sie natychmiastowo. Laczy zyski resumability (szybki start) z szybkoscia SPA (blyskawiczne interakcje po prefetch).
+  </div>
+
+  <h2>9. Integracja z React przez qwik-react</h2>
+  <pre><code">// Uzywanie komponentow React wewnatrz Qwik
+npm run qwik add react
+
+// src/components/ReactChart.tsx — normalny komponent React
+import { useState } from 'react';
+export function ReactChart({ data }: { data: number[] }) {
+  const [hovered, setHovered] = useState&lt;number | null&gt;(null);
+  return (
+    &lt;div&gt;
+      {data.map((val, i) =&gt; (
+        &lt;div
+          key={i}
+          style={{ height: val }}
+          onMouseEnter={() =&gt; setHovered(i)}
+        /&gt;
+      ))}
+      {hovered !== null &amp;&amp; &lt;p&gt;Zaznaczony: {data[hovered]}&lt;/p&gt;}
+    &lt;/div&gt;
+  );
+}
+
+// src/components/QwikWrapper.tsx — opakowanie dla Qwik
+import { qwikify$ } from '@builder.io/qwik-react';
+import { ReactChart } from './ReactChart';
+
+// qwikify$ — konwertuje React component na Qwik component
+export const QwikChart = qwikify$(ReactChart, {
+  // Kiedy aktywowac hydratacje React:
+  eagerness: 'visible' // | 'load' | 'hover' | 'idle'
+});
+
+// Uzycie w komponencie Qwik:
+export const Dashboard = component$(() =&gt; (
+  &lt;QwikChart data={[10, 50, 30, 70, 20]} client:visible /&gt;
+));</code></pre>
+
+  <h2>10. Kiedy Qwik</h2>
+  <table>
+    <tr><th>Cecha</th><th>Qwik</th><th>React / Next.js</th><th>Astro</th></tr>
+    <tr><td>Time to Interactive</td><td>Natychmiastowy (resumability)</td><td>Sredni (hydration)</td><td>Doskonaly (zero JS)</td></tr>
+    <tr><td>Interaktywnosc</td><td>Pelna (SPA-level)</td><td>Pelna</td><td>Wyspy (ograniczona)</td></tr>
+    <tr><td>Rozmiar JS przy starcie</td><td>~1KB (bez hydration)</td><td>Duzy bundle</td><td>Zero (bez wysp)</td></tr>
+    <tr><td>Krzywa uczenia</td><td>Stroma ($ sufiks, nowe myslenie)</td><td>Srednia</td><td>Lagodna</td></tr>
+    <tr><td>Ekosystem</td><td>Mlody (Builder.io)</td><td>Ogromny</td><td>Rosnacy</td></tr>
+    <tr><td>Najlepsze dla</td><td>E-commerce, content z interaktywnością</td><td>SPA, dashboardy</td><td>Blogi, docs</td></tr>
+  </table>
+
+  <div class="card green">
+    <strong>Wybierz Qwik gdy:</strong> budujesz e-commerce lub content site z High Core Web Vitals jako twardym wymogiem, masz duzo tresci serwerowej z wybranymi interaktywnymi elementami, priorytetem jest TTI na wolnych polaczeniach/urzadzeniach mobilnych.
+  </div>
+
+  <div class="footer">
+    <a href="../../index.html">← Wroc do JS/TS</a>
+  </div>
+</div>
+
+</body>
+</html>

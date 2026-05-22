@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Database w Go</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Go</a>
+  <span class="sep">/</span>
+  <span class="title">Database w Go</span>
+</div>
+<div class="container">
+  <h1>Database w Go</h1>
+  <p class="subtitle">database/sql, pgx, GORM, sqlx — laczenie z baza danych, ORM, migracje i connection pooling</p>
+
+  <h2>database/sql — standardowa biblioteka</h2>
+  <p>Pakiet <code>database/sql</code> dostarcza generyczny interfejs do baz danych. Sam w sobie nie laczy sie z zadna baza — wymaga sterownika (driver), ktory implementuje interfejs <code>sql.Driver</code>. Dla PostgreSQL najczesciej uzywa sie <code>lib/pq</code> lub nowszego <code>jackc/pgx</code>.</p>
+
+<pre><code>package main
+
+import (
+    "context"
+    "database/sql"
+    "log"
+    "time"
+
+    _ "github.com/jackc/pgx/v5/stdlib" // rejestruje driver pgx jako "pgx"
+)
+
+type User struct {
+    ID        int
+    Name      string
+    Email     string
+    CreatedAt time.Time
+}
+
+func main() {
+    dsn := "postgres://user:pass@localhost:5432/mydb?sslmode=disable"
+    db, err := sql.Open("pgx", dsn)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer db.Close()
+
+    // Konfiguracja connection pool
+    db.SetMaxOpenConns(25)
+    db.SetMaxIdleConns(10)
+    db.SetConnMaxLifetime(5 * time.Minute)
+    db.SetConnMaxIdleTime(1 * time.Minute)
+
+    // Weryfikacja polaczenia
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    if err := db.PingContext(ctx); err != nil {
+        log.Fatal("baza niedostepna:", err)
+    }
+}
+
+// QueryRow — jeden wiersz
+func getUser(db *sql.DB, id int) (*User, error) {
+    u := &User{}
+    err := db.QueryRowContext(context.Background(),
+        "SELECT id, name, email, created_at FROM users WHERE id = $1", id,
+    ).Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt)
+    if err == sql.ErrNoRows {
+        return nil, nil
+    }
+    return u, err
+}
+
+// Query — wiele wierszy
+func listUsers(db *sql.DB) ([]User, error) {
+    rows, err := db.QueryContext(context.Background(),
+        "SELECT id, name, email, created_at FROM users ORDER BY id LIMIT 100")
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var users []User
+    for rows.Next() {
+        var u User
+        if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt); err != nil {
+            return nil, err
+        }
+        users = append(users, u)
+    }
+    return users, rows.Err()
+}
+
+// Exec — INSERT / UPDATE / DELETE
+func createUser(db *sql.DB, name, email string) (int, error) {
+    var id int
+    err := db.QueryRowContext(context.Background(),
+        "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id",
+        name, email,
+    ).Scan(&id)
+    return id, err
+}</code></pre>
+
+  <h2>pgx — natywny driver PostgreSQL</h2>
+  <p>Pakiet <code>github.com/jackc/pgx/v5</code> mozna uzywac bezposrednio (bez <code>database/sql</code>), co daje dostep do funkcji specyficznych dla PostgreSQL: typow <code>pgtype</code>, COPY protocol, listen/notify, large objects i batchow.</p>
+  <ul>
+    <li><code>pgxpool.New(ctx, dsn)</code> — pool polaczyc z automatyczna konfiguracja</li>
+    <li><code>pool.QueryRow(ctx, sql, args...)</code> — jeden wiersz</li>
+    <li><code>pgx.CollectRows(rows, pgx.RowToStructByName)</code> — mapowanie do struktury po nazwie kolumny</li>
+    <li><code>batch := &pgx.Batch{}</code> — batch queries w jednym roundtrip</li>
+  </ul>
+
+  <h2>GORM — ORM dla Go</h2>
+  <p>GORM to najpopularniejszy ORM dla Go. Oferuje model-first approach: definiujesz struktury Go i GORM generuje zapytania SQL. Wspiera PostgreSQL, MySQL, SQLite i SQL Server.</p>
+
+<pre><code>import (
+    "gorm.io/driver/postgres"
+    "gorm.io/gorm"
+    "gorm.io/gorm/logger"
+)
+
+type Product struct {
+    gorm.Model           // ID, CreatedAt, UpdatedAt, DeletedAt (soft delete)
+    Name       string    `gorm:"not null;size:200"`
+    Price      float64   `gorm:"not null"`
+    CategoryID uint
+    Category   Category  `gorm:"foreignKey:CategoryID"`
+    Tags       []Tag     `gorm:"many2many:product_tags"`
+}
+
+type Category struct {
+    gorm.Model
+    Name     string    `gorm:"uniqueIndex;not null"`
+    Products []Product `gorm:"foreignKey:CategoryID"`
+}
+
+func setupDB() *gorm.DB {
+    dsn := "host=localhost user=admin password=secret dbname=shop port=5432"
+    db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+        Logger: logger.Default.LogMode(logger.Info),
+    })
+    if err != nil {
+        panic("nie mozna polaczyc z baza")
+    }
+
+    // AutoMigrate tworzy/aktualizuje tabele
+    db.AutoMigrate(&Category{}, &Product{})
+    return db
+}
+
+// CRUD z GORM
+func gormExamples(db *gorm.DB) {
+    // Create
+    product := Product{Name: "Laptop", Price: 2999.99, CategoryID: 1}
+    db.Create(&product)
+
+    // Read z preloadingiem
+    var products []Product
+    db.Preload("Category").Preload("Tags").
+        Where("price > ? AND deleted_at IS NULL", 100).
+        Order("created_at DESC").
+        Limit(20).Offset(0).
+        Find(&products)
+
+    // Update — tylko zmienione pola
+    db.Model(&product).Updates(map[string]any{"price": 2499.99, "name": "Laptop Pro"})
+
+    // Soft delete (ustawia DeletedAt)
+    db.Delete(&product)
+
+    // Hard delete
+    db.Unscoped().Delete(&product)
+}</code></pre>
+
+  <h2>sqlx — rozszerzenie database/sql</h2>
+  <p><code>github.com/jmoiron/sqlx</code> to cienka warstwa nad <code>database/sql</code> dodajaca wygodne metody: <code>StructScan</code>, <code>NamedQuery</code>, <code>Select</code> i <code>Get</code>. Nie jest ORM — nadal piszesz SQL, ale bez recznego skanowania pol.</p>
+
+  <table>
+    <thead>
+      <tr><th>Narzedzie</th><th>Abstrakcja</th><th>Zalety</th><th>Wady</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>database/sql</td><td>Brak (raw SQL)</td><td>Brak nalozow, pelna kontrola</td><td>Duzo boilerplate (Scan)</td></tr>
+      <tr><td>pgx (direct)</td><td>Brak (raw SQL)</td><td>Funkcje PostgreSQL, wydajnosc</td><td>Tylko PostgreSQL</td></tr>
+      <tr><td>sqlx</td><td>Minimalna</td><td>StructScan, NamedQuery — mniej kodu</td><td>Nadal reczny SQL</td></tr>
+      <tr><td>GORM</td><td>ORM</td><td>Szybki development, relacje, migracje</td><td>Magia, trudny debug, N+1</td></tr>
+      <tr><td>sqlc</td><td>Generowanie kodu</td><td>Type-safe SQL, zero runtime reflection</td><td>Wymaga narzedzia CLI</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Connection Pooling</h2>
+  <p>Tworzenie nowego polaczenia TCP + TLS + autentykacja zajmuje dziesiesilatki milisekund. Connection pool utrzymuje gotowe polaczenia i wydaje je handlerz na zadanie. Konfiguracja ma kluczowe znaczenie dla wydajnosci i stabilnosci.</p>
+  <ul>
+    <li><strong>MaxOpenConns</strong> — maks. laczna liczba polaczyc (open + idle). Ustaw na podstawie limitow DB serwera.</li>
+    <li><strong>MaxIdleConns</strong> — polaczenia bezczynne utrzymywane w puli. Powinny byc mniejsze niz MaxOpenConns.</li>
+    <li><strong>ConnMaxLifetime</strong> — maksymalny czas zycia polaczenia. Zapobiega uzyciu starych polaczyc po restarcie DB.</li>
+    <li><strong>ConnMaxIdleTime</strong> — czas po ktorym bezczynne polaczenie jest zamykane.</li>
+  </ul>
+
+  <div class="card orange">
+    <h3>Typowe wartosci dla serwisu produkcyjnego</h3>
+    <p>Dla serwisu z 10 instancjami i PostgreSQL z limitem 100 polaczyc: <code>MaxOpenConns=8</code>, <code>MaxIdleConns=4</code>, <code>ConnMaxLifetime=5min</code>. Suma MaxOpenConns * liczba instancji powinna byc mniejsza niz limit DB.</p>
+  </div>
+
+  <h2>Migracje bazy danych</h2>
+  <p>W srodowiskach produkcyjnych nigdy nie uzywamy <code>AutoMigrate</code> GORM — zmiany schematu musza byc wersjonowane, testowalne i odwracalne. Do tego sluza dedykowane narzedzia migracyjne.</p>
+
+  <h3>golang-migrate</h3>
+  <p>Pakiet <code>github.com/golang-migrate/migrate/v4</code> obsluguje migracje SQL z plikow. Kazda migracja to para plikow: <code>001_create_users.up.sql</code> i <code>001_create_users.down.sql</code>. Mozna uruchamiac z CLI lub z poziomu Go w testach integracyjnych.</p>
+
+  <h3>goose</h3>
+  <p><code>github.com/pressly/goose/v3</code> to alternatywa z obsuga migracji SQL i Go. Migracje Go pozwalaja na skomplikowane transformacje danych niemozliwe w czystym SQL.</p>
+
+  <div class="card green">
+    <h3>Dobre praktyki pracy z baza danych w Go</h3>
+    <ul>
+      <li>Zawsze przekazuj <code>context.Context</code> do zapytan (obsluga timeoutow i anulowania)</li>
+      <li>Zamykaj <code>rows.Close()</code> przez <code>defer</code> natychmiast po <code>Query()</code></li>
+      <li>Sprawdzaj <code>rows.Err()</code> po petli iteracji</li>
+      <li>Uzyj transakcji (<code>db.Begin()</code>) dla operacji wymagajacych atomowosci</li>
+      <li>Nie przechowuj <code>*sql.DB</code> w zmiennych globalnych — wstrzykuj przez DI</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="05-chi.html">&#8592; 05-chi.html</a>
+    <a href="07-grpc.html">07-grpc.html &#8594;</a>
+  </div>
+</div>
+</body>
+</html>

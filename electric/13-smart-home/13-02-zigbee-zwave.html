@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>13-02 — Zigbee, Z-Wave, Matter</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">13 Smart home</a><span class="sep">/</span><span class="title">13-02 Zigbee / Z-Wave / Matter</span>
+</div>
+<div class="container">
+<h1>Zigbee, Z-Wave, Matter — standardy bezprzewodowe</h1>
+<p class="subtitle">Mesh radio, gateway, ekosystem Matter/Thread, WiFi (Shelly, Tuya), porównanie kosztów i niezawodności.</p>
+
+<h2>Krajobraz standardów</h2>
+<p>Świat bezprzewodowego smart home jest podzielony na konkurencyjne standardy. W praktyce w domu spotykasz 2-3 jednocześnie.</p>
+<table>
+<thead><tr><th>Standard</th><th>Częstotliwość</th><th>Topologia</th><th>Konsorcjum</th></tr></thead>
+<tbody>
+<tr><td><strong>Zigbee</strong></td><td>2,4 GHz</td><td>mesh</td><td>Connectivity Standards Alliance (CSA, dawniej Zigbee Alliance)</td></tr>
+<tr><td><strong>Z-Wave</strong></td><td>868 MHz (EU)</td><td>mesh</td><td>Z-Wave Alliance / Silicon Labs</td></tr>
+<tr><td><strong>Matter</strong></td><td>IP / Thread / WiFi</td><td>mesh + IP</td><td>CSA (Apple/Google/Amazon/Samsung)</td></tr>
+<tr><td><strong>Thread</strong></td><td>2,4 GHz IPv6</td><td>mesh</td><td>Thread Group</td></tr>
+<tr><td><strong>Wi-Fi</strong></td><td>2,4 / 5 GHz</td><td>gwiazda do AP</td><td>Wi-Fi Alliance</td></tr>
+<tr><td><strong>Bluetooth Mesh</strong></td><td>2,4 GHz</td><td>mesh</td><td>Bluetooth SIG</td></tr>
+</tbody>
+</table>
+
+<h2>Zigbee</h2>
+<p>Bardzo popularny, najwięcej urządzeń na rynku.</p>
+<ul>
+<li><strong>2,4 GHz</strong> — ten sam zakres co WiFi i Bluetooth (interferencje możliwe — kanały Zigbee 11-26)</li>
+<li><strong>Mesh</strong> — urządzenia zasilane sieciowo (np. żarówki, gniazda) działają jako routery i przekazują pakiety. Bateryjne (czujniki) są tylko końcówkami.</li>
+<li><strong>Niewielkie zużycie energii</strong> — czujniki bateryjne 2-3 lata</li>
+<li><strong>Zakres</strong> ~10-30 m między urządzeniami, mesh wydłuża</li>
+</ul>
+<h3>Marki Zigbee</h3>
+<ul>
+<li><strong>Philips Hue</strong> — premium, własny bridge, ekosystem oświetlenia</li>
+<li><strong>IKEA Tradfri</strong> — budżet, bridge Dirigera, dobra jakość</li>
+<li><strong>Aqara</strong> (Xiaomi) — czujniki, przyciski, najszerszy katalog akcesoriów, gateway M2/M3</li>
+<li><strong>Sonoff Zigbee</strong> (ITEAD) — budżet, dobre na DIY</li>
+<li><strong>Innr, Müller Licht, Osram</strong> — oświetlenie kompatybilne z Hue Bridge</li>
+<li><strong>Tuya Zigbee</strong> — ekosystem białej etykiety (uważać na lokalność)</li>
+</ul>
+
+<h2>Z-Wave</h2>
+<p>Mniej urządzeń, ale dłuższy zasięg i lepsza separacja od WiFi.</p>
+<ul>
+<li><strong>868 MHz w EU</strong> (908 MHz US) — nie koliduje z WiFi, dłuższe fale lepiej przenikają ściany</li>
+<li><strong>Mesh</strong> — podobnie jak Zigbee, do 4 hopów</li>
+<li><strong>Limit ~232 urządzenia</strong> na sieć</li>
+<li><strong>Certyfikacja Z-Wave Alliance</strong> — gwarancja kompatybilności (lepsza niż w Zigbee)</li>
+<li><strong>Z-Wave Plus / 700/800</strong> — kolejne generacje, lepsza wydajność i bateria</li>
+</ul>
+<h3>Marki Z-Wave</h3>
+<ul>
+<li><strong>Fibaro</strong> (Polska) — premium, najszerszy katalog (czujniki ruchu, gniazda, dymu, zalania)</li>
+<li><strong>Aeotec</strong> — dobre czujniki i moduły, sticki USB</li>
+<li><strong>Heatit, Qubino, Shelly Wave</strong> — moduły ścienne</li>
+</ul>
+
+<h2>Matter</h2>
+<p>Nowy standard od 2022 — odpowiedź branży na fragmentację.</p>
+<ul>
+<li><strong>Wspólny standard</strong> Apple Home, Google Home, Amazon Alexa, Samsung SmartThings</li>
+<li><strong>Warstwa aplikacyjna</strong> — działa nad Thread, Wi-Fi, Ethernet</li>
+<li><strong>Lokalne API</strong> — bez chmury producenta</li>
+<li><strong>Wymaga Border Routera</strong> (np. Apple TV 4K, HomePod, Google Nest Hub, Amazon Echo, SkyConnect z Home Assistant)</li>
+<li>W 2025 r. wsparcie jeszcze niepełne — głównie żarówki, gniazda, czujniki</li>
+</ul>
+
+<h2>Thread</h2>
+<ul>
+<li><strong>Warstwa fizyczna / sieciowa</strong> IPv6 — nie aplikacja</li>
+<li><strong>Mesh, niskie zużycie energii</strong>, 2,4 GHz</li>
+<li><strong>Border Router</strong> łączy Thread z WiFi/Ethernet (jak gateway Zigbee, tylko że bezpośrednio IP)</li>
+<li>Wykorzystywany przez Matter, ale możliwy też samodzielnie (Nanoleaf, Eve)</li>
+</ul>
+
+<h2>WiFi (Tuya, Shelly, Sonoff)</h2>
+<p>Proste, ale problematyczne na większą skalę.</p>
+<ul>
+<li><strong>Plusy:</strong> bez gateway'a, sterowanie ze smartfona out-of-box, niska cena</li>
+<li><strong>Minusy:</strong> każde urządzenie zajmuje slot w routerze, większe zużycie energii (brak baterii), zależność od chmury (Tuya), brak mesh</li>
+</ul>
+<div class="tip"><strong>Shelly</strong> wyróżnia się — lokalne API HTTP, MQTT, integracja z Home Assistant bez chmury, montaż w puszce ściennej za istniejącym wyłącznikiem.</div>
+<p><strong>Sonoff</strong> — budżetowe moduły, większość WiFi (zwykle Tuya/eWeLink), część Zigbee.</p>
+
+<h2>Gateway / hub</h2>
+<p>Bezprzewodowe smart home wymaga <strong>hub'a</strong> — bramki łączącej radio (Zigbee/Z-Wave/Thread) z IP.</p>
+<table>
+<thead><tr><th>Hub</th><th>Standardy</th><th>Lokalność</th><th>Cena</th></tr></thead>
+<tbody>
+<tr><td><strong>ConBee II / III</strong> (Phoscon)</td><td>Zigbee</td><td>tak</td><td>200-300 zł</td></tr>
+<tr><td><strong>Sonoff ZBDongle-E</strong></td><td>Zigbee</td><td>tak</td><td>100-150 zł</td></tr>
+<tr><td><strong>Aeotec Z-Stick 7</strong></td><td>Z-Wave</td><td>tak</td><td>350-450 zł</td></tr>
+<tr><td><strong>SkyConnect / HA Yellow Multiprotocol</strong></td><td>Zigbee + Thread</td><td>tak</td><td>200-1500 zł</td></tr>
+<tr><td><strong>Philips Hue Bridge</strong></td><td>Zigbee (tylko Hue/kompatybilne)</td><td>częściowo (chmura dla zdalnego)</td><td>200 zł</td></tr>
+<tr><td><strong>Aqara M2/M3</strong></td><td>Zigbee</td><td>częściowo (chmura)</td><td>250-400 zł</td></tr>
+<tr><td><strong>SmartThings Hub</strong></td><td>Z-Wave + Zigbee + Matter</td><td>chmura</td><td>500-700 zł</td></tr>
+</tbody>
+</table>
+<p>W połączeniu z <strong>Home Assistant</strong> + sticki USB uzyskujemy w pełni lokalny system.</p>
+
+<h2>Porównanie do KNX</h2>
+<table>
+<thead><tr><th>Cecha</th><th>KNX</th><th>Zigbee/Z-Wave</th></tr></thead>
+<tbody>
+<tr><td>Cena za punkt</td><td>200-500 zł</td><td>30-150 zł</td></tr>
+<tr><td>Niezawodność</td><td>bardzo wysoka</td><td>średnia (kolizje, baterie)</td></tr>
+<tr><td>Modernizacja</td><td>wymaga kabli</td><td>łatwa, bez kucia</td></tr>
+<tr><td>Czas instalacji</td><td>tygodnie</td><td>godziny</td></tr>
+<tr><td>Żywotność systemu</td><td>30+ lat</td><td>5-10 lat (technologie się zmieniają)</td></tr>
+</tbody>
+</table>
+
+<div class="nav-bottom">
+<a href="13-01-knx.html">⟵ KNX</a>
+<a href="13-03-home-assistant.html">Home Assistant →</a>
+</div>
+</div>
+</body>
+</html>

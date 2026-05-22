@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Node.js v22 LTS — JS/TS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#4ade80;--accent-hover:#86efac;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:36px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);color:var(--text-muted);font-size:.9rem}
+.footer a{color:var(--accent);text-decoration:none}.footer a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">JS-TS</a>
+  <span class="sep">/</span>
+  <span class="title">Node.js</span>
+</div>
+
+<div class="container">
+  <h1>Node.js v22 LTS</h1>
+  <p class="subtitle">Server-side JavaScript runtime. Event loop, npm ecosystem.</p>
+
+  <h2>1. Co to Node.js</h2>
+  <p>Node.js to srodowisko uruchomieniowe JavaScript zbudowane na silniku <strong>V8</strong> (Google Chrome) i bibliotece <strong>libuv</strong> (asynchroniczne I/O, event loop). Zostalo stworzone przez Ryana Dahla w 2009 roku i jest najstarszym, najbardziej dojrzalym serverside JS runtime.</p>
+
+  <h3>Architektura Node.js</h3>
+  <ul>
+    <li><strong>V8</strong> — kompiluje JavaScript do kodu maszynowego (JIT). Odpowiada za wykonanie kodu JS.</li>
+    <li><strong>libuv</strong> — wieloplatformowa biblioteka C dla asynchronicznego I/O. Implementuje event loop, thread pool (4 watki domyslnie), operacje na plikach, sieci, DNS.</li>
+    <li><strong>Node.js bindings</strong> — pomost miedzy JS (V8) a libuv i systemem operacyjnym</li>
+    <li><strong>npm ecosystem</strong> — ponad 2 miliony pakietow, najwiekszy rejestr pakietow na swiecie</li>
+  </ul>
+
+  <div class="card blue">
+    <strong>Single-threaded, ale asynchroniczny:</strong> Node.js ma jeden watek glowny dla kodu JS, ale operacje I/O (pliki, siec, baza danych) sa realizowane asynchronicznie przez libuv i system operacyjny. Dzieki temu Node.js moze obslugiwac tysiace polaczen rownoczesnie bez blokowania.
+  </div>
+
+  <h2>2. Node.js v22 — nowe funkcje</h2>
+  <h3>Natywny TypeScript (experimental)</h3>
+  <p>Node.js v22.6+ wspiera uruchamianie plikow TypeScript bez transpilacji przez <code>--experimental-strip-types</code>. V23 uczynil to domyslnym, a Node.js 24 (LTS 2025) ma to stabilne.</p>
+  <pre><code># Node.js v22 — TypeScript bez ts-node
+node --experimental-strip-types server.ts
+
+# Pelna transformacja (zachowuje dekoratory itp.)
+node --experimental-transform-types server.ts</code></pre>
+
+  <h3>Wbudowany test runner (stabilny od v20)</h3>
+  <pre><code">// test/math.test.mjs
+import { test, describe, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+
+describe('Operacje matematyczne', () => {
+  test('dodawanie', () => {
+    assert.equal(2 + 2, 4);
+  });
+
+  test('blad asynchroniczny', async () => {
+    await assert.rejects(
+      async () => { throw new Error('test error'); },
+      { message: 'test error' }
+    );
+  });
+});
+
+// node --test test/math.test.mjs
+// node --test --watch
+// node --test --coverage</code></pre>
+
+  <h3>WebSocket klient (v22)</h3>
+  <pre><code">// Natywny WebSocket bez zewnetrznych bibliotek
+const ws = new WebSocket('wss://echo.websocket.org');
+ws.onopen = () => ws.send('Witaj!');
+ws.onmessage = (event) => console.log('Otrzymano:', event.data);
+ws.onerror = (err) => console.error('Blad WS:', err);</code></pre>
+
+  <h2>3. Moduly: CommonJS vs ESM</h2>
+  <table>
+    <tr><th>Cecha</th><th>CommonJS (CJS)</th><th>ES Modules (ESM)</th></tr>
+    <tr><td>Skladnia importu</td><td><code>const x = require('mod')</code></td><td><code>import x from 'mod'</code></td></tr>
+    <tr><td>Skladnia eksportu</td><td><code>module.exports = ...</code></td><td><code>export default ...</code></td></tr>
+    <tr><td>Rozszerzenie</td><td>.js lub .cjs</td><td>.mjs lub .js (z "type":"module")</td></tr>
+    <tr><td>Ladowanie</td><td>Synchroniczne</td><td>Asynchroniczne</td></tr>
+    <tr><td>Top-level await</td><td>Nie</td><td>Tak</td></tr>
+    <tr><td>Tree shaking</td><td>Trudne</td><td>Tak (statyczna analiza)</td></tr>
+    <tr><td>__dirname / __filename</td><td>Dostepne</td><td>Uzywaj import.meta.url</td></tr>
+  </table>
+
+  <pre><code">// ESM — nowoczesny sposob
+// package.json: { "type": "module" }
+
+import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Zastepstwo dla __dirname w ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export async function readConfig(filename: string) {
+  const filepath = path.join(__dirname, filename);
+  const content = await readFile(filepath, 'utf-8');
+  return JSON.parse(content);
+}
+
+// Named exports
+export const VERSION = '1.0.0';
+export function greet(name: string) { return `Czesc, ${name}!`; }
+
+// CommonJS (stary sposob — nadal powszechny)
+const fs = require('fs');
+const path = require('path');
+module.exports = { readConfig };</code></pre>
+
+  <h2>4. npm vs yarn vs pnpm</h2>
+  <table>
+    <tr><th>Cecha</th><th>npm 10</th><th>yarn 4 (Berry)</th><th>pnpm 9</th></tr>
+    <tr><td>Szybkosc instalacji</td><td>Bazowa</td><td>Szybszy (cache)</td><td>Najszybszy (hard links)</td></tr>
+    <tr><td>Miejsce na dysku</td><td>Duzo (kopiuje)</td><td>Zero-install (PnP)</td><td>Malo (content-addressable)</td></tr>
+    <tr><td>Plik blokowania</td><td>package-lock.json</td><td>yarn.lock</td><td>pnpm-lock.yaml</td></tr>
+    <tr><td>Hoisting</td><td>Domyslny (phantom deps)</td><td>Strict (Plug'n'Play)</td><td>Strict (no phantom deps)</td></tr>
+    <tr><td>Monorepo</td><td>Workspaces (podstawowy)</td><td>Workspaces + PnP</td><td>Workspaces (najlepszy)</td></tr>
+    <tr><td>node_modules</td><td>Klasyczny</td><td>Brak (PnP) lub klasyczny</td><td>Symlinks do global store</td></tr>
+    <tr><td>Popularnosc (2025)</td><td>Najwyzsza (domyslny)</td><td>Srednia</td><td>Rosnaca (monorepo)</td></tr>
+  </table>
+
+  <pre><code"># pnpm — zalecany dla nowych projektow i monorepo
+npm install -g pnpm
+
+pnpm install              # instalacja wszystkich zaleznosci
+pnpm add express          # dodanie produkcyjnej zaleznosci
+pnpm add -D typescript    # devDependency
+pnpm remove express       # usuniecie
+pnpm update               # aktualizacja
+pnpm dlx create-next-app  # odpowiednik npx
+
+# Monorepo z pnpm workspaces
+# pnpm-workspace.yaml:
+# packages:
+#   - 'packages/*'
+#   - 'apps/*'
+pnpm add lodash --filter @myapp/frontend</code></pre>
+
+  <h2>5. Kluczowe moduly wbudowane</h2>
+  <pre><code">// node:fs — operacje na systemie plikow
+import { readFile, writeFile, mkdir, readdir, stat, watch } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+
+const content = await readFile('./config.json', 'utf-8');
+await writeFile('./output.txt', 'Tresc pliku');
+await mkdir('./nowy-katalog', { recursive: true });
+const files = await readdir('./src');
+
+// node:path — operacje na sciezkach
+import path from 'node:path';
+path.join('/home', 'user', 'file.txt');   // /home/user/file.txt
+path.resolve('./relative/path');           // absolutna sciezka
+path.extname('file.ts');                   // .ts
+path.basename('/home/user/file.ts', '.ts'); // file
+path.dirname('/home/user/file.ts');        // /home/user
+
+// node:crypto — kryptografia
+import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+
+const hash = createHash('sha256').update('haslo').digest('hex');
+const salt = randomBytes(16).toString('hex');
+// Hashowanie hasel (async — uzywaj bcrypt lub argon2 w produkcji)
+scrypt('haslo', salt, 64, (err, key) => {
+  const hashHasla = key.toString('hex');
+});
+
+// node:http — serwer HTTP (niskopoziomowy)
+import http from 'node:http';
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ status: 'ok' }));
+});
+server.listen(3000);</code></pre>
+
+  <h2>6. Event Loop — fazy i kolejnosc</h2>
+  <p>Event loop Node.js przetwarza operacje asynchroniczne w ustalonej kolejnosci faz. Zrozumienie tego jest kluczowe dla debugowania i optymalizacji aplikacji.</p>
+  <pre><code">// Kolejnosc wykonania:
+// 1. Synchroniczny kod (call stack)
+// 2. process.nextTick() — najwyzszy priorytet mikrozadan
+// 3. Promise callbacks (.then, .catch, async/await)
+// 4. setImmediate() — faza "check" event loop
+// 5. setTimeout(fn, 0) — faza "timers" (min. 1ms delay)
+// 6. I/O callbacks
+
+console.log('1 - synchroniczny');
+
+setTimeout(() => console.log('5 - setTimeout 0ms'), 0);
+setImmediate(() => console.log('4 - setImmediate'));
+
+Promise.resolve().then(() => console.log('3 - Promise.then'));
+
+process.nextTick(() => console.log('2 - nextTick'));
+
+console.log('1b - synchroniczny (ciag dalszy)');
+
+// Wynik: 1, 1b, 2, 3, 4, 5
+// (kolejnosc setImmediate vs setTimeout moze byc rozna poza I/O callback)
+
+// UWAGA: naduzywanie process.nextTick moze zablokowac event loop!
+// Uzywaj go tylko gdy naprawde potrzebujesz wykonac cos przed I/O</code></pre>
+
+  <div class="card orange">
+    <strong>Blokowanie event loop:</strong> Dlugie obliczenia synchroniczne (petla, obliczenia CPU) blokuja caly event loop i uniemozliwiaja obsluge innych zadan. Dla zadan CPU-intensive uzywaj <code>worker_threads</code> lub <code>child_process</code>.
+  </div>
+
+  <h2>7. Streams i piping</h2>
+  <p>Streams sa kluczowym mechanizmem Node.js do przetwarzania duzych ilosci danych bez wczytywania wszystkiego do pamieci. Wystepuja 4 typy: Readable, Writable, Duplex, Transform.</p>
+  <pre><code">import { createReadStream, createWriteStream } from 'node:fs';
+import { createGzip } from 'node:zlib';
+import { pipeline } from 'node:stream/promises';
+import { Transform } from 'node:stream';
+
+// Kompresja pliku przez pipeline (obsluguje backpressure i cleanup)
+await pipeline(
+  createReadStream('./duzy-plik.csv'),
+  createGzip(),
+  createWriteStream('./duzy-plik.csv.gz')
+);
+
+// Wlasny Transform stream
+const upperCaseTransform = new Transform({
+  transform(chunk, encoding, callback) {
+    this.push(chunk.toString().toUpperCase());
+    callback();
+  }
+});
+
+// Przetwarzanie duzego pliku linia po linii
+import readline from 'node:readline';
+
+const rl = readline.createInterface({
+  input: createReadStream('./large-file.txt'),
+  crlfDelay: Infinity
+});
+
+let lineCount = 0;
+for await (const line of rl) {
+  lineCount++;
+  // Przetworz linie bez wczytywania calego pliku
+  if (line.includes('ERROR')) {
+    console.log(`Blad w linii ${lineCount}: ${line}`);
+  }
+}
+console.log(`Przetworzono ${lineCount} linii`);</code></pre>
+
+  <h2>8. Worker Threads</h2>
+  <p>Worker Threads pozwalaja uruchamiac JavaScript w oddzielnych watkach. Idealne dla operacji CPU-intensive (przetwarzanie obrazow, parsowanie, obliczenia). Watki dziela pamieci przez SharedArrayBuffer i komunikuja sie przez postMessage.</p>
+  <pre><code">// worker.ts — kod watku roboczego
+import { workerData, parentPort } from 'node:worker_threads';
+
+function heavyComputation(data: number[]): number {
+  // Symulacja ciezkiego obliczenia
+  return data.reduce((sum, n) => sum + Math.sqrt(n), 0);
+}
+
+const result = heavyComputation(workerData.numbers);
+parentPort?.postMessage({ result });
+
+// main.ts — tworzenie i zarzadzanie watkami
+import { Worker } from 'node:worker_threads';
+import { cpus } from 'node:os';
+
+async function runInWorker(numbers: number[]): Promise&lt;number&gt; {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker('./worker.ts', {
+      workerData: { numbers },
+      // Przekaz TypeScript przez ts-node/bun/deno
+      execArgv: ['--experimental-strip-types']
+    });
+
+    worker.on('message', ({ result }) => resolve(result));
+    worker.on('error', reject);
+    worker.on('exit', code => {
+      if (code !== 0) reject(new Error(`Worker zakonczyl sie z kodem ${code}`));
+    });
+  });
+}
+
+// Pool watkow — liczba rdzeni CPU
+const CPU_COUNT = cpus().length;
+console.log(`Dostepne rdzenie CPU: ${CPU_COUNT}`);</code></pre>
+
+  <h2>9. Debugging</h2>
+  <pre><code"># Uruchomienie debuggera (wbudowany inspector)
+node --inspect server.js               # nasluchuje na 127.0.0.1:9229
+node --inspect-brk server.js          # zatrzymaj na pierwszej linii
+node --inspect=0.0.0.0:9229 server.js # dostepny spoza localhost
+
+# Podlaczenie Chrome DevTools:
+# Otworz chrome://inspect w Chrome
+# Kliknij "Open dedicated DevTools for Node"
+
+# Debugowanie przez VS Code — launch.json:
+{
+  "type": "node",
+  "request": "launch",
+  "name": "Debug Node.js",
+  "program": "${workspaceFolder}/src/server.ts",
+  "runtimeArgs": ["--experimental-strip-types"]
+}
+
+# Profilowanie wydajnosci
+node --prof server.js                  # generuje plik isolate-*.log
+node --prof-process isolate-*.log      # analizuje profil
+
+# Diagnostyka pamieci
+node --max-old-space-size=4096 app.js  # zwiekszenie limitu pamieci heap
+node --expose-gc app.js               # dostep do gc() manualnie</code></pre>
+
+  <h2>10. Bezpieczenstwo</h2>
+  <pre><code">// Helmet — nagłowki bezpieczenstwa HTTP (Express)
+import helmet from 'helmet';
+app.use(helmet());
+// Ustawia: CSP, HSTS, X-Frame-Options, X-XSS-Protection, etc.
+
+// Walidacja wejscia — ZAWSZE waliduj dane od uzytkownika
+import { z } from 'zod';
+
+const UserSchema = z.object({
+  name: z.string().min(2).max(100).trim(),
+  email: z.string().email().toLowerCase(),
+  age: z.number().int().min(0).max(150).optional()
+});
+
+app.post('/users', async (req, res) => {
+  const result = UserSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ errors: result.error.flatten() });
+  }
+  // Pracuj z result.data — zwalidowane i otypowane
+});
+
+// SSRF prevention — sprawdzaj docelowe URL-e
+import { isPrivateIP } from 'is-private-ip';
+
+async function safeFetch(url: string) {
+  const parsed = new URL(url);
+  if (isPrivateIP(parsed.hostname)) {
+    throw new Error('Niedozwolony adres IP (SSRF prevention)');
+  }
+  return fetch(url);
+}
+
+// Rate limiting
+import rateLimit from 'express-rate-limit';
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minut
+  max: 100,                  // max 100 requestow na IP
+  message: 'Za duzo requestow, sprobuj pozniej'
+});
+app.use('/api/', limiter);
+
+// Regularne audyty bezpieczenstwa
+// npm audit
+// npm audit fix
+// npx snyk test</code></pre>
+
+  <div class="footer">
+    <a href="../../index.html">← Wroc do JS/TS</a>
+  </div>
+</div>
+
+</body>
+</html>

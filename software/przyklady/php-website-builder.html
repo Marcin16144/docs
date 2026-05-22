@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PHP Website Builder — przykład kodu</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span>
+    <a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span>
+    <span class="crumb">PHP Website Builder</span>
+</div>
+<div class="container">
+<h1>🐘 PHP Website Builder — działający kod</h1>
+<p class="lead">Minimalny, kompletny creator stron WWW na shared hosting (nazwa.pl / home.pl): PHP 8.3 backend + Vue 3 admin + Alpine.js frontend. Można uruchomić w 15 minut.</p>
+
+<p>📖 <strong>Teoria i kontekst:</strong> <a href="../lang/php/07-website-builder-shared-hosting.html">PHP — Creator stron na shared hostingu</a></p>
+
+<div class="toc">
+<div class="toc-title">Spis treści</div>
+<ul>
+    <li><a href="#struktura">1. Struktura projektu</a></li>
+    <li><a href="#bootstrap">2. Bootstrap (index.php + router)</a></li>
+    <li><a href="#db">3. Schema DB + warstwa dostępu</a></li>
+    <li><a href="#bloki">4. Bloki — interfejs + 3 przykłady</a></li>
+    <li><a href="#renderer">5. Renderer strony publicznej</a></li>
+    <li><a href="#admin-api">6. Admin API (REST)</a></li>
+    <li><a href="#admin-vue">7. Admin SPA — Vue 3 + Vite</a></li>
+    <li><a href="#admin-alpine">8. Wariant lekki — Alpine.js bez buildu</a></li>
+    <li><a href="#htaccess">9. .htaccess + bezpieczeństwo</a></li>
+    <li><a href="#deploy">10. Deploy: lokalnie build → FTP</a></li>
+    <li><a href="#instalator">11. Instalator (jednorazowy setup)</a></li>
+</ul>
+</div>
+
+<h2 id="struktura">1. Struktura projektu</h2>
+
+<pre data-lang="text"><code>builder/
+├── public_html/                  ← document root (na hostingu)
+│   ├── index.php                 ← entry point
+│   ├── admin/
+│   │   ├── index.html            ← SPA shell (Vue) lub admin.php (Alpine)
+│   │   └── assets/               ← skompilowane JS/CSS z Vite
+│   ├── assets/
+│   │   └── site.css              ← Tailwind skompilowany
+│   ├── uploads/                  ← media (chmod 0755)
+│   └── .htaccess
+│
+├── private/                       ← poza document root (na nazwa.pl: piętro wyżej)
+│   ├── config/
+│   │   └── config.php            ← DB credentials, secrets
+│   ├── src/
+│   │   ├── Router.php
+│   │   ├── Db.php
+│   │   ├── Auth.php
+│   │   ├── Blocks/
+│   │   │   ├── BlockInterface.php
+│   │   │   ├── Hero/
+│   │   │   ├── TextImage/
+│   │   │   └── Gallery/
+│   │   ├── Renderer/
+│   │   │   ├── PageRenderer.php
+│   │   │   ├── BlockRegistry.php
+│   │   │   └── FileCache.php
+│   │   └── Api/
+│   │       ├── PagesController.php
+│   │       └── BlocksController.php
+│   ├── templates/
+│   │   ├── layout.twig
+│   │   └── blocks/
+│   ├── vendor/                   ← composer install (wgrane FTP)
+│   └── cache/                    ← chmod 0755, pisalny
+│
+└── admin-spa/                    ← TYLKO LOKALNIE (nie idzie na hosting)
+    ├── package.json
+    ├── vite.config.ts
+    └── src/
+        └── App.vue</code></pre>
+
+<h2 id="bootstrap">2. Bootstrap — index.php i router</h2>
+
+<pre data-lang="php"><code>&lt;?php
+// public_html/index.php
+declare(strict_types=1);
+
+define('ROOT', dirname(__DIR__));
+define('PUBLIC_DIR', __DIR__);
+
+require ROOT . '/private/vendor/autoload.php';
+$config = require ROOT . '/private/config/config.php';
+
+// Error handling
+error_reporting(E_ALL);
+ini_set('display_errors', $config['debug'] ? '1' : '0');
+ini_set('log_errors', '1');
+ini_set('error_log', ROOT . '/private/cache/php-errors.log');
+
+// Session — bezpieczne ustawienia
+session_set_cookie_params([
+    'lifetime' =&gt; 0,
+    'path' =&gt; '/',
+    'domain' =&gt; '',
+    'secure' =&gt; !$config['debug'],
+    'httponly' =&gt; true,
+    'samesite' =&gt; 'Strict'
+]);
+session_name('builder_sid');
+session_start();
+
+// DI container — bardzo prosty
+$db = new App\Db($config['db']);
+$cache = new App\Renderer\FileCache(ROOT . '/private/cache');
+$registry = App\Renderer\BlockRegistry::createDefault();
+$twig = new \Twig\Environment(
+    new \Twig\Loader\FilesystemLoader(ROOT . '/private/templates'),
+    ['cache' =&gt; ROOT . '/private/cache/twig', 'auto_reload' =&gt; $config['debug']]
+);
+
+// Router
+$router = new App\Router();
+
+// PUBLIC: render strony
+$router-&gt;get('/', fn() =&gt; (new App\Renderer\PageRenderer($db, $registry, $twig, $cache))-&gt;renderBySlug('home'));
+$router-&gt;get('/{slug}', fn($slug) =&gt; (new App\Renderer\PageRenderer($db, $registry, $twig, $cache))-&gt;renderBySlug($slug));
+
+// ADMIN AUTH
+$router-&gt;get('/admin/login',    fn() =&gt; require ROOT . '/private/src/views/login.php');
+$router-&gt;post('/admin/login',   fn() =&gt; (new App\Auth($db))-&gt;login($_POST));
+$router-&gt;post('/admin/logout',  fn() =&gt; (new App\Auth($db))-&gt;logout());
+
+// ADMIN SPA shell — wymaga zalogowania
+$router-&gt;get('/admin', function() use ($db) {
+    App\Auth::require($db);
+    readfile(PUBLIC_DIR . '/admin/index.html');
+});
+
+// ADMIN API
+$router-&gt;group('/admin/api', function($r) use ($db, $registry) {
+    App\Auth::require($db);
+    $r-&gt;get('/pages',        [new App\Api\PagesController($db), 'index']);
+    $r-&gt;post('/pages',       [new App\Api\PagesController($db), 'create']);
+    $r-&gt;get('/pages/{id}',   [new App\Api\PagesController($db), 'show']);
+    $r-&gt;put('/pages/{id}',   [new App\Api\PagesController($db), 'update']);
+    $r-&gt;delete('/pages/{id}',[new App\Api\PagesController($db), 'destroy']);
+
+    $r-&gt;post('/blocks',       [new App\Api\BlocksController($db, $registry), 'create']);
+    $r-&gt;put('/blocks/{id}',   [new App\Api\BlocksController($db, $registry), 'update']);
+    $r-&gt;delete('/blocks/{id}',[new App\Api\BlocksController($db, $registry), 'destroy']);
+    $r-&gt;post('/blocks/reorder', [new App\Api\BlocksController($db, $registry), 'reorder']);
+
+    $r-&gt;post('/media/upload',   [new App\Api\MediaController($db), 'upload']);
+});
+
+$router-&gt;dispatch($_SERVER['REQUEST_METHOD'], parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));</code></pre>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Router.php
+namespace App;
+
+class Router
+{
+    private array $routes = [];
+    private string $prefix = '';
+
+    public function get(string $path, callable $handler): void   { $this-&gt;add('GET', $path, $handler); }
+    public function post(string $path, callable $handler): void  { $this-&gt;add('POST', $path, $handler); }
+    public function put(string $path, callable $handler): void   { $this-&gt;add('PUT', $path, $handler); }
+    public function delete(string $path, callable $handler): void{ $this-&gt;add('DELETE', $path, $handler); }
+
+    public function group(string $prefix, callable $fn): void
+    {
+        $old = $this-&gt;prefix;
+        $this-&gt;prefix .= $prefix;
+        $fn($this);
+        $this-&gt;prefix = $old;
+    }
+
+    private function add(string $method, string $path, callable $handler): void
+    {
+        $full = rtrim($this-&gt;prefix . $path, '/') ?: '/';
+        // {param} → (?P&lt;param&gt;[^/]+)
+        $pattern = '#^' . preg_replace('/\{(\w+)\}/', '(?P&lt;$1&gt;[^/]+)', $full) . '$#';
+        $this-&gt;routes[] = compact('method', 'pattern', 'handler');
+    }
+
+    public function dispatch(string $method, string $path): void
+    {
+        // PUT/DELETE w PHP - dla form: _method override
+        if ($method === 'POST' &amp;&amp; isset($_POST['_method'])) {
+            $method = strtoupper($_POST['_method']);
+        }
+
+        foreach ($this-&gt;routes as $r) {
+            if ($r['method'] !== $method) continue;
+            if (preg_match($r['pattern'], $path, $m)) {
+                $params = array_filter($m, fn($k) =&gt; !is_int($k), ARRAY_FILTER_USE_KEY);
+                $result = ($r['handler'])(...array_values($params));
+                if (is_array($result)) {
+                    header('Content-Type: application/json');
+                    echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                } elseif (is_string($result)) {
+                    echo $result;
+                }
+                return;
+            }
+        }
+        http_response_code(404);
+        echo '404 Not Found';
+    }
+}</code></pre>
+
+<h2 id="db">3. Schema DB + warstwa dostępu</h2>
+
+<pre data-lang="sql"><code>-- private/migrations/001_init.sql
+CREATE TABLE users (
+    id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email         VARCHAR(190) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    name          VARCHAR(100),
+    role          ENUM('admin','editor') DEFAULT 'editor',
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE pages (
+    id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    slug         VARCHAR(190) NOT NULL UNIQUE,
+    title        VARCHAR(255) NOT NULL,
+    meta_desc    VARCHAR(160),
+    status       ENUM('draft','published') DEFAULT 'draft',
+    version      INT UNSIGNED DEFAULT 1,
+    updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE blocks (
+    id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    page_id    BIGINT UNSIGNED NOT NULL,
+    type       VARCHAR(64) NOT NULL,
+    props      JSON NOT NULL,
+    position   INT UNSIGNED NOT NULL,
+    visible    TINYINT(1) DEFAULT 1,
+    INDEX idx_page_pos (page_id, position),
+    FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE media (
+    id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    filename   VARCHAR(255) NOT NULL,
+    original   VARCHAR(255),
+    mime       VARCHAR(64),
+    width      INT UNSIGNED,
+    height     INT UNSIGNED,
+    size_bytes BIGINT UNSIGNED,
+    alt_text   VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Startowa strona + admin
+INSERT INTO pages (slug, title, status) VALUES ('home', 'Strona główna', 'published');
+INSERT INTO blocks (page_id, type, props, position) VALUES
+    (1, 'hero', JSON_OBJECT('title', 'Witaj!', 'subtitle', 'Twoja nowa strona', 'cta_text', 'Zaczynamy', 'cta_url', '#'), 1);</code></pre>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Db.php
+namespace App;
+
+use PDO;
+
+class Db
+{
+    public PDO $pdo;
+
+    public function __construct(array $config)
+    {
+        $dsn = "mysql:host={$config['host']};dbname={$config['name']};charset=utf8mb4";
+        $this-&gt;pdo = new PDO($dsn, $config['user'], $config['pass'], [
+            PDO::ATTR_ERRMODE            =&gt; PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE =&gt; PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   =&gt; false,            // prawdziwy binding
+            PDO::MYSQL_ATTR_INIT_COMMAND =&gt; "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
+        ]);
+    }
+
+    public function one(string $sql, array $params = []): ?array
+    {
+        $stmt = $this-&gt;pdo-&gt;prepare($sql);
+        $stmt-&gt;execute($params);
+        $r = $stmt-&gt;fetch();
+        return $r ?: null;
+    }
+
+    public function all(string $sql, array $params = []): array
+    {
+        $stmt = $this-&gt;pdo-&gt;prepare($sql);
+        $stmt-&gt;execute($params);
+        return $stmt-&gt;fetchAll();
+    }
+
+    public function insert(string $table, array $data): int
+    {
+        $cols = array_keys($data);
+        $placeholders = array_map(fn($c) =&gt; ":$c", $cols);
+        $sql = "INSERT INTO `$table` (`" . implode('`,`', $cols) . "`) VALUES (" . implode(',', $placeholders) . ")";
+        $stmt = $this-&gt;pdo-&gt;prepare($sql);
+        $stmt-&gt;execute($data);
+        return (int)$this-&gt;pdo-&gt;lastInsertId();
+    }
+
+    public function update(string $table, array $data, array $where): int
+    {
+        $set = implode(', ', array_map(fn($c) =&gt; "`$c` = :$c", array_keys($data)));
+        $cond = implode(' AND ', array_map(fn($c) =&gt; "`$c` = :w_$c", array_keys($where)));
+        $sql = "UPDATE `$table` SET $set WHERE $cond";
+
+        $params = $data;
+        foreach ($where as $k =&gt; $v) $params["w_$k"] = $v;
+
+        $stmt = $this-&gt;pdo-&gt;prepare($sql);
+        $stmt-&gt;execute($params);
+        return $stmt-&gt;rowCount();
+    }
+
+    public function delete(string $table, array $where): int
+    {
+        $cond = implode(' AND ', array_map(fn($c) =&gt; "`$c` = :$c", array_keys($where)));
+        $stmt = $this-&gt;pdo-&gt;prepare("DELETE FROM `$table` WHERE $cond");
+        $stmt-&gt;execute($where);
+        return $stmt-&gt;rowCount();
+    }
+}</code></pre>
+
+<h2 id="bloki">4. Bloki — interfejs + 3 przykłady</h2>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Blocks/BlockInterface.php
+namespace App\Blocks;
+
+interface BlockInterface
+{
+    public static function type(): string;
+    public static function label(): string;
+    public static function defaultProps(): array;
+    public static function schema(): array;
+    public static function template(): string;
+
+    public function prepare(array $props, array $context): array;
+}</code></pre>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Blocks/Hero/Hero.php
+namespace App\Blocks\Hero;
+
+use App\Blocks\BlockInterface;
+
+class Hero implements BlockInterface
+{
+    public static function type(): string { return 'hero'; }
+    public static function label(): string { return 'Hero z CTA'; }
+
+    public static function defaultProps(): array
+    {
+        return [
+            'title'    =&gt; 'Twój tytuł',
+            'subtitle' =&gt; 'Krótki opis dla odwiedzającego',
+            'cta_text' =&gt; 'Skontaktuj się',
+            'cta_url'  =&gt; '/kontakt',
+            'image_id' =&gt; null,
+            'align'    =&gt; 'center'
+        ];
+    }
+
+    public static function schema(): array
+    {
+        return [
+            'title'    =&gt; ['type' =&gt; 'string', 'max' =&gt; 200, 'required' =&gt; true],
+            'subtitle' =&gt; ['type' =&gt; 'string', 'max' =&gt; 500],
+            'cta_text' =&gt; ['type' =&gt; 'string', 'max' =&gt; 50],
+            'cta_url'  =&gt; ['type' =&gt; 'string', 'max' =&gt; 500],
+            'image_id' =&gt; ['type' =&gt; 'integer', 'nullable' =&gt; true],
+            'align'    =&gt; ['type' =&gt; 'enum', 'values' =&gt; ['left', 'center', 'right']]
+        ];
+    }
+
+    public static function template(): string { return 'blocks/hero.twig'; }
+
+    public function prepare(array $props, array $context): array
+    {
+        $props = array_merge(self::defaultProps(), $props);
+        if (!empty($props['image_id']) &amp;&amp; isset($context['mediaUrl'])) {
+            $props['image_url'] = ($context['mediaUrl'])($props['image_id']);
+        }
+        return $props;
+    }
+}</code></pre>
+
+<pre data-lang="twig"><code>{# private/templates/blocks/hero.twig #}
+&lt;section class="hero hero--{{ align }}"{% if image_url %} style="background-image:url({{ image_url }})"{% endif %}&gt;
+    &lt;div class="hero__inner"&gt;
+        &lt;h1 class="hero__title"&gt;{{ title }}&lt;/h1&gt;
+        {% if subtitle %}
+            &lt;p class="hero__subtitle"&gt;{{ subtitle }}&lt;/p&gt;
+        {% endif %}
+        {% if cta_text and cta_url %}
+            &lt;a href="{{ cta_url }}" class="btn btn--primary"&gt;{{ cta_text }}&lt;/a&gt;
+        {% endif %}
+    &lt;/div&gt;
+&lt;/section&gt;</code></pre>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Blocks/TextImage/TextImage.php
+namespace App\Blocks\TextImage;
+
+use App\Blocks\BlockInterface;
+
+class TextImage implements BlockInterface
+{
+    public static function type(): string { return 'text_image'; }
+    public static function label(): string { return 'Tekst + obraz'; }
+
+    public static function defaultProps(): array
+    {
+        return [
+            'heading'   =&gt; 'Nagłówek sekcji',
+            'body'      =&gt; '&lt;p&gt;Treść akapitu z &lt;strong&gt;HTML&lt;/strong&gt;.&lt;/p&gt;',
+            'image_id'  =&gt; null,
+            'position'  =&gt; 'right'                 // left | right
+        ];
+    }
+
+    public static function schema(): array
+    {
+        return [
+            'heading'  =&gt; ['type' =&gt; 'string', 'max' =&gt; 200, 'required' =&gt; true],
+            'body'     =&gt; ['type' =&gt; 'html', 'allowed_tags' =&gt; '&lt;p&gt;&lt;br&gt;&lt;strong&gt;&lt;em&gt;&lt;ul&gt;&lt;ol&gt;&lt;li&gt;&lt;a&gt;'],
+            'image_id' =&gt; ['type' =&gt; 'integer', 'nullable' =&gt; true],
+            'position' =&gt; ['type' =&gt; 'enum', 'values' =&gt; ['left', 'right']]
+        ];
+    }
+
+    public static function template(): string { return 'blocks/text_image.twig'; }
+
+    public function prepare(array $props, array $context): array
+    {
+        $props = array_merge(self::defaultProps(), $props);
+
+        // Sanityzacja HTML (jeśli HTMLPurifier dostępny)
+        if (class_exists(\HTMLPurifier::class)) {
+            static $purifier = null;
+            $purifier ??= new \HTMLPurifier(\HTMLPurifier_Config::createDefault());
+            $props['body'] = $purifier-&gt;purify($props['body']);
+        }
+
+        if (!empty($props['image_id']) &amp;&amp; isset($context['mediaUrl'])) {
+            $props['image_url'] = ($context['mediaUrl'])($props['image_id']);
+        }
+        return $props;
+    }
+}</code></pre>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Blocks/Gallery/Gallery.php
+namespace App\Blocks\Gallery;
+
+use App\Blocks\BlockInterface;
+
+class Gallery implements BlockInterface
+{
+    public static function type(): string { return 'gallery'; }
+    public static function label(): string { return 'Galeria zdjęć'; }
+
+    public static function defaultProps(): array
+    {
+        return ['title' =&gt; 'Galeria', 'image_ids' =&gt; [], 'columns' =&gt; 3];
+    }
+
+    public static function schema(): array
+    {
+        return [
+            'title'     =&gt; ['type' =&gt; 'string', 'max' =&gt; 200],
+            'image_ids' =&gt; ['type' =&gt; 'array', 'of' =&gt; 'integer'],
+            'columns'   =&gt; ['type' =&gt; 'integer', 'min' =&gt; 1, 'max' =&gt; 6]
+        ];
+    }
+
+    public static function template(): string { return 'blocks/gallery.twig'; }
+
+    public function prepare(array $props, array $context): array
+    {
+        $props = array_merge(self::defaultProps(), $props);
+        $props['images'] = [];
+        foreach ($props['image_ids'] as $id) {
+            $props['images'][] = [
+                'url'   =&gt; ($context['mediaUrl'])($id),
+                'thumb' =&gt; ($context['mediaUrl'])($id, 'thumb'),
+                'alt'   =&gt; ($context['mediaAlt'])($id) ?? ''
+            ];
+        }
+        return $props;
+    }
+}</code></pre>
+
+<h2 id="renderer">5. Renderer strony publicznej</h2>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Renderer/BlockRegistry.php
+namespace App\Renderer;
+
+use App\Blocks\BlockInterface;
+use App\Blocks\Hero\Hero;
+use App\Blocks\TextImage\TextImage;
+use App\Blocks\Gallery\Gallery;
+
+class BlockRegistry
+{
+    /** @var array&lt;string, class-string&lt;BlockInterface&gt;&gt; */
+    private array $blocks = [];
+
+    public function register(string $class): void
+    {
+        $this-&gt;blocks[$class::type()] = $class;
+    }
+
+    public function getClass(string $type): ?string
+    {
+        return $this-&gt;blocks[$type] ?? null;
+    }
+
+    public function all(): array
+    {
+        return array_map(fn($c) =&gt; [
+            'type'  =&gt; $c::type(),
+            'label' =&gt; $c::label(),
+            'defaults' =&gt; $c::defaultProps(),
+            'schema' =&gt; $c::schema()
+        ], array_values($this-&gt;blocks));
+    }
+
+    public static function createDefault(): self
+    {
+        $r = new self();
+        $r-&gt;register(Hero::class);
+        $r-&gt;register(TextImage::class);
+        $r-&gt;register(Gallery::class);
+        return $r;
+    }
+}</code></pre>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Renderer/PageRenderer.php
+namespace App\Renderer;
+
+use App\Db;
+use Twig\Environment;
+
+class PageRenderer
+{
+    public function __construct(
+        private Db $db,
+        private BlockRegistry $registry,
+        private Environment $twig,
+        private FileCache $cache
+    ) {}
+
+    public function renderBySlug(string $slug): string
+    {
+        $cacheKey = "page_slug_{$slug}";
+        if ($html = $this-&gt;cache-&gt;get($cacheKey)) {
+            header('X-Cache: HIT');
+            return $html;
+        }
+
+        $page = $this-&gt;db-&gt;one(
+            "SELECT * FROM pages WHERE slug = ? AND status = 'published'",
+            [$slug]
+        );
+        if (!$page) {
+            http_response_code(404);
+            return $this-&gt;twig-&gt;render('404.twig');
+        }
+
+        $blocks = $this-&gt;db-&gt;all(
+            "SELECT * FROM blocks WHERE page_id = ? AND visible = 1 ORDER BY position",
+            [$page['id']]
+        );
+
+        $context = [
+            'mediaUrl' =&gt; fn(int $id, string $size = 'large') =&gt; $this-&gt;mediaUrl($id, $size),
+            'mediaAlt' =&gt; fn(int $id) =&gt; $this-&gt;mediaAlt($id)
+        ];
+
+        $renderedBlocks = '';
+        foreach ($blocks as $blockRow) {
+            $class = $this-&gt;registry-&gt;getClass($blockRow['type']);
+            if (!$class) continue;
+
+            $instance = new $class();
+            $props = json_decode($blockRow['props'], true);
+            $prepared = $instance-&gt;prepare($props, $context);
+            $renderedBlocks .= $this-&gt;twig-&gt;render($class::template(), $prepared);
+        }
+
+        $html = $this-&gt;twig-&gt;render('layout.twig', [
+            'title'      =&gt; $page['title'],
+            'meta_desc'  =&gt; $page['meta_desc'],
+            'content'    =&gt; $renderedBlocks
+        ]);
+
+        $this-&gt;cache-&gt;set($cacheKey, $html, 300);    // 5 min
+        header('X-Cache: MISS');
+        return $html;
+    }
+
+    private function mediaUrl(int $id, string $size = 'large'): string
+    {
+        static $cache = [];
+        if (!isset($cache[$id])) {
+            $row = $this-&gt;db-&gt;one("SELECT filename FROM media WHERE id = ?", [$id]);
+            $cache[$id] = $row['filename'] ?? '';
+        }
+        if (!$cache[$id]) return '/assets/placeholder.svg';
+
+        $base = pathinfo($cache[$id], PATHINFO_FILENAME);
+        $ext  = pathinfo($cache[$id], PATHINFO_EXTENSION);
+        return "/uploads/{$base}-{$size}.{$ext}";
+    }
+
+    private function mediaAlt(int $id): ?string
+    {
+        $row = $this-&gt;db-&gt;one("SELECT alt_text FROM media WHERE id = ?", [$id]);
+        return $row['alt_text'] ?? null;
+    }
+}</code></pre>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Renderer/FileCache.php
+namespace App\Renderer;
+
+class FileCache
+{
+    public function __construct(private string $dir)
+    {
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+    }
+
+    public function get(string $key): ?string
+    {
+        $f = $this-&gt;path($key);
+        if (!is_file($f)) return null;
+        $payload = @unserialize(file_get_contents($f));
+        if (!$payload || $payload['exp'] &lt; time()) {
+            @unlink($f);
+            return null;
+        }
+        return $payload['val'];
+    }
+
+    public function set(string $key, string $val, int $ttl): void
+    {
+        $tmp = $this-&gt;path($key) . '.tmp';
+        file_put_contents($tmp, serialize(['exp' =&gt; time() + $ttl, 'val' =&gt; $val]), LOCK_EX);
+        rename($tmp, $this-&gt;path($key));
+    }
+
+    public function flush(): void
+    {
+        foreach (glob($this-&gt;dir . '/*.cache') as $f) @unlink($f);
+    }
+
+    private function path(string $key): string
+    {
+        return $this-&gt;dir . '/' . hash('xxh3', $key) . '.cache';
+    }
+}</code></pre>
+
+<pre data-lang="twig"><code>{# private/templates/layout.twig #}
+&lt;!DOCTYPE html&gt;
+&lt;html lang="pl"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;{{ title|e }}&lt;/title&gt;
+    {% if meta_desc %}&lt;meta name="description" content="{{ meta_desc|e }}"&gt;{% endif %}
+    &lt;link rel="stylesheet" href="/assets/site.css"&gt;
+    &lt;script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;header&gt;...&lt;/header&gt;
+    &lt;main&gt;{{ content|raw }}&lt;/main&gt;
+    &lt;footer&gt;...&lt;/footer&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h2 id="admin-api">6. Admin API (REST)</h2>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Api/PagesController.php
+namespace App\Api;
+
+use App\Db;
+
+class PagesController
+{
+    public function __construct(private Db $db) {}
+
+    public function index(): array
+    {
+        return ['pages' =&gt; $this-&gt;db-&gt;all("SELECT * FROM pages ORDER BY updated_at DESC")];
+    }
+
+    public function show(string $id): array
+    {
+        $page = $this-&gt;db-&gt;one("SELECT * FROM pages WHERE id = ?", [(int)$id]);
+        if (!$page) { http_response_code(404); return ['error' =&gt; 'Not found']; }
+        $page['blocks'] = $this-&gt;db-&gt;all(
+            "SELECT id, type, props, position, visible FROM blocks WHERE page_id = ? ORDER BY position",
+            [(int)$id]
+        );
+        // Decode JSON props
+        foreach ($page['blocks'] as &amp;$b) $b['props'] = json_decode($b['props'], true);
+        return $page;
+    }
+
+    public function create(): array
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (empty($input['slug']) || empty($input['title'])) {
+            http_response_code(422);
+            return ['error' =&gt; 'slug and title required'];
+        }
+
+        $id = $this-&gt;db-&gt;insert('pages', [
+            'slug'      =&gt; preg_replace('/[^a-z0-9-]/', '', strtolower($input['slug'])),
+            'title'     =&gt; mb_substr($input['title'], 0, 255),
+            'meta_desc' =&gt; mb_substr($input['meta_desc'] ?? '', 0, 160),
+            'status'    =&gt; 'draft'
+        ]);
+        http_response_code(201);
+        return ['id' =&gt; $id];
+    }
+
+    public function update(string $id): array
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $allowed = array_intersect_key($input, array_flip(['title', 'meta_desc', 'status']));
+        if ($allowed) {
+            $allowed['version'] = $this-&gt;db-&gt;pdo-&gt;query("SELECT version FROM pages WHERE id = " . (int)$id)-&gt;fetchColumn() + 1;
+            $this-&gt;db-&gt;update('pages', $allowed, ['id' =&gt; (int)$id]);
+        }
+        // Invaliduj cache
+        // FileCache::flush() lub per-slug delete
+        return ['ok' =&gt; true];
+    }
+
+    public function destroy(string $id): array
+    {
+        $this-&gt;db-&gt;delete('pages', ['id' =&gt; (int)$id]);
+        return ['ok' =&gt; true];
+    }
+}</code></pre>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Api/BlocksController.php
+namespace App\Api;
+
+use App\Db;
+use App\Renderer\BlockRegistry;
+
+class BlocksController
+{
+    public function __construct(private Db $db, private BlockRegistry $registry) {}
+
+    public function create(): array
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $type = $input['type'] ?? '';
+        $pageId = (int)($input['page_id'] ?? 0);
+
+        $class = $this-&gt;registry-&gt;getClass($type);
+        if (!$class || !$pageId) {
+            http_response_code(422);
+            return ['error' =&gt; 'Invalid type or page_id'];
+        }
+
+        $nextPos = (int)$this-&gt;db-&gt;pdo-&gt;query("SELECT COALESCE(MAX(position), 0) + 1 FROM blocks WHERE page_id = $pageId")-&gt;fetchColumn();
+
+        $id = $this-&gt;db-&gt;insert('blocks', [
+            'page_id'  =&gt; $pageId,
+            'type'     =&gt; $type,
+            'props'    =&gt; json_encode($class::defaultProps(), JSON_UNESCAPED_UNICODE),
+            'position' =&gt; $nextPos
+        ]);
+
+        return [
+            'id'       =&gt; $id,
+            'type'     =&gt; $type,
+            'props'    =&gt; $class::defaultProps(),
+            'position' =&gt; $nextPos,
+            'visible'  =&gt; 1
+        ];
+    }
+
+    public function update(string $id): array
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $block = $this-&gt;db-&gt;one("SELECT * FROM blocks WHERE id = ?", [(int)$id]);
+        if (!$block) { http_response_code(404); return ['error' =&gt; 'Not found']; }
+
+        $update = [];
+        if (isset($input['props']) &amp;&amp; is_array($input['props'])) {
+            $class = $this-&gt;registry-&gt;getClass($block['type']);
+            // Walidacja propsów wg schema (uproszczona)
+            $sanitized = $this-&gt;sanitizeProps($input['props'], $class::schema());
+            $update['props'] = json_encode($sanitized, JSON_UNESCAPED_UNICODE);
+        }
+        if (isset($input['visible'])) $update['visible'] = $input['visible'] ? 1 : 0;
+
+        if ($update) $this-&gt;db-&gt;update('blocks', $update, ['id' =&gt; (int)$id]);
+        return ['ok' =&gt; true];
+    }
+
+    public function destroy(string $id): array
+    {
+        $this-&gt;db-&gt;delete('blocks', ['id' =&gt; (int)$id]);
+        return ['ok' =&gt; true];
+    }
+
+    public function reorder(): array
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $ids = $input['ids'] ?? [];
+
+        $this-&gt;db-&gt;pdo-&gt;beginTransaction();
+        try {
+            foreach ($ids as $pos =&gt; $id) {
+                $this-&gt;db-&gt;update('blocks', ['position' =&gt; $pos + 1], ['id' =&gt; (int)$id]);
+            }
+            $this-&gt;db-&gt;pdo-&gt;commit();
+        } catch (\Throwable $e) {
+            $this-&gt;db-&gt;pdo-&gt;rollBack();
+            http_response_code(500);
+            return ['error' =&gt; 'Reorder failed'];
+        }
+        return ['ok' =&gt; true];
+    }
+
+    private function sanitizeProps(array $input, array $schema): array
+    {
+        $out = [];
+        foreach ($schema as $key =&gt; $rules) {
+            if (!array_key_exists($key, $input)) continue;
+            $val = $input[$key];
+
+            switch ($rules['type']) {
+                case 'string':
+                case 'html':
+                    if (!is_string($val)) continue 2;
+                    if (isset($rules['max'])) $val = mb_substr($val, 0, $rules['max']);
+                    break;
+                case 'integer':
+                    $val = (int)$val;
+                    break;
+                case 'enum':
+                    if (!in_array($val, $rules['values'], true)) continue 2;
+                    break;
+                case 'array':
+                    if (!is_array($val)) continue 2;
+                    if (($rules['of'] ?? null) === 'integer') $val = array_map('intval', $val);
+                    break;
+            }
+            $out[$key] = $val;
+        }
+        return $out;
+    }
+}</code></pre>
+
+<pre data-lang="php"><code>&lt;?php
+// private/src/Auth.php
+namespace App;
+
+class Auth
+{
+    public function __construct(private Db $db) {}
+
+    public function login(array $input): array
+    {
+        $email = $input['email'] ?? '';
+        $password = $input['password'] ?? '';
+        $csrf = $input['_csrf'] ?? '';
+
+        if (!hash_equals($_SESSION['csrf'] ?? '', $csrf)) {
+            http_response_code(419);
+            return ['error' =&gt; 'CSRF mismatch'];
+        }
+
+        // Rate limit per IP (uproszczone — w prod: tabela)
+        $key = 'login_' . $_SERVER['REMOTE_ADDR'];
+        $_SESSION[$key] = ($_SESSION[$key] ?? 0) + 1;
+        if ($_SESSION[$key] &gt; 5) {
+            http_response_code(429);
+            return ['error' =&gt; 'Too many attempts'];
+        }
+
+        $user = $this-&gt;db-&gt;one("SELECT * FROM users WHERE email = ?", [$email]);
+        if (!$user || !password_verify($password, $user['password_hash'])) {
+            return ['error' =&gt; 'Invalid credentials'];
+        }
+
+        // Re-hash jeśli parametry się zmieniły
+        if (password_needs_rehash($user['password_hash'], PASSWORD_ARGON2ID)) {
+            $this-&gt;db-&gt;update('users',
+                ['password_hash' =&gt; password_hash($password, PASSWORD_ARGON2ID)],
+                ['id' =&gt; $user['id']]);
+        }
+
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['user_role'] = $user['role'];
+        unset($_SESSION[$key]);
+
+        header('Location: /admin');
+        return ['ok' =&gt; true];
+    }
+
+    public function logout(): array
+    {
+        $_SESSION = [];
+        session_destroy();
+        header('Location: /admin/login');
+        return ['ok' =&gt; true];
+    }
+
+    public static function require(Db $db): void
+    {
+        if (empty($_SESSION['user_id'])) {
+            header('Location: /admin/login');
+            exit;
+        }
+        // Refresh ostatnia aktywność (anty-hijack)
+        if (!isset($_SESSION['last_activity'])) {
+            $_SESSION['last_activity'] = time();
+        } elseif (time() - $_SESSION['last_activity'] &gt; 1800) {     // 30 min idle
+            $_SESSION = [];
+            session_destroy();
+            header('Location: /admin/login');
+            exit;
+        }
+        $_SESSION['last_activity'] = time();
+    }
+}</code></pre>
+
+<h2 id="admin-vue">7. Admin SPA — Vue 3 + Vite</h2>
+
+<pre data-lang="json"><code>// admin-spa/package.json
+{
+  "name": "builder-admin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc &amp;&amp; vite build"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "pinia": "^2.1.0",
+    "vue-router": "^4.2.0",
+    "vuedraggable": "^4.1.0",
+    "@vueuse/core": "^10.7.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0",
+    "vue-tsc": "^1.8.0"
+  }
+}</code></pre>
+
+<pre data-lang="typescript"><code>// admin-spa/vite.config.ts
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import { fileURLToPath, URL } from 'node:url'
+
+export default defineConfig({
+    plugins: [vue()],
+    base: '/admin/',
+    build: {
+        outDir: '../public_html/admin',
+        emptyOutDir: false,
+        manifest: true,
+        rollupOptions: {
+            output: {
+                entryFileNames: 'assets/[name]-[hash].js',
+                chunkFileNames: 'assets/[name]-[hash].js',
+                assetFileNames: 'assets/[name]-[hash].[ext]'
+            }
+        }
+    },
+    resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+    server: {
+        port: 5173,
+        proxy: { '/admin/api': 'http://localhost:8000' }
+    }
+})</code></pre>
+
+<pre data-lang="vue"><code>&lt;!-- admin-spa/src/App.vue --&gt;
+&lt;script setup lang="ts"&gt;
+import { ref, onMounted } from 'vue'
+import draggable from 'vuedraggable'
+import { useDebounceFn } from '@vueuse/core'
+
+interface Block {
+    id: number
+    type: string
+    props: Record&lt;string, any&gt;
+    position: number
+    visible: number
+}
+
+const blocks = ref&lt;Block[]&gt;([])
+const pageId = ref&lt;number&gt;(1)
+const availableBlocks = ref([
+    { type: 'hero', label: 'Hero z CTA' },
+    { type: 'text_image', label: 'Tekst + obraz' },
+    { type: 'gallery', label: 'Galeria' }
+])
+
+async function loadPage() {
+    const r = await fetch(`/admin/api/pages/${pageId.value}`)
+    const data = await r.json()
+    blocks.value = data.blocks
+}
+
+async function addBlock(type: string) {
+    const r = await fetch('/admin/api/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, page_id: pageId.value })
+    })
+    blocks.value.push(await r.json())
+}
+
+const saveBlock = useDebounceFn(async (block: Block) =&gt; {
+    await fetch(`/admin/api/blocks/${block.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ props: block.props })
+    })
+}, 500)
+
+async function deleteBlock(block: Block) {
+    if (!confirm('Usunąć blok?')) return
+    await fetch(`/admin/api/blocks/${block.id}`, { method: 'DELETE' })
+    blocks.value = blocks.value.filter(b =&gt; b.id !== block.id)
+}
+
+async function onReorder() {
+    await fetch('/admin/api/blocks/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: blocks.value.map(b =&gt; b.id) })
+    })
+}
+
+onMounted(loadPage)
+&lt;/script&gt;
+
+&lt;template&gt;
+    &lt;div class="editor"&gt;
+        &lt;aside class="sidebar"&gt;
+            &lt;h3&gt;Dodaj blok&lt;/h3&gt;
+            &lt;button
+                v-for="b in availableBlocks"
+                :key="b.type"
+                @click="addBlock(b.type)"
+                class="block-btn"
+            &gt;
+                + {{ b.label }}
+            &lt;/button&gt;
+        &lt;/aside&gt;
+
+        &lt;main class="canvas"&gt;
+            &lt;h2&gt;Edycja strony&lt;/h2&gt;
+            &lt;draggable
+                v-model="blocks"
+                item-key="id"
+                handle=".drag-handle"
+                @end="onReorder"
+            &gt;
+                &lt;template #item="{ element: block }"&gt;
+                    &lt;div class="block-card"&gt;
+                        &lt;div class="block-header"&gt;
+                            &lt;span class="drag-handle"&gt;⋮⋮&lt;/span&gt;
+                            &lt;strong&gt;{{ block.type }}&lt;/strong&gt;
+                            &lt;button @click="deleteBlock(block)"&gt;✕&lt;/button&gt;
+                        &lt;/div&gt;
+
+                        &lt;!-- Hero --&gt;
+                        &lt;template v-if="block.type === 'hero'"&gt;
+                            &lt;label&gt;
+                                Tytuł
+                                &lt;input v-model="block.props.title" @input="saveBlock(block)"&gt;
+                            &lt;/label&gt;
+                            &lt;label&gt;
+                                Podtytuł
+                                &lt;textarea v-model="block.props.subtitle" @input="saveBlock(block)"&gt;&lt;/textarea&gt;
+                            &lt;/label&gt;
+                            &lt;label&gt;
+                                CTA tekst
+                                &lt;input v-model="block.props.cta_text" @input="saveBlock(block)"&gt;
+                            &lt;/label&gt;
+                            &lt;label&gt;
+                                CTA URL
+                                &lt;input v-model="block.props.cta_url" @input="saveBlock(block)"&gt;
+                            &lt;/label&gt;
+                        &lt;/template&gt;
+
+                        &lt;!-- Text + Image --&gt;
+                        &lt;template v-else-if="block.type === 'text_image'"&gt;
+                            &lt;label&gt;
+                                Nagłówek
+                                &lt;input v-model="block.props.heading" @input="saveBlock(block)"&gt;
+                            &lt;/label&gt;
+                            &lt;label&gt;
+                                Treść (HTML)
+                                &lt;textarea v-model="block.props.body" rows="6" @input="saveBlock(block)"&gt;&lt;/textarea&gt;
+                            &lt;/label&gt;
+                        &lt;/template&gt;
+
+                        &lt;!-- Gallery --&gt;
+                        &lt;template v-else-if="block.type === 'gallery'"&gt;
+                            &lt;label&gt;
+                                Tytuł
+                                &lt;input v-model="block.props.title" @input="saveBlock(block)"&gt;
+                            &lt;/label&gt;
+                            &lt;label&gt;
+                                Kolumny
+                                &lt;input type="number" min="1" max="6"
+                                       v-model.number="block.props.columns"
+                                       @input="saveBlock(block)"&gt;
+                            &lt;/label&gt;
+                            &lt;!-- Tu byłby uploader media --&gt;
+                        &lt;/template&gt;
+                    &lt;/div&gt;
+                &lt;/template&gt;
+            &lt;/draggable&gt;
+        &lt;/main&gt;
+
+        &lt;aside class="preview"&gt;
+            &lt;iframe :src="`/preview/${pageId}`" /&gt;
+        &lt;/aside&gt;
+    &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;style scoped&gt;
+.editor { display: grid; grid-template-columns: 240px 1fr 1fr; gap: 16px; height: 100vh; padding: 16px; background: #0f172a; color: #e2e8f0; }
+.sidebar { background: #1e293b; border-radius: 8px; padding: 16px; }
+.block-btn { display: block; width: 100%; padding: 10px; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; margin-bottom: 6px; cursor: pointer; text-align: left; }
+.block-btn:hover { background: #475569; }
+.canvas { background: #1e293b; border-radius: 8px; padding: 20px; overflow-y: auto; }
+.block-card { background: #283649; border-radius: 6px; padding: 14px; margin-bottom: 10px; }
+.block-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.drag-handle { cursor: grab; color: #94a3b8; user-select: none; }
+label { display: block; margin-bottom: 10px; font-size: 0.85rem; color: #94a3b8; }
+input, textarea { width: 100%; padding: 8px 10px; background: #1e293b; border: 1px solid #475569; color: #e2e8f0; border-radius: 4px; font-family: inherit; margin-top: 4px; }
+.preview iframe { width: 100%; height: 100%; border: 0; border-radius: 8px; background: white; }
+&lt;/style&gt;</code></pre>
+
+<pre data-lang="html"><code>&lt;!-- public_html/admin/index.html — generowane przez vite build --&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html lang="pl"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;Admin — Builder&lt;/title&gt;
+    &lt;link rel="stylesheet" href="/admin/assets/index-XXXX.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div id="app"&gt;&lt;/div&gt;
+    &lt;script type="module" src="/admin/assets/index-XXXX.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<h2 id="admin-alpine">8. Wariant lekki — Alpine.js bez buildu</h2>
+
+<p>Dla najmniejszych projektów (lub gdy klient nie ma Node) — pełny edytor w 1 pliku PHP, bez kompilacji:</p>
+
+<pre data-lang="php"><code>&lt;?php
+// public_html/admin/editor.php
+session_start();
+if (empty($_SESSION['user_id'])) { header('Location: /admin/login'); exit; }
+$pageId = (int)($_GET['page'] ?? 1);
+?&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html lang="pl"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;Editor&lt;/title&gt;
+    &lt;script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer&gt;&lt;/script&gt;
+    &lt;script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"&gt;&lt;/script&gt;
+    &lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body class="bg-slate-900 text-slate-100"&gt;
+
+&lt;div x-data="editor()" x-init="init()" class="grid grid-cols-[240px_1fr_1fr] gap-4 p-4 h-screen"&gt;
+
+    &lt;!-- Sidebar: dodawanie bloków --&gt;
+    &lt;aside class="bg-slate-800 rounded-lg p-4 space-y-2"&gt;
+        &lt;h3 class="font-bold mb-3"&gt;Dodaj blok&lt;/h3&gt;
+        &lt;template x-for="b in available" :key="b.type"&gt;
+            &lt;button
+                @click="addBlock(b.type)"
+                class="block w-full p-2 bg-slate-700 hover:bg-slate-600 rounded text-left"
+                x-text="'+ ' + b.label"&gt;&lt;/button&gt;
+        &lt;/template&gt;
+    &lt;/aside&gt;
+
+    &lt;!-- Canvas: lista bloków --&gt;
+    &lt;main class="bg-slate-800 rounded-lg p-5 overflow-y-auto"&gt;
+        &lt;div id="blocks-list" class="space-y-3"&gt;
+            &lt;template x-for="block in blocks" :key="block.id"&gt;
+                &lt;div class="bg-slate-700 rounded p-4" :data-id="block.id"&gt;
+                    &lt;div class="flex items-center gap-2 mb-3 cursor-grab handle"&gt;
+                        &lt;span class="text-slate-400"&gt;⋮⋮&lt;/span&gt;
+                        &lt;strong x-text="block.type"&gt;&lt;/strong&gt;
+                        &lt;button @click="removeBlock(block)" class="ml-auto text-red-400"&gt;✕&lt;/button&gt;
+                    &lt;/div&gt;
+
+                    &lt;!-- HERO --&gt;
+                    &lt;template x-if="block.type === 'hero'"&gt;
+                        &lt;div class="space-y-2"&gt;
+                            &lt;input x-model="block.props.title"
+                                   @input.debounce.500ms="save(block)"
+                                   placeholder="Tytuł"
+                                   class="w-full bg-slate-800 px-3 py-2 rounded border border-slate-600"&gt;
+                            &lt;textarea x-model="block.props.subtitle"
+                                      @input.debounce.500ms="save(block)"
+                                      placeholder="Podtytuł"
+                                      class="w-full bg-slate-800 px-3 py-2 rounded border border-slate-600"&gt;&lt;/textarea&gt;
+                            &lt;input x-model="block.props.cta_text"
+                                   @input.debounce.500ms="save(block)"
+                                   placeholder="Tekst CTA"
+                                   class="w-full bg-slate-800 px-3 py-2 rounded border border-slate-600"&gt;
+                            &lt;input x-model="block.props.cta_url"
+                                   @input.debounce.500ms="save(block)"
+                                   placeholder="URL CTA"
+                                   class="w-full bg-slate-800 px-3 py-2 rounded border border-slate-600"&gt;
+                        &lt;/div&gt;
+                    &lt;/template&gt;
+
+                    &lt;!-- TEXT + IMAGE --&gt;
+                    &lt;template x-if="block.type === 'text_image'"&gt;
+                        &lt;div class="space-y-2"&gt;
+                            &lt;input x-model="block.props.heading"
+                                   @input.debounce.500ms="save(block)"
+                                   placeholder="Nagłówek"
+                                   class="w-full bg-slate-800 px-3 py-2 rounded border border-slate-600"&gt;
+                            &lt;textarea x-model="block.props.body"
+                                      @input.debounce.500ms="save(block)"
+                                      rows="6"
+                                      placeholder="Treść HTML"
+                                      class="w-full bg-slate-800 px-3 py-2 rounded border border-slate-600 font-mono text-sm"&gt;&lt;/textarea&gt;
+                        &lt;/div&gt;
+                    &lt;/template&gt;
+                &lt;/div&gt;
+            &lt;/template&gt;
+        &lt;/div&gt;
+    &lt;/main&gt;
+
+    &lt;!-- Preview --&gt;
+    &lt;aside class="bg-white rounded-lg overflow-hidden"&gt;
+        &lt;iframe :src="`/preview/${pageId}?v=${reloadKey}`" class="w-full h-full border-0"&gt;&lt;/iframe&gt;
+    &lt;/aside&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+function editor() {
+    return {
+        pageId: &lt;?= json_encode($pageId) ?&gt;,
+        blocks: [],
+        reloadKey: 0,
+        available: [
+            { type: 'hero', label: 'Hero z CTA' },
+            { type: 'text_image', label: 'Tekst + obraz' },
+            { type: 'gallery', label: 'Galeria' }
+        ],
+        async init() {
+            const r = await fetch(`/admin/api/pages/${this.pageId}`);
+            const data = await r.json();
+            this.blocks = data.blocks ?? [];
+            this.$nextTick(() =&gt; this.initSortable());
+        },
+        initSortable() {
+            Sortable.create(document.getElementById('blocks-list'), {
+                animation: 150,
+                handle: '.handle',
+                onEnd: () =&gt; this.reorder()
+            });
+        },
+        async addBlock(type) {
+            const r = await fetch('/admin/api/blocks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, page_id: this.pageId })
+            });
+            this.blocks.push(await r.json());
+            this.refreshPreview();
+        },
+        async save(block) {
+            await fetch(`/admin/api/blocks/${block.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ props: block.props })
+            });
+            this.refreshPreview();
+        },
+        async removeBlock(block) {
+            if (!confirm('Usunąć blok?')) return;
+            await fetch(`/admin/api/blocks/${block.id}`, { method: 'DELETE' });
+            this.blocks = this.blocks.filter(b =&gt; b.id !== block.id);
+            this.refreshPreview();
+        },
+        async reorder() {
+            const ids = [...document.querySelectorAll('#blocks-list [data-id]')]
+                .map(el =&gt; +el.dataset.id);
+            await fetch('/admin/api/blocks/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids })
+            });
+            this.refreshPreview();
+        },
+        refreshPreview() {
+            this.reloadKey = Date.now();
+        }
+    }
+}
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+<div class="tip">💡 Powyższy edytor to <strong>jeden plik PHP, zero buildu, ~150 linii kodu</strong>. Wrzucasz FTP, działa. Idealne na MVP albo dla klientów z najprostszym hostingiem.</div>
+
+<h2 id="htaccess">9. .htaccess + bezpieczeństwo</h2>
+
+<pre data-lang="apache"><code># public_html/.htaccess
+RewriteEngine On
+
+# HTTPS redirect
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+# Front controller — wszystko poza istniejącymi plikami → index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [L,QSA]
+
+# Zablokuj wrażliwe pliki
+&lt;FilesMatch "\.(env|json|lock|md|sql|log|ini|conf|sh)$"&gt;
+    Require all denied
+&lt;/FilesMatch&gt;
+&lt;FilesMatch "^(composer|package|webpack|vite|tailwind|\.git)"&gt;
+    Require all denied
+&lt;/FilesMatch&gt;
+
+# Wyłącz directory listing
+Options -Indexes
+
+# Wyłącz PHP execution w /uploads
+&lt;Directory "uploads"&gt;
+    php_flag engine off
+    &lt;FilesMatch "\.(php|phtml|phar|html|htm)$"&gt;
+        ForceType text/plain
+    &lt;/FilesMatch&gt;
+&lt;/Directory&gt;
+
+# Security headers
+&lt;IfModule mod_headers.c&gt;
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+&lt;/IfModule&gt;
+
+# Cache statyków
+&lt;IfModule mod_expires.c&gt;
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType application/json "access plus 0 seconds"
+    ExpiresByType text/html "access plus 0 seconds"
+&lt;/IfModule&gt;
+
+# Kompresja
+&lt;IfModule mod_deflate.c&gt;
+    AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml
+&lt;/IfModule&gt;</code></pre>
+
+<pre data-lang="ini"><code>; public_html/.user.ini — przesłania php.ini na nazwa.pl/home.pl
+display_errors = Off
+log_errors = On
+expose_php = Off
+
+session.cookie_httponly = 1
+session.cookie_secure = 1
+session.cookie_samesite = "Strict"
+session.use_strict_mode = 1
+session.use_only_cookies = 1
+
+upload_max_filesize = 16M
+post_max_size = 20M
+max_execution_time = 60
+memory_limit = 256M
+
+opcache.enable = 1
+opcache.memory_consumption = 128
+opcache.validate_timestamps = 1
+opcache.revalidate_freq = 60</code></pre>
+
+<h2 id="deploy">10. Deploy: lokalnie build → FTP</h2>
+
+<pre data-lang="bash"><code>#!/usr/bin/env bash
+# scripts/deploy.sh
+set -euo pipefail
+
+echo "→ 1/4 Composer install (production)"
+cd private
+composer install --no-dev --optimize-autoloader --classmap-authoritative
+cd ..
+
+echo "→ 2/4 Build admin SPA (Vue)"
+cd admin-spa
+npm ci
+npm run build
+cd ..
+
+echo "→ 3/4 Build Tailwind CSS"
+npx tailwindcss -i src/site.css -o public_html/assets/site.css --minify
+
+echo "→ 4/4 FTP upload"
+lftp -e "
+    set ssl:verify-certificate no
+    open -u $FTP_USER,$FTP_PASS $FTP_HOST
+    mirror -R --delete --parallel=4 \
+        --exclude-glob '.git*' \
+        --exclude-glob '.env*' \
+        --exclude-glob 'node_modules/' \
+        --exclude-glob 'admin-spa/' \
+        --exclude-glob 'scripts/' \
+        public_html/ /public_html/
+    mirror -R --delete --parallel=4 \
+        --exclude-glob '*.tmp' \
+        --exclude-glob 'cache/*' \
+        private/ /private/
+    bye
+"
+echo "✅ Deploy done"</code></pre>
+
+<pre data-lang="yaml"><code># .github/workflows/deploy.yml
+name: Deploy to nazwa.pl
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+
+      - run: cd private &amp;&amp; composer install --no-dev --optimize-autoloader
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'npm', cache-dependency-path: admin-spa/package-lock.json }
+
+      - run: cd admin-spa &amp;&amp; npm ci &amp;&amp; npm run build
+
+      - run: npx tailwindcss -i src/site.css -o public_html/assets/site.css --minify
+
+      - name: FTP deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          local-dir: ./public_html/
+          server-dir: /public_html/
+          exclude: |
+            **/.git*
+            **/.env
+            **/node_modules/**
+
+      - name: FTP deploy private/
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          local-dir: ./private/
+          server-dir: /private/
+          exclude: |
+            **/cache/**
+            **/.git*</code></pre>
+
+<h2 id="instalator">11. Instalator (jednorazowy setup)</h2>
+
+<pre data-lang="php"><code>&lt;?php
+// public_html/install.php — UŻYWAĆ TYLKO RAZ, POTEM USUNĄĆ!
+declare(strict_types=1);
+
+if (file_exists(__DIR__ . '/../private/config/config.php')) {
+    die('Już zainstalowany. Usuń install.php.');
+}
+
+$step = $_POST['step'] ?? '1';
+
+if ($step === '1') {
+    // Formularz konfiguracji
+    ?&gt;
+    &lt;!DOCTYPE html&gt;
+    &lt;html lang="pl"&gt;&lt;head&gt;&lt;meta charset="UTF-8"&gt;&lt;title&gt;Instalator&lt;/title&gt;&lt;/head&gt;
+    &lt;body style="font-family:sans-serif;max-width:500px;margin:50px auto;padding:20px"&gt;
+        &lt;h1&gt;Instalator Buildera&lt;/h1&gt;
+        &lt;form method="post"&gt;
+            &lt;input type="hidden" name="step" value="2"&gt;
+            &lt;h3&gt;Baza danych&lt;/h3&gt;
+            &lt;p&gt;&lt;label&gt;Host:&lt;br&gt;&lt;input name="db_host" value="localhost" required&gt;&lt;/label&gt;&lt;/p&gt;
+            &lt;p&gt;&lt;label&gt;Nazwa bazy:&lt;br&gt;&lt;input name="db_name" required&gt;&lt;/label&gt;&lt;/p&gt;
+            &lt;p&gt;&lt;label&gt;Użytkownik:&lt;br&gt;&lt;input name="db_user" required&gt;&lt;/label&gt;&lt;/p&gt;
+            &lt;p&gt;&lt;label&gt;Hasło:&lt;br&gt;&lt;input type="password" name="db_pass"&gt;&lt;/label&gt;&lt;/p&gt;
+            &lt;h3&gt;Konto admina&lt;/h3&gt;
+            &lt;p&gt;&lt;label&gt;Email:&lt;br&gt;&lt;input type="email" name="admin_email" required&gt;&lt;/label&gt;&lt;/p&gt;
+            &lt;p&gt;&lt;label&gt;Hasło (min. 12 znaków):&lt;br&gt;&lt;input type="password" name="admin_pass" minlength="12" required&gt;&lt;/label&gt;&lt;/p&gt;
+            &lt;button type="submit"&gt;Zainstaluj&lt;/button&gt;
+        &lt;/form&gt;
+    &lt;/body&gt;&lt;/html&gt;
+    &lt;?php
+    exit;
+}
+
+// Step 2: instalacja
+try {
+    $pdo = new PDO(
+        "mysql:host={$_POST['db_host']};dbname={$_POST['db_name']};charset=utf8mb4",
+        $_POST['db_user'], $_POST['db_pass'],
+        [PDO::ATTR_ERRMODE =&gt; PDO::ERRMODE_EXCEPTION]
+    );
+
+    // Wykonaj migrację
+    $sql = file_get_contents(__DIR__ . '/../private/migrations/001_init.sql');
+    $pdo-&gt;exec($sql);
+
+    // Stwórz admina
+    $stmt = $pdo-&gt;prepare("INSERT INTO users (email, password_hash, role) VALUES (?, ?, 'admin')");
+    $stmt-&gt;execute([
+        $_POST['admin_email'],
+        password_hash($_POST['admin_pass'], PASSWORD_ARGON2ID)
+    ]);
+
+    // Zapisz config
+    $configDir = __DIR__ . '/../private/config';
+    if (!is_dir($configDir)) mkdir($configDir, 0700, true);
+
+    $config = "&lt;?php\nreturn " . var_export([
+        'debug' =&gt; false,
+        'db' =&gt; [
+            'host' =&gt; $_POST['db_host'],
+            'name' =&gt; $_POST['db_name'],
+            'user' =&gt; $_POST['db_user'],
+            'pass' =&gt; $_POST['db_pass']
+        ],
+        'session_lifetime' =&gt; 1800
+    ], true) . ";\n";
+
+    file_put_contents("$configDir/config.php", $config);
+    chmod("$configDir/config.php", 0600);
+
+    // Stwórz cache &amp; uploads
+    @mkdir(__DIR__ . '/../private/cache', 0755, true);
+    @mkdir(__DIR__ . '/uploads', 0755, true);
+
+    // USUŃ INSTALATORA
+    @unlink(__FILE__);
+
+    echo "&lt;h1&gt;✅ Zainstalowano!&lt;/h1&gt;";
+    echo "&lt;p&gt;&lt;a href='/admin/login'&gt;Zaloguj się&lt;/a&gt;&lt;/p&gt;";
+
+} catch (Throwable $e) {
+    echo "&lt;h1&gt;❌ Błąd&lt;/h1&gt;&lt;pre&gt;" . htmlspecialchars($e-&gt;getMessage()) . "&lt;/pre&gt;";
+}</code></pre>
+
+<div class="warn">⚠️ <strong>WAŻNE:</strong> Instalator <strong>SAM SIĘ USUWA</strong> po sukcesie (linia <code>@unlink(__FILE__)</code>). Jeśli to nie zadziała (np. brak uprawnień) — USUŃ go ręcznie przez FTP. Inaczej ktoś może go uruchomić i nadpisać konfigurację.</div>
+
+<h2>Co dalej</h2>
+
+<ul>
+    <li>📁 <strong>Media library</strong> — upload z resize (Intervention Image / GD), WebP, thumbnails dla srcset</li>
+    <li>📦 <strong>Multi-tenant</strong> — patrz <a href="../lang/php/07-website-builder-shared-hosting.html#multi-tenant">PHP 07 §9</a></li>
+    <li>🔄 <strong>Wersjonowanie stron</strong> — tabela <code>page_revisions</code> + undo</li>
+    <li>🌍 <strong>i18n</strong> — pages.locale + osobne slugi per język</li>
+    <li>📊 <strong>Analytics</strong> — Plausible (self-hosted, GDPR friendly)</li>
+    <li>📝 <strong>Blog/CPT</strong> — generyczna tabela <code>posts</code> z <code>type</code> i <code>fields JSON</code></li>
+    <li>🎨 <strong>Theme system</strong> — wymienne motywy z własnym <code>site.css</code></li>
+    <li>💳 <strong>Płatności (SaaS)</strong> — Stripe / Przelewy24 / Tpay (polskie)</li>
+</ul>
+
+<div class="next-prev">
+    <a href="index.html">
+        <div class="label">← Wróć do</div>
+        <div class="title">Spisu przykładów</div>
+    </a>
+    <a href="../lang/php/07-website-builder-shared-hosting.html">
+        <div class="label">Teoria →</div>
+        <div class="title">PHP 07 — Creator na shared hostingu</div>
+    </a>
+</div>
+
+</div>
+</body>
+</html>

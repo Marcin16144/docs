@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>05-03-zasilacze-impulsowe - Zasilacze impulsowe (SMPS)</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:850px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:24px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:22px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text-muted);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6;white-space:pre}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}        .schem{background:#0a0e1a;border:1px solid var(--border);border-radius:12px;padding:20px;margin:18px 0 24px;display:flex;justify-content:center}
+        .schem svg{width:100%;max-width:520px;height:auto}
+        .schem .wire{stroke:#cbd5e1;stroke-width:1.8;fill:none;stroke-linecap:round}
+        .schem .wire-pos{stroke:#f87171;stroke-width:1.8;fill:none}
+        .schem .comp{stroke:#f1f5f9;stroke-width:1.6;fill:none}
+        .schem .comp-fill{fill:#f1f5f9;stroke:#f1f5f9}
+        .schem .node{fill:#38bdf8}
+        .schem .label{fill:#94a3b8;font-family:'Segoe UI',sans-serif;font-size:11px}
+        .schem .label-val{fill:#4ade80;font-family:'Cascadia Code',monospace;font-size:10px}
+        .schem .label-pin{fill:#fbbf24;font-family:'Cascadia Code',monospace;font-size:9px}
+        .schem .label-pos{fill:#f87171;font-family:'Cascadia Code',monospace;font-size:11px;font-weight:600}
+        .schem .gnd{stroke:#94a3b8;stroke-width:1.6;fill:none}
+        .schem .ic-body{fill:#1e293b;stroke:#f1f5f9;stroke-width:1.5}
+        .schem .ic-label{fill:#e2e8f0;font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:600;text-anchor:middle}
+        .schem-ascii{background:#0a0e1a;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:8px 16px;margin:16px 0 24px}
+        .schem-ascii::before{content:'SCHEMAT (ASCII) - wersja SVG: schematy.html';display:block;font-size:.72rem;color:var(--accent);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+        .schem-ascii pre{background:transparent;border:none;padding:6px 0 12px;margin:0}
+        .schem-banner{background:linear-gradient(135deg,rgba(56,189,248,0.12),rgba(167,139,250,0.08));border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:14px 20px;margin:16px 0 24px;font-size:.92rem;display:flex;align-items:center;gap:12px}
+        .schem-banner .icon{font-size:1.5rem}
+        .schem-banner a{color:var(--accent);font-weight:600;text-decoration:none}
+        .schem-banner a:hover{text-decoration:underline}
+
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Strona glowna</a>
+        <span class="sep">/</span>
+        <a href="05-zasilanie.html">05 - Zasilanie</a>
+        <span class="sep">/</span>
+        <span class="title">05-03-zasilacze-impulsowe</span>
+    </div>
+    <div class="container">
+        <h1>Zasilacze impulsowe (SMPS)</h1>
+        <div class="schem-banner">
+            <span class="icon">[SVG]</span>
+            <span>Wszystkie schematy z tej strony w pelnej wersji SVG (symbole IEC, kolory, etykiety) - zobacz na stronie <a href="schematy.html">Schematy elektroniczne</a>.</span>
+        </div>
+<h2>Czym jest SMPS</h2>
+<p><strong>Switch-Mode Power Supply</strong> — zasilacz przełączający. Tranzystor szybko włącza i wyłącza prąd (10 kHz – 2 MHz), energia jest magazynowana w cewce lub transformatorze i kontrolowanie uwalniana.</p>
+<h3>Dlaczego SMPS</h3>
+<ul>
+<li><strong>Wysoka sprawność</strong> (85-97% vs 30-60% liniowych)</li>
+<li><strong>Mniejsze i lżejsze</strong> (cewka HF zamiast transformatora 50 Hz)</li>
+<li><strong>Większa elastyczność</strong> (step-up, step-down, izolacja)</li>
+<li><strong>Mniej ciepła</strong></li>
+</ul>
+<h3>Wady SMPS</h3>
+<ul>
+<li>Zakłócenia elektromagnetyczne (EMI)</li>
+<li>Więcej elementów, większa komplikacja</li>
+<li>Tętnienia HF na wyjściu</li>
+<li>Wrażliwość na obciążenie</li>
+<li>Większy koszt elementów (ale ogólnie tańszy w produkcji)</li>
+</ul>
+<h2>Podstawowe topologie</h2>
+<h3>Buck (step-down) — obniżający</h3>
+<p>Najpopularniejszy. Obniża napięcie wejścia.</p>
+<div class="schem-ascii"><pre><code>
+   +V_in ──[Q]──┬──[L]──┬── +V_out
+   (MOSFET)     │       │
+                ▼       │
+                ▽ D     C
+                │       │
+   GND ─────────┴───────┴── GND
+</code></pre></div>
+<h3>Cykl pracy buck</h3>
+<ol>
+<li><strong>Q włączony</strong>: prąd płynie przez L do C i obciążenia. L magnezuje się.</li>
+<li><strong>Q wyłączony</strong>: cewka utrzymuje prąd (samoindukcja), prąd zamyka się przez diodę D do obciążenia. L się rozmagnesowuje.</li>
+</ul>
+<h3>Wzory</h3>
+<pre><code>
+V_out = D · V_in     (D = duty cycle, 0-1)
+
+L = V_in · (1−D) · D / (f · ΔI_L)
+ΔI_L = 20-40% prądu obciążenia (typowo)
+
+C_out = ΔI_L / (8 · f · ΔV_out)
+</code></pre>
+<h3>Przykład</h3>
+<p>V_in = 12 V, V_out = 5 V, I_out = 2 A, f = 100 kHz, ΔI_L = 0,4 A:</p>
+<pre><code>
+D = 5/12 = 0,42
+L = 12 · 0,58 · 0,42 / (100 000 · 0,4) = 73 μH
+ΔV_out = 50 mV (typowe), C = 0,4 / (8 · 100 000 · 0,05) = 10 μF
+</code></pre>
+<h3>Boost (step-up) — podwyższający</h3>
+<p>Podnosi napięcie wejścia.</p>
+<div class="schem-ascii"><pre><code>
+   +V_in ──[L]──┬──▷├──┬── +V_out
+                │       │
+                [Q]    [C]
+                │       │
+   GND ─────────┴───────┴── GND
+</code></pre></div>
+<h3>Cykl boost</h3>
+<ol>
+<li><strong>Q ON</strong>: prąd przez L do masy. Cewka magazynuje energię. Dioda blokuje (C utrzymuje napięcie wyjścia).</li>
+<li><strong>Q OFF</strong>: cewka utrzymuje prąd, napięcie L dodaje się do V_in, ładuje C przez D.</li>
+</ul>
+<pre><code>
+V_out = V_in / (1−D)
+
+L = V_in · D / (f · ΔI_L)
+</code></pre>
+<p>Boost potrafi podnieść napięcie 5-10×, ale wzrastają prądy w L (energia = ½LI²).</p>
+<h3>Buck-Boost</h3>
+<p>Może i obniżać, i podwyższać. Inwertuje polaryzację.</p>
+<pre><code>
+V_out = -V_in · D / (1−D)
+</code></pre>
+<p>Stosowane: zasilanie z baterii (Li-Ion 3-4 V → 5 V stabilne).</p>
+<h3>SEPIC</h3>
+<p>Single-Ended Primary-Inductor Converter. Tej samej polaryzacji, może i obniżać, i podnosić. Złożony.</p>
+<h3>Flyback</h3>
+<p><strong>Z izolacją galwaniczną</strong>, mała moc (do ~200 W). Najpopularniejszy w zasilaczach 230 V → 5/12 V.</p>
+<div class="schem-ascii"><pre><code>
+        ┌──UUUU──┐ trafo
+   AC ──┤        ├─▷├── +V_out
+        │   ||   │     │
+        │   ||  ─┴─C   │
+        └──UUUU──┤     │
+                 [Q]   │
+                 │     │
+                GND   GND
+</code></pre></div>
+<p>Cykl:</p>
+<ol>
+<li><strong>Q ON</strong>: prąd w uzwojeniu pierwotnym, energia magazynowana w rdzeniu, dioda wtórna blokuje.</li>
+<li><strong>Q OFF</strong>: napięcie pierwotne odwraca się, indukcja w wtórnym, dioda przewodzi, C ładuje się.</li>
+</ul>
+<p>Standardowy układ w ładowarkach USB, zasilaczach komputerowych do 250 W.</p>
+<h3>Forward</h3>
+<p>Trafo "przepuszcza" energię bezpośrednio. Większa moc, bardziej skomplikowane. Stosowane &gt; 200 W.</p>
+<h3>Half-Bridge / Full-Bridge</h3>
+<p>Większe moce (&gt; 500 W). Zasilacze PC, serwerowe, spawarki.</p>
+<h3>Push-Pull</h3>
+<p>Dwa tranzystory przemiennie. Duże moce, niskie napięcia (samochodowe inwertery).</p>
+<h3>LLC Resonant</h3>
+<p>Najwyższa sprawność (97%+). Złożony układ. Stosowane w premium SMPS, zasilaczach serwerowych.</p>
+<h2>Sterowanie SMPS</h2>
+<h3>PWM (Pulse Width Modulation)</h3>
+<p>Kontroler mierzy V_out, porównuje z referencją, zmienia duty cycle. Stała częstotliwość, zmienna szerokość impulsu.</p>
+<h3>PFM (Pulse Frequency Modulation)</h3>
+<p>Stała szerokość, zmienna częstotliwość. Lepsza sprawność przy bardzo małych obciążeniach.</p>
+<h3>Hybrid (PWM + PFM)</h3>
+<p>Powyżej progu PWM, poniżej PFM. Stosowane w nowoczesnych SMPS.</p>
+<h3>Current Mode vs Voltage Mode</h3>
+<ul>
+<li><strong>Voltage mode</strong>: sterowanie napięciem</li>
+<li><strong>Current mode</strong>: sterowanie prądem przez cewkę. Szybsza reakcja, naturalna ochrona prądowa. Dominuje dziś.</li>
+</ul>
+<h2>Popularne sterowniki SMPS</h2>
+<h3>Buck</h3>
+<ul>
+<li><strong>MC34063</strong> — klasyk, do 100 kHz, do 1,5 A</li>
+<li><strong>LM2576</strong> — 1 A, integrated, 52 kHz</li>
+<li><strong>LM2596</strong> — 3 A, 150 kHz, popularne moduły z AliExpress</li>
+<li><strong>TPS54331</strong> — 3 A, 570 kHz, lepszej klasy</li>
+<li><strong>TPS56xx</strong> — wyższe częstotliwości</li>
+</ul>
+<h3>Boost</h3>
+<ul>
+<li><strong>MT3608</strong> — moduły boost, 2 A</li>
+<li><strong>LM2577</strong> — 3 A, do 12 V boost</li>
+</ul>
+<h3>Flyback (z izolacją AC)</h3>
+<ul>
+<li><strong>TNY</strong> (Power Integrations) — popularne w ładowarkach USB</li>
+<li><strong>LNK</strong> — niskobudżetowe ładowarki</li>
+<li><strong>UC3842, UC3845</strong> — klasyczne PWM</li>
+<li><strong>NCP1015, NCP1200</strong> — popularne</li>
+</ul>
+<h3>Synchroniczne</h3>
+<p>Zamiast diody używają drugiego MOSFETa → wyższa sprawność.</p>
+<h2>Komponenty SMPS</h2>
+<h3>MOSFET</h3>
+<p>Wymagania:</p>
+<ul>
+<li>Niski R_DS(on) → niskie straty przewodzenia</li>
+<li>Niski Q_g → szybkie przełączanie</li>
+<li>Logic level lub odpowiedni driver</li>
+<li>V_DSS z zapasem 2× max V_in</li>
+</ul>
+<p>Popularne: AO3400 (małe), IRFB4115 (mocne), CSD18532 (sync).</p>
+<h3>Dioda</h3>
+<p>Schottky w niskim napięciu (V_out &lt; 30 V). Ultra-fast Si dla wyższych.</p>
+<h3>Cewka</h3>
+<ul>
+<li><strong>Indukcyjność</strong> L wg wzoru</li>
+<li><strong>Prąd nasycenia I_sat</strong> &gt; prąd szczytowy</li>
+<li><strong>Niska DCR</strong> dla wysokiej sprawności</li>
+<li><strong>Rdzeń</strong> ferrytowy lub żelazo proszkowe</li>
+</ul>
+<h3>Kondensator wyjściowy</h3>
+<ul>
+<li><strong>Niski ESR</strong> krytyczny (lepsza filtracja, mniej grzania)</li>
+<li>Często MLCC + elektrolit razem</li>
+<li>Ceramik wystarcza dla 1-10 A; przy większych mocach polimerowe Al/Ta</li>
+</ul>
+<h3>Kondensator wejściowy</h3>
+<p>Filtruje pulsujący prąd MOSFETa. Niski ESR, wysokie ripple current.</p>
+<h2>Sprzężenie zwrotne i kompensacja</h2>
+<p>SMPS to <strong>regulator z pętlą sprzężenia</strong>. Stabilność zależy od:</p>
+<ul>
+<li>Wzmocnienia pętli</li>
+<li>Marginesu fazy</li>
+<li>Zerom i biegunom obwodu kompensacji</li>
+</ul>
+<p>Datasheets sterowników podają wzory kompensacji. Złego projektu = oscylacje, niestabilność, hałas, dezintegracja.</p>
+<h2>Sprzężenie zwrotne dla izolowanego SMPS (flyback)</h2>
+<p>Przez <strong>optoseparator</strong> + TL431. TL431 mierzy napięcie wyjścia, steruje LED w optoseparatorze, ten sygnalizuje stronie pierwotnej.</p>
+<h2>EMI w SMPS</h2>
+<p>Szybkie przełączanie generuje zakłócenia (kHz-MHz). Trzeba:</p>
+<ul>
+<li><strong>Filtr EMI</strong> na wejściu (X i Y caps, common-mode choke)</li>
+<li><strong>Layout PCB</strong> krótkie ścieżki mocy, mała pętla prądowa</li>
+<li><strong>Snubbery</strong> na MOSFETach i diodach</li>
+<li><strong>Ekranowanie</strong> dla wrażliwych aplikacji</li>
+<li><strong>Spread Spectrum</strong> modulacja (niektóre sterowniki) — rozprasza zakłócenia w paśmie</li>
+</ul>
+<h2>Sprawność</h2>
+<p>Czołówka:</p>
+<ul>
+<li>Buck 12→5 V: 92-97%</li>
+<li>Flyback 230 AC→ 5 V: 75-88% (USB Quick Charger 85-90%)</li>
+<li>LLC 230 AC→ 12 V: 92-97%</li>
+</ul>
+<p>Straty:</p>
+<ul>
+<li>Przewodzenia MOSFET (I²R_DS)</li>
+<li>Przełączania MOSFET (V·I·t·f)</li>
+<li>Diody (V_F·I)</li>
+<li>Cewki (DCR + straty rdzenia)</li>
+<li>Kondensatorów (ESR)</li>
+<li>Sterownika (prąd jałowy)</li>
+</ul>
+<h2>Projekt prostego buck 12 V → 5 V</h2>
+<h3>Specyfikacja</h3>
+<ul>
+<li>V_in: 12 V (8-15 V)</li>
+<li>V_out: 5 V</li>
+<li>I_out: 2 A</li>
+<li>f: 100 kHz</li>
+</ul>
+<h3>Wybór sterownika</h3>
+<p>LM2596S-5.0 (stała wersja 5 V) — gotowy moduł.</p>
+<h3>Cewka</h3>
+<ul>
+<li>Wzór: L ≈ V_out · (V_in - V_out) / (V_in · f · ΔI)</li>
+<li>ΔI = 30% · 2 A = 0,6 A</li>
+<li>L = 5 · 7 / (12 · 100k · 0,6) ≈ 49 μH → wybór 47 μH</li>
+<li>I_sat &gt; 2,6 A → wybór cewki na 3-5 A</li>
+</ul>
+<h3>Dioda</h3>
+<p>SR340 (3 A, 40 V Schottky) lub MBR340.</p>
+<h3>Kondensatory</h3>
+<ul>
+<li>C_in: 100 μF / 25 V niskoESR (kilka μF MLCC w paraleli)</li>
+<li>C_out: 220 μF / 16 V niskoESR</li>
+</ul>
+<h3>PCB</h3>
+<p>Krótkie połączenia powrotnej masy. Plaszczyzna masy. Mała pętla przełączania (Q + dioda + C_in).</p>
+<h3>Wynik</h3>
+<p>Sprawność ~90% przy 2 A.</p>
+<h2>Gotowe moduły</h2>
+<p>Dla DIY często łatwiej kupić gotowe:</p>
+<ul>
+<li><strong>LM2596 buck</strong> ~5 zł na AliExpress — od 7 V do 35 V, daje 1,2-30 V, 3 A</li>
+<li><strong>MT3608 boost</strong> — 2 V do 24 V wejścia, 5-28 V wyjścia, 2 A</li>
+<li><strong>MP1584</strong> — buck do 3 A</li>
+<li><strong>DC-DC modules 5 V USB</strong> — ładowarki samochodowe</li>
+</ul>
+<h2>Niepowodzenia SMPS</h2>
+<p>Częste problemy w taniej elektronice:</p>
+<ol>
+<li><strong>Wybuch elektrolitu wejściowego</strong> — niskiej jakości lub zbyt mały prąd ripple.</li>
+<li><strong>Padły MOSFET</strong> — głównie przez przegrzanie lub zbyt mała moc.</li>
+<li><strong>Wadliwy snubber</strong> → przebicie MOSFETa od spikes.</li>
+<li><strong>Niestabilność po latach</strong> — wysychanie elektrolitów → pętla sprzężenia drży.</li>
+<li><strong>Ekstremalne EMI</strong> — sprzęt wyłącza się sąsiadowi z radia.</li>
+</ul>
+<h2>Częste błędy projektowe</h2>
+<ol>
+<li><strong>Cewka bez zapasu nasycenia</strong> — przy szczycie prądu L spada, prąd lawinowo rośnie, MOSFET pada.</li>
+<li><strong>Brak snubbera</strong> przy MOSFETach w niskonapięciowym buck — spike z indukcyjności.</li>
+<li><strong>Zbyt długie ścieżki</strong> w pętli przełączania → EMI, oscylacje.</li>
+<li><strong>Wspólna masa cyfra-moc</strong> → szum w sterowniku.</li>
+<li><strong>Zbyt mała pojemność wejścia</strong> → tętnienia w zasilaniu.</li>
+<li><strong>Brak filtra wyjściowego</strong> dla wysokich częstotliwości — ringing 100 mV-pp.</li>
+<li><strong>Sygnał feedback przez gorące miejsce</strong> PCB → zmieniający się offset.</li>
+</ul>
+<h2>Kiedy liniowy, kiedy SMPS</h2>
+<table>
+<thead><tr>
+<th>Sytuacja</th>
+<th>Wybór</th>
+</tr></thead><tbody>
+<tr>
+<td>Mała moc (&lt; 1 W)</td>
+<td>liniowy (LDO)</td>
+</tr>
+<tr>
+<td>Małe różnica napięć</td>
+<td>liniowy</td>
+</tr>
+<tr>
+<td>Krytyczne czyste zasilanie (audio, ADC)</td>
+<td>liniowy lub LDO</td>
+</tr>
+<tr>
+<td>Duża moc (&gt; 5 W)</td>
+<td>SMPS</td>
+</tr>
+<tr>
+<td>Z baterii</td>
+<td>SMPS (buck-boost)</td>
+</tr>
+<tr>
+<td>Wysokie napięcia (sieć)</td>
+<td>SMPS (flyback)</td>
+</tr>
+<tr>
+<td>Komputery, ładowarki</td>
+<td>SMPS</td>
+</tr>
+<tr>
+<td>Spawarki, lampy LED</td>
+<td>SMPS</td>
+</tr>
+</tbody></table>
+
+        <div class="nav-bottom">
+            <a href="05-02-filtry-i-stabilizacja.html">&larr; 05-02 Filtry</a>
+            <a href="05-04-baterie-akumulatory.html">05-04 Baterie &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

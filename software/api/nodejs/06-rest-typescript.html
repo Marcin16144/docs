@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REST z TypeScript</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Node.js</a>
+  <span class="sep">/</span>
+  <span class="title">REST z TypeScript</span>
+</div>
+
+<div class="container">
+  <h1>REST z TypeScript</h1>
+  <p class="subtitle">Konfiguracja TS dla Node.js, Zod, OpenAPI, strict typing, Result pattern — budowanie solidnych API</p>
+
+  <h2>Konfiguracja TypeScript dla Node.js</h2>
+  <p>TypeScript w Node.js wymaga odpowiedniego <code>tsconfig.json</code> oraz narzedzia do uruchamiania kodu TS. Mamy kilka opcji — kazda z innymi kompromisami miedzy szybkoscia, kompatybilnoscia i funkcjami.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Narzedzie</th>
+        <th>Sposob dzialania</th>
+        <th>Szybkosc dev</th>
+        <th>Type-checking</th>
+        <th>Zastosowanie</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>ts-node</code></td>
+        <td>Transpilacja JIT przez TypeScript compiler</td>
+        <td>Wolna (pelen TC)</td>
+        <td>Tak</td>
+        <td>Starsze projekty, skrypty</td>
+      </tr>
+      <tr>
+        <td><code>tsx</code></td>
+        <td>Transpilacja przez esbuild (stripuje typy)</td>
+        <td><strong>Bardzo szybka</strong></td>
+        <td>Nie (osobno tsc)</td>
+        <td>Development, watch mode</td>
+      </tr>
+      <tr>
+        <td><code>bun</code></td>
+        <td>Natywna transpilacja (Zig/JavaScriptCore)</td>
+        <td><strong>Najszybsza</strong></td>
+        <td>Nie (osobno tsc)</td>
+        <td>Dev + produkcja (Bun runtime)</td>
+      </tr>
+      <tr>
+        <td><code>node --strip-types</code></td>
+        <td>Natywne stripowanie (Node.js 22.6+)</td>
+        <td>Szybka</td>
+        <td>Nie</td>
+        <td>Proste projekty, Node.js 22+</td>
+      </tr>
+      <tr>
+        <td><code>tsc + node</code></td>
+        <td>Kompilacja do JS, uruchomienie node</td>
+        <td>Srednia</td>
+        <td>Tak</td>
+        <td>Produkcja (zalecane)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <pre><code>// tsconfig.json — optymalna konfiguracja dla Node.js 22 + ESM
+{
+  "compilerOptions": {
+    "target": "ES2022",           // Node.js 22 wspiera ES2022 natywnie
+    "module": "Node16",           // lub "NodeNext" — obsluga ESM + CJS interop
+    "moduleResolution": "Node16", // musi zgadzac sie z "module"
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,               // wlacza: noImplicitAny, strictNullChecks, itp.
+    "noUncheckedIndexedAccess": true, // arr[0] jest T | undefined (bezpieczniej)
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "skipLibCheck": true,         // szybsza kompilacja
+    "declaration": true,          // generuj .d.ts (dla bibliotek)
+    "declarationMap": true,       // source maps dla .d.ts
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}</code></pre>
+
+  <h2>Zod — walidacja schematow z typowaniem</h2>
+  <p>Zod to biblioteka walidacji, która jako pierwsza zaproponowala model "schema as the single source of truth" — schemat Zod jest jednoczesnie definicja typu TypeScript. Dzieki temu nie ma rozjazdu miedzy typami a logiką walidacji w runtime.</p>
+
+  <pre><code>import { z } from 'zod';
+
+// Zod schema — definicja ksztaltu danych
+const UserSchema = z.object({
+  id:        z.string().uuid(),
+  name:      z.string().min(2).max(100).trim(),
+  email:     z.string().email().toLowerCase(),
+  role:      z.enum(['admin', 'user', 'moderator']).default('user'),
+  createdAt: z.coerce.date(),    // string -> Date automatycznie
+  metadata:  z.record(z.string(), z.unknown()).optional(),
+  tags:      z.array(z.string().min(1)).max(10).default([]),
+});
+
+// Automatyczny typ TypeScript — zero duplikacji
+type User = z.infer&lt;typeof UserSchema&gt;;
+
+// Schematy pochodne
+const CreateUserSchema = UserSchema.omit({ id: true, createdAt: true });
+const UpdateUserSchema = CreateUserSchema.partial();   // wszystkie pola opcjonalne
+const UserListSchema   = z.array(UserSchema);
+const PaginatedSchema  = z.object({
+  data:  UserListSchema,
+  meta: z.object({ page: z.number(), total: z.number(), pages: z.number() }),
+});
+
+type CreateUserInput = z.infer&lt;typeof CreateUserSchema&gt;;
+
+// Parsowanie — rzuca ZodError przy niepoprawnych danych
+const user = UserSchema.parse(rawData);
+
+// Bezpieczne parsowanie — nie rzuca, zwraca Result
+const result = UserSchema.safeParse(rawData);
+if (!result.success) {
+  console.error(result.error.flatten()); // czytelne bledy
+  // { fieldErrors: { email: ['Invalid email'] }, formErrors: [] }
+} else {
+  const user = result.data; // typowany jako User
+}
+
+// Transformacje i refinements
+const PasswordSchema = z
+  .string()
+  .min(8, 'Minimum 8 znakow')
+  .regex(/[A-Z]/, 'Wymagana wielka litera')
+  .regex(/[0-9]/, 'Wymagana cyfra')
+  .transform(pwd => bcrypt.hashSync(pwd, 12)); // hashuj przy parsowaniu
+
+const DateRangeSchema = z.object({
+  from: z.coerce.date(),
+  to:   z.coerce.date(),
+}).refine(data => data.from &lt;= data.to, {
+  message: 'Data "from" musi byc wczesniejsza niz "to"',
+  path: ['from'],
+});</code></pre>
+
+  <h2>OpenAPI z Zod (zod-to-openapi)</h2>
+  <p>Pakiet <code>@asteasolutions/zod-to-openapi</code> generuje specyfikacje OpenAPI 3.1 bezposrednio ze schematow Zod. Eliminuje potrzebe recznego pisania YAML/JSON dla Swagger — schemat Zod jest jedynym zrodlem prawdy.</p>
+
+  <pre><code>import { extendZodWithOpenApi, OpenApiGeneratorV31, OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
+import { z } from 'zod';
+
+extendZodWithOpenApi(z); // dodaje .openapi() do Zod
+
+const registry = new OpenAPIRegistry();
+
+// Rejestracja komponentow
+const UserSchema = registry.register('User', z.object({
+  id:    z.string().uuid().openapi({ example: '550e8400-e29b-41d4-a716-446655440000' }),
+  name:  z.string().openapi({ example: 'Jan Kowalski' }),
+  email: z.string().email().openapi({ example: 'jan@example.com' }),
+}).openapi('User'));
+
+// Rejestracja sciezek
+registry.registerPath({
+  method: 'get',
+  path: '/users/{id}',
+  summary: 'Pobierz uzytkownika po ID',
+  tags: ['Users'],
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+  },
+  responses: {
+    200: { description: 'Uzytkownik znaleziony', content: { 'application/json': { schema: UserSchema } } },
+    404: { description: 'Nie znaleziono' },
+  },
+});
+
+// Generowanie specyfikacji
+const generator = new OpenApiGeneratorV31(registry.definitions);
+const openApiDocument = generator.generateDocument({
+  openapi: '3.1.0',
+  info: { title: 'My API', version: '1.0.0' },
+  servers: [{ url: 'https://api.myapp.com' }],
+});</code></pre>
+
+  <h2>Strict typing — request i response</h2>
+  <p>Typowanie requestow i odpowiedzi w Express wymaga rozszerzenia interfejsow z <code>@types/express</code>. Fastify i Hono oferuja generyki bezposrednio w API routera.</p>
+
+  <h3>Rozszerzenie Request w Express</h3>
+  <p>Dodawanie wlasnych pol do obiektu <code>req</code> (np. <code>req.user</code>) wymaga deklaracji w pliku <code>.d.ts</code> lub przez generyki middleware.</p>
+
+  <h2>Result Pattern — neverthrow</h2>
+  <p>Result pattern (znany z Rust jako <code>Result&lt;T, E&gt;</code>) eliminuje uzywanie wyjatkow do sterowania przeplywem. Bledy staja sie wartosciami — jawna czesc sygnatury funkcji. Biblioteka <code>neverthrow</code> implementuje <code>Ok&lt;T&gt;</code> i <code>Err&lt;E&gt;</code> dla TypeScript.</p>
+
+  <pre><code>import { ok, err, Result, ResultAsync } from 'neverthrow';
+
+// Typy bledow domenowych — nie "Error", konkretne przypadki
+type UserError =
+  | { type: 'NOT_FOUND'; id: string }
+  | { type: 'EMAIL_TAKEN'; email: string }
+  | { type: 'DB_ERROR'; cause: unknown };
+
+// Funkcja zwraca Result zamiast rzucac wyjatku
+async function createUser(input: CreateUserInput): ResultAsync&lt;User, UserError&gt; {
+  const existing = await db.user.findByEmail(input.email);
+  if (existing) {
+    return err({ type: 'EMAIL_TAKEN', email: input.email });
+  }
+
+  return ResultAsync.fromPromise(
+    db.user.create({ data: input }),
+    (cause) => ({ type: 'DB_ERROR', cause } as UserError)
+  );
+}
+
+// Uzywanie Result w handlerze Express
+app.post('/users', async (req, res) => {
+  const parseResult = CreateUserSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ errors: parseResult.error.flatten() });
+  }
+
+  const result = await createUser(parseResult.data);
+
+  result.match(
+    (user) => res.status(201).json(user),          // Ok path
+    (error) => {
+      switch (error.type) {
+        case 'EMAIL_TAKEN':
+          return res.status(409).json({ error: `Email ${error.email} jest juz zajety` });
+        case 'NOT_FOUND':
+          return res.status(404).json({ error: `Uzytkownik ${error.id} nie istnieje` });
+        case 'DB_ERROR':
+          console.error('[DB_ERROR]', error.cause);
+          return res.status(500).json({ error: 'Blad bazy danych' });
+      }
+    }
+  );
+});</code></pre>
+
+  <div class="card green">
+    <strong>Result pattern vs try/catch</strong>
+    <p style="margin-top:8px;margin-bottom:0">Glowna zaleta Result pattern: kompilator TypeScript <strong>wymusza</strong> obsluge kazdego przypadku bledu. Przy <code>try/catch</code> mozna zapomniec o obsludze konkretnego bledu i TypeScript nie ostrzeze. Result pattern sprawia, ze bledy sa widoczne w sygnaturze funkcji.</p>
+  </div>
+
+  <div class="card orange">
+    <strong>Typy bledow HTTP — osobna warstwa</strong>
+    <p style="margin-top:8px;margin-bottom:0">Bledy domenowe (np. <code>EMAIL_TAKEN</code>) mapuj na kody HTTP w warstwie kontrolera/handlera, nie w serwisie. Serwis nie powinien wiedziec o HTTP — to ulatwia testowanie i reuzywanie logiki w roznych kontekstach (HTTP, CLI, kolejki).</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="05-hono.html">← 05-hono.html</a>
+    <a href="07-graphql.html">07-graphql.html →</a>
+  </div>
+</div>
+</body>
+</html>

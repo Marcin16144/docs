@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gRPC</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../index.html">API</a><span class="sep">/</span>
+  <span class="title">gRPC</span>
+</div>
+<div class="container">
+  <h1>gRPC</h1>
+  <p class="subtitle">Wysokowydajne RPC oparte na Protocol Buffers i HTTP/2 — typy serwisow, interceptory i obserwowalnosc.</p>
+
+  <h2>Protocol Buffers (proto3)</h2>
+  <p>Protocol Buffers (protobuf) to jezyk opisu interfejsu (IDL) i format serializacji danych opracowany przez Google. Jest znacznie szybszy i bardziej zwarty niz JSON — binarny format, silne typowanie, wsteczna kompatybilnosc przez numerowanie pol.</p>
+
+  <pre><code>// user_service.proto
+syntax = "proto3";
+
+package user.v1;
+
+option go_package = "github.com/example/api/user/v1;userv1";
+option java_package = "com.example.user.v1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// Enum
+enum UserRole {
+  USER_ROLE_UNSPECIFIED = 0;   // zawsze zarezerwuj 0 jako UNSPECIFIED
+  USER_ROLE_USER        = 1;
+  USER_ROLE_ADMIN       = 2;
+  USER_ROLE_MODERATOR   = 3;
+}
+
+// Wiadomosc — odpowiednik struktury
+message User {
+  string                    id         = 1;
+  string                    name       = 2;
+  string                    email      = 3;
+  UserRole                  role       = 4;
+  google.protobuf.Timestamp created_at = 5;
+  repeated string           tags       = 6;  // tablica stringow
+  optional string           bio        = 7;  // pole opcjonalne (proto3)
+}
+
+message CreateUserRequest {
+  string   name     = 1;
+  string   email    = 2;
+  string   password = 3;
+  UserRole role     = 4;
+}
+
+message CreateUserResponse {
+  User user = 1;
+}
+
+message GetUserRequest {
+  string id = 1;
+}
+
+message ListUsersRequest {
+  int32  page_size   = 1;
+  string page_token  = 2;
+  string filter      = 3;  // np. "role=ADMIN"
+}
+
+message ListUsersResponse {
+  repeated User users         = 1;
+  string        next_page_token = 2;
+  int32         total_size    = 3;
+}
+
+message UpdateUserRequest {
+  string id   = 1;
+  User   user = 2;
+  // FieldMask — aktualizuj tylko wybrane pola
+  google.protobuf.FieldMask update_mask = 3;
+}
+
+// Definicja serwisu
+service UserService {
+  // Unary RPC — jeden request, jedna odpowiedz
+  rpc GetUser    (GetUserRequest)    returns (User);
+  rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
+  rpc UpdateUser (UpdateUserRequest) returns (User);
+  rpc DeleteUser (GetUserRequest)    returns (google.protobuf.Empty);
+
+  // Server-streaming — jeden request, strumien odpowiedzi
+  rpc ListUsers  (ListUsersRequest)  returns (stream User);
+
+  // Client-streaming — strumien requestow, jedna odpowiedz
+  rpc BulkCreateUsers (stream CreateUserRequest) returns (CreateUserResponse);
+
+  // Bidirectional streaming
+  rpc Chat (stream ChatMessage) returns (stream ChatMessage);
+}
+</code></pre>
+
+  <h2>Typy serwisow</h2>
+  <p>gRPC definiuje cztery typy komunikacji, w zaleznosci od tego, czy request i response sa pojedynczymi wiadomosciami czy strumieniami.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Typ</th>
+        <th>Request</th>
+        <th>Response</th>
+        <th>Przyklad uzycia</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Unary</strong></td>
+        <td>1 wiadomosc</td>
+        <td>1 wiadomosc</td>
+        <td>GetUser, CreateOrder — klasyczny call RPC</td>
+      </tr>
+      <tr>
+        <td><strong>Server-side streaming</strong></td>
+        <td>1 wiadomosc</td>
+        <td>Strumien</td>
+        <td>ListUsers, eksport danych, watch na zasob</td>
+      </tr>
+      <tr>
+        <td><strong>Client-side streaming</strong></td>
+        <td>Strumien</td>
+        <td>1 wiadomosc</td>
+        <td>BulkUpload, agregacja danych z klienta</td>
+      </tr>
+      <tr>
+        <td><strong>Bidirectional streaming</strong></td>
+        <td>Strumien</td>
+        <td>Strumien</td>
+        <td>Chat, real-time updates, telemetria</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Implementacja serwisu (Go)</h2>
+
+  <pre><code>// server/user_service.go
+package server
+
+import (
+    "context"
+    "time"
+
+    "google.golang.org/grpc/codes"
+    "google.golang.org/grpc/status"
+    pb "github.com/example/api/user/v1"
+)
+
+type UserServiceServer struct {
+    pb.UnimplementedUserServiceServer  // embed dla forward compatibility
+    db UserRepository
+}
+
+// Unary RPC
+func (s *UserServiceServer) GetUser(
+    ctx context.Context,
+    req *pb.GetUserRequest,
+) (*pb.User, error) {
+    if req.Id == "" {
+        return nil, status.Error(codes.InvalidArgument, "id is required")
+    }
+
+    user, err := s.db.FindByID(ctx, req.Id)
+    if err != nil {
+        return nil, status.Errorf(codes.Internal, "database error: %v", err)
+    }
+    if user == nil {
+        return nil, status.Errorf(codes.NotFound, "user %q not found", req.Id)
+    }
+
+    return userToProto(user), nil
+}
+
+// Server-side streaming
+func (s *UserServiceServer) ListUsers(
+    req *pb.ListUsersRequest,
+    stream pb.UserService_ListUsersServer,
+) error {
+    ctx := stream.Context()
+
+    users, err := s.db.List(ctx, req.PageSize, req.Filter)
+    if err != nil {
+        return status.Errorf(codes.Internal, "list failed: %v", err)
+    }
+
+    for _, u := range users {
+        // Sprawdz czy klient nie anulowal polaczenia
+        if err := ctx.Err(); err != nil {
+            return status.FromContextError(err).Err()
+        }
+        if err := stream.Send(userToProto(u)); err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+// Client-side streaming
+func (s *UserServiceServer) BulkCreateUsers(
+    stream pb.UserService_BulkCreateUsersServer,
+) error {
+    var created int32
+    for {
+        req, err := stream.Recv()
+        if err == io.EOF {
+            return stream.SendAndClose(&pb.CreateUserResponse{
+                // summary response
+            })
+        }
+        if err != nil {
+            return status.Errorf(codes.Internal, "recv error: %v", err)
+        }
+        if err := s.db.Create(stream.Context(), reqToUser(req)); err != nil {
+            return status.Errorf(codes.Internal, "create failed: %v", err)
+        }
+        created++
+    }
+}
+</code></pre>
+
+  <h2>Deadlines i cancellation</h2>
+  <p>Kazde wywolanie gRPC powinno miec deadline — maksymalny czas oczekiwania na odpowiedz. Bez deadline, zablokowane goroutines moga gromadzic sie i doprowadzic do wyczerpania zasobow. Cancellation propaguje sie przez caly lancuch wywolan.</p>
+
+  <div class="card orange">
+    <h3>Zawsze ustawiaj deadline</h3>
+    <p>Brak deadline to jeden z najczestszych bledow w gRPC. Klient moze czekac w nieskonczonosc na odpowiedz niedostepnego serwera. Stosuj <code>context.WithTimeout</code> lub <code>context.WithDeadline</code> dla kazdego call.</p>
+  </div>
+
+  <pre><code>// Klient Go z deadline i retry
+conn, err := grpc.Dial(
+    "user-service:50051",
+    grpc.WithTransportCredentials(insecure.NewCredentials()),
+    grpc.WithDefaultServiceConfig(`{
+      "methodConfig": [{
+        "name": [{"service": "user.v1.UserService"}],
+        "retryPolicy": {
+          "maxAttempts": 3,
+          "initialBackoff": "0.1s",
+          "maxBackoff": "1s",
+          "backoffMultiplier": 2,
+          "retryableStatusCodes": ["UNAVAILABLE", "RESOURCE_EXHAUSTED"]
+        },
+        "timeout": "5s"
+      }]
+    }`),
+)
+
+client := pb.NewUserServiceClient(conn)
+
+// Deadline per call
+ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+defer cancel()
+
+user, err := client.GetUser(ctx, &pb.GetUserRequest{Id: "123"})
+if err != nil {
+    st, _ := status.FromError(err)
+    switch st.Code() {
+    case codes.NotFound:
+        log.Println("user not found")
+    case codes.DeadlineExceeded:
+        log.Println("request timed out")
+    case codes.Unauthenticated:
+        log.Println("not authenticated")
+    default:
+        log.Printf("unexpected error: %v", err)
+    }
+}
+</code></pre>
+
+  <h2>gRPC-Web (przeglarka)</h2>
+  <p>Przegladarki nie wspieraja HTTP/2 gRPC bezposrednio. gRPC-Web jest warstawa translacji — proxy (np. Envoy lub grpcwebproxy) konwertuje zapytania z przegladarki na natywne gRPC. Alternatywnie, ConnectRPC oferuje protokol kompatybilny jednoczesnie z gRPC i REST/JSON.</p>
+
+  <h2>Interceptory</h2>
+  <p>Interceptory to middleware dla gRPC — mozna je dodac po stronie serwera i klienta. Sluza do logowania, autentykacji, rate limitingu, tracingu i obslugi bledow.</p>
+
+  <pre><code>// Interceptor logowania (Go)
+func LoggingInterceptor(
+    ctx context.Context,
+    req interface{},
+    info *grpc.UnaryServerInfo,
+    handler grpc.UnaryHandler,
+) (interface{}, error) {
+    start := time.Now()
+
+    // Wyciagnij metadane
+    md, _ := metadata.FromIncomingContext(ctx)
+    requestID := md.Get("x-request-id")
+
+    resp, err := handler(ctx, req)
+
+    duration := time.Since(start)
+    st, _ := status.FromError(err)
+
+    log.Printf(
+        "method=%s duration=%s code=%s request_id=%v",
+        info.FullMethod, duration, st.Code(), requestID,
+    )
+
+    return resp, err
+}
+
+// Interceptor autentykacji
+func AuthInterceptor(
+    ctx context.Context,
+    req interface{},
+    info *grpc.UnaryServerInfo,
+    handler grpc.UnaryHandler,
+) (interface{}, error) {
+    md, ok := metadata.FromIncomingContext(ctx)
+    if !ok {
+        return nil, status.Error(codes.Unauthenticated, "missing metadata")
+    }
+
+    tokens := md.Get("authorization")
+    if len(tokens) == 0 {
+        return nil, status.Error(codes.Unauthenticated, "missing token")
+    }
+
+    claims, err := validateJWT(tokens[0])
+    if err != nil {
+        return nil, status.Errorf(codes.Unauthenticated, "invalid token: %v", err)
+    }
+
+    ctx = context.WithValue(ctx, userClaimsKey, claims)
+    return handler(ctx, req)
+}
+
+// Rejestracja interceptorow
+server := grpc.NewServer(
+    grpc.ChainUnaryInterceptor(
+        LoggingInterceptor,
+        AuthInterceptor,
+        RecoveryInterceptor,
+    ),
+    grpc.ChainStreamInterceptor(
+        StreamLoggingInterceptor,
+        StreamAuthInterceptor,
+    ),
+)
+</code></pre>
+
+  <h2>Obserwowalnosc — OpenTelemetry</h2>
+  <p>gRPC integruje sie z OpenTelemetry przez interceptory. Automatycznie propaguje trace context przez metadane gRPC, dodaje spany dla kazdego call i eksportuje metryki (latency, error rate, throughput).</p>
+
+  <div class="card green">
+    <h3>Kody statusow gRPC</h3>
+    <p>gRPC ma wlasny zestaw kodow statusow (codes.OK, codes.NotFound, codes.InvalidArgument, codes.Internal itd.) niezalezny od HTTP. Mapowanie na HTTP odbywa sie w warstwie gRPC-Web lub transcoding.</p>
+  </div>
+
+  <h2>gRPC vs REST vs GraphQL</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Kryterium</th>
+        <th>gRPC</th>
+        <th>REST</th>
+        <th>GraphQL</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Protokol</td>
+        <td>HTTP/2 + Protobuf</td>
+        <td>HTTP/1.1 lub HTTP/2 + JSON</td>
+        <td>HTTP/1.1 lub HTTP/2 + JSON</td>
+      </tr>
+      <tr>
+        <td>Wydajnosc</td>
+        <td>Bardzo wysoka — binarny format, multipleksing</td>
+        <td>Srednia — tekstowy JSON, narzut naglozkow</td>
+        <td>Srednia — elastycznosc kosztem zlozonosci</td>
+      </tr>
+      <tr>
+        <td>Typowanie</td>
+        <td>Silne — proto IDL, generowany kod klienta</td>
+        <td>Opcjonalne — OpenAPI Schema</td>
+        <td>Silne — SDL jako kontrakt</td>
+      </tr>
+      <tr>
+        <td>Streaming</td>
+        <td>Natywny (4 typy)</td>
+        <td>SSE lub WebSocket poza standardem</td>
+        <td>Subscriptions (WebSocket)</td>
+      </tr>
+      <tr>
+        <td>Przeglarkowa</td>
+        <td>Wymaga proxy (gRPC-Web / Connect)</td>
+        <td>Natywne — fetch, XHR</td>
+        <td>Natywne — fetch, XHR</td>
+      </tr>
+      <tr>
+        <td>Kiedy wybrac</td>
+        <td>Mikroserwisy, wewnetrzne API, niska latencja</td>
+        <td>Publiczne API, prostota, cachowanie</td>
+        <td>Zlozony frontend, wiele klientow</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="nav-bottom">
+    <a href="02-graphql.html">← GraphQL</a>
+    <a href="04-uwierzytelnianie.html">Uwierzytelnianie →</a>
+  </div>
+</div>
+</body>
+</html>

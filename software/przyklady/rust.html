@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rust — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">Rust</span>
+</div>
+<div class="container">
+<h1>🦀 Rust — działające przykłady</h1>
+<p class="lead">Ownership, Result/Option, async tokio, Axum API z PostgreSQL, error handling, generics.</p>
+
+<h2>1. Ownership — przykłady i pułapki</h2>
+<pre data-lang="rust"><code><span class="kw">fn</span> main() {
+    <span class="kw">let</span> s = String::from(<span class="str">"hello"</span>);
+    <span class="kw">let</span> s2 = s;          <span class="com">// move — s NIE ma już dostępu</span>
+    <span class="com">// println!("{s}");  // ❌ błąd kompilacji: borrow of moved value</span>
+    println!(<span class="str">"{s2}"</span>);    <span class="com">// ✅</span>
+
+    <span class="kw">let</span> n = <span class="num">42</span>;             <span class="com">// Copy types (i32, bool, char) — kopiują się</span>
+    <span class="kw">let</span> n2 = n;
+    println!(<span class="str">"{n} {n2}"</span>);  <span class="com">// ✅ oba działają</span>
+
+    <span class="kw">let</span> s = String::from(<span class="str">"hi"</span>);
+    print_borrow(&amp;s);     <span class="com">// pożyczka — s dalej istnieje</span>
+    println!(<span class="str">"{s}"</span>);
+}
+
+<span class="kw">fn</span> print_borrow(s: &amp;String) { println!(<span class="str">"borrowed: {s}"</span>); }</code></pre>
+
+<h2>2. Result + ? operator (error handling bez wyjątków)</h2>
+<pre data-lang="rust"><code><span class="kw">use</span> std::fs;
+<span class="kw">use</span> std::io;
+<span class="kw">use</span> std::num::ParseIntError;
+
+<span class="com">// thiserror crate ułatwia tworzenie custom errors</span>
+<span class="com">#[derive(thiserror::Error, Debug)]</span>
+<span class="kw">enum</span> ConfigError {
+    <span class="com">#[error("Cannot read config file: {0}")]</span>
+    Io(<span class="com">#[from]</span> io::Error),
+
+    <span class="com">#[error("Invalid port number: {0}")]</span>
+    InvalidPort(<span class="com">#[from]</span> ParseIntError),
+
+    <span class="com">#[error("Missing field: {0}")]</span>
+    MissingField(String),
+}
+
+<span class="kw">fn</span> load_port(path: &amp;<span class="kw">str</span>) -&gt; Result&lt;<span class="kw">u16</span>, ConfigError&gt; {
+    <span class="kw">let</span> content = fs::read_to_string(path)<span class="kw">?</span>;       <span class="com">// ? = unwrap or return Err</span>
+    <span class="kw">let</span> line = content.lines().next()
+        .ok_or(ConfigError::MissingField(<span class="str">"port"</span>.into()))<span class="kw">?</span>;
+    <span class="kw">let</span> port: <span class="kw">u16</span> = line.trim().parse()<span class="kw">?</span>;
+    Ok(port)
+}
+
+<span class="kw">fn</span> main() {
+    <span class="kw">match</span> load_port(<span class="str">"config.txt"</span>) {
+        Ok(p) =&gt; println!(<span class="str">"Port: {p}"</span>),
+        Err(e) =&gt; eprintln!(<span class="str">"Error: {e}"</span>),
+    }
+}</code></pre>
+
+<h2>3. Iteratory — łańcuchy zamiast pętli</h2>
+<pre data-lang="rust"><code><span class="kw">let</span> numbers = vec![<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>, <span class="num">7</span>, <span class="num">8</span>, <span class="num">9</span>, <span class="num">10</span>];
+
+<span class="com">// Suma kwadratów liczb parzystych</span>
+<span class="kw">let</span> sum: <span class="kw">i32</span> = numbers.iter()
+    .filter(|&amp;&amp;x| x % <span class="num">2</span> == <span class="num">0</span>)
+    .map(|&amp;x| x * x)
+    .sum();
+println!(<span class="str">"{sum}"</span>);  <span class="com">// 220</span>
+
+<span class="com">// Grupowanie (z itertools)</span>
+<span class="kw">use</span> itertools::Itertools;
+<span class="kw">let</span> grouped: HashMap&lt;<span class="kw">bool</span>, Vec&lt;<span class="kw">i32</span>&gt;&gt; = numbers.iter()
+    .copied()
+    .into_group_map_by(|&amp;n| n % <span class="num">2</span> == <span class="num">0</span>);
+
+<span class="com">// Parallel iteration (rayon)</span>
+<span class="kw">use</span> rayon::prelude::*;
+<span class="kw">let</span> total: <span class="kw">u64</span> = (<span class="num">1</span>..=<span class="num">1_000_000</span>).into_par_iter().sum();</code></pre>
+
+<h2>4. Async + tokio (web scraper)</h2>
+<pre data-lang="rust"><code><span class="com">// Cargo.toml:
+// tokio = { version = "1", features = ["full"] }
+// reqwest = { version = "0.12", features = ["json"] }
+// serde = { version = "1", features = ["derive"] }</span>
+
+<span class="kw">use</span> serde::Deserialize;
+<span class="kw">use</span> tokio::task::JoinSet;
+
+<span class="com">#[derive(Deserialize, Debug)]</span>
+<span class="kw">struct</span> Repo { name: String, stargazers_count: <span class="kw">u32</span> }
+
+<span class="com">#[tokio::main]</span>
+<span class="kw">async fn</span> main() -&gt; Result&lt;(), Box&lt;<span class="kw">dyn</span> std::error::Error&gt;&gt; {
+    <span class="kw">let</span> users = vec![<span class="str">"rust-lang"</span>, <span class="str">"tokio-rs"</span>, <span class="str">"serde-rs"</span>];
+    <span class="kw">let</span> client = reqwest::Client::builder()
+        .user_agent(<span class="str">"rust-example"</span>)
+        .build()<span class="kw">?</span>;
+
+    <span class="kw">let mut</span> set = JoinSet::new();
+    <span class="kw">for</span> user <span class="kw">in</span> users {
+        <span class="kw">let</span> client = client.clone();
+        <span class="kw">let</span> user = user.to_string();
+        set.spawn(<span class="kw">async move</span> {
+            <span class="kw">let</span> url = format!(<span class="str">"https://api.github.com/users/{user}/repos"</span>);
+            <span class="kw">let</span> repos: Vec&lt;Repo&gt; = client.get(&amp;url).send().<span class="kw">await</span><span class="kw">?</span>.json().<span class="kw">await</span><span class="kw">?</span>;
+            Ok::&lt;_, reqwest::Error&gt;((user, repos))
+        });
+    }
+
+    <span class="kw">while let</span> Some(result) = set.join_next().<span class="kw">await</span> {
+        <span class="kw">match</span> result<span class="kw">?</span> {
+            Ok((user, repos)) =&gt; {
+                <span class="kw">let</span> top = repos.iter()
+                    .max_by_key(|r| r.stargazers_count)
+                    .map(|r| (&amp;r.name, r.stargazers_count));
+                println!(<span class="str">"{user}: top repo = {top:?}"</span>);
+            }
+            Err(e) =&gt; eprintln!(<span class="str">"Error: {e}"</span>),
+        }
+    }
+    Ok(())
+}</code></pre>
+
+<h2>5. Generics + traits</h2>
+<pre data-lang="rust"><code><span class="kw">use</span> std::fmt::Display;
+<span class="kw">use</span> std::ops::Add;
+
+<span class="com">// Generic function with multiple trait bounds</span>
+<span class="kw">fn</span> sum_and_print&lt;T&gt;(items: &amp;[T]) -&gt; T
+<span class="kw">where</span>
+    T: Add&lt;Output = T&gt; + Copy + Default + Display,
+{
+    <span class="kw">let</span> total = items.iter().copied().fold(T::default(), |acc, x| acc + x);
+    println!(<span class="str">"Sum: {total}"</span>);
+    total
+}
+
+<span class="com">// Custom trait</span>
+<span class="kw">trait</span> Greet {
+    <span class="kw">fn</span> greeting(&amp;<span class="kw">self</span>) -&gt; String;
+    <span class="kw">fn</span> greet(&amp;<span class="kw">self</span>) { println!(<span class="str">"{}"</span>, <span class="kw">self</span>.greeting()); }  <span class="com">// default impl</span>
+}
+
+<span class="kw">struct</span> User { name: String }
+<span class="kw">impl</span> Greet <span class="kw">for</span> User {
+    <span class="kw">fn</span> greeting(&amp;<span class="kw">self</span>) -&gt; String { format!(<span class="str">"Hello, {}"</span>, <span class="kw">self</span>.name) }
+}
+
+<span class="kw">fn</span> main() {
+    sum_and_print(&amp;[<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>]);
+    sum_and_print(&amp;[<span class="num">1.5</span>, <span class="num">2.5</span>, <span class="num">3.5</span>]);
+    User { name: <span class="str">"Anna"</span>.into() }.greet();
+}</code></pre>
+
+<h2>6. Axum API z PostgreSQL — patrz przykład REST API</h2>
+<p>Pełny przykład w <a href="api-rest.html#axum">api-rest.html#axum</a></p>
+
+<h2>7. Cargo workflow</h2>
+<pre data-lang="bash"><code><span class="com"># Nowy projekt</span>
+cargo new --bin my-app
+cargo new --lib my-lib
+
+<span class="com"># Build + run</span>
+cargo run                    <span class="com"># debug, wolniejszy ale szybki kompil</span>
+cargo run --release          <span class="com"># pełna optymalizacja</span>
+cargo build --release --target x<span class="num">86_64</span>-unknown-linux-musl  <span class="com"># statyczny binary</span>
+
+<span class="com"># Test + bench</span>
+cargo test
+cargo test -- --nocapture     <span class="com"># pokaż println!</span>
+cargo bench
+
+<span class="com"># Lint i format</span>
+cargo fmt                     <span class="com"># format całego projektu</span>
+cargo clippy -- -D warnings   <span class="com"># linter, błąd przy warning</span>
+
+<span class="com"># Update / audit</span>
+cargo update
+cargo audit                   <span class="com"># cargo install cargo-audit</span>
+
+<span class="com"># Zamiast cargo: nextest (10× szybsze testy)</span>
+cargo install cargo-nextest
+cargo nextest run</code></pre>
+
+<h2>8. Najczęstsze błędy borrow checker</h2>
+<pre data-lang="rust"><code><span class="com">// ❌ "cannot borrow as mutable more than once"</span>
+<span class="kw">let mut</span> v = vec![<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>];
+<span class="kw">let</span> first = &amp;v[<span class="num">0</span>];
+v.push(<span class="num">4</span>);              <span class="com">// błąd: borrow as mutable while immutably borrowed</span>
+println!(<span class="str">"{first}"</span>);
+
+<span class="com">// ✅ Zamknij scope pożyczki</span>
+<span class="kw">let mut</span> v = vec![<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>];
+{
+    <span class="kw">let</span> first = &amp;v[<span class="num">0</span>];
+    println!(<span class="str">"{first}"</span>);
+}
+v.push(<span class="num">4</span>);              <span class="com">// OK — first już nie żyje</span>
+
+<span class="com">// ❌ "use of moved value"</span>
+<span class="kw">let</span> s = String::from(<span class="str">"hi"</span>);
+<span class="kw">let</span> s2 = s;
+println!(<span class="str">"{s}"</span>);         <span class="com">// błąd: s zostało moved</span>
+
+<span class="com">// ✅ Klonuj jeśli musisz mieć kopię</span>
+<span class="kw">let</span> s = String::from(<span class="str">"hi"</span>);
+<span class="kw">let</span> s2 = s.clone();
+println!(<span class="str">"{s} {s2}"</span>);</code></pre>
+
+<div class="next-prev">
+    <a href="prompt-engineering.html"><div class="label">← Poprzedni</div><div class="title">Prompt Engineering</div></a>
+    <a href="typescript.html"><div class="label">Następny →</div><div class="title">TypeScript</div></a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphQL</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../index.html">API</a><span class="sep">/</span>
+  <span class="title">GraphQL</span>
+</div>
+<div class="container">
+  <h1>GraphQL</h1>
+  <p class="subtitle">Jezyk zapytan dla API — schema, resolvery, federacja i bezpieczenstwo.</p>
+
+  <h2>Schema Definition Language (SDL)</h2>
+  <p>SDL to jezyk opisu schematu GraphQL. Definiuje typy, pola, zapytania i mutacje. Schema jest kontraktem miedzy klientem a serwerem — wszystko, co nie jest w schemacie, nie istnieje w API.</p>
+
+  <pre><code># schema.graphql
+
+# Typy skalarne wbudowane: Int, Float, String, Boolean, ID
+# Wlasny skalar
+scalar DateTime
+scalar JSON
+
+# Interfejs — wspolne pola dla wielu typow
+interface Node {
+  id: ID!
+}
+
+# Typ obiektowy
+type User implements Node {
+  id:        ID!
+  name:      String!
+  email:     String!
+  role:      UserRole!
+  createdAt: DateTime!
+  orders:    [Order!]!
+  profile:   UserProfile
+}
+
+type UserProfile {
+  bio:       String
+  avatarUrl: String
+  website:   String
+}
+
+type Order implements Node {
+  id:        ID!
+  status:    OrderStatus!
+  total:     Float!
+  items:     [OrderItem!]!
+  createdAt: DateTime!
+}
+
+type OrderItem {
+  product:  Product!
+  quantity: Int!
+  price:    Float!
+}
+
+type Product implements Node {
+  id:    ID!
+  name:  String!
+  price: Float!
+  stock: Int!
+}
+
+# Enumeracje
+enum UserRole {
+  ADMIN
+  USER
+  MODERATOR
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+# Typy wejsciowe — uzywane w mutacjach
+input CreateUserInput {
+  name:     String!
+  email:    String!
+  password: String!
+  role:     UserRole = USER
+}
+
+input UpdateUserInput {
+  name:  String
+  email: String
+}
+
+# Union — moze byc jednym z kilku typow
+union SearchResult = User | Product | Order
+
+# Glowne operacje
+type Query {
+  user(id: ID!): User
+  users(
+    first:  Int = 20
+    after:  String
+    filter: UserFilterInput
+  ): UserConnection!
+  search(query: String!): [SearchResult!]!
+  me: User
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): CreateUserPayload!
+  updateUser(id: ID!, input: UpdateUserInput!): UpdateUserPayload!
+  deleteUser(id: ID!): DeleteUserPayload!
+}
+
+type Subscription {
+  orderStatusChanged(orderId: ID!): Order!
+  newOrder: Order!
+}
+
+# Paginacja wg Relay Connection Spec
+type UserConnection {
+  edges:    [UserEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type UserEdge {
+  node:   User!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage:     Boolean!
+  hasPreviousPage: Boolean!
+  startCursor:     String
+  endCursor:       String
+}
+
+# Payload mutations z mozliwymi bledami
+type CreateUserPayload {
+  user:   User
+  errors: [UserError!]!
+}
+
+type UserError {
+  field:   String
+  message: String!
+  code:    String!
+}
+</code></pre>
+
+  <h2>Query, Mutation, Subscription</h2>
+  <p>GraphQL definiuje trzy typy operacji. <strong>Query</strong> to odpowiednik GET — odczyt danych. <strong>Mutation</strong> zmienia stan serwera. <strong>Subscription</strong> otwiera polaczenie WebSocket do otrzymywania zdarzen w czasie rzeczywistym.</p>
+
+  <pre><code># Przykladowe query z fragmentem
+fragment UserFields on User {
+  id
+  name
+  email
+  role
+}
+
+query GetUser($id: ID!) {
+  user(id: $id) {
+    ...UserFields
+    orders {
+      id
+      status
+      total
+    }
+  }
+}
+
+# Mutation z obsliga bledu
+mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    user {
+      ...UserFields
+    }
+    errors {
+      field
+      message
+      code
+    }
+  }
+}
+
+# Subscription
+subscription WatchOrder($orderId: ID!) {
+  orderStatusChanged(orderId: $orderId) {
+    id
+    status
+    updatedAt
+  }
+}
+</code></pre>
+
+  <h2>Resolvery</h2>
+  <p>Resolver to funkcja, ktora zwraca dane dla konkretnego pola schematu. Kazde pole moze miec wlasny resolver. Jesli nie ma resolvera, GraphQL uzywa domyslnego, ktory zwraca pole o tej samej nazwie z obiektu rodzica.</p>
+
+  <pre><code>// resolvers.ts (Node.js / TypeScript)
+import { GraphQLResolveInfo } from 'graphql';
+import { Context } from './context';
+
+export const resolvers = {
+  Query: {
+    user: async (_: unknown, { id }: { id: string }, ctx: Context) => {
+      return ctx.db.user.findUnique({ where: { id } });
+    },
+    users: async (_: unknown, { first, after, filter }: any, ctx: Context) => {
+      const users = await ctx.db.user.findMany({
+        take: first,
+        cursor: after ? { id: after } : undefined,
+        where: filter,
+        orderBy: { createdAt: 'desc' },
+      });
+      return buildConnection(users, first);
+    },
+    me: async (_: unknown, __: unknown, ctx: Context) => {
+      if (!ctx.userId) throw new AuthenticationError('Not authenticated');
+      return ctx.db.user.findUnique({ where: { id: ctx.userId } });
+    },
+  },
+
+  Mutation: {
+    createUser: async (_: unknown, { input }: any, ctx: Context) => {
+      try {
+        const user = await ctx.db.user.create({ data: input });
+        return { user, errors: [] };
+      } catch (err) {
+        return { user: null, errors: [{ message: err.message, code: 'CREATE_FAILED' }] };
+      }
+    },
+  },
+
+  User: {
+    // Resolver pola zagniezdzonego — lazy loading
+    orders: async (parent: any, _: unknown, ctx: Context) => {
+      return ctx.db.order.findMany({ where: { userId: parent.id } });
+    },
+  },
+
+  SearchResult: {
+    // Resolver __resolveType dla Union
+    __resolveType(obj: any) {
+      if (obj.email)    return 'User';
+      if (obj.price)    return 'Product';
+      if (obj.status)   return 'Order';
+      return null;
+    },
+  },
+};
+</code></pre>
+
+  <h2>DataLoader i problem N+1</h2>
+  <p>Problem N+1 to klasyczna pulapka GraphQL: dla listy 100 uzytkownikow resolver <code>orders</code> wykona 100 oddzielnych zapytan do bazy. DataLoader rozwiazuje to przez batching — zbiera wszystkie klucze z jednego ticku event loop i wykonuje jedno zapytanie zbiorcze.</p>
+
+  <div class="card orange">
+    <h3>Problem N+1 w praktyce</h3>
+    <p>Query <code>users { orders }</code> bez DataLoadera: 1 zapytanie po uzytkownikow + N zapytan po zamowienia = N+1 zapytan do bazy. Przy N=100 to 101 zapytan zamiast 2.</p>
+  </div>
+
+  <pre><code>// dataloader.ts
+import DataLoader from 'dataloader';
+import { db } from './db';
+
+// Funkcja batch — dostaje tablice kluczy, zwraca tablice wynikow
+const batchLoadOrders = async (userIds: readonly string[]) => {
+  const orders = await db.order.findMany({
+    where: { userId: { in: [...userIds] } },
+  });
+
+  // Mapuj wyniki z powrotem do kolejnosci kluczy
+  const ordersByUserId = new Map<string, Order[]>();
+  for (const order of orders) {
+    if (!ordersByUserId.has(order.userId)) {
+      ordersByUserId.set(order.userId, []);
+    }
+    ordersByUserId.get(order.userId)!.push(order);
+  }
+
+  return userIds.map(id => ordersByUserId.get(id) ?? []);
+};
+
+// Tworzenie loadera — jeden na request (NIE globalnie)
+export const createLoaders = () => ({
+  ordersByUserId: new DataLoader(batchLoadOrders),
+  // Caching: domyslnie wlaczone — ten sam klucz = jeden fetch
+  userById: new DataLoader(async (ids: readonly string[]) => {
+    const users = await db.user.findMany({ where: { id: { in: [...ids] } } });
+    const map = new Map(users.map(u => [u.id, u]));
+    return ids.map(id => map.get(id) ?? null);
+  }),
+});
+
+// Uzycie w resolverze
+const User = {
+  orders: (parent: any, _: unknown, ctx: Context) => {
+    return ctx.loaders.ordersByUserId.load(parent.id);
+  },
+};
+</code></pre>
+
+  <h2>Federation v2 — Supergraph</h2>
+  <p>Apollo Federation pozwala podzielic jeden schemat GraphQL na wiele niezaleznych serwisow (subgrafow). Router (Apollo Router lub Gateway) laczy je w jeden supergraf widoczny dla klientow.</p>
+
+  <pre><code># subgraph: users-service
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
+        import: ["@key", "@shareable", "@external"])
+
+type User @key(fields: "id") {
+  id:    ID!
+  name:  String!
+  email: String!
+}
+
+type Query {
+  me: User
+  user(id: ID!): User
+}
+
+# subgraph: orders-service
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
+        import: ["@key", "@external", "@requires"])
+
+# Rozszerz typ z innego subgrafu
+type User @key(fields: "id") {
+  id:     ID! @external
+  orders: [Order!]!
+}
+
+type Order @key(fields: "id") {
+  id:     ID!
+  status: String!
+  total:  Float!
+  user:   User!
+}
+
+# Router config (router.yaml)
+# supergraph:
+#   path: ./supergraph.graphql
+# sandbox:
+#   enabled: true
+</code></pre>
+
+  <h2>Bezpieczenstwo — query depth i complexity</h2>
+  <p>GraphQL jest podatny na ataki przez zlosliwe zapytania: glebokie zagniezdzone pola moga przeciazyc serwer, a skomplikowane zapytania zuzyc nadmierne zasoby. Nalezy wprowadzic limity depth i complexity.</p>
+
+  <div class="card blue">
+    <h3>Persisted Queries</h3>
+    <p>Zamiast wysylac pelny tekst zapytania, klient wysyla tylko hash (ID) zapytania zarejestrowanego wczesniej na serwerze. Eliminuje ryzyko arbitralnych zapytan od niezaufanych klientow i zmniejsza payload.</p>
+  </div>
+
+  <pre><code>// Apollo Server — limity bezpieczenstwa
+import { ApolloServer } from '@apollo/server';
+import depthLimit from 'graphql-depth-limit';
+import { createComplexityLimitRule } from 'graphql-validation-complexity';
+
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  validationRules: [
+    depthLimit(7),                          // max 7 poziomow zagniezdzen
+    createComplexityLimitRule(1000, {       // max complexity score = 1000
+      onCost: (cost) => console.log('Query cost:', cost),
+      formatErrorMessage: (cost) =>
+        `Query too complex: ${cost}. Max allowed: 1000`,
+    }),
+  ],
+  plugins: [
+    {
+      async requestDidStart() {
+        return {
+          async didResolveOperation({ request, document }) {
+            // Blokuj introspekcje na produkcji
+            if (process.env.NODE_ENV === 'production') {
+              const isIntrospection = document.definitions.some(
+                def => def.kind === 'OperationDefinition' &&
+                  def.selectionSet.selections.some(
+                    sel => sel.kind === 'Field' &&
+                      (sel.name.value === '__schema' || sel.name.value === '__type')
+                  )
+              );
+              if (isIntrospection) throw new Error('Introspection disabled');
+            }
+          },
+        };
+      },
+    },
+  ],
+});
+</code></pre>
+
+  <h2>GraphQL vs REST — kiedy co wybrac</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Kryterium</th>
+        <th>GraphQL</th>
+        <th>REST</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Pobieranie danych</td>
+        <td>Klient okresla dokladnie co chce — brak over/under-fetchingu</td>
+        <td>Serwer decyduje o ksztalcie odpowiedzi</td>
+      </tr>
+      <tr>
+        <td>Wiele zasobow naraz</td>
+        <td>Jedno zapytanie pobiera dane z wielu typow</td>
+        <td>Wymaga wielu requestow lub dedykowanych endpointow</td>
+      </tr>
+      <tr>
+        <td>Caching</td>
+        <td>Trudniejszy — wszystko przez POST na /graphql</td>
+        <td>Latwy — HTTP caching, CDN per URL</td>
+      </tr>
+      <tr>
+        <td>Krzywa uczenia</td>
+        <td>Stroma — SDL, resolvery, DataLoader, N+1</td>
+        <td>Plaska — standardy HTTP wszystkim znane</td>
+      </tr>
+      <tr>
+        <td>Typowanie</td>
+        <td>Mocne — schema jako kontrakt, generowanie typow</td>
+        <td>OpenAPI/JSON Schema — opcjonalne</td>
+      </tr>
+      <tr>
+        <td>Real-time</td>
+        <td>Subscriptions wbudowane w specyfikacje</td>
+        <td>Wymaga SSE lub WebSocket poza standardem</td>
+      </tr>
+      <tr>
+        <td>Mikroserwisy</td>
+        <td>Federation — jeden supergraf z wielu serwisow</td>
+        <td>API Gateway lub BFF pattern</td>
+      </tr>
+      <tr>
+        <td>Kiedy wybrac</td>
+        <td>Zlozony frontend, wiele klientow (web/mobile), szybka iteracja UI</td>
+        <td>Proste API, publiczne API, silny caching, prostota</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="nav-bottom">
+    <a href="01-rest-api-design.html">← REST API Design</a>
+    <a href="03-grpc.html">gRPC →</a>
+  </div>
+</div>
+</body>
+</html>

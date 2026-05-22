@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gRPC w Go</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Go</a>
+  <span class="sep">/</span>
+  <span class="title">gRPC w Go</span>
+</div>
+<div class="container">
+  <h1>gRPC w Go</h1>
+  <p class="subtitle">Protocol Buffers, generowanie kodu, serwery i klienty, streaming oraz interceptory</p>
+
+  <h2>Narzedzia i generowanie kodu</h2>
+  <p>gRPC w Go wymaga dwoch narzedzi do generowania kodu z plikow <code>.proto</code>:</p>
+  <ul>
+    <li><strong>protoc-gen-go</strong> (<code>google.golang.org/protobuf/cmd/protoc-gen-go</code>) — generuje typy Go (struktury, enum, metody serializacji)</li>
+    <li><strong>protoc-gen-go-grpc</strong> (<code>google.golang.org/grpc/cmd/protoc-gen-go-grpc</code>) — generuje interfejsy serwera i klienta gRPC</li>
+  </ul>
+  <p>Instalacja i generowanie:</p>
+
+<pre><code># Instalacja narzedzi
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# Generowanie kodu z pliku .proto
+protoc \
+  --go_out=. --go_opt=paths=source_relative \
+  --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+  proto/user.proto</code></pre>
+
+  <h2>Definicja serwisu w .proto</h2>
+  <p>Plik <code>.proto</code> definiuje kontrakt API: typy wiadomosci i metody serwisu. Jest jezyk-neutralny — ten sam plik generuje kod dla Go, Python, Java, Rust itd. To kluczowa zaleta gRPC nad REST w architekturze wielojezycznej.</p>
+
+<pre><code>// proto/user.proto
+syntax = "proto3";
+
+package user.v1;
+option go_package = "github.com/myapp/proto/user/v1;userv1";
+
+// Definicja serwisu
+service UserService {
+  // Unary RPC — jeden request, jedna odpowiedz
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+
+  // Server-side streaming — jeden request, strumien odpowiedzi
+  rpc ListUsers(ListUsersRequest) returns (stream User);
+
+  // Client-side streaming — strumien requestow, jedna odpowiedz
+  rpc BatchCreateUsers(stream CreateUserRequest) returns (BatchCreateResponse);
+
+  // Bidirectional streaming
+  rpc Chat(stream ChatMessage) returns (stream ChatMessage);
+}
+
+message User {
+  int64  id         = 1;
+  string name       = 2;
+  string email      = 3;
+  int64  created_at = 4; // Unix timestamp
+}
+
+message GetUserRequest  { int64 id = 1; }
+message GetUserResponse { User user = 1; }
+
+message CreateUserRequest {
+  string name  = 1;
+  string email = 2;
+}
+message CreateUserResponse { User user = 1; }
+
+message ListUsersRequest {
+  int32 page_size  = 1;
+  string page_token = 2;
+}
+
+message BatchCreateResponse { int32 created = 1; }
+message ChatMessage { string text = 1; int64 sender_id = 2; }</code></pre>
+
+  <h2>Implementacja serwera</h2>
+  <p>Po wygenerowaniu kodu implementujesz interfejs <code>UserServiceServer</code>. Interfejs zawiera wszystkie metody zdefiniowane w <code>.proto</code>. Jesli nie implementujesz wszystkich metod, osadzasz <code>UnimplementedUserServiceServer</code> — zabezpiecza to przed bladami przy przyszlych rozszerzeniach proto.</p>
+
+<pre><code>package main
+
+import (
+    "context"
+    "log"
+    "net"
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/codes"
+    "google.golang.org/grpc/reflection"
+    "google.golang.org/grpc/status"
+
+    userv1 "github.com/myapp/proto/user/v1"
+)
+
+// Implementacja serwisu
+type userServer struct {
+    userv1.UnimplementedUserServiceServer
+    db UserRepository
+}
+
+func (s *userServer) GetUser(ctx context.Context, req *userv1.GetUserRequest) (*userv1.GetUserResponse, error) {
+    if req.Id <= 0 {
+        return nil, status.Errorf(codes.InvalidArgument, "id musi byc > 0, got: %d", req.Id)
+    }
+
+    user, err := s.db.FindByID(ctx, req.Id)
+    if err != nil {
+        return nil, status.Errorf(codes.Internal, "blad bazy: %v", err)
+    }
+    if user == nil {
+        return nil, status.Errorf(codes.NotFound, "uzytkownik %d nie istnieje", req.Id)
+    }
+
+    return &userv1.GetUserResponse{
+        User: &userv1.User{Id: user.ID, Name: user.Name, Email: user.Email},
+    }, nil
+}
+
+// Server-side streaming
+func (s *userServer) ListUsers(req *userv1.ListUsersRequest, stream userv1.UserService_ListUsersServer) error {
+    users, err := s.db.List(stream.Context(), int(req.PageSize))
+    if err != nil {
+        return status.Errorf(codes.Internal, "blad listowania: %v", err)
+    }
+    for _, u := range users {
+        if err := stream.Send(&userv1.User{Id: u.ID, Name: u.Name}); err != nil {
+            return err // klient rozlaczony
+        }
+    }
+    return nil
+}
+
+func main() {
+    lis, err := net.Listen("tcp", ":50051")
+    if err != nil {
+        log.Fatalf("listen: %v", err)
+    }
+
+    srv := grpc.NewServer(
+        grpc.UnaryInterceptor(loggingInterceptor),
+        grpc.MaxRecvMsgSize(16*1024*1024), // 16 MB
+    )
+
+    userv1.RegisterUserServiceServer(srv, &userServer{})
+
+    // Reflection — umozliwia grpcurl i inne narzedzia
+    reflection.Register(srv)
+
+    log.Println("gRPC serwer na :50051")
+    log.Fatal(srv.Serve(lis))
+}</code></pre>
+
+  <h2>Polaczenie klienta</h2>
+  <p>Klient gRPC laczy sie przez <code>grpc.NewClient()</code> (od v1.64, zastepuje przestarzaly <code>grpc.Dial</code>). Polaczenie jest leniwe — faktyczna komunikacja nastepuje przy pierwszym wywolaniu. Wazne jest skonfigurowanie TLS i timeoutow.</p>
+
+  <h2>Interceptory — middleware gRPC</h2>
+  <p>Interceptory to odpowiednik middleware HTTP w swiecie gRPC. Dzialaja na poziomie unary (jeden request) lub streaming. Typowe zastosowania: logowanie, metryki, autoryzacja, tracing, retry.</p>
+
+<pre><code>// UnaryServerInterceptor — logowanie i metryki
+func loggingInterceptor(
+    ctx context.Context,
+    req any,
+    info *grpc.UnaryServerInfo,
+    handler grpc.UnaryHandler,
+) (any, error) {
+    start := time.Now()
+    resp, err := handler(ctx, req)
+    duration := time.Since(start)
+
+    code := codes.OK
+    if err != nil {
+        code = status.Code(err)
+    }
+
+    log.Printf("gRPC | method=%s | code=%s | duration=%s",
+        info.FullMethod, code, duration)
+    return resp, err
+}
+
+// Lancuch interceptorow przez grpc.ChainUnaryInterceptor
+srv := grpc.NewServer(
+    grpc.ChainUnaryInterceptor(
+        authInterceptor,
+        loggingInterceptor,
+        rateLimitInterceptor,
+    ),
+)</code></pre>
+
+  <h2>Kody statusow gRPC</h2>
+  <table>
+    <thead>
+      <tr><th>Kod</th><th>Wartosc HTTP</th><th>Znaczenie</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>codes.OK</code></td><td>200</td><td>Sukces</td></tr>
+      <tr><td><code>codes.InvalidArgument</code></td><td>400</td><td>Niepoprawne dane wejsciowe</td></tr>
+      <tr><td><code>codes.NotFound</code></td><td>404</td><td>Zasob nie istnieje</td></tr>
+      <tr><td><code>codes.AlreadyExists</code></td><td>409</td><td>Zasob juz istnieje</td></tr>
+      <tr><td><code>codes.PermissionDenied</code></td><td>403</td><td>Brak uprawnien</td></tr>
+      <tr><td><code>codes.Unauthenticated</code></td><td>401</td><td>Brak autentykacji</td></tr>
+      <tr><td><code>codes.ResourceExhausted</code></td><td>429</td><td>Rate limit / wyczerpane zasoby</td></tr>
+      <tr><td><code>codes.Internal</code></td><td>500</td><td>Blad wewnetrzny serwera</td></tr>
+      <tr><td><code>codes.Unavailable</code></td><td>503</td><td>Serwis niedostepny (retry-able)</td></tr>
+      <tr><td><code>codes.DeadlineExceeded</code></td><td>504</td><td>Timeout kontekstu</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card blue">
+    <h3>grpc_reflection — narzedzia deweloperskie</h3>
+    <p>Wywolanie <code>reflection.Register(srv)</code> pozwala narzedziu <code>grpcurl</code> i GUI <code>grpcui</code> na automatyczne odkrycie dostepnych metod bez pliku <code>.proto</code>. Wlaczaj wylacznie w srodowiskach development/staging — w produkcji reflection moze ujawniac kontrakt API.</p>
+  </div>
+
+  <div class="card green">
+    <h3>gRPC vs REST — kiedy co wybrac?</h3>
+    <ul>
+      <li><strong>gRPC:</strong> komunikacja miedzy mikroserwisami, streaming danych, wielojezyczne systemy, niska latencja</li>
+      <li><strong>REST:</strong> publiczne API, klienty przegladarkowe, prostota i szeroka kompatybilnosc</li>
+      <li><strong>gRPC-Gateway:</strong> generuje REST proxy dla gRPC — mozna udostepniac oba protokoly jednoczesnie</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="06-database.html">&#8592; 06-database.html</a>
+    <a href="08-uwierzytelnianie.html">08-uwierzytelnianie.html &#8594;</a>
+  </div>
+</div>
+</body>
+</html>

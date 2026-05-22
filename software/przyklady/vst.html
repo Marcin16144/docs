@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VST Plugin — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">VST Plugin</span>
+</div>
+<div class="container">
+<h1>🎹 VST Plugin — krok po kroku w JUCE</h1>
+<p class="lead">Gain plugin (najprostszy DSP), filtr biquad, parametr automation, multi-platform build (Win + macOS).</p>
+
+<h2>1. Setup JUCE 8 (2026)</h2>
+<pre data-lang="bash"><code><span class="com"># Pobierz JUCE z github.com/juce-framework/JUCE</span>
+git clone --depth=<span class="num">1</span> https://github.com/juce-framework/JUCE.git ~/JUCE
+
+<span class="com"># Otwórz Projucer, stwórz nowy projekt Audio Plugin</span>
+~/JUCE/Projucer
+
+<span class="com"># Albo z CMake bezpośrednio (preferowane w 2026):</span>
+<span class="com"># CMakeLists.txt poniżej</span></code></pre>
+
+<pre data-lang="cmake"><code><span class="com"># CMakeLists.txt</span>
+cmake_minimum_required(VERSION <span class="num">3.22</span>)
+project(GainPlugin VERSION <span class="num">1.0</span>.<span class="num">0</span>)
+
+set(CMAKE_CXX_STANDARD <span class="num">20</span>)
+add_subdirectory(JUCE)
+
+juce_add_plugin(GainPlugin
+    PRODUCT_NAME <span class="str">"Simple Gain"</span>
+    COMPANY_NAME <span class="str">"YourCompany"</span>
+    BUNDLE_ID com.yourcompany.simplegain
+    PLUGIN_MANUFACTURER_CODE Ycmp
+    PLUGIN_CODE Sgn1
+    FORMATS VST3 AU AAX Standalone
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD TRUE)
+
+juce_generate_juce_header(GainPlugin)
+
+target_sources(GainPlugin PRIVATE
+    Source/PluginProcessor.cpp
+    Source/PluginEditor.cpp)
+
+target_compile_definitions(GainPlugin PRIVATE
+    JUCE_VST3_CAN_REPLACE_VST2=<span class="num">0</span>
+    JUCE_USE_CURL=<span class="num">0</span>
+    JUCE_WEB_BROWSER=<span class="num">0</span>)
+
+target_link_libraries(GainPlugin PRIVATE
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_lto_flags
+    juce::juce_recommended_warning_flags)</code></pre>
+
+<h2>2. PluginProcessor — gain + smoothing</h2>
+<pre data-lang="cpp"><code><span class="com">// PluginProcessor.h</span>
+<span class="kw">class</span> GainPluginProcessor : <span class="kw">public</span> juce::AudioProcessor {
+<span class="kw">public</span>:
+    GainPluginProcessor();
+    ~GainPluginProcessor() <span class="kw">override</span>;
+
+    <span class="kw">void</span> prepareToPlay(<span class="kw">double</span> sampleRate, <span class="kw">int</span> samplesPerBlock) <span class="kw">override</span>;
+    <span class="kw">void</span> processBlock(juce::AudioBuffer&lt;<span class="kw">float</span>&gt;&amp;, juce::MidiBuffer&amp;) <span class="kw">override</span>;
+    juce::AudioProcessorEditor* createEditor() <span class="kw">override</span>;
+    <span class="kw">bool</span> hasEditor() <span class="kw">const override</span> { <span class="kw">return true</span>; }
+
+    juce::AudioProcessorValueTreeState parameters;
+
+<span class="kw">private</span>:
+    juce::SmoothedValue&lt;<span class="kw">float</span>, juce::ValueSmoothingTypes::Linear&gt; gainSmoothed;
+};
+
+<span class="com">// PluginProcessor.cpp</span>
+<span class="kw">static</span> juce::AudioProcessorValueTreeState::ParameterLayout createLayout() {
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+    layout.add(std::make_unique&lt;juce::AudioParameterFloat&gt;(
+        juce::ParameterID{<span class="str">"gain"</span>, <span class="num">1</span>},
+        <span class="str">"Gain"</span>,
+        juce::NormalisableRange&lt;<span class="kw">float</span>&gt;(-<span class="num">60.0f</span>, <span class="num">12.0f</span>, <span class="num">0.1f</span>),
+        <span class="num">0.0f</span>,
+        juce::AudioParameterFloatAttributes()
+            .withLabel(<span class="str">"dB"</span>)
+            .withStringFromValueFunction([](<span class="kw">float</span> v, <span class="kw">int</span>) {
+                <span class="kw">return</span> juce::String(v, <span class="num">1</span>) + <span class="str">" dB"</span>;
+            })));
+    <span class="kw">return</span> layout;
+}
+
+GainPluginProcessor::GainPluginProcessor()
+    : AudioProcessor(BusesProperties()
+        .withInput(<span class="str">"Input"</span>, juce::AudioChannelSet::stereo(), <span class="kw">true</span>)
+        .withOutput(<span class="str">"Output"</span>, juce::AudioChannelSet::stereo(), <span class="kw">true</span>)),
+      parameters(*<span class="kw">this</span>, <span class="kw">nullptr</span>, <span class="str">"PARAMS"</span>, createLayout()) {}
+
+<span class="kw">void</span> GainPluginProcessor::prepareToPlay(<span class="kw">double</span> sampleRate, <span class="kw">int</span>) {
+    gainSmoothed.reset(sampleRate, <span class="num">0.05</span>);  <span class="com">// 50ms ramp</span>
+}
+
+<span class="kw">void</span> GainPluginProcessor::processBlock(juce::AudioBuffer&lt;<span class="kw">float</span>&gt;&amp; buffer, juce::MidiBuffer&amp;) {
+    juce::ScopedNoDenormals noDenormals;
+
+    <span class="kw">const auto</span> gainDb = parameters.getRawParameterValue(<span class="str">"gain"</span>)-&gt;load();
+    gainSmoothed.setTargetValue(juce::Decibels::decibelsToGain(gainDb));
+
+    <span class="kw">for</span> (<span class="kw">int</span> sample = <span class="num">0</span>; sample &lt; buffer.getNumSamples(); ++sample) {
+        <span class="kw">const float</span> g = gainSmoothed.getNextValue();
+        <span class="kw">for</span> (<span class="kw">int</span> ch = <span class="num">0</span>; ch &lt; buffer.getNumChannels(); ++ch) {
+            buffer.getWritePointer(ch)[sample] *= g;
+        }
+    }
+}</code></pre>
+<div class="warn">⚠️ ZAWSZE smoothing parametrów! Bez tego user słyszy "trzaski" gdy kręci pokrętłem.</div>
+
+<h2>3. Filtr biquad lowpass (z juce::dsp)</h2>
+<pre data-lang="cpp"><code><span class="com">// Dodaj w PluginProcessor.h:</span>
+juce::dsp::ProcessorDuplicator&lt;
+    juce::dsp::IIR::Filter&lt;<span class="kw">float</span>&gt;,
+    juce::dsp::IIR::Coefficients&lt;<span class="kw">float</span>&gt;&gt; lowpassFilter;
+
+<span class="com">// W prepareToPlay:</span>
+juce::dsp::ProcessSpec spec;
+spec.sampleRate = sampleRate;
+spec.maximumBlockSize = (juce::uint32) samplesPerBlock;
+spec.numChannels = (juce::uint32) getTotalNumOutputChannels();
+lowpassFilter.prepare(spec);
+
+<span class="com">// W processBlock — przed gain:</span>
+<span class="kw">const auto</span> cutoffHz = parameters.getRawParameterValue(<span class="str">"cutoff"</span>)-&gt;load();
+*lowpassFilter.state = *juce::dsp::IIR::Coefficients&lt;<span class="kw">float</span>&gt;::makeLowPass(
+    getSampleRate(), cutoffHz, <span class="num">0.707f</span>);
+
+juce::dsp::AudioBlock&lt;<span class="kw">float</span>&gt; block(buffer);
+juce::dsp::ProcessContextReplacing&lt;<span class="kw">float</span>&gt; ctx(block);
+lowpassFilter.process(ctx);</code></pre>
+
+<h2>4. GUI — slider + label</h2>
+<pre data-lang="cpp"><code><span class="com">// PluginEditor.h</span>
+<span class="kw">class</span> GainPluginEditor : <span class="kw">public</span> juce::AudioProcessorEditor {
+<span class="kw">public</span>:
+    GainPluginEditor(GainPluginProcessor&amp;);
+    <span class="kw">void</span> paint(juce::Graphics&amp;) <span class="kw">override</span>;
+    <span class="kw">void</span> resized() <span class="kw">override</span>;
+
+<span class="kw">private</span>:
+    GainPluginProcessor&amp; processor;
+    juce::Slider gainSlider;
+    juce::Label gainLabel;
+    <span class="kw">using</span> SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+    std::unique_ptr&lt;SliderAttachment&gt; gainAttachment;
+};
+
+<span class="com">// PluginEditor.cpp</span>
+GainPluginEditor::GainPluginEditor(GainPluginProcessor&amp; p)
+    : AudioProcessorEditor(&amp;p), processor(p) {
+    setSize(<span class="num">300</span>, <span class="num">200</span>);
+    setResizable(<span class="kw">true</span>, <span class="kw">true</span>);
+
+    gainSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    gainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, <span class="kw">false</span>, <span class="num">80</span>, <span class="num">20</span>);
+    gainSlider.setTextValueSuffix(<span class="str">" dB"</span>);
+    addAndMakeVisible(gainSlider);
+
+    gainAttachment = std::make_unique&lt;SliderAttachment&gt;(
+        processor.parameters, <span class="str">"gain"</span>, gainSlider);
+
+    gainLabel.setText(<span class="str">"Gain"</span>, juce::dontSendNotification);
+    gainLabel.attachToComponent(&amp;gainSlider, <span class="kw">false</span>);
+    addAndMakeVisible(gainLabel);
+}
+
+<span class="kw">void</span> GainPluginEditor::paint(juce::Graphics&amp; g) {
+    g.fillAll(juce::Colour::fromRGB(<span class="num">30</span>, <span class="num">30</span>, <span class="num">40</span>));
+}
+
+<span class="kw">void</span> GainPluginEditor::resized() {
+    <span class="kw">auto</span> area = getLocalBounds().reduced(<span class="num">20</span>);
+    area.removeFromTop(<span class="num">30</span>);  <span class="com">// miejsce na label</span>
+    gainSlider.setBounds(area);
+}</code></pre>
+
+<h2>5. State save/restore (presets, daw session)</h2>
+<pre data-lang="cpp"><code><span class="kw">void</span> GainPluginProcessor::getStateInformation(juce::MemoryBlock&amp; destData) {
+    <span class="kw">auto</span> state = parameters.copyState();
+    std::unique_ptr&lt;juce::XmlElement&gt; xml(state.createXml());
+    copyXmlToBinary(*xml, destData);
+}
+
+<span class="kw">void</span> GainPluginProcessor::setStateInformation(<span class="kw">const void</span>* data, <span class="kw">int</span> size) {
+    std::unique_ptr&lt;juce::XmlElement&gt; xml(getXmlFromBinary(data, size));
+    <span class="kw">if</span> (xml &amp;&amp; xml-&gt;hasTagName(parameters.state.getType())) {
+        parameters.replaceState(juce::ValueTree::fromXml(*xml));
+    }
+}</code></pre>
+
+<h2>6. Build na Windows i macOS</h2>
+<pre data-lang="bash"><code><span class="com"># Windows (Visual Studio 2022 + CMake)</span>
+cmake -B build -G <span class="str">"Visual Studio 17 2022"</span> -A x<span class="num">64</span>
+cmake --build build --config Release
+
+<span class="com"># Plik VST3: build\GainPlugin_artefacts\Release\VST3\Simple Gain.vst3</span>
+
+<span class="com"># macOS (Apple Silicon + Intel universal)</span>
+cmake -B build -G Xcode \
+    -DCMAKE_OSX_ARCHITECTURES=<span class="str">"arm64;x86_64"</span> \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=<span class="num">10.15</span>
+cmake --build build --config Release
+
+<span class="com"># Code signing macOS (wymagane na Big Sur+)</span>
+codesign --force --sign <span class="str">"Developer ID Application: Your Name"</span> \
+    --options runtime --timestamp \
+    <span class="str">"build/GainPlugin_artefacts/Release/VST3/Simple Gain.vst3"</span>
+
+<span class="com"># Notarization (obowiązkowe dla redystrybucji)</span>
+xcrun notarytool submit Plugin.pkg --apple-id you@example.com \
+    --team-id ABC123 --password app-specific-password --wait
+xcrun stapler staple Plugin.pkg</code></pre>
+
+<h2>7. Test w pluginvalu</h2>
+<pre data-lang="bash"><code><span class="com"># Pobierz pluginval — best plugin tester (auto-test threading, parameters, state)</span>
+<span class="com"># github.com/Tracktion/pluginval/releases</span>
+
+<span class="com"># Test poziom 5 (najgłębszy)</span>
+./pluginval --strictness-level <span class="num">5</span> --validate-in-process \
+    <span class="str">"build/GainPlugin_artefacts/Release/VST3/Simple Gain.vst3"</span>
+
+<span class="com"># Jeśli przechodzi level 5 = plugin nie cracknie się w żadnym DAW</span></code></pre>
+<div class="tip">💡 Plugin Boutique i większość marketplaces wymaga ZALICZENIA pluginval poziomu 5 przed publikacją.</div>
+
+<div class="next-prev">
+    <a href="linux-bash.html"><div class="label">← Poprzedni</div><div class="title">Linux / Bash</div></a>
+    <a href="prompt-engineering.html"><div class="label">Następny →</div><div class="title">Prompt Engineering</div></a>
+</div>
+</div>
+</body>
+</html>

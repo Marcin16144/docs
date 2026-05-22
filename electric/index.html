@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elektryka domowa — kompendium</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--surface-hover:#283649;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--pink:#f472b6}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+        .header{position:sticky;top:0;z-index:100;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border-bottom:1px solid var(--border);padding:20px 20px 14px;backdrop-filter:blur(10px)}
+        .header-content{max-width:1100px;margin:0 auto}
+        .header-top{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px}
+        .header h1{font-size:1.75rem;font-weight:700;margin-bottom:4px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+        .header .subtitle{color:var(--text-muted);font-size:.9rem;margin-bottom:12px}
+        .search-container{position:relative;max-width:700px}
+        .search-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;font-size:1.1rem}
+        #searchInput{width:100%;padding:12px 18px 12px 48px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:1rem;outline:none;font-family:inherit;transition:all .2s ease}
+        #searchInput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(251,191,36,.15)}
+        #searchInput::placeholder{color:var(--text-muted)}
+        .filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+        .filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);padding:4px 12px;border-radius:14px;font-size:.78rem;cursor:pointer;font-family:inherit;transition:all .15s}
+        .filter-btn:hover{color:var(--text);border-color:var(--accent)}
+        .filter-btn.active{background:rgba(251,191,36,.15);color:var(--accent);border-color:var(--accent)}
+        .container{max-width:1100px;margin:0 auto;padding:24px 20px 80px}
+        .quick-access{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:24px}
+        .quick-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-decoration:none;color:var(--text);transition:all .15s;display:flex;align-items:center;gap:10px}
+        .quick-card:hover{border-color:var(--accent);background:var(--surface-hover);transform:translateY(-2px)}
+        .quick-card-icon{font-size:1.5rem}
+        .quick-card-text{font-size:.85rem;font-weight:500}
+        .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+        .section.hidden{display:none}
+        .section-header{padding:16px 22px;cursor:pointer;display:flex;align-items:center;gap:12px;user-select:none;transition:background .15s}
+        .section-header:hover{background:var(--surface-hover)}
+        .section-toggle{font-size:.9rem;color:var(--text-muted);transition:transform .2s ease;display:inline-block;width:16px}
+        .section.expanded .section-toggle{transform:rotate(90deg)}
+        .section-icon{font-size:1.3rem;min-width:28px}
+        .section-title{font-size:1.1rem;font-weight:600;color:var(--accent);flex:1}
+        .section-meta{font-size:.75rem;color:var(--text-muted);background:rgba(251,191,36,.1);padding:3px 10px;border-radius:12px}
+        .section-description{padding:0 22px 0 50px;color:var(--text-muted);font-size:.85rem;margin-top:-6px;margin-bottom:0;display:none}
+        .section.expanded .section-description{display:block;margin-bottom:10px}
+        .section-body{display:none;padding:0 22px 18px}
+        .section.expanded .section-body{display:block}
+        .items{padding-left:18px}
+        .item{display:flex;align-items:flex-start;gap:10px;padding:7px 12px;border-radius:6px;text-decoration:none;color:var(--text);transition:all .15s;margin-bottom:2px}
+        .item:hover{background:rgba(251,191,36,.08)}
+        .item.hidden{display:none}
+        .item-icon{color:var(--text-muted);font-size:.85rem;margin-top:2px;min-width:14px}
+        .item-content{flex:1;min-width:0}
+        .item-title{font-size:.88rem;font-weight:500;color:var(--text);margin-bottom:1px}
+        .item-desc{font-size:.74rem;color:var(--text-muted);line-height:1.4}
+        .item-formats{display:flex;gap:6px;margin-top:3px}
+        .format-link{font-size:.68rem;padding:1px 7px;border-radius:4px;text-decoration:none;font-weight:500;transition:all .15s}
+        .format-html{background:rgba(251,191,36,.15);color:var(--accent)}
+        .format-html:hover{background:rgba(251,191,36,.25)}
+        .format-md{background:rgba(74,222,128,.15);color:var(--green)}
+        .format-md:hover{background:rgba(74,222,128,.25)}
+        .highlight{background:rgba(251,191,36,.3);color:var(--accent);padding:0 2px;border-radius:2px}
+        footer{text-align:center;padding:30px;color:var(--text-muted);font-size:.85rem;border-top:1px solid var(--border)}
+        footer a{color:var(--accent);text-decoration:none}
+        .warning-banner{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:14px 18px;margin-bottom:20px;color:var(--text);font-size:.88rem}
+        .warning-banner strong{color:var(--red)}
+        @media (max-width:600px){.header{padding:14px 14px 12px}.header h1{font-size:1.3rem}.container{padding:16px 14px 60px}.section-header{padding:12px 14px}.section-body{padding:0 14px 14px}.quick-access{grid-template-columns:1fr 1fr}}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-top">
+                <div>
+                    <h1>⚡ Elektryka domowa — kompendium</h1>
+                    <p class="subtitle">Od fizyki prądu po projektowanie instalacji · zasilanie awaryjne · off-grid · magazyny energii · OZE · normy PN-HD 60364 · 2026</p>
+                </div>
+            </div>
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Wyszukaj temat (np. RCD, przekrój, bilans mocy)... (Ctrl+K)" autocomplete="off" autofocus />
+            </div>
+            <div class="filters" id="filters">
+                <button class="filter-btn active" data-filter="all">Wszystko</button>
+                <button class="filter-btn" data-filter="podstawy">⚛️ Podstawy</button>
+                <button class="filter-btn" data-filter="bezpieczenstwo">🛡️ Bezpieczeństwo</button>
+                <button class="filter-btn" data-filter="przewody">🔌 Przewody</button>
+                <button class="filter-btn" data-filter="bezpieczniki">🔧 Bezpieczniki</button>
+                <button class="filter-btn" data-filter="instalacja">🏠 Instalacja</button>
+                <button class="filter-btn" data-filter="rozdzielnica">📦 Rozdzielnica</button>
+                <button class="filter-btn" data-filter="projektowanie">📐 Projekt</button>
+                <button class="filter-btn" data-filter="oswietlenie">💡 Oświetlenie</button>
+                <button class="filter-btn" data-filter="uziemienie">⏚ Uziemienie</button>
+                <button class="filter-btn" data-filter="przepiecia">⚡ Przepięcia</button>
+                <button class="filter-btn" data-filter="pomiary">📏 Pomiary</button>
+                <button class="filter-btn" data-filter="fotowoltaika">☀️ PV</button>
+                <button class="filter-btn" data-filter="smart">🏡 Smart</button>
+                <button class="filter-btn" data-filter="normy">📜 Normy</button>
+                <button class="filter-btn" data-filter="przyklady">📚 Przykłady</button>
+                <button class="filter-btn" data-filter="awaryjne">🔋 Awaryjne</button>
+                <button class="filter-btn" data-filter="offgrid">🌐 Off-grid</button>
+                <button class="filter-btn" data-filter="magazyny">🔋 Magazyny</button>
+                <button class="filter-btn" data-filter="kolektory">🌡️ Kolektory</button>
+                <button class="filter-btn" data-filter="kupic">🛒 Gdzie kupić</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="content">
+
+        <div class="warning-banner">
+            <strong>⚠ Uwaga:</strong> dokumentacja ma charakter informacyjny. Wykonanie i odbiór instalacji elektrycznej wymagają uprawnień SEP G1 (eksploatacja) i G1 D (dozór) oraz są regulowane Prawem Budowlanym. Wszelkie prace przy istniejącej instalacji wykonuj po wyłączeniu napięcia.
+        </div>
+
+        <div class="quick-access">
+            <a class="quick-card" href="01-podstawy/index.html"><span class="quick-card-icon">⚛️</span><span class="quick-card-text">Podstawy</span></a>
+            <a class="quick-card" href="04-bezpieczniki/index.html"><span class="quick-card-icon">🔧</span><span class="quick-card-text">Bezpieczniki</span></a>
+            <a class="quick-card" href="05-instalacja-domowa/index.html"><span class="quick-card-icon">🏠</span><span class="quick-card-text">Instalacja</span></a>
+            <a class="quick-card" href="07-projektowanie/index.html"><span class="quick-card-icon">📐</span><span class="quick-card-text">Projektowanie</span></a>
+            <a class="quick-card" href="12-fotowoltaika/index.html"><span class="quick-card-icon">☀️</span><span class="quick-card-text">Fotowoltaika</span></a>
+            <a class="quick-card" href="15-przyklady/index.html"><span class="quick-card-icon">📚</span><span class="quick-card-text">Przykłady</span></a>
+            <a class="quick-card" href="16-zasilanie-awaryjne/index.html"><span class="quick-card-icon">🔋</span><span class="quick-card-text">Zasilanie awaryjne</span></a>
+            <a class="quick-card" href="17-off-grid/index.html"><span class="quick-card-icon">🌐</span><span class="quick-card-text">Off-grid</span></a>
+            <a class="quick-card" href="18-magazyny-energii/index.html"><span class="quick-card-icon">🔋</span><span class="quick-card-text">Magazyny energii</span></a>
+            <a class="quick-card" href="19-kolektory-turbiny/index.html"><span class="quick-card-icon">🌡️</span><span class="quick-card-text">Kolektory i turbiny</span></a>
+            <a class="quick-card" href="20-gdzie-kupic/index.html"><span class="quick-card-icon">🛒</span><span class="quick-card-text">Gdzie kupić</span></a>
+        </div>
+
+        <div class="section expanded" data-section="podstawy">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">⚛️</span><span class="section-title">01 — Podstawy elektrotechniki</span><span class="section-meta">6 stron</span></div>
+            <div class="section-description">Prąd, napięcie, moc, prawa Ohma i Kirchhoffa, AC/DC, sieć jedno- i trójfazowa, cos φ.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="01-podstawy/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div><div class="item-desc">Wszystkie tematy podstaw</div></div></a>
+                <a class="item" href="01-podstawy/01-01-prad-napiecie-moc.html"><span class="item-icon">⚡</span><div class="item-content"><div class="item-title">Prąd, napięcie, moc, opór</div><div class="item-desc">Wielkości elektryczne — definicje, jednostki, wzory</div><div class="item-formats"><a class="format-link format-html" href="01-podstawy/01-01-prad-napiecie-moc.html">HTML</a><a class="format-link format-md" href="01-podstawy/01-01-prad-napiecie-moc.md">MD</a></div></div></a>
+                <a class="item" href="01-podstawy/01-02-prawo-ohma.html"><span class="item-icon">📐</span><div class="item-content"><div class="item-title">Prawo Ohma</div><div class="item-desc">U = I·R, zastosowania praktyczne, ograniczenia</div><div class="item-formats"><a class="format-link format-html" href="01-podstawy/01-02-prawo-ohma.html">HTML</a><a class="format-link format-md" href="01-podstawy/01-02-prawo-ohma.md">MD</a></div></div></a>
+                <a class="item" href="01-podstawy/01-03-prawa-kirchhoffa.html"><span class="item-icon">🔁</span><div class="item-content"><div class="item-title">Prawa Kirchhoffa</div><div class="item-desc">Prądowe i napięciowe — analiza obwodów</div><div class="item-formats"><a class="format-link format-html" href="01-podstawy/01-03-prawa-kirchhoffa.html">HTML</a><a class="format-link format-md" href="01-podstawy/01-03-prawa-kirchhoffa.md">MD</a></div></div></a>
+                <a class="item" href="01-podstawy/01-04-ac-dc.html"><span class="item-icon">〰️</span><div class="item-content"><div class="item-title">Prąd stały i przemienny</div><div class="item-desc">DC vs AC, częstotliwość, wartość skuteczna RMS</div><div class="item-formats"><a class="format-link format-html" href="01-podstawy/01-04-ac-dc.html">HTML</a><a class="format-link format-md" href="01-podstawy/01-04-ac-dc.md">MD</a></div></div></a>
+                <a class="item" href="01-podstawy/01-05-fazy.html"><span class="item-icon">🔀</span><div class="item-content"><div class="item-title">Sieć jednofazowa i trójfazowa</div><div class="item-desc">230 V vs 400 V, kolejność faz, gwiazda i trójkąt</div><div class="item-formats"><a class="format-link format-html" href="01-podstawy/01-05-fazy.html">HTML</a><a class="format-link format-md" href="01-podstawy/01-05-fazy.md">MD</a></div></div></a>
+                <a class="item" href="01-podstawy/01-06-moc-cos-fi.html"><span class="item-icon">∿</span><div class="item-content"><div class="item-title">Moc czynna, bierna, pozorna — cos φ</div><div class="item-formats"><a class="format-link format-html" href="01-podstawy/01-06-moc-cos-fi.html">HTML</a><a class="format-link format-md" href="01-podstawy/01-06-moc-cos-fi.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="bezpieczenstwo">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🛡️</span><span class="section-title">02 — Bezpieczeństwo</span><span class="section-meta">6 stron</span></div>
+            <div class="section-description">Porażenia, stopnie ochrony IP/IK, klasy ochronności, środki ochrony przeciwporażeniowej, BHP.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="02-bezpieczenstwo/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="02-bezpieczenstwo/02-01-porazenie-pradem.html"><span class="item-icon">⚠️</span><div class="item-content"><div class="item-title">Porażenie prądem — skutki</div><div class="item-desc">Wpływ na organizm, prądy bezpieczne, próg fibrylacji</div></div></a>
+                <a class="item" href="02-bezpieczenstwo/02-02-ip-ik.html"><span class="item-icon">💧</span><div class="item-content"><div class="item-title">Stopnie ochrony IP i IK</div><div class="item-desc">Ochrona przed pyłem, wodą i uderzeniem</div></div></a>
+                <a class="item" href="02-bezpieczenstwo/02-03-klasy-ochronnosci.html"><span class="item-icon">🔒</span><div class="item-content"><div class="item-title">Klasy ochronności urządzeń</div><div class="item-desc">Klasa 0/I/II/III — symbole i zastosowanie</div></div></a>
+                <a class="item" href="02-bezpieczenstwo/02-04-srodki-ochrony.html"><span class="item-icon">🛡️</span><div class="item-content"><div class="item-title">Ochrona przeciwporażeniowa</div><div class="item-desc">Podstawowa i dodatkowa — samoczynne wyłączenie</div></div></a>
+                <a class="item" href="02-bezpieczenstwo/02-05-pe-n-l.html"><span class="item-icon">🟡</span><div class="item-content"><div class="item-title">Przewody PE, N, L</div><div class="item-desc">Role, kolory, zakaz łączenia PE z N w instalacji</div></div></a>
+                <a class="item" href="02-bezpieczenstwo/02-06-bhp.html"><span class="item-icon">👷</span><div class="item-content"><div class="item-title">BHP przy pracach elektrycznych</div><div class="item-desc">5 zasad bezpiecznej pracy, środki ochrony osobistej</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="przewody">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🔌</span><span class="section-title">03 — Przewody i kable</span><span class="section-meta">5 stron</span></div>
+            <div class="section-description">Typy przewodów (YDY, YKY, NKT), kolory żył, dobór przekroju, spadki napięcia, obciążalność.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="03-przewody/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="03-przewody/03-01-rodzaje-przewodow.html"><span class="item-icon">🧵</span><div class="item-content"><div class="item-title">Rodzaje przewodów i kabli</div><div class="item-desc">YDY, YDYp, YKY, NKT, OWY, H07V-K — oznaczenia</div></div></a>
+                <a class="item" href="03-przewody/03-02-kolory-zyl.html"><span class="item-icon">🎨</span><div class="item-content"><div class="item-title">Kolory żył</div><div class="item-desc">Brązowy/czarny/szary = faza, niebieski = N, żółto-zielony = PE</div></div></a>
+                <a class="item" href="03-przewody/03-03-dobor-przekroju.html"><span class="item-icon">📏</span><div class="item-content"><div class="item-title">Dobór przekroju przewodu</div><div class="item-desc">Kryterium obciążalności, spadku, zwarciowe — krok po kroku</div></div></a>
+                <a class="item" href="03-przewody/03-04-spadek-napiecia.html"><span class="item-icon">📉</span><div class="item-content"><div class="item-title">Spadek napięcia</div><div class="item-desc">Wzory, dopuszczalne wartości (3% oświetlenie, 5% odbiorniki)</div></div></a>
+                <a class="item" href="03-przewody/03-05-obciazalnosc.html"><span class="item-icon">🔥</span><div class="item-content"><div class="item-title">Obciążalność prądowa długotrwała</div><div class="item-desc">Tabele Iz wg PN-HD 60364-5-52, współczynniki korekcyjne</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="bezpieczniki">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🔧</span><span class="section-title">04 — Bezpieczniki i wyłączniki</span><span class="section-meta">6 stron</span></div>
+            <div class="section-description">Wyłączniki nadprądowe S301/S303, charakterystyki B/C/D, selektywność, dobór, RCD.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="04-bezpieczniki/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="04-bezpieczniki/04-01-rodzaje.html"><span class="item-icon">⚙️</span><div class="item-content"><div class="item-title">Rodzaje zabezpieczeń</div><div class="item-desc">Topikowe (D, NH), nadprądowe S, różnicowoprądowe, łączone</div></div></a>
+                <a class="item" href="04-bezpieczniki/04-02-charakterystyki.html"><span class="item-icon">📊</span><div class="item-content"><div class="item-title">Charakterystyki B, C, D</div><div class="item-desc">Krotności prądu wyzwolenia (3-5In, 5-10In, 10-20In)</div></div></a>
+                <a class="item" href="04-bezpieczniki/04-03-selektywnosc.html"><span class="item-icon">🪜</span><div class="item-content"><div class="item-title">Selektywność</div><div class="item-desc">Stopniowanie zabezpieczeń, selektywność prądowa i czasowa</div></div></a>
+                <a class="item" href="04-bezpieczniki/04-04-dobor.html"><span class="item-icon">🧮</span><div class="item-content"><div class="item-title">Dobór bezpiecznika do obwodu</div><div class="item-desc">In ≤ Iz, prąd obciążenia, zwarciowy, charakterystyka</div></div></a>
+                <a class="item" href="04-bezpieczniki/04-05-rcd.html"><span class="item-icon">🟢</span><div class="item-content"><div class="item-title">Wyłączniki różnicowoprądowe (RCD)</div><div class="item-desc">Typy AC, A, B, F — 30 mA dla gniazd, 300 mA p-poż</div></div></a>
+                <a class="item" href="04-bezpieczniki/04-06-zdolnosc-zwarciowa.html"><span class="item-icon">💥</span><div class="item-content"><div class="item-title">Zdolność zwarciowa Icn</div><div class="item-desc">6 kA dla mieszkań, 10 kA dla domów, koordynacja z bezp. głównym</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="instalacja">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🏠</span><span class="section-title">05 — Instalacja domowa</span><span class="section-meta">10 stron</span></div>
+            <div class="section-description">Prowadzenie przewodów, strefy w ścianach, gniazdka, łączniki, łazienka, kuchnia, układy schodowe.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="05-instalacja-domowa/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="05-instalacja-domowa/05-01-strefy-w-scianach.html"><span class="item-icon">📐</span><div class="item-content"><div class="item-title">Strefy instalacyjne w ścianach</div><div class="item-desc">Pionowe i poziome 15/30 cm od krawędzi — zasady kucia</div></div></a>
+                <a class="item" href="05-instalacja-domowa/05-02-prowadzenie-przewodow.html"><span class="item-icon">📏</span><div class="item-content"><div class="item-title">Prowadzenie przewodów</div><div class="item-desc">Bruzdy, peszle, korytka, puszki — głębokość, odstępy</div></div></a>
+                <a class="item" href="05-instalacja-domowa/05-03-gniazdka.html"><span class="item-icon">🔌</span><div class="item-content"><div class="item-title">Gniazdka — typy, montaż</div><div class="item-desc">Typ E (Schuko), 2P+Z, wysokości montażu, dedykowane</div></div></a>
+                <a class="item" href="05-instalacja-domowa/05-04-laczniki.html"><span class="item-icon">🔘</span><div class="item-content"><div class="item-title">Łączniki oświetlenia</div><div class="item-desc">Jedno-, dwu-, świecznikowy, krzyżowy, impulsowy</div></div></a>
+                <a class="item" href="05-instalacja-domowa/05-05-uklady-schodowe.html"><span class="item-icon">🪜</span><div class="item-content"><div class="item-title">Układy schodowe i krzyżowe</div><div class="item-desc">Sterowanie 1 oświetlenia z 2, 3+ miejsc — schematy</div></div></a>
+                <a class="item" href="05-instalacja-domowa/05-06-lazienka.html"><span class="item-icon">🚿</span><div class="item-content"><div class="item-title">Instalacja w łazience</div><div class="item-desc">Strefy 0/1/2 wg PN-HD 60364-7-701, IPx4, wyrównawcze</div></div></a>
+                <a class="item" href="05-instalacja-domowa/05-07-kuchnia.html"><span class="item-icon">🍳</span><div class="item-content"><div class="item-title">Instalacja w kuchni</div><div class="item-desc">Płyta indukcyjna 3-faz, piekarnik, zmywarka, lodówka</div></div></a>
+                <a class="item" href="05-instalacja-domowa/05-08-zewnetrzna.html"><span class="item-icon">🌧️</span><div class="item-content"><div class="item-title">Instalacja zewnętrzna i ogród</div><div class="item-desc">IP65, kable ziemne YKY/NKT, głębokość, podkład piaskowy</div></div></a>
+                <a class="item" href="05-instalacja-domowa/05-09-garaz.html"><span class="item-icon">🚗</span><div class="item-content"><div class="item-title">Garaż, piwnica, kotłownia</div><div class="item-desc">Strefy zagrożenia, ładowarka EV, gniazdo siłowe 3F</div></div></a>
+                <a class="item" href="05-instalacja-domowa/05-10-pomieszczenia.html"><span class="item-icon">🛋️</span><div class="item-content"><div class="item-title">Typowe pomieszczenia — minimum gniazd</div><div class="item-desc">Salon, sypialnia, biuro — ile gniazd, gdzie, jakie obwody</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="rozdzielnica">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📦</span><span class="section-title">06 — Rozdzielnica</span><span class="section-meta">5 stron</span></div>
+            <div class="section-description">Skrzynka rozdzielcza — budowa, schemat, dobór wielkości, układy sieci TN/TT, opisy.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="06-rozdzielnica/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="06-rozdzielnica/06-01-budowa.html"><span class="item-icon">🧰</span><div class="item-content"><div class="item-title">Budowa rozdzielnicy</div><div class="item-desc">Obudowa, szyny TH35, listwy PE/N, miejsca modułowe</div></div></a>
+                <a class="item" href="06-rozdzielnica/06-02-schemat.html"><span class="item-icon">📋</span><div class="item-content"><div class="item-title">Schemat ideowy rozdzielnicy</div><div class="item-desc">Główny rozłącznik, SPD, RCD, obwody — przykład</div></div></a>
+                <a class="item" href="06-rozdzielnica/06-03-uklady-sieci.html"><span class="item-icon">🔗</span><div class="item-content"><div class="item-title">Układy sieci TN-C, TN-S, TN-C-S, TT, IT</div><div class="item-desc">Różnice, gdzie który stosowany, zalety/wady</div></div></a>
+                <a class="item" href="06-rozdzielnica/06-04-dobor-wielkosci.html"><span class="item-icon">📐</span><div class="item-content"><div class="item-title">Dobór wielkości rozdzielnicy</div><div class="item-desc">Liczba modułów, rezerwa 25-30%, IP, montaż n/p</div></div></a>
+                <a class="item" href="06-rozdzielnica/06-05-opisy.html"><span class="item-icon">🏷️</span><div class="item-content"><div class="item-title">Opisy i etykietowanie obwodów</div><div class="item-desc">Tabliczki, oznaczenia żył, numeracja obwodów</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="projektowanie">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📐</span><span class="section-title">07 — Projektowanie instalacji</span><span class="section-meta">7 stron</span></div>
+            <div class="section-description">Pełen proces projektowania — bilans mocy, liczba obwodów, schematy, dokumentacja.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="07-projektowanie/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="07-projektowanie/07-01-etapy.html"><span class="item-icon">🗺️</span><div class="item-content"><div class="item-title">Etapy projektu instalacji</div><div class="item-desc">Założenia, koncepcja, projekt wykonawczy, powykonawczy</div></div></a>
+                <a class="item" href="07-projektowanie/07-02-bilans-mocy.html"><span class="item-icon">⚖️</span><div class="item-content"><div class="item-title">Bilans mocy</div><div class="item-desc">Moc zapotrzebowana, współczynnik jednoczesności, dom 100 m²</div></div></a>
+                <a class="item" href="07-projektowanie/07-03-liczba-obwodow.html"><span class="item-icon">🔢</span><div class="item-content"><div class="item-title">Liczba obwodów</div><div class="item-desc">Podział na oświetlenie, gniazda, dedykowane, 3-fazowe</div></div></a>
+                <a class="item" href="07-projektowanie/07-04-schemat-ideowy.html"><span class="item-icon">📋</span><div class="item-content"><div class="item-title">Schemat ideowy</div><div class="item-desc">Symbole graficzne, czytanie schematów, normy</div></div></a>
+                <a class="item" href="07-projektowanie/07-05-plan-instalacji.html"><span class="item-icon">🗺️</span><div class="item-content"><div class="item-title">Plan instalacji (rzut)</div><div class="item-desc">Naniesienie punktów na rzut, oznaczenia, trasowanie</div></div></a>
+                <a class="item" href="07-projektowanie/07-06-dokumentacja.html"><span class="item-icon">📚</span><div class="item-content"><div class="item-title">Dokumentacja powykonawcza</div><div class="item-desc">Co musi zawierać, protokoły pomiarów, certyfikaty</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="oswietlenie">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">💡</span><span class="section-title">08 — Oświetlenie</span><span class="section-meta">5 stron</span></div>
+            <div class="section-description">Fotometria (lumen, lux, K), dobór do pomieszczeń, źródła światła, sterowanie.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="08-oswietlenie/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="08-oswietlenie/08-01-fotometria.html"><span class="item-icon">📊</span><div class="item-content"><div class="item-title">Podstawy fotometrii</div><div class="item-desc">Lumen, lux, kandela, temperatura barwowa, CRI/Ra</div></div></a>
+                <a class="item" href="08-oswietlenie/08-02-dobor-pomieszczen.html"><span class="item-icon">📏</span><div class="item-content"><div class="item-title">Dobór oświetlenia w pomieszczeniach</div><div class="item-desc">Salon 100-300 lx, kuchnia 500 lx, łazienka 300 lx</div></div></a>
+                <a class="item" href="08-oswietlenie/08-03-zrodla-swiatla.html"><span class="item-icon">💡</span><div class="item-content"><div class="item-title">Źródła światła</div><div class="item-desc">LED, halogen, świetlówka — sprawność, żywotność, koszt</div></div></a>
+                <a class="item" href="08-oswietlenie/08-04-sterowanie.html"><span class="item-icon">🎛️</span><div class="item-content"><div class="item-title">Sterowanie oświetleniem</div><div class="item-desc">Ściemniacze, przekaźniki impulsowe, czujniki ruchu, DALI</div></div></a>
+                <a class="item" href="08-oswietlenie/08-05-zewnetrzne.html"><span class="item-icon">🌃</span><div class="item-content"><div class="item-title">Oświetlenie zewnętrzne</div><div class="item-desc">Elewacja, ogrodowe, oprawy IP65+, zmierzchowe</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="uziemienie">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">⏚</span><span class="section-title">09 — Uziemienie i połączenia wyrównawcze</span><span class="section-meta">5 stron</span></div>
+            <div class="section-description">Uziom otokowy, pionowy, rezystancja uziemienia, główna szyna wyrównawcza GSW.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="09-uziemienie/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="09-uziemienie/09-01-rodzaje-uziomow.html"><span class="item-icon">🌍</span><div class="item-content"><div class="item-title">Rodzaje uziomów</div><div class="item-desc">Otokowy, pionowy, fundamentowy, taśma/pręt, FeZn</div></div></a>
+                <a class="item" href="09-uziemienie/09-02-pomiar-rezystancji.html"><span class="item-icon">📏</span><div class="item-content"><div class="item-title">Pomiar rezystancji uziemienia</div><div class="item-desc">Metoda techniczna 3p/4p, dopuszczalne wartości &lt;30 Ω, &lt;10 Ω</div></div></a>
+                <a class="item" href="09-uziemienie/09-03-polaczenia-wyrownawcze.html"><span class="item-icon">⚓</span><div class="item-content"><div class="item-title">Połączenia wyrównawcze</div><div class="item-desc">Główne (GSW) i miejscowe (łazienka) — co przyłączyć</div></div></a>
+                <a class="item" href="09-uziemienie/09-04-petla-zwarcia.html"><span class="item-icon">🔄</span><div class="item-content"><div class="item-title">Pętla zwarcia i Zs</div><div class="item-desc">Warunek samoczynnego wyłączenia, dopuszczalne Zs</div></div></a>
+                <a class="item" href="09-uziemienie/09-05-uziemienie-off-grid.html"><span class="item-icon">🔌</span><div class="item-content"><div class="item-title">Uziemienie przy przełączeniu na off-grid</div><div class="item-desc">Zasada jednego bondu N-PE, przełącznik rozłączający neutralny, uziom lokalny</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="przepiecia">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">⚡</span><span class="section-title">10 — Ochrona przeciwprzepięciowa</span><span class="section-meta">4 strony</span></div>
+            <div class="section-description">Ograniczniki SPD typu 1/2/3, instalacja odgromowa, koordynacja.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="10-przepiecia/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="10-przepiecia/10-01-zrodla-przepiec.html"><span class="item-icon">🌩️</span><div class="item-content"><div class="item-title">Źródła przepięć</div><div class="item-desc">Atmosferyczne (LEMP), łączeniowe (SEMP), elektrostatyczne</div></div></a>
+                <a class="item" href="10-przepiecia/10-02-spd-typy.html"><span class="item-icon">🛡️</span><div class="item-content"><div class="item-title">SPD typu 1, 2, 3</div><div class="item-desc">10/350 µs, 8/20 µs — różnice, kombinowane T1+T2</div></div></a>
+                <a class="item" href="10-przepiecia/10-03-dobor-montaz.html"><span class="item-icon">🧰</span><div class="item-content"><div class="item-title">Dobór i montaż SPD</div><div class="item-desc">Odległości &lt;0.5 m, zasada 50 cm, przewody &lt;50 cm</div></div></a>
+                <a class="item" href="10-przepiecia/10-04-odgromowa.html"><span class="item-icon">⛓️</span><div class="item-content"><div class="item-title">Instalacja odgromowa (LPS)</div><div class="item-desc">Zwody, przewody odprowadzające, uziom, klasy LPS I-IV</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="pomiary">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📏</span><span class="section-title">11 — Pomiary i odbiory</span><span class="section-meta">6 stron</span></div>
+            <div class="section-description">Pomiary kontrolne, test RCD, pętla zwarcia, izolacja, protokoły, odbiór instalacji.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="11-pomiary/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="11-pomiary/11-01-rezystancja-izolacji.html"><span class="item-icon">🔋</span><div class="item-content"><div class="item-title">Pomiar rezystancji izolacji</div><div class="item-desc">Megaomomierz 500 V DC, min. 1 MΩ, ≥0.5 MΩ stare</div></div></a>
+                <a class="item" href="11-pomiary/11-02-petla-zwarcia.html"><span class="item-icon">🔁</span><div class="item-content"><div class="item-title">Pomiar impedancji pętli zwarcia</div><div class="item-desc">Zs ≤ Uo/Ia, czas wyłączenia &lt;0.4s (TN), &lt;0.2s (TT)</div></div></a>
+                <a class="item" href="11-pomiary/11-03-test-rcd.html"><span class="item-icon">🟢</span><div class="item-content"><div class="item-title">Test wyłączników różnicowoprądowych</div><div class="item-desc">IΔn, 1/2 IΔn, 5 IΔn — czas zadziałania, prąd wyzwolenia</div></div></a>
+                <a class="item" href="11-pomiary/11-04-uziemienie.html"><span class="item-icon">⏚</span><div class="item-content"><div class="item-title">Pomiar uziemienia</div><div class="item-desc">Metoda 3-pinowa, MRU, pętla, dopuszczalne wartości</div></div></a>
+                <a class="item" href="11-pomiary/11-05-ciaglosc.html"><span class="item-icon">📞</span><div class="item-content"><div class="item-title">Ciągłość PE i przewodów wyrównawczych</div><div class="item-desc">≥ 200 mA, ≤ 1 Ω</div></div></a>
+                <a class="item" href="11-pomiary/11-06-protokol.html"><span class="item-icon">📜</span><div class="item-content"><div class="item-title">Protokół pomiarowy</div><div class="item-desc">Co musi zawierać, wzór, kto może podpisać (SEP D)</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="fotowoltaika">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">☀️</span><span class="section-title">12 — Fotowoltaika</span><span class="section-meta">5 stron</span></div>
+            <div class="section-description">Instalacja PV — dobór mocy, inwerter, net-billing, magazyn energii, łańcuchy DC.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="12-fotowoltaika/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="12-fotowoltaika/12-01-podstawy.html"><span class="item-icon">🌞</span><div class="item-content"><div class="item-title">Podstawy fotowoltaiki</div><div class="item-desc">Panele mono/poli, kWp, STC, NOCT, sprawność, zacienienie</div></div></a>
+                <a class="item" href="12-fotowoltaika/12-02-dobor-mocy.html"><span class="item-icon">📐</span><div class="item-content"><div class="item-title">Dobór mocy instalacji PV</div><div class="item-desc">Zużycie 4000 kWh = ~4-5 kWp, kąt, azymut, autokonsumpcja</div></div></a>
+                <a class="item" href="12-fotowoltaika/12-03-inwerter.html"><span class="item-icon">🔄</span><div class="item-content"><div class="item-title">Inwerter (falownik)</div><div class="item-desc">Stringowy, hybrydowy, mikroinwerter, MPPT, eta euro</div></div></a>
+                <a class="item" href="12-fotowoltaika/12-04-net-billing.html"><span class="item-icon">💰</span><div class="item-content"><div class="item-title">Net-billing i prosument</div><div class="item-desc">System rozliczeń od 04.2022, RCEm, depozyt prosumencki</div></div></a>
+                <a class="item" href="12-fotowoltaika/12-05-magazyn.html"><span class="item-icon">🔋</span><div class="item-content"><div class="item-title">Magazyn energii</div><div class="item-desc">LiFePO4, dobór pojemności, DoD, cykle, ekonomia</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="smart">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🏡</span><span class="section-title">13 — Smart home</span><span class="section-meta">4 strony</span></div>
+            <div class="section-description">Inteligentny dom — KNX, Zigbee, Z-Wave, Home Assistant, scenariusze.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="13-smart-home/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="13-smart-home/13-01-knx.html"><span class="item-icon">🔗</span><div class="item-content"><div class="item-title">KNX — magistrala przewodowa</div><div class="item-desc">Topologia, ETS, aktory/sensory, koszty 10-30k</div></div></a>
+                <a class="item" href="13-smart-home/13-02-zigbee-zwave.html"><span class="item-icon">📡</span><div class="item-content"><div class="item-title">Zigbee, Z-Wave, Matter, Thread</div><div class="item-desc">Mesh, częstotliwości, kompatybilność, gateway</div></div></a>
+                <a class="item" href="13-smart-home/13-03-home-assistant.html"><span class="item-icon">🏠</span><div class="item-content"><div class="item-title">Home Assistant</div><div class="item-desc">Open-source, automatyzacje, integracje, lokalność</div></div></a>
+                <a class="item" href="13-smart-home/13-04-scenariusze.html"><span class="item-icon">🎬</span><div class="item-content"><div class="item-title">Scenariusze i automatyzacje</div><div class="item-desc">Wszystko-wył, symulacja obecności, czujniki, oświetlenie</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="normy">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📜</span><span class="section-title">14 — Normy i przepisy</span><span class="section-meta">4 strony</span></div>
+            <div class="section-description">PN-HD 60364, Prawo Budowlane, uprawnienia SEP, odbiory techniczne.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="14-normy/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="14-normy/14-01-pn-hd-60364.html"><span class="item-icon">📘</span><div class="item-content"><div class="item-title">PN-HD 60364 — instalacje niskiego napięcia</div><div class="item-desc">Struktura normy, podstawowe wymagania, części 1-8</div></div></a>
+                <a class="item" href="14-normy/14-02-prawo-budowlane.html"><span class="item-icon">⚖️</span><div class="item-content"><div class="item-title">Prawo Budowlane i WT</div><div class="item-desc">Wymagania techniczne, projekt elektryczny, kierownik robót</div></div></a>
+                <a class="item" href="14-normy/14-03-sep.html"><span class="item-icon">🎓</span><div class="item-content"><div class="item-title">Uprawnienia SEP G1</div><div class="item-desc">E (eksploatacja), D (dozór), grupa 1 (do 1 kV), egzamin</div></div></a>
+                <a class="item" href="14-normy/14-04-odbiory.html"><span class="item-icon">✅</span><div class="item-content"><div class="item-title">Odbiory techniczne</div><div class="item-desc">Próby końcowe, oględziny, dokumentacja, przyłączenie</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="przyklady">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📚</span><span class="section-title">15 — Przykłady projektowe</span><span class="section-meta">4 projekty</span></div>
+            <div class="section-description">Kompletne projekty: dom jednorodzinny 100 m², mieszkanie 50 m², garaż-warsztat, instalacja PV 5 kWp.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="15-przyklady/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="15-przyklady/15-01-dom-100m2.html"><span class="item-icon">🏡</span><div class="item-content"><div class="item-title">Dom jednorodzinny 100 m²</div><div class="item-desc">Bilans, obwody, rozdzielnica, schemat — kompletny projekt</div></div></a>
+                <a class="item" href="15-przyklady/15-02-mieszkanie.html"><span class="item-icon">🏢</span><div class="item-content"><div class="item-title">Mieszkanie 50 m²</div><div class="item-desc">Modernizacja na 230 V, 1-faz, 8 obwodów, dobór kabli</div></div></a>
+                <a class="item" href="15-przyklady/15-03-garaz-warsztat.html"><span class="item-icon">🔧</span><div class="item-content"><div class="item-title">Garaż z warsztatem</div><div class="item-desc">Gniazdo siłowe 3F 16/32 A, ładowarka EV 11 kW, oświetlenie</div></div></a>
+                <a class="item" href="15-przyklady/15-04-pv-5kwp.html"><span class="item-icon">☀️</span><div class="item-content"><div class="item-title">Fotowoltaika 5 kWp</div><div class="item-desc">14 paneli 370W, inwerter, AC/DC, zabezpieczenia, dokumentacja</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="awaryjne">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🔋</span><span class="section-title">16 — Zasilanie awaryjne (agregaty)</span><span class="section-meta">7 stron</span></div>
+            <div class="section-description">Agregaty prądotwórcze — budowa, dobór mocy, 1F/3F, przełączanie sieć/agregat (SZR/ATS), instalacja, koszty.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="16-zasilanie-awaryjne/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="16-zasilanie-awaryjne/16-01-rodzaje-zasilania-awaryjnego.html"><span class="item-icon">🔀</span><div class="item-content"><div class="item-title">Rodzaje zasilania awaryjnego</div><div class="item-desc">UPS, agregat, magazyn energii — porównanie i zastosowanie</div></div></a>
+                <a class="item" href="16-zasilanie-awaryjne/16-02-agregaty-budowa-typy.html"><span class="item-icon">⚙️</span><div class="item-content"><div class="item-title">Agregaty — budowa i typy</div><div class="item-desc">Benzyna/diesel/gaz, klasyczne vs inwerterowe, THD, klasy G1-G4</div></div></a>
+                <a class="item" href="16-zasilanie-awaryjne/16-03-jedno-trojfazowy.html"><span class="item-icon">🔢</span><div class="item-content"><div class="item-title">Agregat 1-fazowy vs 3-fazowy</div><div class="item-desc">Dobór, pułapka mocy na fazę, kiedy który</div></div></a>
+                <a class="item" href="16-zasilanie-awaryjne/16-04-dobor-mocy.html"><span class="item-icon">🧮</span><div class="item-content"><div class="item-title">Dobór mocy agregatu</div><div class="item-desc">kVA vs kW, prąd rozruchowy silników, obliczenia krok po kroku</div></div></a>
+                <a class="item" href="16-zasilanie-awaryjne/16-05-przelaczanie-szr-ats.html"><span class="item-icon">🔁</span><div class="item-content"><div class="item-title">Przełączanie sieć/agregat</div><div class="item-desc">Przełącznik ręczny, ATS/SZR, zakaz backfeedingu</div></div></a>
+                <a class="item" href="16-zasilanie-awaryjne/16-06-instalacja-podlaczenie.html"><span class="item-icon">🔌</span><div class="item-content"><div class="item-title">Instalacja i podłączenie</div><div class="item-desc">Uziemienie, spaliny, rozdzielnica obwodów krytycznych, schematy</div></div></a>
+                <a class="item" href="16-zasilanie-awaryjne/16-07-koszty-eksploatacja.html"><span class="item-icon">💰</span><div class="item-content"><div class="item-title">Koszty i eksploatacja</div><div class="item-desc">Cena zakupu, koszt paliwa, przeglądy, żywotność</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="offgrid">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🌐</span><span class="section-title">17 — Off-grid i hybryda</span><span class="section-meta">7 stron</span></div>
+            <div class="section-description">Zasilanie off-grid i hybrydowe (częściowo z sieci) — bilans energii, dobór komponentów, integracja z instalacją.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="17-off-grid/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="17-off-grid/17-01-koncepcje.html"><span class="item-icon">🗺️</span><div class="item-content"><div class="item-title">On-grid, off-grid, hybryda</div><div class="item-desc">Koncepcje, porównanie, kiedy co stosować</div></div></a>
+                <a class="item" href="17-off-grid/17-02-bilans-energetyczny.html"><span class="item-icon">⚖️</span><div class="item-content"><div class="item-title">Bilans energetyczny off-grid</div><div class="item-desc">Audyt zużycia Wh/dobę, dni autonomii, sezonowość zimowa</div></div></a>
+                <a class="item" href="17-off-grid/17-03-komponenty-off-grid.html"><span class="item-icon">🧰</span><div class="item-content"><div class="item-title">Dobór komponentów off-grid</div><div class="item-desc">Regulator PWM/MPPT, inwerter wyspowy, napięcie 12/24/48 V</div></div></a>
+                <a class="item" href="17-off-grid/17-04-system-hybrydowy.html"><span class="item-icon">🔋</span><div class="item-content"><div class="item-title">System hybrydowy</div><div class="item-desc">Inwerter hybrydowy, tryby pracy, funkcja backup/EPS</div></div></a>
+                <a class="item" href="17-off-grid/17-05-integracja-instalacja.html"><span class="item-icon">🔗</span><div class="item-content"><div class="item-title">Integracja z instalacją</div><div class="item-desc">Rozdzielnica backup, obwody krytyczne, schematy wpięcia</div></div></a>
+                <a class="item" href="17-off-grid/17-06-przyklady.html"><span class="item-icon">📚</span><div class="item-content"><div class="item-title">Przykłady projektowe</div><div class="item-desc">Domek off-grid i dom hybrydowy — bilans, schematy, koszty</div></div></a>
+                <a class="item" href="17-off-grid/17-07-projekt-modularny-2kw.html"><span class="item-icon">🧩</span><div class="item-content"><div class="item-title">Projekt modularny 1-fazowy 2 kW</div><div class="item-desc">Tani system na start z opcją rozbudowy — koszty etapów, 7 decyzji projektowych, schemat</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="magazyny">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🔋</span><span class="section-title">18 — Magazyny energii</span><span class="section-meta">6 stron</span></div>
+            <div class="section-description">Magazyny energii — technologie (LiFePO4, NMC), parametry, dobór pojemności, topologie, schematy, ekonomia.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="18-magazyny-energii/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="18-magazyny-energii/18-01-technologie.html"><span class="item-icon">🧪</span><div class="item-content"><div class="item-title">Technologie magazynowania</div><div class="item-desc">LiFePO4, NMC, ołów, sodowo-jonowe — porównanie</div></div></a>
+                <a class="item" href="18-magazyny-energii/18-02-parametry.html"><span class="item-icon">📊</span><div class="item-content"><div class="item-title">Parametry magazynów</div><div class="item-desc">Pojemność, DoD, SoC, cykle, C-rate, BMS, sprawność</div></div></a>
+                <a class="item" href="18-magazyny-energii/18-03-dobor-pojemnosci.html"><span class="item-icon">🧮</span><div class="item-content"><div class="item-title">Dobór pojemności magazynu</div><div class="item-desc">Autokonsumpcja, backup, arbitraż taryfowy — obliczenia</div></div></a>
+                <a class="item" href="18-magazyny-energii/18-04-topologie-schematy.html"><span class="item-icon">🔗</span><div class="item-content"><div class="item-title">Topologie podłączenia</div><div class="item-desc">AC-coupled vs DC-coupled, schematy, dobór kabli</div></div></a>
+                <a class="item" href="18-magazyny-energii/18-05-instalacja-bezpieczenstwo.html"><span class="item-icon">🛡️</span><div class="item-content"><div class="item-title">Instalacja i bezpieczeństwo</div><div class="item-desc">Miejsce montażu, zabezpieczenia DC, ochrona ppoż</div></div></a>
+                <a class="item" href="18-magazyny-energii/18-06-przyklady-ekonomia.html"><span class="item-icon">💰</span><div class="item-content"><div class="item-title">Przykłady i ekonomia</div><div class="item-desc">Retrofit AC, system DC, koszt zł/Wh, zwrot inwestycji</div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="kolektory">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🌡️</span><span class="section-title">19 — Kolektory słoneczne i turbiny</span><span class="section-meta">7 stron</span></div>
+            <div class="section-description">Kolektory słoneczne termiczne i turbiny wiatrowe przydomowe — zasada, dobór, integracja w systemach hybrydowych.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="19-kolektory-turbiny/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="19-kolektory-turbiny/19-01-kolektory-zasada-typy.html"><span class="item-icon">🌞</span><div class="item-content"><div class="item-title">Kolektory słoneczne — zasada i typy</div><div class="item-desc">Termiczne (nie PV), płaskie vs próżniowe, system CWU</div></div></a>
+                <a class="item" href="19-kolektory-turbiny/19-02-dobor-kolektorow.html"><span class="item-icon">🧮</span><div class="item-content"><div class="item-title">Dobór instalacji kolektorów</div><div class="item-desc">Zapotrzebowanie CWU, Q=m·c·ΔT, powierzchnia, zasobnik</div></div></a>
+                <a class="item" href="19-kolektory-turbiny/19-03-turbiny-zasada-typy.html"><span class="item-icon">🌬️</span><div class="item-content"><div class="item-title">Turbiny wiatrowe — zasada i typy</div><div class="item-desc">HAWT vs VAWT, krzywa mocy, prędkości pracy</div></div></a>
+                <a class="item" href="19-kolektory-turbiny/19-04-dobor-turbiny.html"><span class="item-icon">📐</span><div class="item-content"><div class="item-title">Dobór turbiny wiatrowej</div><div class="item-desc">Zasoby wiatru, P=0,5·ρ·A·v³·Cp, maszt, opłacalność</div></div></a>
+                <a class="item" href="19-kolektory-turbiny/19-05-integracja-hybryda.html"><span class="item-icon">🔗</span><div class="item-content"><div class="item-title">Integracja źródeł — multi-source</div><div class="item-desc">PV + wiatr + magazyn + agregat, dump load, schematy</div></div></a>
+                <a class="item" href="19-kolektory-turbiny/19-06-przyklady.html"><span class="item-icon">📚</span><div class="item-content"><div class="item-title">Przykłady projektowe</div><div class="item-desc">Kolektory dla domu, turbina off-grid, system hybrydowy</div></div></a>
+                <a class="item" href="19-kolektory-turbiny/19-07-turbiny-pionowe.html"><span class="item-icon">🌀</span><div class="item-content"><div class="item-title">Turbiny wiatrowe pionowe (VAWT)</div><div class="item-desc">Rodzaje (Savonius, Darrieus, H-rotor, helikalna), wielkości, podłączenie magazynu przy istniejącej PV on-grid</div></div></a>
+            </div></div>
+        </div>
+
+    </div>
+
+    <footer>
+        Elektryka domowa · kompendium 2026 · <a href="../software/index.html">⟵ Software docs</a>
+    </footer>
+
+    <script>
+        function toggleSection(el){el.parentElement.classList.toggle('expanded')}
+        const sections=document.querySelectorAll('.section');
+        const items=document.querySelectorAll('.item');
+        const input=document.getElementById('searchInput');
+        const filters=document.querySelectorAll('.filter-btn');
+        let activeFilter='all';
+
+        function applyFilters(){
+            const q=input.value.toLowerCase().trim();
+            sections.forEach(sec=>{
+                const matchesFilter=activeFilter==='all'||sec.dataset.section===activeFilter;
+                let anyVisible=false;
+                sec.querySelectorAll('.item').forEach(it=>{
+                    const txt=it.textContent.toLowerCase();
+                    const match=!q||txt.includes(q);
+                    it.classList.toggle('hidden',!match);
+                    if(match) anyVisible=true;
+                });
+                sec.classList.toggle('hidden',!matchesFilter||(q&&!anyVisible));
+                if(q&&anyVisible) sec.classList.add('expanded');
+            });
+        }
+        input.addEventListener('input',applyFilters);
+        filters.forEach(b=>b.addEventListener('click',()=>{
+            filters.forEach(x=>x.classList.remove('active'));
+            b.classList.add('active');
+            activeFilter=b.dataset.filter;
+            applyFilters();
+        }));
+        document.addEventListener('keydown',e=>{
+            if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();input.focus();input.select();}
+        });
+    </script>
+</body>
+</html>

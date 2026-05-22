@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gRPC w ASP.NET Core — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">gRPC w ASP.NET Core</span>
+</div>
+<div class="container">
+  <h1>gRPC w ASP.NET Core</h1>
+  <p class="subtitle">Pliki .proto, ProtoBuf, streaming, gRPC-Web, deadlines, interceptory i refleksja</p>
+
+  <h2>Czym jest gRPC?</h2>
+  <p>gRPC to framework RPC (Remote Procedure Call) stworzony przez Google, oparty na HTTP/2 i Protocol Buffers (ProtoBuf). W porownaniu do REST oferuje silnie typowane kontrakty, wydajniejsza serializacje binarna i natywne wsparcie dla streamingu.</p>
+
+  <table>
+    <thead>
+      <tr><th>Cecha</th><th>gRPC</th><th>REST/JSON</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Protokol</strong></td><td>HTTP/2</td><td>HTTP/1.1 lub HTTP/2</td></tr>
+      <tr><td><strong>Serializacja</strong></td><td>ProtoBuf (binarny, ~3-10x mniejszy)</td><td>JSON (tekstowy, czytelny)</td></tr>
+      <tr><td><strong>Kontrakt</strong></td><td>Silnie typowany (.proto)</td><td>OpenAPI (opcjonalny)</td></tr>
+      <tr><td><strong>Streaming</strong></td><td>Natywny (4 wzorce)</td><td>SSE lub WebSocket (zewnetrzny)</td></tr>
+      <tr><td><strong>Browser support</strong></td><td>Wymaga gRPC-Web proxy</td><td>Natywny</td></tr>
+      <tr><td><strong>Kiedy uzywac</strong></td><td>Mikrouslugi backend-to-backend, streaming, real-time</td><td>Publiczne API, frontend, prostota</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Definicja .proto</h2>
+  <pre><code>// products.proto
+syntax = "proto3";
+
+option csharp_namespace = "MyApi.Grpc";
+
+package products;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// Serwis produktow
+service ProductService {
+  // Unary RPC — jeden request, jedna odpowiedz
+  rpc GetProduct (GetProductRequest) returns (ProductResponse);
+  rpc CreateProduct (CreateProductRequest) returns (ProductResponse);
+  rpc UpdateProduct (UpdateProductRequest) returns (ProductResponse);
+  rpc DeleteProduct (DeleteProductRequest) returns (google.protobuf.Empty);
+
+  // Server streaming — jeden request, strumien odpowiedzi
+  rpc ListProducts (ListProductsRequest) returns (stream ProductResponse);
+
+  // Client streaming — strumien requestow, jedna odpowiedz
+  rpc ImportProducts (stream CreateProductRequest) returns (ImportResult);
+
+  // Bidirectional streaming — strumien requestow i odpowiedzi
+  rpc SyncProducts (stream ProductSyncRequest) returns (stream ProductSyncResponse);
+}
+
+message GetProductRequest {
+  int32 id = 1;
+}
+
+message CreateProductRequest {
+  string name = 1;
+  double price = 2;
+  int32 stock = 3;
+  int32 category_id = 4;
+  optional string description = 5;
+}
+
+message UpdateProductRequest {
+  int32 id = 1;
+  string name = 2;
+  double price = 3;
+  int32 stock = 4;
+}
+
+message DeleteProductRequest {
+  int32 id = 1;
+}
+
+message ProductResponse {
+  int32 id = 1;
+  string name = 2;
+  double price = 3;
+  int32 stock = 4;
+  string category_name = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message ListProductsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional int32 category_id = 3;
+  optional double min_price = 4;
+}
+
+message ImportResult {
+  int32 imported = 1;
+  int32 failed = 2;
+  repeated string errors = 3;
+}
+
+message ProductSyncRequest {
+  oneof operation {
+    CreateProductRequest create = 1;
+    UpdateProductRequest update = 2;
+    DeleteProductRequest delete = 3;
+  }
+}
+
+message ProductSyncResponse {
+  bool success = 1;
+  optional string error = 2;
+  int32 processed_id = 3;
+}</code></pre>
+
+  <h2>Konfiguracja projektu (.csproj i Program.cs)</h2>
+  <pre><code>&lt;!-- MyApi.csproj --&gt;
+&lt;ItemGroup&gt;
+  &lt;PackageReference Include="Grpc.AspNetCore" Version="2.65.0" /&gt;
+  &lt;PackageReference Include="Grpc.AspNetCore.Web" Version="2.65.0" /&gt;
+  &lt;PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.65.0" /&gt;
+&lt;/ItemGroup&gt;
+
+&lt;ItemGroup&gt;
+  &lt;Protobuf Include="Protos\products.proto" GrpcServices="Server" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+
+  <pre><code>// Program.cs
+builder.Services.AddGrpc(options =&gt;
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.MaxReceiveMessageSize = 4 * 1024 * 1024;  // 4 MB
+    options.MaxSendMessageSize = 4 * 1024 * 1024;
+    options.Interceptors.Add&lt;LoggingInterceptor&gt;();
+});
+
+builder.Services.AddGrpcReflection();
+
+var app = builder.Build();
+
+app.UseGrpcWeb(new GrpcWebOptions { DefaultEnabled = true });
+
+app.MapGrpcService&lt;ProductGrpcService&gt;()
+   .EnableGrpcWeb()
+   .RequireAuthorization();
+
+if (app.Environment.IsDevelopment())
+    app.MapGrpcReflectionService();
+
+app.Run();</code></pre>
+
+  <h2>Implementacja serwisu gRPC</h2>
+  <pre><code>public class ProductGrpcService : ProductService.ProductServiceBase
+{
+    private readonly IProductRepository _repo;
+    private readonly ILogger&lt;ProductGrpcService&gt; _logger;
+
+    public ProductGrpcService(
+        IProductRepository repo,
+        ILogger&lt;ProductGrpcService&gt; logger)
+    {
+        _repo = repo;
+        _logger = logger;
+    }
+
+    // Unary RPC
+    public override async Task&lt;ProductResponse&gt; GetProduct(
+        GetProductRequest request,
+        ServerCallContext context)
+    {
+        var product = await _repo.GetByIdAsync(
+            request.Id, context.CancellationToken);
+
+        if (product is null)
+            throw new RpcException(new Status(
+                StatusCode.NotFound,
+                $"Produkt {request.Id} nie znaleziony"));
+
+        return MapToResponse(product);
+    }
+
+    // Server-side streaming
+    public override async Task ListProducts(
+        ListProductsRequest request,
+        IServerStreamWriter&lt;ProductResponse&gt; responseStream,
+        ServerCallContext context)
+    {
+        var products = _repo.GetStreamAsync(
+            request.CategoryId,
+            request.PageSize,
+            context.CancellationToken);
+
+        await foreach (var product in products
+            .WithCancellation(context.CancellationToken))
+        {
+            await responseStream.WriteAsync(
+                MapToResponse(product),
+                context.CancellationToken);
+
+            // Sprawdz czy klient nie anulowal
+            if (context.CancellationToken.IsCancellationRequested)
+                break;
+        }
+    }
+
+    // Client-side streaming
+    public override async Task&lt;ImportResult&gt; ImportProducts(
+        IAsyncStreamReader&lt;CreateProductRequest&gt; requestStream,
+        ServerCallContext context)
+    {
+        int imported = 0, failed = 0;
+        var errors = new List&lt;string&gt;();
+
+        await foreach (var req in requestStream.ReadAllAsync(
+            context.CancellationToken))
+        {
+            try
+            {
+                await _repo.CreateAsync(req, context.CancellationToken);
+                imported++;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                errors.Add($"Blad dla '{req.Name}': {ex.Message}");
+                _logger.LogWarning(ex, "Import blad dla {Name}", req.Name);
+            }
+        }
+
+        return new ImportResult
+        {
+            Imported = imported,
+            Failed = failed,
+            Errors = { errors }
+        };
+    }
+
+    // Bidirectional streaming
+    public override async Task SyncProducts(
+        IAsyncStreamReader&lt;ProductSyncRequest&gt; requestStream,
+        IServerStreamWriter&lt;ProductSyncResponse&gt; responseStream,
+        ServerCallContext context)
+    {
+        await foreach (var req in requestStream.ReadAllAsync(
+            context.CancellationToken))
+        {
+            var response = new ProductSyncResponse();
+            try
+            {
+                switch (req.OperationCase)
+                {
+                    case ProductSyncRequest.OperationOneofCase.Create:
+                        var p = await _repo.CreateAsync(
+                            req.Create, context.CancellationToken);
+                        response.Success = true;
+                        response.ProcessedId = p.Id;
+                        break;
+                    case ProductSyncRequest.OperationOneofCase.Delete:
+                        await _repo.DeleteAsync(
+                            req.Delete.Id, context.CancellationToken);
+                        response.Success = true;
+                        response.ProcessedId = req.Delete.Id;
+                        break;
+                    default:
+                        response.Success = false;
+                        response.Error = "Nieznana operacja";
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Error = ex.Message;
+            }
+
+            await responseStream.WriteAsync(response,
+                context.CancellationToken);
+        }
+    }
+
+    private static ProductResponse MapToResponse(Product p) =&gt; new()
+    {
+        Id = p.Id,
+        Name = p.Name,
+        Price = (double)p.Price,
+        Stock = p.Stock,
+        CategoryName = p.Category?.Name ?? string.Empty,
+        CreatedAt = Timestamp.FromDateTime(p.CreatedAt.ToUniversalTime())
+    };
+}</code></pre>
+
+  <h2>Interceptory</h2>
+  <pre><code>// Interceptor logowania (server-side)
+public class LoggingInterceptor : Interceptor
+{
+    private readonly ILogger&lt;LoggingInterceptor&gt; _logger;
+
+    public LoggingInterceptor(ILogger&lt;LoggingInterceptor&gt; logger)
+    {
+        _logger = logger;
+    }
+
+    public override async Task&lt;TResponse&gt; UnaryServerHandler&lt;TRequest, TResponse&gt;(
+        TRequest request,
+        ServerCallContext context,
+        UnaryServerMethod&lt;TRequest, TResponse&gt; continuation)
+    {
+        _logger.LogInformation(
+            "gRPC wywolanie: {Method} od {Peer}",
+            context.Method, context.Peer);
+
+        try
+        {
+            var response = await continuation(request, context);
+            _logger.LogInformation("gRPC sukces: {Method}", context.Method);
+            return response;
+        }
+        catch (RpcException ex)
+        {
+            _logger.LogWarning("gRPC blad {Status}: {Method} — {Detail}",
+                ex.StatusCode, context.Method, ex.Status.Detail);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "gRPC wyjatek: {Method}", context.Method);
+            throw new RpcException(new Status(
+                StatusCode.Internal, "Wewnetrzny blad serwera"));
+        }
+    }
+}</code></pre>
+
+  <h2>Deadlines — limity czasu</h2>
+  <pre><code>// Klient z deadline
+var channel = GrpcChannel.ForAddress("https://localhost:5001");
+var client = new ProductService.ProductServiceClient(channel);
+
+// Deadline — absolutny czas zakonczenia
+var deadline = DateTime.UtcNow.AddSeconds(5);
+var response = await client.GetProductAsync(
+    new GetProductRequest { Id = 1 },
+    new CallOptions(deadline: deadline));
+
+// Deadline z CancellationToken
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+var response2 = await client.GetProductAsync(
+    new GetProductRequest { Id = 2 },
+    new CallOptions(cancellationToken: cts.Token));
+
+// Streaming z deadline
+using var streamCall = client.ListProducts(
+    new ListProductsRequest { PageSize = 100 },
+    new CallOptions(deadline: DateTime.UtcNow.AddSeconds(30)));
+
+await foreach (var product in streamCall.ResponseStream.ReadAllAsync())
+{
+    Console.WriteLine(product.Name);
+}</code></pre>
+
+  <div class="card blue">
+    <strong>gRPC-Web — dostep z przegladarki:</strong> Przegladarki nie wspieraja HTTP/2 trailerów wymaganych przez gRPC. Uzyj <code>Grpc.AspNetCore.Web</code> — middleware tlumacza gRPC-Web na gRPC. Alternatywnie: <strong>Connect protocol</strong> (nowszy standard, wsparcie w .NET 9).
+  </div>
+
+  <div class="nav-bottom">
+    <a href="06-walidacja.html">← 06-walidacja.html</a>
+    <a href="08-graphql-hot-chocolate.html">08-graphql-hot-chocolate.html →</a>
+  </div>
+</div>
+</body>
+</html>

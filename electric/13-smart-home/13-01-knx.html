@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>13-01 — KNX</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">13 Smart home</a><span class="sep">/</span><span class="title">13-01 KNX</span>
+</div>
+<div class="container">
+<h1>KNX — magistralowy standard inteligentnego budynku</h1>
+<p class="subtitle">Otwarty standard ISO/IEC 14543, topologia magistralowa, aktory i sensory, programowanie ETS, ekonomia.</p>
+
+<h2>Czym jest KNX</h2>
+<p><strong>KNX</strong> to otwarty standard inteligentnych budynków, zdefiniowany w normie <strong>ISO/IEC 14543-3</strong> (oraz EN 50090). Właścicielem standardu jest <strong>KNX Association</strong> (Bruksela) — konsorcjum ~500 producentów.</p>
+<p>KNX powstał w 1999 r. z połączenia trzech wcześniejszych systemów (EIB, BatiBUS, EHS). Jest standardem <strong>przewodowym, magistralowym</strong> — kompletnie odmiennym filozoficznie od Zigbee czy Wi-Fi.</p>
+
+<h2>Topologia</h2>
+<p>Hierarchia:</p>
+<pre><code>Backbone
+   ├── Area 1
+   │    ├── Linia 1.1 (do 64 urządzeń + zasilacz)
+   │    ├── Linia 1.2
+   │    └── ...
+   ├── Area 2
+   └── ...</code></pre>
+<ul>
+<li><strong>Linia</strong> — segment podstawowy, do <strong>64 urządzeń</strong>, jeden zasilacz 29 V DC</li>
+<li><strong>Area</strong> — do 15 linii połączonych liniami głównymi</li>
+<li><strong>Backbone</strong> — do 15 area połączonych magistralą szkieletową</li>
+</ul>
+<p>W typowym domu jednorodzinnym wystarczy <strong>1-2 linie</strong>. W każdej linii można stosować topologię gwiazdy, drzewa lub linii — ale <strong>bez pętli</strong>.</p>
+
+<h2>Magistrala — kabel</h2>
+<p>Standardowy kabel: <strong>J-Y(St)Y 2×2×0,8 mm</strong> (zielony) — skrętka ekranowana, 2 pary po 0,8 mm² Cu.</p>
+<ul>
+<li>Jedna para — magistrala (KNX BUS+ czerwony / BUS- czarny)</li>
+<li>Druga para — rezerwa lub dodatkowa funkcja</li>
+</ul>
+<p>Po magistrali biegnie <strong>29 V DC</strong> zasilania urządzeń + <strong>dane telegramy</strong> (modulacja na napięciu zasilającym).</p>
+<p>Max długość linii: <strong>1000 m</strong>, max odległość między dwoma urządzeniami 700 m, między zasilaczem a urządzeniem 350 m.</p>
+
+<h2>Aktory i sensory</h2>
+<h3>Aktory (DIN-rail w rozdzielnicy)</h3>
+<table>
+<thead><tr><th>Typ</th><th>Funkcja</th><th>Cena (orient.)</th></tr></thead>
+<tbody>
+<tr><td><strong>Aktor binarny 4-12 wyjść</strong></td><td>załączanie obwodów (oświetlenie, gniazda, rolety)</td><td>800-2500 zł</td></tr>
+<tr><td><strong>Aktor ściemniający 4-8 ch</strong></td><td>ściemnianie LED 230 V / 0-10 V</td><td>1500-3000 zł</td></tr>
+<tr><td><strong>Aktor rolet 4-8 ch</strong></td><td>sterowanie roletami</td><td>1200-2500 zł</td></tr>
+<tr><td><strong>Aktor grzania 6-12 ch</strong></td><td>sterowanie zaworami ogrzewania podłogowego</td><td>1500-3500 zł</td></tr>
+</tbody>
+</table>
+<h3>Sensory (montaż naścienny / sufitowy)</h3>
+<ul>
+<li><strong>Przyciski wieloprzyciskowe</strong> (2-8 kanałów, scenariusze, długi/krótki dotyk)</li>
+<li><strong>Termostaty pomieszczeniowe</strong></li>
+<li><strong>Czujniki ruchu / obecności</strong></li>
+<li><strong>Stacja pogodowa</strong> (wiatr, deszcz, słońce — sterowanie roletami)</li>
+</ul>
+
+<h2>Programowanie — ETS</h2>
+<p><strong>ETS</strong> (<em>Engineering Tool Software</em>) — oficjalne narzędzie KNX Association. Bez ETS nie zaprogramujesz KNX.</p>
+<table>
+<thead><tr><th>Wersja</th><th>Cena</th><th>Limit</th></tr></thead>
+<tbody>
+<tr><td>ETS Demo / Lite</td><td>0 / ~200 zł</td><td>5 punktów</td></tr>
+<tr><td>ETS Home</td><td>~1300 zł</td><td>64 punkty</td></tr>
+<tr><td>ETS Professional</td><td>~3000 zł</td><td>bez limitu</td></tr>
+</tbody>
+</table>
+<p>Programowanie polega na przypisywaniu <strong>adresów grupowych</strong> (np. 1/1/1 = oświetlenie kuchnia) do obiektów komunikacyjnych aktorów i sensorów. Każdy przycisk wysyła telegram na adres grupowy, każdy aktor nasłuchuje swoich adresów.</p>
+
+<h2>Zalety</h2>
+<ul>
+<li><strong>Niezawodność</strong> — system magistralowy, brak chmury, lokalna kontrola</li>
+<li><strong>Żywotność</strong> — ~30 lat, standardy nie zmieniają się, urządzenia z 1999 r. nadal działają</li>
+<li><strong>Standaryzacja</strong> — urządzenia 500 producentów ze sobą współpracują</li>
+<li><strong>Skalowalność</strong> — od mieszkania po duże biurowce</li>
+<li><strong>Bezpieczeństwo</strong> — KNX Secure (szyfrowanie telegramów) dla nowych instalacji</li>
+<li><strong>Brak zależności od WiFi / Internetu</strong></li>
+</ul>
+
+<h2>Wady</h2>
+<ul>
+<li><strong>Cena</strong> — aktor 8-kanałowy 1500 zł, pełna instalacja domu 30-80 tys. zł (5-10× drożej niż bezprzewodowo)</li>
+<li><strong>Wymaga kabli</strong> — trzeba przewidzieć w projekcie elektrycznym, kuć ściany w modernizacji</li>
+<li><strong>Programowanie</strong> — ETS, czas, wiedza specjalistyczna</li>
+<li><strong>Mniej elastyczne</strong> w modernizacji — dodanie sensora wymaga doprowadzenia kabla</li>
+</ul>
+
+<h2>Marki</h2>
+<p>Najpopularniejsze na rynku:</p>
+<ul>
+<li><strong>ABB</strong> (Niemcy) — premium, klasyk</li>
+<li><strong>Gira</strong> (Niemcy) — design, premium</li>
+<li><strong>Jung</strong> (Niemcy) — premium, design</li>
+<li><strong>Schneider Electric / Merten</strong> — szeroki zakres</li>
+<li><strong>MDT</strong> (Niemcy) — dobra jakość, atrakcyjne ceny</li>
+<li><strong>Hager</strong> (Niemcy/Francja) — bogata oferta rozdzielnicowa</li>
+<li><strong>Theben, Berker, Busch-Jaeger, Siemens</strong> — pozostałe duże marki</li>
+</ul>
+
+<h2>KNX vs alternatywy</h2>
+<table>
+<thead><tr><th>Cecha</th><th>KNX</th><th>Zigbee/Z-Wave</th><th>WiFi (Shelly)</th><th>Loxone</th></tr></thead>
+<tbody>
+<tr><td>Koszt domu 150 m²</td><td>50-100 k zł</td><td>5-15 k zł</td><td>3-8 k zł</td><td>30-60 k zł</td></tr>
+<tr><td>Niezawodność</td><td>bardzo wysoka</td><td>średnia</td><td>niska</td><td>wysoka</td></tr>
+<tr><td>Lokalna kontrola</td><td>tak</td><td>częściowo</td><td>częściowo</td><td>tak</td></tr>
+<tr><td>Otwartość</td><td>tak</td><td>tak</td><td>tak</td><td>nie (własność)</td></tr>
+<tr><td>Modernizacja istn. domu</td><td>trudna</td><td>łatwa</td><td>bardzo łatwa</td><td>trudna</td></tr>
+</tbody>
+</table>
+<div class="tip"><strong>Wniosek:</strong> KNX ma sens w <strong>nowym budownictwie</strong> lub <strong>gruntownym remoncie</strong>, gdzie kable kładzie się od podstaw, i gdzie zależy nam na <strong>30-letniej perspektywie</strong>.</div>
+
+<div class="nav-bottom">
+<a href="index.html">⟵ Spis sekcji 13</a>
+<a href="13-02-zigbee-zwave.html">Zigbee/Z-Wave →</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TypeScript 5.7+ — Statyczne typowanie JS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--accent-hover:#60a5fa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:36px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);text-align:center}
+.footer a{color:var(--accent);text-decoration:none;font-weight:500}.footer a:hover{color:var(--accent-hover)}
+tr:nth-child(even) td{background:rgba(30,41,59,.5)}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a href="../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../index.html">JS-TS</a>
+  <span class="sep">/</span>
+  <span class="title">TypeScript</span>
+</nav>
+
+<div class="container">
+  <h1>TypeScript 5.7+</h1>
+  <p class="subtitle">Statyczne typowanie JS. De facto standard dla nowych projektow w 2026.</p>
+
+  <!-- 1. Dlaczego TypeScript -->
+  <h2>1. Dlaczego TypeScript</h2>
+  <p>TypeScript to <strong>nadzbiór JavaScript</strong> — kazdy poprawny kod JS jest poprawnym kodem TS. TypeScript dodaje system typow sprawdzany w czasie kompilacji, który jest nastepnie usuwany — wynikowy kod to czysty JavaScript.</p>
+  <div class="card blue">
+    <strong>Trzy glowne korzysci:</strong>
+    <ol style="margin-top:8px">
+      <li><strong>Compile-time errors</strong> — bledy typow wykryte zanim kod dotrze na produkcje</li>
+      <li><strong>Editor support</strong> — autocompletion, refactoring, go-to-definition dzialaja dokladnie</li>
+      <li><strong>Dokumentacja w kodzie</strong> — sygnatury funkcji sa czytelna dokumentacja API</li>
+    </ol>
+  </div>
+  <table>
+    <tr><th>TypeScript — kiedy uzywac</th><th>JavaScript — kiedy wystarczy</th></tr>
+    <tr><td>Projekty teamowe (2+ osob)</td><td>Szybkie prototypy / skrypty jednorazowe</td></tr>
+    <tr><td>Biblioteki npm (public API)</td><td>Proste skrypty Node.js (np. deploy scripts)</td></tr>
+    <tr><td>Projekty dlugodystansowe (&gt;6 mies.)</td><td>Glue code konfiguracyjny (vite.config.js)</td></tr>
+    <tr><td>Aplikacje ze zlozonymi modelami danych</td><td>Micro-projekty bez dlugoterminowego maintainance</td></tr>
+    <tr><td>Wszelki kod produkcyjny backend/frontend</td><td>Jupyter-like data exploration (Deno + TS jest ok)</td></tr>
+  </table>
+
+  <!-- 2. Instalacja i tsconfig -->
+  <h2>2. Instalacja i tsconfig.json</h2>
+  <pre><code># instalacja
+npm install -D typescript
+# lub globalnie
+npm install -g typescript
+
+# inicjalizacja tsconfig
+npx tsc --init
+
+# kompilacja
+npx tsc              # kompiluje wg tsconfig.json
+npx tsc --watch      # watch mode
+npx tsc --noEmit     # tylko sprawdzanie typow (bez output)</code></pre>
+  <pre><code>// tsconfig.json — zalecana konfiguracja 2026
+{
+  "compilerOptions": {
+    // cel kompilacji
+    "target": "ES2022",           // jaka wersja JS na wyjsciu
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+
+    // modul system
+    "module": "NodeNext",         // Node.js ESM/CJS detection
+    "moduleResolution": "NodeNext",
+
+    // tryby scislosci (ZAWSZE wlaczaj w nowych projektach)
+    "strict": true,               // wlacza wszystkie ponizsze
+    "noUncheckedIndexedAccess": true,  // arr[0] jest T | undefined
+    "exactOptionalPropertyTypes": true, // { a?: string } != { a: string | undefined }
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // importy
+    "esModuleInterop": true,
+    "verbatimModuleSyntax": true, // TS 5.0+ — import type enforcement
+    "resolveJsonModule": true,
+
+    // output
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,          // generuj .d.ts
+    "declarationMap": true,       // source maps dla .d.ts
+    "sourceMap": true,
+
+    // paths — aliasy (wymaga tez konfiguracji bundlera)
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}</code></pre>
+
+  <!-- 3. Podstawowe typy -->
+  <h2>3. Podstawowe typy</h2>
+  <pre><code>// primitives
+const name: string = 'Jan';
+const age: number = 30;
+const active: boolean = true;
+const nothing: null = null;
+const notDefined: undefined = undefined;
+
+// arrays
+const nums: number[] = [1, 2, 3];
+const strs: Array&lt;string&gt; = ['a', 'b'];
+
+// tuple — tablica o stalej dlugosci i typach
+const pair: [string, number] = ['Jan', 30];
+const rgb: readonly [number, number, number] = [255, 0, 128];
+
+// enum — nazwane stale
+enum Direction { Up, Down, Left, Right }
+const dir: Direction = Direction.Up;
+
+// const enum — inlinowany w kompilacji (zero runtime)
+const enum Status { Active = 'active', Inactive = 'inactive' }
+
+// any — wylaczy sprawdzanie typow (uzywaj sparingly!)
+const data: any = fetchSomething();
+
+// unknown — bezpieczna alternatywa dla any
+const value: unknown = getInput();
+if (typeof value === 'string') {
+  console.log(value.toUpperCase()); // OK — zawezony typ
+}
+
+// never — typ ktory nigdy nie wystepuje
+function throwError(msg: string): never {
+  throw new Error(msg);
+}
+
+// void — funkcja nic nie zwraca
+function log(msg: string): void {
+  console.log(msg);
+}
+
+// object types
+const user: { name: string; age: number; email?: string } = {
+  name: 'Jan',
+  age: 30
+  // email jest opcjonalne
+};
+
+// union types
+let id: string | number = 'abc';
+id = 123;  // OK
+
+// intersection types
+type Admin = User & { role: 'admin'; permissions: string[] };</code></pre>
+
+  <!-- 4. Interface vs Type -->
+  <h2>4. Interface vs Type — kiedy co</h2>
+  <table>
+    <tr>
+      <th>Cecha</th>
+      <th>interface</th>
+      <th>type alias</th>
+    </tr>
+    <tr>
+      <td>Obiekty / klasy</td>
+      <td>Tak (preferowane)</td>
+      <td>Tak</td>
+    </tr>
+    <tr>
+      <td>Prymitywy, union, tuple</td>
+      <td>Nie</td>
+      <td>Tak (jedyna opcja)</td>
+    </tr>
+    <tr>
+      <td>Declaration merging</td>
+      <td>Tak — mozna rozszerzac przez redefinicje</td>
+      <td>Nie — blad kompilacji</td>
+    </tr>
+    <tr>
+      <td>extends / implements</td>
+      <td>Tak (naturalne)</td>
+      <td>Tak (przez &amp;)</td>
+    </tr>
+    <tr>
+      <td>Computed properties</td>
+      <td>Ograniczone</td>
+      <td>Pelne wsparcie</td>
+    </tr>
+    <tr>
+      <td>Error messages</td>
+      <td>Czesciej pokazuje nazwe</td>
+      <td>Czesciej rozwija structure</td>
+    </tr>
+    <tr>
+      <td>Zalecenie 2026</td>
+      <td>Public API, klasy, React props</td>
+      <td>Union types, utility types, tuples</td>
+    </tr>
+  </table>
+  <pre><code>// interface — preferowane dla obiektow/klas
+interface User {
+  id: number;
+  name: string;
+  email?: string;
+}
+
+// rozszerzanie interface
+interface AdminUser extends User {
+  role: 'admin';
+  permissions: string[];
+}
+
+// type alias — konieczne dla union/intersection/tuple
+type ID = string | number;
+type Result&lt;T&gt; = { data: T; error: null } | { data: null; error: Error };
+type Pair&lt;T&gt; = [T, T];
+type EventName = `on${Capitalize&lt;string&gt;}`; // template literal type</code></pre>
+
+  <!-- 5. Generics -->
+  <h2>5. Generics</h2>
+  <pre><code>// generic function
+function identity&lt;T&gt;(value: T): T {
+  return value;
+}
+identity&lt;string&gt;('hello');  // explicite
+identity(42);               // inferowane — T = number
+
+// generic z constraint
+function getProperty&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K] {
+  return obj[key];
+}
+const user = { name: 'Jan', age: 30 };
+getProperty(user, 'name');  // string
+getProperty(user, 'age');   // number
+// getProperty(user, 'email');  // BLAD — 'email' nie istnieje
+
+// generic interface
+interface Repository&lt;T&gt; {
+  findById(id: string): Promise&lt;T | null&gt;;
+  findAll(): Promise&lt;T[]&gt;;
+  save(entity: T): Promise&lt;T&gt;;
+  delete(id: string): Promise&lt;void&gt;;
+}
+
+// generic class
+class Stack&lt;T&gt; {
+  private items: T[] = [];
+  push(item: T): void { this.items.push(item); }
+  pop(): T | undefined { return this.items.pop(); }
+  peek(): T | undefined { return this.items.at(-1); }
+  get size(): number { return this.items.length; }
+}
+
+const stack = new Stack&lt;number&gt;();
+stack.push(1);
+stack.push(2);
+const top = stack.pop(); // number | undefined
+
+// conditional types
+type IsArray&lt;T&gt; = T extends any[] ? true : false;
+type NonNullable&lt;T&gt; = T extends null | undefined ? never : T;
+
+// infer — wyodrebnianie typow
+type ReturnType&lt;T extends (...args: any) =&gt; any&gt; =
+  T extends (...args: any) =&gt; infer R ? R : never;
+
+type UnpackPromise&lt;T&gt; = T extends Promise&lt;infer U&gt; ? U : T;
+type Result = UnpackPromise&lt;Promise&lt;string&gt;&gt;;  // string</code></pre>
+
+  <!-- 6. Utility Types -->
+  <h2>6. Utility Types</h2>
+  <pre><code>interface User {
+  id: number;
+  name: string;
+  email: string;
+  password: string;
+  createdAt: Date;
+}
+
+// Partial&lt;T&gt; — wszystkie pola opcjonalne
+type UserUpdate = Partial&lt;User&gt;;
+// { id?: number; name?: string; ... }
+
+// Required&lt;T&gt; — wszystkie pola wymagane
+type StrictUser = Required&lt;Partial&lt;User&gt;&gt;;
+
+// Readonly&lt;T&gt; — wszystkie pola readonly
+type ImmutableUser = Readonly&lt;User&gt;;
+
+// Pick&lt;T, K&gt; — wybierz pola
+type UserPublic = Pick&lt;User, 'id' | 'name' | 'email'&gt;;
+// { id: number; name: string; email: string }
+
+// Omit&lt;T, K&gt; — usun pola
+type UserWithoutPassword = Omit&lt;User, 'password'&gt;;
+
+// Record&lt;K, V&gt; — slownik
+type UserMap = Record&lt;string, User&gt;;
+type StatusLabels = Record&lt;'active' | 'inactive' | 'banned', string&gt;;
+
+// ReturnType&lt;T&gt; — typ zwracany funkcji
+function createUser(name: string): User { /* ... */ return {} as User; }
+type CreatedUser = ReturnType&lt;typeof createUser&gt;;  // User
+
+// Awaited&lt;T&gt; — odwijanie Promise (TS 4.5+)
+type FetchedUser = Awaited&lt;ReturnType&lt;typeof fetchUser&gt;&gt;;
+
+// Parameters&lt;T&gt; — typy parametrow funkcji
+type CreateParams = Parameters&lt;typeof createUser&gt;;  // [string]
+
+// Extract / Exclude
+type StringOrNumber = string | number | boolean;
+type OnlyStrNum = Extract&lt;StringOrNumber, string | number&gt;;   // string | number
+type NoBoolean = Exclude&lt;StringOrNumber, boolean&gt;;            // string | number
+
+// NonNullable&lt;T&gt;
+type MaybeString = string | null | undefined;
+type DefinitelyString = NonNullable&lt;MaybeString&gt;;  // string</code></pre>
+
+  <!-- 7. TypeScript 5.x features -->
+  <h2>7. TypeScript 5.x — nowosci</h2>
+  <pre><code>// satisfies operator (TS 4.9) — sprawdz typ bez utraty wnioskowania
+const palette = {
+  red: [255, 0, 0],
+  green: '#00ff00',
+} satisfies Record&lt;string, string | number[]&gt;;
+
+// TypeScript wie ze palette.red to number[], nie string | number[]
+palette.red.map(v =&gt; v * 2);  // OK (bez satisfies byloby blad)
+
+// using keyword (TS 5.2) — Explicit Resource Management
+// automatyczne czyszczenie zasobow (jak finally, ale czytelniejsze)
+class DatabaseConnection {
+  [Symbol.dispose]() { this.close(); }
+  close() { console.log('Zamknieto polaczenie'); }
+  query(sql: string) { return []; }
+}
+
+function processData() {
+  using db = new DatabaseConnection();  // auto-dispose po wyjsciu scope
+  const results = db.query('SELECT * FROM users');
+  return results;
+  // db.close() wywolywane automatycznie tutaj
+}
+
+// const type parameters (TS 5.0)
+function toArray&lt;const T&gt;(value: T): T[] {
+  return [value];
+}
+const arr = toArray('hello');  // string[] zamiast "hello"[]
+// const arr2 = toArray(['a', 'b'] as const);  // readonly ["a", "b"][]
+
+// verbatimModuleSyntax (TS 5.0) — wymusza "import type" dla typow
+import type { User } from './types';  // usuwane w kompilacji
+import { createUser } from './user';  // pozostaje w output
+
+// TS 5.5 — inferred type predicates
+function isString(value: unknown) {
+  return typeof value === 'string';
+  // TS 5.5 automatycznie wnioskuje: value is string
+}
+const values: (string | number)[] = ['a', 1, 'b', 2];
+const strings = values.filter(isString);  // string[] (bez as string[])
+
+// TS 5.7 — Path rewriting dla ESM
+// pozwala pisac .ts importy w source i miec .js w output</code></pre>
+
+  <!-- 8. Discriminated unions -->
+  <h2>8. Discriminated Unions i Type Guards</h2>
+  <pre><code">// discriminated union — wspolne pole "type" rozroznia warianty
+type ApiResult&lt;T&gt; =
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: string; code: number };
+
+function handleResult&lt;T&gt;(result: ApiResult&lt;T&gt;) {
+  switch (result.status) {
+    case 'loading':
+      return '&lt;Spinner /&gt;';
+    case 'success':
+      return result.data;   // TypeScript wie ze data istnieje
+    case 'error':
+      return `Blad ${result.code}: ${result.error}`;
+    // default nie potrzebny — TS sprawdza wyczerpanie
+  }
+}
+
+// type guards — zawezanie typow
+function isUser(value: unknown): value is User {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    'name' in value
+  );
+}
+
+// assertion functions (TS 3.7)
+function assertUser(value: unknown): asserts value is User {
+  if (!isUser(value)) throw new Error('Not a user');
+}
+
+// instanceof guard
+function processInput(input: string | Error) {
+  if (input instanceof Error) {
+    console.error(input.message);  // Error
+  } else {
+    console.log(input.toUpperCase());  // string
+  }
+}
+
+// in operator guard
+type Cat = { meow(): void };
+type Dog = { bark(): void };
+
+function makeSound(animal: Cat | Dog) {
+  if ('meow' in animal) {
+    animal.meow();  // Cat
+  } else {
+    animal.bark();  // Dog
+  }
+}</code></pre>
+
+  <!-- 9. Declaration files -->
+  <h2>9. Declaration Files (.d.ts) i DefinitelyTyped</h2>
+  <p>Pliki <code>.d.ts</code> to deklaracje typow bez implementacji — opisuja ksztalt modulu JS dla TypeScripta.</p>
+  <pre><code">// moj-modul.d.ts — reczna deklaracja dla JS library bez typow
+declare module 'stara-biblioteka' {
+  export function parse(input: string): object;
+  export interface Options {
+    strict?: boolean;
+    encoding?: 'utf-8' | 'latin1';
+  }
+  export function process(data: object, options?: Options): string;
+  export default parse;
+}
+
+// ambient declarations — globalne typy
+declare global {
+  interface Window {
+    myAnalytics: { track(event: string): void };
+  }
+  const __DEV__: boolean;
+}
+
+// augmentacja istniejacych modulow
+declare module 'express' {
+  interface Request {
+    user?: User;  // dodaj wlasnosc do Express Request
+  }
+}</code></pre>
+  <pre><code"># DefinitelyTyped — @types/* packages
+# Jesli biblioteka nie ma wbudowanych typow:
+npm install -D @types/lodash
+npm install -D @types/node
+npm install -D @types/react @types/react-dom
+
+# Sprawdzenie czy biblioteka ma typy wbudowane lub @types:
+# https://www.typescriptlang.org/dt/search
+# lub sprawdz package.json biblioteki — pole "types" lub "typings"
+
+# Wiele nowoczesnych bibliotek ma typy wbudowane (bez @types):
+# zod, trpc, prisma, drizzle, tanstack-query, etc.</code></pre>
+
+  <!-- 10. tsconfig strict preset -->
+  <h2>10. tsconfig — strict + dodatkowe flagi</h2>
+  <pre><code">// "strict": true wlacza WSZYSTKIE ponizsze flagi naraz:
+// strictNullChecks — null/undefined nie sa w kazdym typie
+// strictFunctionTypes — scislejsze sprawdzanie funkcji
+// strictBindCallApply — sprawdzanie bind/call/apply
+// strictPropertyInitialization — pola klasy musza byc inicjalizowane
+// noImplicitAny — blad gdy TS wnioskuje 'any'
+// noImplicitThis — blad gdy 'this' jest niejawnie any
+// alwaysStrict — "use strict" w kazdym pliku
+
+// Dodatkowe flagi warte wlaczenia:
+{
+  "compilerOptions": {
+    "strict": true,
+
+    // arr[0] zwraca T | undefined (nie T)
+    // zapobiega blalom przy pustych tablicach
+    "noUncheckedIndexedAccess": true,
+
+    // { a?: string } nie akceptuje { a: string | undefined }
+    // bardziej precyzyjne typy opcjonalne
+    "exactOptionalPropertyTypes": true,
+
+    // blad gdy sciezka importu nie pasuje do case systemu plikow
+    "forceConsistentCasingInFileNames": true,
+
+    // blad gdy nie wszystkie sciezki funkcji zwracaja wartosc
+    "noImplicitReturns": true,
+
+    // blad gdy case w switch nie ma break/return
+    "noFallthroughCasesInSwitch": true,
+
+    // blad przy nieuzywanych zmiennych lokalnych
+    "noUnusedLocals": true,
+
+    // blad przy nieuzywanych parametrach funkcji
+    "noUnusedParameters": true
+  }
+}</code></pre>
+
+  <!-- 11. Runtime validators -->
+  <h2>11. TypeScript z runtime validators — Zod, Valibot, Arktype</h2>
+  <p>TypeScript sprawdza typy w <em>czasie kompilacji</em>. Dane z zewnatrz (API, formularze, env vars) sa w runtime <code>unknown</code> — trzeba je walidowac. Biblioteki walidacyjne lacza runtime safety z TypeScript types.</p>
+  <pre><code">// Zod — najpopularniejsza biblioteka walidacji (2026)
+import { z } from 'zod';
+
+// definiowanie schematu = typ + walidacja w jednym
+const UserSchema = z.object({
+  id: z.number().positive(),
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  age: z.number().int().min(0).max(150).optional(),
+  role: z.enum(['user', 'admin', 'moderator']),
+  createdAt: z.coerce.date(),  // konwertuje string na Date
+});
+
+// wyodrebnianie typu TypeScript ze schematu
+type User = z.infer&lt;typeof UserSchema&gt;;
+
+// walidacja w runtime
+const result = UserSchema.safeParse(unknownData);
+if (result.success) {
+  const user: User = result.data;  // typescript wie ze to User
+  console.log(user.email);
+} else {
+  console.error(result.error.flatten());
+}
+
+// Valibot — alternatywa z mniejszym bundle (tree-shakeable)
+import * as v from 'valibot';
+
+const PostSchema = v.object({
+  title: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
+  content: v.string(),
+  tags: v.array(v.string()),
+  published: v.boolean(),
+});
+
+type Post = v.InferOutput&lt;typeof PostSchema&gt;;
+
+// Zod z tRPC — end-to-end type safety
+// router.ts
+const appRouter = router({
+  getUser: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input }) =&gt; {
+      return db.user.findUnique({ where: { id: input.id } });
+      // zwracany typ jest automatycznie inferowany przez tRPC
+    }),
+});</code></pre>
+  <div class="card green">
+    <strong>Wzorzec "parse, don't validate":</strong> Zawsze parsuj zewnetrzne dane przez schemat Zod/Valibot na granicy systemu (API endpoint, form handler, env loading). Wewnatrz aplikacji mozesz ufac TypeScript typom — dane sa juz zwalidowane.
+  </div>
+
+  <div class="footer">
+    <a href="../index.html">← Wroc do JS/TS</a>
+  </div>
+</div>
+</body>
+</html>

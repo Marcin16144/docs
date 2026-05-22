@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beanie + MongoDB</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--accent-hover:#60a5fa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Python</a>
+  <span class="sep">/</span>
+  <span class="title">Beanie + MongoDB</span>
+</div>
+<div class="container">
+  <h1>Beanie + MongoDB</h1>
+  <p class="subtitle">Motor (async driver), Beanie ODM, Document model, CRUD, aggregations, relacje, integracja z FastAPI</p>
+
+  <h2>Motor i Beanie — stos MongoDB dla async Python</h2>
+  <p><strong>Motor</strong> to oficjalny asynchroniczny sterownik MongoDB dla Pythona — wrapper nad PyMongo wykorzystujacy asyncio. <strong>Beanie</strong> to ODM (Object Document Mapper) zbudowany nad Motor, ktory dodaje Pydantic v2 jako walidacje i intuicyjne API do operacji na dokumentach.</p>
+
+  <div class="card green">
+    <h3>Instalacja</h3>
+    <p><code>uv add beanie motor fastapi uvicorn</code><br>
+    Beanie automatycznie instaluje Motor jako zaleznosc. Wymaga MongoDB 4.4+ lub MongoDB Atlas.</p>
+  </div>
+
+  <h2>Document — model dokumentu MongoDB</h2>
+  <p>Kazdy dokument MongoDB to klasa dziedziczaca z <code>Document</code> (Beanie). Klasa <code>Document</code> rozszerza Pydantic <code>BaseModel</code>, wiec mozesz uzywac wszystkich walidatorow i adnotacji Pydantic.</p>
+
+<pre><code>from beanie import Document, Indexed, Link, BackLink, before_event, after_event
+from beanie import Insert, Update, Delete, Replace
+from pydantic import Field, EmailStr, model_validator
+from datetime import datetime
+from typing import Optional, Annotated
+import uuid
+
+# ---- Model kategorii ----
+class Kategoria(Document):
+    nazwa: Annotated[str, Indexed(unique=True)]  # unikalny index MongoDB
+    slug: str
+    opis: str = ""
+    aktywna: bool = True
+
+    class Settings:
+        name = "kategorie"          # nazwa kolekcji w MongoDB
+        use_revision = True         # optimistic locking (wersjonowanie)
+        indexes = [
+            [("slug", 1)],          # index na slug
+        ]
+
+# ---- Model produktu z relacja ----
+class Produkt(Document):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    nazwa: str = Field(min_length=1, max_length=200)
+    opis: str = ""
+    cena: float = Field(gt=0)
+    stan_magazynowy: int = Field(ge=0, default=0)
+    tagi: list[str] = Field(default_factory=list)
+    metadane: dict = Field(default_factory=dict)
+
+    # Relacja przez Link — lazy loading
+    kategoria: Link[Kategoria] | None = None
+
+    # Pola z automatycznymi wartosciami
+    utworzono: datetime = Field(default_factory=datetime.utcnow)
+    zaktualizowano: datetime = Field(default_factory=datetime.utcnow)
+    aktywny: bool = True
+
+    class Settings:
+        name = "produkty"
+        indexes = [
+            [("nazwa", "text"), ("opis", "text")],  # text search index
+            [("cena", 1)],
+            [("tagi", 1)],
+            [("aktywny", 1), ("cena", 1)],          # index zlozony
+        ]
+
+    # Hook przed zapisem — aktualizuj timestamp
+    @before_event(Update, Replace)
+    def ustaw_czas_aktualizacji(self) -> None:
+        self.zaktualizowano = datetime.utcnow()
+
+    @model_validator(mode="after")
+    def sprawdz_cene_stan(self) -> "Produkt":
+        if self.stan_magazynowy == 0 and self.aktywny:
+            # mozna automatycznie dezaktywowac
+            pass
+        return self
+
+# ---- Model uzytkownika ----
+class Uzytkownik(Document):
+    email: Annotated[EmailStr, Indexed(unique=True)]
+    imie: str
+    nazwisko: str
+    rola: str = "user"
+    aktywny: bool = True
+    utworzono: datetime = Field(default_factory=datetime.utcnow)
+
+    # Backlink — odwrotna relacja (nie zapisywana w dokumencie)
+    zamowienia: list[BackLink["Zamowienie"]] = Field(
+        default_factory=list, exclude=True
+    )
+
+    class Settings:
+        name = "uzytkownicy"
+
+class Zamowienie(Document):
+    uzytkownik: Link[Uzytkownik]
+    produkty: list[Link[Produkt]]
+    suma: float
+    status: str = "nowe"
+    utworzono: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "zamowienia"
+</code></pre>
+
+  <h2>CRUD — operacje na dokumentach</h2>
+
+<pre><code>from beanie import PydanticObjectId
+from beanie.operators import In, GTE, LTE, Set, Inc, Push
+
+# ---- CREATE ----
+async def przyklad_create() -> None:
+    # Sposob 1: insert()
+    kategoria = Kategoria(nazwa="Elektronika", slug="elektronika")
+    await kategoria.insert()
+    print(f"ID: {kategoria.id}")  # MongoDB ObjectId lub UUID
+
+    # Sposob 2: save() — tworzy lub aktualizuje
+    produkt = Produkt(
+        nazwa="Laptop Pro X",
+        cena=3499.99,
+        stan_magazynowy=15,
+        tagi=["laptop", "komputer", "praca"],
+    )
+    await produkt.save()
+
+    # Bulk insert
+    produkty = [
+        Produkt(nazwa=f"Produkt {i}", cena=float(i * 10))
+        for i in range(1, 11)
+    ]
+    await Produkt.insert_many(produkty)
+
+# ---- READ ----
+async def przyklad_read() -> None:
+    # Pobierz po ID
+    produkt = await Produkt.get(PydanticObjectId("507f1f77bcf86cd799439011"))
+
+    # Znajdz jeden dokument
+    produkt = await Produkt.find_one(Produkt.nazwa == "Laptop Pro X")
+
+    # Znajdz wiele — z filtrowaniem i sortowaniem
+    aktywne = await Produkt.find(
+        Produkt.aktywny == True,
+        Produkt.cena >= 100.0,
+    ).sort(-Produkt.cena).limit(10).to_list()
+
+    # Pobierz z zaladowanymi relacjami (fetch_links)
+    produkt_z_kat = await Produkt.find_one(
+        Produkt.nazwa == "Laptop Pro X",
+        fetch_links=True,  # zaladuje Kategoria przez Link
+    )
+
+    # Wyszukiwanie tekstowe (wymaga text index)
+    wyniki = await Produkt.find(
+        {"$text": {"$search": "laptop wydajny"}}
+    ).to_list()
+
+    # Zlicz dokumenty
+    liczba = await Produkt.find(Produkt.aktywny == True).count()
+
+    # Sprawdz czy istnieje
+    istnieje = await Produkt.find(
+        Produkt.nazwa == "Laptop Pro X"
+    ).exists()
+
+# ---- UPDATE ----
+async def przyklad_update() -> None:
+    produkt = await Produkt.find_one(Produkt.nazwa == "Laptop Pro X")
+    if produkt:
+        # Aktualizuj pole i zapisz
+        produkt.cena = 2999.99
+        await produkt.save()
+
+        # Aktualizuj operatorem (bez pobierania dokumentu)
+        await Produkt.find(
+            Produkt.stan_magazynowy == 0
+        ).update(Set({Produkt.aktywny: False}))
+
+        # Inkrementacja
+        await produkt.update(Inc({Produkt.stan_magazynowy: 5}))
+
+        # Dodaj do tablicy
+        await produkt.update(Push({Produkt.tagi: "wyprzedaz"}))
+
+# ---- DELETE ----
+async def przyklad_delete() -> None:
+    produkt = await Produkt.find_one(Produkt.nazwa == "Stary Produkt")
+    if produkt:
+        await produkt.delete()
+
+    # Bulk delete
+    await Produkt.find(Produkt.aktywny == False).delete()
+</code></pre>
+
+  <h2>Aggregation Pipeline</h2>
+  <p>Beanie udostepnia dostep do pelnego MongoDB Aggregation Pipeline przez <code>aggregate()</code>. Pozwala na zaawansowane obliczenia, grupowanie i transformacje danych.</p>
+
+  <h2>Porownanie sterownikow MongoDB dla Python</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cecha</th>
+        <th>Beanie (ODM)</th>
+        <th>MongoEngine</th>
+        <th>pymongo (raw)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Walidacja</td>
+        <td>Pydantic v2 (pelna)</td>
+        <td>Wlasna (slabsza)</td>
+        <td>Brak</td>
+      </tr>
+      <tr>
+        <td>Async</td>
+        <td>Tak (Motor)</td>
+        <td>Nie (sync only)</td>
+        <td>Motor (oddzielny)</td>
+      </tr>
+      <tr>
+        <td>Type hints</td>
+        <td>Pelne</td>
+        <td>Czesciowe</td>
+        <td>Brak (dict)</td>
+      </tr>
+      <tr>
+        <td>Agregacje</td>
+        <td>Pelny pipeline</td>
+        <td>Ograniczone</td>
+        <td>Pelny pipeline</td>
+      </tr>
+      <tr>
+        <td>Relacje</td>
+        <td>Link[], BackLink[]</td>
+        <td>ReferenceField</td>
+        <td>Reczne</td>
+      </tr>
+      <tr>
+        <td>FastAPI integracja</td>
+        <td>Doskonala</td>
+        <td>Slaba (sync)</td>
+        <td>Wymaga opakowywania</td>
+      </tr>
+      <tr>
+        <td>Idealny dla</td>
+        <td>Nowe projekty async</td>
+        <td>Stare projekty Django</td>
+        <td>Pelna kontrola, perf</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Inicjalizacja z FastAPI lifespan</h2>
+
+<pre><code>from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from beanie import init_beanie
+from motor.motor_asyncio import AsyncIOMotorClient
+import os
+
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+DB_NAME = os.environ.get("DB_NAME", "mojabaza")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # STARTUP — polacz z MongoDB i inicjalizuj Beanie
+    client = AsyncIOMotorClient(MONGO_URL)
+    await init_beanie(
+        database=client[DB_NAME],
+        document_models=[
+            Kategoria,
+            Produkt,
+            Uzytkownik,
+            Zamowienie,
+        ],
+    )
+    print(f"Polaczono z MongoDB: {DB_NAME}")
+    yield
+    # SHUTDOWN — zamknij polaczenie
+    client.close()
+    print("Rozlaczono z MongoDB")
+
+app = FastAPI(lifespan=lifespan)
+
+@app.get("/produkty/")
+async def lista_produktow(limit: int = 20) -> list[Produkt]:
+    return await Produkt.find(
+        Produkt.aktywny == True
+    ).sort(-Produkt.utworzono).limit(limit).to_list()
+</code></pre>
+
+  <div class="card orange">
+    <h3>Indexed — indeksy w Beanie</h3>
+    <p>Uzyj <code>Annotated[str, Indexed(unique=True)]</code> dla pol z indeksem unikalnym lub <code>Indexed(index_type=pymongo.TEXT)</code> dla wyszukiwania pelnotekstowego. Beanie tworzy indeksy automatycznie podczas <code>init_beanie()</code> — nie musisz tworzyc ich recznie w MongoDB.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="07-sqlalchemy.html">← 07-sqlalchemy.html</a>
+    <a href="09-uwierzytelnianie.html">09-uwierzytelnianie.html →</a>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11-02 — Pomiar Zs</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">11 Pomiary</a><span class="sep">/</span><span class="title">11-02 Pomiar Zs</span>
+</div>
+<div class="container">
+<h1>Pomiar impedancji pętli zwarcia (Zs)</h1>
+<p class="subtitle">Mernik MZC, najodleglejsze gniazdo każdego obwodu, korekcja 2/3, postępowanie przy Zs za dużym.</p>
+
+<h2>Powiązanie z teorią</h2>
+<p>Pełna teoria pętli zwarcia, warunek samoczynnego wyłączenia oraz tabela maks. Zs są opisane w <strong><a href="../09-uziemienie/09-04-petla-zwarcia.html">09-04 Pętla zwarcia</a></strong>. Tutaj — <strong>strona pomiarowa</strong>: jak, czym, gdzie i jak interpretować.</p>
+
+<h2>Mernik MZC</h2>
+<p>Pomiar Zs wykonuje się dedykowanym <strong>miernikiem impedancji pętli zwarcia (MZC)</strong>.</p>
+<table>
+<thead><tr><th>Model</th><th>Producent</th><th>Funkcje</th></tr></thead>
+<tbody>
+<tr><td><strong>Sonel MZC-300</strong></td><td>Sonel</td><td>podstawowy, Zs L-PE, prąd 25 A</td></tr>
+<tr><td><strong>Sonel MZC-320S</strong></td><td>Sonel</td><td>+ Zs L-N, RCD bez zadziałania</td></tr>
+<tr><td><strong>Sonel MZC-335</strong></td><td>Sonel</td><td>+ duże prądy ~250 A, pomiar precyzyjny</td></tr>
+<tr><td><strong>Kyoritsu 4140A</strong></td><td>Kyoritsu</td><td>wieloparametrowy MPI</td></tr>
+<tr><td><strong>Megger LTW325</strong></td><td>Megger</td><td>„loop tester" z pamięcią</td></tr>
+</tbody>
+</table>
+<p>Wszystkie nowoczesne mierniki MPI (Sonel MPI-540, MPI-530, MPI-525) <strong>integrują pomiar Zs</strong> w jednym urządzeniu.</p>
+
+<h2>Jak działa mernik MZC</h2>
+<ol>
+<li>Mernik podłącza się do obwodu (L, N, PE) — czerpie napięcie z sieci 230 V.</li>
+<li>Na ułamek sekundy <strong>wymusza prąd 25 A</strong> (lub 250 A w trybie wysokoprądowym) przez specjalną wewnętrzną rezystancję — symulując zwarcie.</li>
+<li>Mierzy <strong>spadek napięcia ΔU</strong> podczas pomiaru.</li>
+<li>Oblicza: <strong>Zs = ΔU / I_pomiarowy</strong>, przeliczone na rzeczywistą sieć.</li>
+<li>Wyświetla <strong>Zs [Ω]</strong> oraz <strong>Ik [A]</strong> prawdopodobny prąd zwarciowy.</li>
+</ol>
+<p>Pomiar trwa <strong>30–100 ms</strong> — wystarczająco krótko, by <strong>nie wyłączyć RCD 30 mA</strong> (większość MZC ma tryb „bez zadziałania RCD").</p>
+
+<h2>Gdzie mierzyć</h2>
+<div class="tip"><strong>Zasada: w najodleglejszym punkcie każdego obwodu.</strong> Zs rośnie z długością kabla, a najgorszy przypadek (najwyższe Zs) decyduje o przyjęciu.</div>
+<table>
+<thead><tr><th>Obwód</th><th>Punkt pomiaru</th></tr></thead>
+<tbody>
+<tr><td>Gniazda salonu</td><td>najdalsze gniazdo (najczęściej za TV)</td></tr>
+<tr><td>Gniazda kuchni</td><td>najdalsze gniazdo (przy okapie)</td></tr>
+<tr><td>Oświetlenie pokoju</td><td>ostatni punkt oświetleniowy (mostek pomocniczy w lampie)</td></tr>
+<tr><td>Piekarnik / płyta</td><td>puszka przyłączeniowa</td></tr>
+<tr><td>Łazienka</td><td>gniazdo w szafce / grzejnik elektryczny</td></tr>
+<tr><td>Garaż</td><td>gniazda + oświetlenie osobno</td></tr>
+<tr><td>Zewnętrzne</td><td>najdalsze gniazdo IP44</td></tr>
+</tbody>
+</table>
+
+<h2>Procedura pomiaru</h2>
+<ol>
+<li><strong>Włącz instalację pod napięcie</strong> — Zs mierzy się w warunkach roboczych.</li>
+<li><strong>Wstaw wtyk pomiarowy</strong> w gniazdo (mernik z wtyczką schuko) lub podłącz krokodylki do puszki.</li>
+<li><strong>Sprawdź sygnalizację mernika</strong> — kontrolki napięcia (L-N OK, L-PE OK, polarność).</li>
+<li><strong>Wybierz tryb</strong>: Zs L-PE (dla TN-C-S), Zs L-N (dla pomiaru Zk obwodu).</li>
+<li><strong>Naciśnij START</strong> — pomiar trwa ułamek sekundy.</li>
+<li><strong>Odczyt Zs</strong> [Ω] i Ik [A].</li>
+<li><strong>Porównaj</strong> z tabelą Zs_max wg In i charakterystyki MCB.</li>
+<li><strong>Wpisz w protokół</strong>.</li>
+</ol>
+
+<h2>Tryby pomiaru</h2>
+<table>
+<thead><tr><th>Tryb</th><th>Co mierzy</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td><strong>Zs L-PE</strong></td><td>impedancja pętli L→PE</td><td>klasyczny pomiar po MCB+RCD</td></tr>
+<tr><td><strong>Zs L-N</strong></td><td>impedancja Zk obwodu L→N</td><td>weryfikacja prądu zwarciowego między fazą a neutralnym</td></tr>
+<tr><td><strong>Zs „bez zadziałania RCD"</strong></td><td>jak L-PE, ale prąd &lt; 15 mA</td><td>nie wybije RCD 30 mA</td></tr>
+<tr><td><strong>Zs „dużym prądem"</strong></td><td>~250 A przez ok. 10 ms</td><td>bardzo dokładny pomiar (warianty MZC-335)</td></tr>
+</tbody>
+</table>
+
+<h2>Korekcja 2/3</h2>
+<p>Mernik wykonuje pomiar przy <strong>zimnym przewodzie</strong> (temperatura otoczenia). Przy realnym zwarciu temperatura przewodu skacze do 70–90 °C, rezystancja Cu rośnie o ~20–30%.</p>
+<p>Norma wymaga, by:</p>
+<pre><code>Zs_zmierzona ≤ (2/3) × Zs_max_tabela</code></pre>
+<table>
+<thead><tr><th>MCB</th><th>Zs_max tabela</th><th>Zs_max z korekcją 2/3 (zmierzona)</th></tr></thead>
+<tbody>
+<tr><td>B10</td><td>4,57 Ω</td><td><strong>3,05 Ω</strong></td></tr>
+<tr><td>B16</td><td>2,87 Ω</td><td><strong>1,91 Ω</strong></td></tr>
+<tr><td>B20</td><td>2,30 Ω</td><td><strong>1,53 Ω</strong></td></tr>
+<tr><td>C16</td><td>1,45 Ω</td><td><strong>0,97 Ω</strong></td></tr>
+<tr><td>C20</td><td>1,15 Ω</td><td><strong>0,77 Ω</strong></td></tr>
+<tr><td>C25</td><td>0,92 Ω</td><td><strong>0,61 Ω</strong></td></tr>
+<tr><td>C32</td><td>0,72 Ω</td><td><strong>0,48 Ω</strong></td></tr>
+</tbody>
+</table>
+<p><strong>Niektóre mierniki mają „auto-korekcję"</strong> — pokazują od razu „Zs po korekcji". Sprawdź w instrukcji.</p>
+
+<h2>Postępowanie przy Zs za dużym</h2>
+<ol>
+<li><strong>Zwiększ przekrój kabla</strong> — z 1,5 → 2,5 mm² zmniejsza Zs o ~40%, z 2,5 → 4 mm² o kolejne 40%.</li>
+<li><strong>Skróć obwód</strong> — Zs ∝ długość.</li>
+<li><strong>Zmień charakterystykę MCB</strong> z C na B (B16 dopuszcza Zs do 2,87 Ω, C16 tylko 1,45 Ω).</li>
+<li><strong>Polepsz uziemienie</strong> (układ TT) — niższa Rz uziomu.</li>
+<li><strong>Dodatkowe RCD 30 mA</strong> — wybije w 30 ms nawet przy Zs = 100 Ω, ale to obejście.</li>
+</ol>
+
+<h2>Najczęstsze błędy</h2>
+<table>
+<thead><tr><th>Błąd</th><th>Skutek</th></tr></thead>
+<tbody>
+<tr><td>Pomiar przed RCD (bez aktywacji)</td><td>Zs prawidłowe, ale faktyczne wyższe (pominięto rezystancję RCD)</td></tr>
+<tr><td>Pomiar w gnieździe blisko rozdzielnicy</td><td>nie wykrywa problemu w dalszych częściach obwodu</td></tr>
+<tr><td>Brak korekcji 2/3</td><td>błąd na granicy akceptacji</td></tr>
+<tr><td>Pomiar przy luźnym zacisku</td><td>Zs wyższe (rezystancja styku) — zaciśnij i ponów</td></tr>
+<tr><td>Brak sprawdzenia polaryzacji</td><td>mernik mierzy „L-PE", ale faktycznie L i PE są zamienione</td></tr>
+</tbody>
+</table>
+
+<h2>Przykład — protokół pomiaru</h2>
+<pre><code>Mernik: Sonel MZC-320S, S/N 12345, kal. 2024-03
+Sieć: TN-C-S, 230 V / 50 Hz
+
+Obwód        | MCB  | In | Char | Lokalizacja          | Zs zm. | Ik   | Zs_max kor. | Ocena
+─────────────┼──────┼────┼──────┼──────────────────────┼────────┼──────┼─────────────┼──────
+G1 kuchnia   | MCB  | 16 |  B   | gniazdo nad okapem   | 0,82 Ω | 280 A| 1,91 Ω      | OK
+G2 salon     | MCB  | 16 |  B   | gniazdo TV           | 1,15 Ω | 200 A| 1,91 Ω      | OK
+G3 pokój     | MCB  | 16 |  B   | gniazdo przy biurku  | 0,93 Ω | 247 A| 1,91 Ω      | OK
+O1 oświetl.  | MCB  | 10 |  B   | ostatni punkt        | 1,42 Ω | 162 A| 3,05 Ω      | OK
+Łaz gniazdo  | MCB  | 16 |  B   | gniazdo w szafce     | 0,78 Ω | 295 A| 1,91 Ω      | OK
+Piekarnik    | MCB  | 16 |  C   | puszka               | 0,41 Ω | 561 A| 0,97 Ω      | OK</code></pre>
+
+<div class="nav-bottom">
+<a href="11-01-rezystancja-izolacji.html">⟵ Rezystancja izolacji</a>
+<a href="11-03-test-rcd.html">Test wyłącznika RCD →</a>
+</div>
+</div>
+</body>
+</html>

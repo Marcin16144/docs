@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sieci — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">Sieci komputerowe</span>
+</div>
+<div class="container">
+<h1>🌍 Sieci — debugging i diagnostyka</h1>
+<p class="lead">tcpdump, ss, dig, openssl, curl — komendy, które uratują życie w incydencie produkcyjnym.</p>
+
+<h2>1. Czy port otwarty? Czy działa?</h2>
+<pre data-lang="bash"><code><span class="com"># Lokalnie — co nasłuchuje</span>
+ss -tulnp                             <span class="com"># wszystkie sockety + proces</span>
+ss -tnp state established             <span class="com"># aktywne TCP</span>
+sudo lsof -i :<span class="num">443</span>                       <span class="com"># co używa portu 443</span>
+
+<span class="com"># Z innej maszyny — test TCP</span>
+nc -zv example.com <span class="num">443</span>                  <span class="com"># otwarty / zamknięty</span>
+nmap -p <span class="num">80</span>,<span class="num">443</span>,<span class="num">8080</span> example.com         <span class="com"># skan kilku portów</span>
+
+<span class="com"># Test latencji</span>
+ping -c <span class="num">5</span> example.com
+mtr --report --report-cycles <span class="num">20</span> example.com    <span class="com"># ping + traceroute combo</span>
+
+<span class="com"># Traceroute</span>
+traceroute -T -p <span class="num">443</span> example.com         <span class="com"># TCP traceroute (omija ICMP block)</span></code></pre>
+
+<h2>2. tcpdump — co przelatuje w sieci</h2>
+<pre data-lang="bash"><code><span class="com"># HTTP traffic na porcie 80</span>
+sudo tcpdump -i any -A -s <span class="num">0</span> <span class="str">'tcp port 80 and (((ip[2:2] - ((ip[0]&amp;0xf)&lt;&lt;2)) - ((tcp[12]&amp;0xf0)&gt;&gt;2)) != 0)'</span>
+
+<span class="com"># DNS queries (do/od konkretnego IP)</span>
+sudo tcpdump -i any -n <span class="str">'udp port 53'</span>
+sudo tcpdump -i any -n host <span class="num">8.8</span>.<span class="num">8.8</span>
+
+<span class="com"># Save do pliku + analiza w Wireshark</span>
+sudo tcpdump -i any -w capture.pcap port <span class="num">443</span>
+<span class="com"># Otwórz w Wireshark: File → Open</span>
+
+<span class="com"># TLS handshake (client hello, certificate)</span>
+sudo tcpdump -i any -n -X port <span class="num">443</span> <span class="kw">and</span> <span class="str">'tcp[((tcp[12:1] &amp; 0xf0) &gt;&gt; 2):1] = 0x16'</span></code></pre>
+
+<h2>3. DNS — dig i diagnostyka</h2>
+<pre data-lang="bash"><code><span class="com"># Wszystkie rekordy</span>
+dig example.com ANY +noall +answer
+
+<span class="com"># Konkretny typ</span>
+dig example.com A           <span class="com"># IPv4</span>
+dig example.com AAAA        <span class="com"># IPv6</span>
+dig example.com MX          <span class="com"># mail</span>
+dig example.com TXT         <span class="com"># SPF, DKIM, DMARC</span>
+dig example.com NS          <span class="com"># nameservery</span>
+dig example.com CAA         <span class="com"># kto może wystawiać certy</span>
+
+<span class="com"># Z konkretnego resolvera (omija lokalny cache)</span>
+dig @<span class="num">8.8</span>.<span class="num">8.8</span> example.com
+dig @<span class="num">1.1</span>.<span class="num">1.1</span> example.com +trace          <span class="com"># pełny łańcuch DNS</span>
+
+<span class="com"># DNSSEC validation</span>
+dig example.com +dnssec +multi
+
+<span class="com"># Reverse DNS</span>
+dig -x <span class="num">8.8</span>.<span class="num">8.8</span>
+nslookup <span class="num">8.8</span>.<span class="num">8.8</span></code></pre>
+
+<h2>4. TLS — debugowanie certyfikatów</h2>
+<pre data-lang="bash"><code><span class="com"># Co serwer wystawia (cały łańcuch)</span>
+openssl s_client -connect example.com:<span class="num">443</span> -servername example.com -showcerts &lt; /dev/null
+
+<span class="com"># Tylko dni do wygaśnięcia</span>
+echo | openssl s_client -connect example.com:<span class="num">443</span> -servername example.com <span class="num">2</span>&gt;/dev/null \
+    | openssl x<span class="num">509</span> -noout -dates
+
+<span class="com"># Wszystkie domeny z SAN (multi-domain cert)</span>
+echo | openssl s_client -connect example.com:<span class="num">443</span> -servername example.com <span class="num">2</span>&gt;/dev/null \
+    | openssl x<span class="num">509</span> -noout -ext subjectAltName
+
+<span class="com"># Test konkretnego protokołu</span>
+openssl s_client -connect example.com:<span class="num">443</span> -tls<span class="num">1_3</span>
+openssl s_client -connect example.com:<span class="num">443</span> -tls<span class="num">1_2</span>
+
+<span class="com"># SSL Labs CLI — pełny scan jak w przeglądarce</span>
+docker run --rm jumanjiman/ssllabs-scan -grade example.com
+
+<span class="com"># Generuj self-signed cert do testów</span>
+openssl req -x<span class="num">509</span> -newkey rsa:<span class="num">4096</span> -nodes -keyout key.pem -out cert.pem \
+    -days <span class="num">365</span> -subj <span class="str">"/CN=localhost"</span> \
+    -addext <span class="str">"subjectAltName=DNS:localhost,IP:127.0.0.1"</span></code></pre>
+
+<h2>5. curl — full debug</h2>
+<pre data-lang="bash"><code><span class="com"># Pokaż wszystko (request + response headers)</span>
+curl -vL https://example.com
+
+<span class="com"># Czas każdej fazy: DNS, connect, TLS, transfer</span>
+curl -w <span class="str">"@-"</span> -o /dev/null -s https://example.com &lt;&lt;<span class="str">'EOF'</span>
+    dns:        %{time_namelookup}s
+    connect:    %{time_connect}s
+    tls:        %{time_appconnect}s
+    pretransfer:%{time_pretransfer}s
+    starttransfer: %{time_starttransfer}s
+    ---
+    total:      %{time_total}s
+    size:       %{size_download} bytes
+    http_code:  %{http_code}
+EOF
+
+<span class="com"># Wymuś IPv4 / IPv6</span>
+curl -<span class="num">4</span> https://example.com
+curl -<span class="num">6</span> https://example.com
+
+<span class="com"># Custom DNS (omiń DNS, sprawdź konkretny serwer)</span>
+curl --resolve example.com:<span class="num">443</span>:<span class="num">203.0</span>.<span class="num">113.42</span> https://example.com
+
+<span class="com"># POST z JSON</span>
+curl -X POST https://api.example.com/users \
+    -H <span class="str">"Content-Type: application/json"</span> \
+    -H <span class="str">"Authorization: Bearer $TOKEN"</span> \
+    -d <span class="str">'{"name":"Anna","email":"a@example.com"}'</span>
+
+<span class="com"># Upload pliku</span>
+curl -F <span class="str">"file=@photo.jpg"</span> -F <span class="str">"caption=Vacation"</span> https://api.example.com/upload</code></pre>
+
+<h2>6. Iptables/nftables snippets — patrz Linux/Bash</h2>
+<p>Patrz: <a href="linux-bash.html#nftables">linux-bash.html#4</a></p>
+
+<h2>7. Routing — sprawdź jak ruch idzie</h2>
+<pre data-lang="bash"><code><span class="com"># Tablica routingu</span>
+ip route show
+ip route get <span class="num">8.8</span>.<span class="num">8.8</span>                  <span class="com"># którędy ruch do tego IP?</span>
+
+<span class="com"># Interfejsy</span>
+ip addr show
+ip link show
+
+<span class="com"># Dodaj statyczną trasę</span>
+sudo ip route add <span class="num">10.0</span>.<span class="num">0.0</span>/<span class="num">24</span> via <span class="num">192.168</span>.<span class="num">1.1</span> dev eth<span class="num">0</span>
+
+<span class="com"># Co jest na tym samym L2 (ARP table)</span>
+ip neigh show
+
+<span class="com"># Test MTU (jumbo frames)</span>
+ping -M do -s <span class="num">1472</span> <span class="num">8.8</span>.<span class="num">8.8</span>             <span class="com"># 1472 + 28 ICMP = 1500 MTU</span></code></pre>
+
+<h2>8. Wireshark filtry, które warto znać</h2>
+<table>
+<tr><th>Co</th><th>Filtr</th></tr>
+<tr><td>Konkretny IP</td><td><code>ip.addr == 192.168.1.10</code></td></tr>
+<tr><td>Port</td><td><code>tcp.port == 443</code></td></tr>
+<tr><td>HTTP requests</td><td><code>http.request</code></td></tr>
+<tr><td>DNS queries</td><td><code>dns.flags.response == 0</code></td></tr>
+<tr><td>TLS Client Hello</td><td><code>tls.handshake.type == 1</code></td></tr>
+<tr><td>Tylko błędy TCP</td><td><code>tcp.analysis.flags</code></td></tr>
+<tr><td>Slow responses</td><td><code>http.time &gt; 1</code></td></tr>
+<tr><td>Hostname w SNI</td><td><code>tls.handshake.extensions_server_name contains "example"</code></td></tr>
+</table>
+
+<h2>9. Cheatsheet portów</h2>
+<table>
+<tr><th>Port</th><th>Protokół</th><th>Notatka</th></tr>
+<tr><td>22</td><td>SSH</td><td>Zmień na 2222+ w prod</td></tr>
+<tr><td>25/465/587</td><td>SMTP / SMTPS / Submission</td><td>465 deprecated, 587 STARTTLS</td></tr>
+<tr><td>53</td><td>DNS</td><td>UDP + TCP (przy dużych odp.)</td></tr>
+<tr><td>80/443</td><td>HTTP/HTTPS</td><td>Zawsze 443 redirect w 2026</td></tr>
+<tr><td>3306</td><td>MySQL/MariaDB</td><td>Nigdy publicznie</td></tr>
+<tr><td>5432</td><td>PostgreSQL</td><td>Nigdy publicznie</td></tr>
+<tr><td>6379</td><td>Redis</td><td>Wymaga AUTH lub bind 127.0.0.1</td></tr>
+<tr><td>9200/9300</td><td>Elasticsearch</td><td>HTTP API / cluster</td></tr>
+<tr><td>27017</td><td>MongoDB</td><td>Default password = katastrofa</td></tr>
+</table>
+
+<div class="next-prev">
+    <a href="frontend-css.html"><div class="label">← Poprzedni</div><div class="title">CSS</div></a>
+    <a href="testowanie.html"><div class="label">Następny →</div><div class="title">Testowanie</div></a>
+</div>
+</div>
+</body>
+</html>

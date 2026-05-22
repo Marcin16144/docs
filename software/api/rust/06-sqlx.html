@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQLx</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f97316;--accent-hover:#fb923c;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Rust</a>
+  <span class="sep">/</span>
+  <span class="title">SQLx</span>
+</div>
+<div class="container">
+  <h1>SQLx</h1>
+  <p class="subtitle">Asynchroniczny klient SQL z weryfikacja zapytan w czasie kompilacji. Wspiera PostgreSQL, MySQL i SQLite bez ORM — piszesz czyste SQL.</p>
+
+  <h2>PgPool — pula polaczen</h2>
+  <p><code>sqlx::PgPool</code> to thread-safe pula polaczen do PostgreSQL. Tworzymy ja przez <code>PgPoolOptions::new()</code> z konfiguracja limitow. Pool implementuje <code>Clone</code> — klonowan jest tylko <code>Arc</code> wewnetrzny, nie samo polaczenie.</p>
+
+  <pre><code>use sqlx::postgres::{PgPool, PgPoolOptions};
+use std::time::Duration;
+
+pub async fn create_pool(database_url: &amp;str) -> anyhow::Result&lt;PgPool&gt; {
+    let pool = PgPoolOptions::new()
+        .max_connections(20)
+        .min_connections(5)
+        .acquire_timeout(Duration::from_secs(5))
+        .idle_timeout(Duration::from_secs(600))
+        .max_lifetime(Duration::from_secs(1800))
+        .connect(database_url)
+        .await?;
+
+    // Sprawdz polaczenie zaraz po starcie
+    sqlx::query("SELECT 1").execute(&amp;pool).await?;
+    tracing::info!("Polaczenie z PostgreSQL ustanowione");
+
+    Ok(pool)
+}
+
+// Przekazywanie przez Arc lub bezposrednio (PgPool juz uzywa Arc wewnetrznie)
+let pool = create_pool(&amp;std::env::var("DATABASE_URL")?).await?;
+let app_state = Arc::new(AppState { db: pool });</code></pre>
+
+  <h2>query! i query_as! — compile-time SQL</h2>
+  <p>Makra <code>query!</code> i <code>query_as!</code> sa gwiazdami SQLx. Podczas <strong>kompilacji</strong> lacza sie z baza danych (przez <code>DATABASE_URL</code>), weryfikuja poprawnosc SQL i typy kolumn, a zwracany rekord ma pola z typami Rust dopasowanymi do schematu bazy.</p>
+
+  <div class="card orange">
+    <strong>Wymaganie:</strong> Zmienna <code>DATABASE_URL</code> musi byc dostepna podczas <code>cargo build</code>. W CI uzyj <code>sqlx prepare</code> do wygenerowania pliku <code>.sqlx/</code> z cache zapytan — pozwala budowac bez dostepu do bazy (<code>SQLX_OFFLINE=true</code>).
+  </div>
+
+  <pre><code>use sqlx::PgPool;
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct User {
+    pub id: i64,
+    pub name: String,
+    pub email: String,
+    pub created_at: chrono::DateTime&lt;chrono::Utc&gt;,
+    pub is_active: bool,
+}
+
+// query_as! mapuje wyniki na struct (musi implementowac FromRow)
+pub async fn find_user_by_id(pool: &amp;PgPool, id: i64) -> sqlx::Result&lt;Option&lt;User&gt;&gt; {
+    sqlx::query_as!(
+        User,
+        "SELECT id, name, email, created_at, is_active
+         FROM users
+         WHERE id = $1 AND is_active = true",
+        id
+    )
+    .fetch_optional(pool)
+    .await
+}
+
+// query! — anonimowy rekord z polami
+pub async fn count_users(pool: &amp;PgPool) -> sqlx::Result&lt;i64&gt; {
+    let row = sqlx::query!("SELECT COUNT(*) as count FROM users")
+        .fetch_one(pool)
+        .await?;
+    Ok(row.count.unwrap_or(0))
+}</code></pre>
+
+  <h2>Metody fetch — execute, fetch_one, fetch_all, fetch_optional</h2>
+
+  <table>
+    <thead>
+      <tr><th>Metoda</th><th>Zwraca</th><th>Uzycie</th><th>Blad gdy</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>execute()</code></td><td><code>PgQueryResult</code></td><td>INSERT, UPDATE, DELETE</td><td>blad polaczenia/SQL</td></tr>
+      <tr><td><code>fetch_one()</code></td><td><code>Row / T</code></td><td>SELECT zwracajacy dokladnie 1 wiersz</td><td>0 lub wiecej niz 1 wynik</td></tr>
+      <tr><td><code>fetch_optional()</code></td><td><code>Option&lt;Row / T&gt;</code></td><td>SELECT moze zwrocic 0 lub 1</td><td>wiecej niz 1 wynik</td></tr>
+      <tr><td><code>fetch_all()</code></td><td><code>Vec&lt;Row / T&gt;</code></td><td>SELECT zwracajacy wiele wierszy</td><td>blad polaczenia/SQL</td></tr>
+      <tr><td><code>fetch()</code></td><td><code>Stream&lt;Row&gt;</code></td><td>streaming duzych zbiorow danych</td><td>blad polaczenia/SQL</td></tr>
+    </tbody>
+  </table>
+
+  <pre><code>// INSERT zwracajacy id
+pub async fn create_user(pool: &amp;PgPool, name: &amp;str, email: &amp;str) -> sqlx::Result&lt;i64&gt; {
+    let row = sqlx::query!(
+        "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id",
+        name, email
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(row.id)
+}
+
+// UPDATE — sprawdzenie ile wierszy zmieniono
+pub async fn deactivate_user(pool: &amp;PgPool, id: i64) -> sqlx::Result&lt;bool&gt; {
+    let result = sqlx::query!(
+        "UPDATE users SET is_active = false WHERE id = $1",
+        id
+    )
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}
+
+// Streaming duzych zbiorow
+use futures::StreamExt;
+pub async fn stream_all_users(pool: &amp;PgPool) -> sqlx::Result&lt;()&gt; {
+    let mut stream = sqlx::query_as!(User, "SELECT * FROM users")
+        .fetch(pool);
+    while let Some(user) = stream.next().await {
+        let user = user?;
+        process_user(user).await;
+    }
+    Ok(())
+}</code></pre>
+
+  <h2>Transakcje</h2>
+  <p>Transakcje startujemy przez <code>pool.begin()</code>. Zwracany obiekt <code>Transaction</code> implementuje <code>Executor</code> — uzywamy go zamiast poola w zapytaniach. Drop bez <code>.commit()</code> automatycznie wykonuje ROLLBACK.</p>
+
+  <pre><code>pub async fn transfer_funds(
+    pool: &amp;PgPool,
+    from_id: i64,
+    to_id: i64,
+    amount: i64,
+) -> anyhow::Result&lt;()&gt; {
+    let mut tx = pool.begin().await?;
+
+    sqlx::query!(
+        "UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND balance &gt;= $1",
+        amount, from_id
+    )
+    .execute(&amp;mut *tx)
+    .await?;
+
+    sqlx::query!(
+        "UPDATE accounts SET balance = balance + $1 WHERE id = $2",
+        amount, to_id
+    )
+    .execute(&amp;mut *tx)
+    .await?;
+
+    sqlx::query!(
+        "INSERT INTO transfers (from_id, to_id, amount) VALUES ($1, $2, $3)",
+        from_id, to_id, amount
+    )
+    .execute(&amp;mut *tx)
+    .await?;
+
+    tx.commit().await?;
+    Ok(())
+}</code></pre>
+
+  <h2>sqlx-cli — migracje</h2>
+  <p>Narzedzie <code>sqlx-cli</code> zarzadza migracjami bazy danych. Instalacja: <code>cargo install sqlx-cli --no-default-features --features postgres</code>.</p>
+
+  <pre><code># Tworzenie nowej migracji
+sqlx migrate add create_users_table
+
+# Uruchomienie migracji (DATABASE_URL z .env)
+sqlx migrate run
+
+# Cofniecie ostatniej migracji
+sqlx migrate revert
+
+# Sprawdzenie statusu
+sqlx migrate info
+
+# Generowanie cache zapytan dla offline builds
+sqlx prepare
+
+# Plik migracji: migrations/20240101000000_create_users_table.sql
+CREATE TABLE users (
+    id         BIGSERIAL PRIMARY KEY,
+    name       TEXT NOT NULL,
+    email      TEXT NOT NULL UNIQUE,
+    is_active  BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_users_email ON users (email);
+CREATE INDEX idx_users_active ON users (is_active) WHERE is_active = true;</code></pre>
+
+  <h2>LISTEN / NOTIFY — real-time eventy</h2>
+  <p>PostgreSQL LISTEN/NOTIFY pozwala na asynchroniczne powiadomienia miedzy polaczeniami. SQLx wspiera to przez <code>PgListener</code>:</p>
+
+  <pre><code>use sqlx::postgres::PgListener;
+
+async fn start_listener(database_url: &amp;str) -> anyhow::Result&lt;()&gt; {
+    let mut listener = PgListener::connect(database_url).await?;
+    listener.listen("user_created").await?;
+    listener.listen("order_completed").await?;
+
+    loop {
+        let notification = listener.recv().await?;
+        tracing::info!(
+            channel = notification.channel(),
+            payload = notification.payload(),
+            "Otrzymano notyfikacje"
+        );
+        // przetwarzanie eventu...
+    }
+}
+
+// Wysylanie notyfikacji z handlera:
+sqlx::query!("SELECT pg_notify('user_created', $1)", user_id.to_string())
+    .execute(pool)
+    .await?;</code></pre>
+
+  <h2>SQLx vs Diesel vs SeaORM</h2>
+
+  <table>
+    <thead>
+      <tr><th>Cecha</th><th>SQLx</th><th>Diesel</th><th>SeaORM</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Styl</td><td>raw SQL + compile check</td><td>query builder DSL</td><td>ORM (Entity model)</td></tr>
+      <tr><td>Async</td><td>tak (natywny)</td><td>ograniczony (async-diesel)</td><td>tak (natywny)</td></tr>
+      <tr><td>Compile-time SQL</td><td>tak (query!)</td><td>tak (DSL)</td><td>nie</td></tr>
+      <tr><td>Krzywa uczenia</td><td>niska (znasz SQL)</td><td>srednia (DSL Diesel)</td><td>srednia (Entity model)</td></tr>
+      <tr><td>Migracje</td><td>sqlx-cli</td><td>diesel_cli</td><td>sea-orm-cli</td></tr>
+      <tr><td>Relacje</td><td>recznie przez SQL</td><td>DSL associations</td><td>find_related(), has_many()</td></tr>
+      <tr><td>Kiedy wybrac</td><td>pelna kontrola nad SQL</td><td>type-safe DSL, sync kod</td><td>szybki start, relacje ORM</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <strong>Rekomendacja:</strong> SQLx jest najlepszym wyborem gdy chcesz pisac czyste, optymalne SQL i miec gwarancje typow. SeaORM przyspiesza development gdy masz wiele relacji i chcesz uniknac powtarzajacego sie SQL. Diesel sprawdza sie w projektach synchronicznych lub migrujacych z wersji pre-async.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="05-rocket.html">← 05-rocket.html</a>
+    <a href="07-seaorm.html">07-seaorm.html →</a>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>17-02 — Bilans energetyczny off-grid</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">17 Off-grid i hybryda</a><span class="sep">/</span><span class="title">17-02 Bilans energetyczny off-grid</span>
+</div>
+<div class="container">
+<h1>Bilans energetyczny off-grid</h1>
+<p class="subtitle">Projekt off-grid zaczyna się od liczb, nie od katalogu sprzętu. Pięć kroków doprowadzających do doboru PV, magazynu i agregatu.</p>
+
+<h2>Krok 1 — audyt zużycia energii</h2>
+<p>Wypisujemy każdy odbiornik, jego moc i czas pracy na dobę. Energia dobowa odbiornika:</p>
+<pre><code>E = P · t        [Wh/dobę]</code></pre>
+<p>gdzie P — moc [W], t — czas pracy na dobę [h].</p>
+<p>Przykładowy bilans małego domku letniskowego:</p>
+<table>
+<thead><tr><th>Odbiornik</th><th>Moc [W]</th><th>Czas [h/dobę]</th><th>Energia [Wh/dobę]</th></tr></thead>
+<tbody>
+<tr><td>Oświetlenie LED</td><td>60</td><td>5</td><td>300</td></tr>
+<tr><td>Lodówka (cykl pracy ~33%)</td><td>150</td><td>8</td><td>1200</td></tr>
+<tr><td>Pompa wody (hydrofor)</td><td>600</td><td>0,5</td><td>300</td></tr>
+<tr><td>Telewizor</td><td>80</td><td>4</td><td>320</td></tr>
+<tr><td>Laptop</td><td>60</td><td>4</td><td>240</td></tr>
+<tr><td>Router + sprzęt sieciowy</td><td>15</td><td>24</td><td>360</td></tr>
+<tr><td>Drobne (ładowarki, stand-by)</td><td>—</td><td>—</td><td>280</td></tr>
+<tr><td><strong>Suma dobowa</strong></td><td></td><td></td><td><strong>≈ 3000 Wh = 3 kWh</strong></td></tr>
+</tbody>
+</table>
+<p>W praktyce dla domku off-grid wychodzi typowo <strong>3–6 kWh/dobę</strong>. Lodówka liczona jest po cyklu pracy (sprężarka nie chodzi cały czas) — podaje się czas efektywnej pracy, nie czas wpięcia do gniazda.</p>
+<div class="tip"><strong>Wskazówka.</strong> Do sumy doliczamy zapas 15–20 % na straty inwertera, regulatora i samorozładowanie magazynu, a także na odbiorniki pominięte w audycie.</div>
+
+<h2>Krok 2 — rezerwa na dni bez słońca (autonomia)</h2>
+<p>Off-grid musi przetrwać serię pochmurnych dni bez doładowania z PV. Przyjmuje się <strong>autonomię 2–3 dni</strong> — magazyn ma pokryć zużycie przez tyle dni bez produkcji.</p>
+<pre><code>Autonomia A — liczba dni pracy z samego magazynu (typowo 2–3)</code></pre>
+<p>Im większa autonomia, tym większy (i droższy) magazyn. Zamiast pompować magazyn w nieskończoność, dla dni bez słońca przewiduje się agregat (krok 5).</p>
+
+<h2>Krok 3 — dobór mocy PV</h2>
+<p>Moc paneli dobiera się tak, aby w sezonie produkcja pokryła zużycie z zapasem na ładowanie magazynu. Uproszczony wzór:</p>
+<pre><code>P_PV = E_dobowe / (Hsr · η)
+
+E_dobowe — zużycie dobowe [kWh]
+Hsr      — uśrednione nasłonecznienie [h pełnego słońca / dobę]
+η        — sprawność systemu (PV + regulator + straty) ≈ 0,7</code></pre>
+<p>Kluczowy problem: <strong>sezonowość produkcji w Polsce</strong>.</p>
+<table>
+<thead><tr><th>Miesiąc</th><th>Względna produkcja PV</th></tr></thead>
+<tbody>
+<tr><td>Czerwiec–lipiec</td><td>100 % (odniesienie)</td></tr>
+<tr><td>Marzec / wrzesień</td><td>50–60 %</td></tr>
+<tr><td>Październik / luty</td><td>25–35 %</td></tr>
+<tr><td><strong>Grudzień</strong></td><td><strong>10–15 %</strong></td></tr>
+</tbody>
+</table>
+<p>W grudniu instalacja w Polsce produkuje tylko ok. 1/8 mocy letniej. Zwymiarowanie PV pod grudzień daje absurdalne przewymiarowanie (latem ogromne nadwyżki nie do wykorzystania). Dlatego off-grid PL projektuje się na sezon wiosna–jesień, a zimę zabezpiecza agregatem.</p>
+<div class="callout"><strong>Przykład.</strong>
+<pre><code>E_dobowe = 3 kWh, sezon wiosenny Hsr ≈ 3 h
+P_PV = 3 / (3 · 0,7) ≈ 1,4 kWp  → dobieramy 2 kWp z zapasem
+Zimą ta sama instalacja da ledwie 0,3–0,5 kWh/dobę.</code></pre></div>
+
+<h2>Krok 4 — dobór pojemności magazynu</h2>
+<p>Magazyn musi pokryć zużycie przez założoną liczbę dni autonomii, z uwzględnieniem dopuszczalnej głębokości rozładowania (DoD — Depth of Discharge):</p>
+<pre><code>C_magazyn = (E_dobowe · A) / DoD
+
+E_dobowe — zużycie dobowe [kWh]
+A        — dni autonomii
+DoD      — dopuszczalna głębokość rozładowania (LiFePO4 ≈ 0,8–0,9)</code></pre>
+<div class="callout"><strong>Przykład.</strong>
+<pre><code>E_dobowe = 3 kWh, A = 2 dni, DoD = 0,8 dla LiFePO4
+C_magazyn = (3 · 2) / 0,8 = 7,5 kWh
+W praktyce dobieramy 5–7,5 kWh zależnie od budżetu i obecności agregatu.</code></pre></div>
+<p>Dla ogniw kwasowo-ołowiowych DoD wynosi tylko 0,5 — magazyn musiałby być dwa razy większy, dlatego w nowych systemach stosuje się LiFePO4 (patrz sekcja 18).</p>
+
+<h2>Krok 5 — agregat jako backup zimowy</h2>
+<p>Agregat prądotwórczy domyka bilans w okresie, gdy PV nie nadąża:</p>
+<ul>
+<li>doładowuje magazyn przez inwerter ładujący (inverter-charger),</li>
+<li>zasila bezpośrednio odbiorniki przy bardzo niskim stanie magazynu,</li>
+<li>pozwala uniknąć przewymiarowania PV i magazynu pod warunki grudniowe.</li>
+</ul>
+<p>Moc agregatu dobiera się do mocy szczytowej odbiorników i prądu ładowania magazynu — typowo 2–3 kVA dla małego domku.</p>
+
+<h2>Strategia: overdimensioning kontra agregat</h2>
+<p>W polskich warunkach pełna autonomia całoroczna z samego PV wymaga przewymiarowania mocy paneli o czynnik <strong>×3–4</strong> względem zapotrzebowania letniego — i tak generuje zimą deficyt. Dlatego standardem jest:</p>
+<ul>
+<li>PV i magazyn zwymiarowane na sezon wiosna–jesień,</li>
+<li>agregat jako uzupełnienie na grudzień–luty,</li>
+<li>świadome ograniczanie zużycia zimą.</li>
+</ul>
+<div class="warning"><strong>Uwaga.</strong> Najczęstszy błąd projektowy off-grid to zaniżony audyt zużycia. Realne zużycie po wprowadzeniu się jest zwykle wyższe od szacowanego — warto zostawić 20–30 % marginesu w magazynie i mocy PV.</div>
+
+<div class="nav-bottom">
+<a href="17-01-koncepcje.html">⟵ On-grid, off-grid, hybryda</a>
+<a href="17-03-komponenty-off-grid.html">Dobór komponentów off-grid →</a>
+</div>
+</div>
+</body>
+</html>

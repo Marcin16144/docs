@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09 — VST i audio</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--pink:#ec4899;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.prompt-block{background:var(--code-bg);border:2px solid var(--accent);border-radius:10px;padding:24px;margin:24px 0;position:relative}
+.prompt-label{position:absolute;top:-12px;left:16px;background:var(--bg);padding:0 12px;color:var(--accent);font-weight:600;font-size:.85rem}
+.prompt-block pre{background:transparent;border:none;padding:0;margin:0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style></head><body>
+<div class="topbar">
+<a href="../../index.html">Glowna</a>
+<span class="sep">/</span>
+<a href="../index.html">Prompty</a>
+<span class="sep">/</span>
+<span class="title">VST i audio</span>
+</div>
+<div class="container">
+<h1>09. Prompty per VST i audio</h1>
+<p class="subtitle">VST3 development, JUCE/iPlug2, DSP basics, marketing wtyczek, anti-piracy, licencjonowanie.</p>
+
+<h2>Filozofia rozdzialow audio</h2>
+
+<div class="card blue">
+<p>Audio plugin dev to nisza laczaca C++ DSP, real-time programming, GUI design i biznes (sprzedaz). Pisz <strong>z perspektywy indie developera</strong> — niski budzet, czas na wlasnej pracy, zarobek z wtyczek. Korpo-tony nie dziala dla tej czytelni.</p>
+</div>
+
+<h2>Prompt: VST3 plugin development</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — VST3</span>
+<pre><code>Stworz dokumentacje VST3 plugin development (rok 2026).
+
+01-czym-jest-vst.html: historia (Steinberg 1996, VST2 -> VST3 2017,
+VST2 SDK deprecated 2018-2023), architektura (audio + edit
+controller), formaty rynku (VST3, AU, AAX, CLAP, LV2)
+
+02-vst3-sdk.html: instalacja, wymagania (C++17+, CMake), folder
+structure, przyklad single-effect plugin (gain processor),
+parameters, audio buffers, sample rate, processing modes
+
+03-clap.html: alternatywa do VST3 (Bitwig + u-he initiative 2022),
+open standard (no Steinberg license), latwiejsze threading,
+hosting w Bitwig, Reaper, FL Studio support
+
+04-au-aax.html: Apple Audio Unit (macOS-only), AAX (Pro Tools-only,
+Avid SDK paid), kiedy targeting (commercial: yes, indie: focus
+on VST3+CLAP first)
+
+05-buildy-multiplatform.html: CMake config dla Windows (MSVC) +
+macOS (Xcode codesign + notarization!) + Linux (gcc/clang),
+ARM64 builds (Apple Silicon, Windows on ARM)
+
+ZALOZENIE: czytelnik zna C++ ale nie audio. Wprowadzaj koncepty
+DSP (sample, buffer, gain) jak po raz pierwszy.</code></pre>
+</div>
+
+<h2>Prompt: JUCE framework</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — JUCE</span>
+<pre><code>Stworz dokumentacje JUCE 8 (rok 2026).
+
+01-czym-jest-juce.html: cross-platform C++ framework dla audio,
+de facto standard w plugin dev, license (GPL3 free OSS, paid
+$800/yr commercial), Roli history, ROL (Raul Original License)
+
+02-projucer.html: project generator GUI, exporters (Visual Studio,
+Xcode, Linux Makefile), modules, app vs plugin templates
+
+03-cmake-juce.html: nowoczesna alternatywa do Projucer, juce_add_plugin,
+target dependencies, prosciej w CI/CD
+
+04-pluginprocessor.html: AudioProcessor class, processBlock, parameters
+(AudioProcessorValueTreeState - APVTS), state save/load (XML),
+midi handling
+
+05-pluginEditor.html: Component class, paint(), resized(), Look-and-Feel
+custom, GUI thread vs audio thread (NIGDY shared mutexes w audio!),
+async update pattern
+
+06-dsp-module.html: juce::dsp namespace (filters, FFT, convolution),
+SIMD, FloatVectorOperations, oversampling
+
+07-graphics.html: Graphics class, Path, gradients, low-DPI/HighDPI,
+custom font loading, opengl backend (juce::OpenGLContext)
+
+POKAZ pelny prosty plugin: gain z slider GUI.</code></pre>
+</div>
+
+<h2>Prompt: iPlug2 framework</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — iPlug2</span>
+<pre><code>Stworz dokumentacje iPlug2 (rok 2026).
+
+01-iplug2-overview.html: alternatywa do JUCE, OSS (WDL OSS license,
+zero commercial fees!), Cockos / Reaper authors, lekki, mniej
+ergonomiczny niz JUCE
+
+02-architektura.html: API abstraction (VST3/AU/AAX/CLAP/Web Audio),
+single codebase -> multiple formats, GUI tylko via IGraphics
+(custom toolkit)
+
+03-buildy.html: Visual Studio, Xcode, makefiles, scripts/duplicate.py
+do tworzenia projektu, GitHub workflow templates
+
+04-graphics-igraphics.html: vector-based, immediate mode, IControl,
+IRECT, multi-touch support, kiedy nad JUCE LookAndFeel
+
+05-web-audio.html: iPlug2 jako Web Audio module (WASM build),
+unique selling point — twoja wtyczka jako web demo!
+
+06-vs-juce.html: trade-offs:
+- iPlug2: OSS free, lekki, wieksza krzywa nauki
+- JUCE: paid for commercial, dojrzaly, JUCE community, JUCE modules
+DECISION: nowicjusz -> JUCE (latwiej), zaawansowany / OSS-only -> iPlug2</code></pre>
+</div>
+
+<h2>Prompt: DSP basics</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — DSP</span>
+<pre><code>Stworz dokumentacje DSP basics (rok 2026).
+
+01-podstawy-sygnalu.html: sample, sample rate, bit depth, Nyquist
+theorem, aliasing, dB scale, RMS vs peak, dynamic range
+
+02-filtry.html: lowpass / highpass / bandpass / notch, IIR (Biquad,
+state variable filter SVF) vs FIR, impulse response, transfer
+function, q factor (resonance), zlote uszy: Linkwitz-Riley dla
+crossoverow
+
+03-fft-stft.html: Discrete Fourier Transform, FFT (FFTW, KissFFT,
+Apple Accelerate, Intel IPP, JUCE wrapper), spectrum analysis,
+spectrogramy, window functions (Hann, Hamming, Blackman)
+
+04-convolution.html: time domain (slow), frequency domain (FFT-based,
+fast), partitioned convolution dla long IRs (cabinet sims), zero-
+latency variants
+
+05-oversampling.html: 2x/4x/8x oversampling, kiedy potrzebne (saturation,
+nonlinear processing), polyphase filters, design trade-offs (latency
+vs quality vs CPU)
+
+06-denormals.html: denormal numbers w x86, performance hit (50x slower!),
+fix: FTZ/DAZ flags, std::fpclassify, juce::ScopedNoDenormals
+
+07-real-time-audio.html: NIGDY w audio thread: malloc/new, locks,
+file IO, system calls. Lock-free queues (boost::lockfree, JUCE
+AbstractFifo), realtime safe patterns</code></pre>
+</div>
+
+<h2>Prompt: Marketing i sprzedaz</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — Marketing</span>
+<pre><code>Stworz dokumentacje marketing &amp; sales VST plugins (rok 2026).
+
+01-platformy-sprzedazy.html:
+- KVR Marketplace (oldest, audio audience)
+- Plugin Boutique (najwiekszy, 30% commission, ich payment +
+  marketing)
+- Loopmasters / SampleRadar
+- Splice (samples + plugins)
+- ADSR Sounds
+- Direct sale (Stripe, Paddle as MoR, Gumroad)
+
+02-pricing.html: indie ranges ($29-99 single fx, $99-249 synth,
+$249+ libraries), bundles, intro pricing, sales calendars
+(Black Friday, summer sales), don't undervalue
+
+03-promocje.html: KVR forum, Gearspace, YouTube reviewers
+(typowy fee: $200-2000), Instagram beats community, sample
+packs jako lead magnet
+
+04-content-marketing.html: YouTube tutorials uzywajac twojej wtyczki,
+demo songs/presets z innymi producentami, articles "X production
+tips"
+
+05-affiliates.html: 25-50% commission, Plugin Boutique affiliate
+program, indie partnerstwo
+
+06-launch-strategy.html: prerelease (KVR thread, mailing list,
+demo wideo), launch (intro pricing, prasa: Computer Music, Sound
+On Sound), post-launch (updates, version 2)
+
+REAL-WORLD: u-he, Valhalla DSP (one-man indie), TAL Software,
+Klanghelm — case studies dlaczego dziala.</code></pre>
+</div>
+
+<h2>Prompt: Anti-piracy i licensing</h2>
+
+<div class="prompt-block">
+<span class="prompt-label">Prompt — Licensing</span>
+<pre><code>Stworz dokumentacje anti-piracy i licensing dla VST (rok 2026).
+
+01-modele-licencji.html: machine ID (latwy do crackowania ale
+sufficient deterrent), online activation (server-checked), iLok
+(USB dongle / cloud, paid by you), Steinberg eLicenser
+(deprecated 2024)
+
+02-machine-id.html: implementacja (motherboard ID, CPU ID, MAC),
+trade-offs (user-friendly vs crackable), 2-3 activations per
+license sensible default
+
+03-online-activation.html: serial -> server -> response (signed),
+offline grace period, edge cases (no internet, change hardware)
+
+04-ilok.html: $39-49 hardware dongle, cloud license alternative,
+fee per activation ($1-2), kiedy uzywac (commercial premium
+products)
+
+05-watermarking.html: per-buyer audio watermarking (steganografia),
+"if cracked, identifiable owner", obraza prywatnosci?, etyka
+
+06-piractwo-realia.html: cracki istnieja zawsze, focus na latwosc
+zakupu, support, updates. Indie devs: Valhalla DSP nie ma DRM
+i prosperuje. Customers cenia wartosc.
+
+07-license-text.html: EULA, transferable vs non-transferable, NFR
+(Not For Resale), educational discounts</code></pre>
+</div>
+
+<h2>Tabela porownawcza framework / format</h2>
+
+<table>
+<tr><th>Framework / Format</th><th>Platformy</th><th>Licencja</th><th>Learning curve</th><th>Sweet spot</th></tr>
+<tr><td>JUCE</td><td>Win/macOS/Linux/iOS/Android</td><td>GPL3 free OSS, $800/yr commercial</td><td>Medium</td><td>Default dla 80% indie</td></tr>
+<tr><td>iPlug2</td><td>Win/macOS/Linux/Web</td><td>OSS WDL (free always)</td><td>High</td><td>OSS purist, web preview</td></tr>
+<tr><td>VST3 SDK raw</td><td>Win/macOS/Linux</td><td>GPL3 / Steinberg dual</td><td>Very high</td><td>Maksymalna kontrola, edge cases</td></tr>
+<tr><td>CLAP</td><td>Win/macOS/Linux</td><td>MIT (free)</td><td>Medium-High</td><td>Modern OSS, Bitwig+u-he ecosystem</td></tr>
+<tr><td>AU (Audio Unit)</td><td>macOS only</td><td>Apple license</td><td>Medium</td><td>Logic Pro target</td></tr>
+<tr><td>AAX</td><td>Win/macOS</td><td>Avid SDK (NDA, paid)</td><td>High</td><td>Pro Tools target only</td></tr>
+<tr><td>LV2</td><td>Linux primarily</td><td>OSS</td><td>Medium</td><td>Linux audio (Ardour)</td></tr>
+</table>
+
+<h2>Decision tree — wybor framework</h2>
+
+<pre><code>Komercyjny plugin za $50+, ma byc na rynku w 6-12 miesiecy?
++- JUCE (ergonomic, docs, community)
+
+Open-source plugin lub eksperyment / chcesz web demo?
++- iPlug2 (Web Audio build) lub JUCE 8 (preview)
+
+Maksymalna kontrola, edge cases (HW integration, custom hosts)?
++- VST3 SDK raw
+
+Targetujesz Bitwig + u-he users + Reaper?
++- CLAP (lub multi: VST3 + CLAP via JUCE 8)
+
+Pro Tools target?
++- Musisz dodac AAX (Avid SDK paid, NDA)</code></pre>
+
+<h2>Real-world insights</h2>
+
+<div class="card green">
+<h3>Valhalla DSP — case study</h3>
+<p>Sean Costello, jednoosobowa firma, $25-50/plugin, brak DRM, brak ilok. Powtarzajaca lojalnosc fanow. Modne plug-iny (Vintageverb, Supermassive free). Lekcja: <strong>jakosc + uczciwa cena > DRM</strong>.</p>
+</div>
+
+<div class="card green">
+<h3>u-he — case study</h3>
+<p>Urs Heckmann, niemiecki, premium synthy ($150-200), CLAP + VST3 + AU + AAX, free (Zebralette, Tyrell N6) jako wprowadzenie do platnych. Lekcja: <strong>free tier napedza paid sales</strong>.</p>
+</div>
+
+<div class="card orange">
+<h3>iLok = friction</h3>
+<p>iLok (Pace) to deterrent, ale customers nienawidza go. Forum w 2025: "I won't buy plugins with iLok". Rozwaz prosty machine ID + grace period zamiast iLok dla indie.</p>
+</div>
+
+<div class="card red">
+<h3>Anti-pattern: weryfikacja przy kazdym uruchomieniu</h3>
+<p>Online check przy kazdym starcie wtyczki = uzytkownik bez netu nie moze otworzyc projektu. Catastrophic UX. Rob raz na 30 dni z grace period.</p>
+</div>
+
+<div class="nav-bottom">
+<a href="08-prompty-devops-i-serwery.html">&larr; DevOps</a>
+<a href="10-prompty-narrative-i-tone.html">Narracja i tone &rarr;</a>
+</div>
+</div></body></html>

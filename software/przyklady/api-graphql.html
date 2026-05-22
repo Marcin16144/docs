@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphQL — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span>
+    <a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span>
+    <span class="crumb">GraphQL</span>
+</div>
+<div class="container">
+<h1>🌐 GraphQL — schema + resolvery w 3 językach</h1>
+<p class="lead">Apollo Server (Node), Hot Chocolate (.NET 9), Strawberry (Python) — to samo schema, różne implementacje.</p>
+
+<h2>Wspólne schema (SDL)</h2>
+<pre data-lang="graphql"><code><span class="kw">type</span> Product {
+  id: ID!
+  name: String!
+  price: Float!
+  stock: Int!
+  category: Category!
+}
+
+<span class="kw">type</span> Category {
+  id: ID!
+  name: String!
+  products: [Product!]!
+}
+
+<span class="kw">type</span> Query {
+  products(first: Int = <span class="num">20</span>, after: String): ProductConnection!
+  product(id: ID!): Product
+}
+
+<span class="kw">type</span> Mutation {
+  createProduct(input: ProductInput!): Product!
+  updateStock(id: ID!, delta: Int!): Product!
+}
+
+<span class="kw">input</span> ProductInput {
+  name: String!
+  price: Float!
+  stock: Int = <span class="num">0</span>
+  categoryId: ID!
+}
+
+<span class="kw">type</span> ProductConnection {
+  edges: [ProductEdge!]!
+  pageInfo: PageInfo!
+}
+<span class="kw">type</span> ProductEdge { cursor: String!, node: Product! }
+<span class="kw">type</span> PageInfo { hasNextPage: Boolean!, endCursor: String }</code></pre>
+
+<h2>1. Apollo Server (Node.js + TypeScript)</h2>
+<pre data-lang="typescript"><code><span class="com">// npm i @apollo/server graphql dataloader</span>
+<span class="kw">import</span> { ApolloServer } <span class="kw">from</span> <span class="str">'@apollo/server'</span>;
+<span class="kw">import</span> { startStandaloneServer } <span class="kw">from</span> <span class="str">'@apollo/server/standalone'</span>;
+<span class="kw">import</span> DataLoader <span class="kw">from</span> <span class="str">'dataloader'</span>;
+
+<span class="kw">const</span> typeDefs = <span class="str">`#graphql
+  type Product { id: ID!, name: String!, price: Float!, stock: Int!, category: Category! }
+  type Category { id: ID!, name: String!, products: [Product!]! }
+  type Query { products: [Product!]!, product(id: ID!): Product }
+  type Mutation { createProduct(name: String!, price: Float!, categoryId: ID!): Product! }
+`</span>;
+
+<span class="com">// DataLoader rozwiązuje N+1 problem przez batching</span>
+<span class="kw">const</span> categoryLoader = <span class="kw">new</span> <span class="fn">DataLoader</span>&lt;<span class="kw">string</span>, <span class="kw">any</span>&gt;(<span class="kw">async</span> (ids) =&gt; {
+    <span class="kw">const</span> rows = <span class="kw">await</span> db.<span class="fn">query</span>(<span class="str">'SELECT * FROM categories WHERE id = ANY($1)'</span>, [ids]);
+    <span class="kw">const</span> byId = <span class="kw">new</span> Map(rows.<span class="fn">map</span>(r =&gt; [r.id, r]));
+    <span class="kw">return</span> ids.<span class="fn">map</span>(id =&gt; byId.<span class="fn">get</span>(id));
+});
+
+<span class="kw">const</span> resolvers = {
+    Query: {
+        products: () =&gt; db.<span class="fn">query</span>(<span class="str">'SELECT * FROM products'</span>),
+        product: (_: <span class="kw">any</span>, { id }: { id: <span class="kw">string</span> }) =&gt;
+            db.<span class="fn">queryOne</span>(<span class="str">'SELECT * FROM products WHERE id = $1'</span>, [id])
+    },
+    Product: {
+        category: (p: { categoryId: <span class="kw">string</span> }) =&gt; categoryLoader.<span class="fn">load</span>(p.categoryId)
+    },
+    Mutation: {
+        createProduct: <span class="kw">async</span> (_: <span class="kw">any</span>, args: <span class="kw">any</span>) =&gt; {
+            <span class="kw">if</span> (args.price &lt;= <span class="num">0</span>) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid price'</span>);
+            <span class="kw">return</span> db.<span class="fn">queryOne</span>(
+                <span class="str">'INSERT INTO products (name, price, category_id) VALUES ($1, $2, $3) RETURNING *'</span>,
+                [args.name, args.price, args.categoryId]
+            );
+        }
+    }
+};
+
+<span class="kw">const</span> server = <span class="kw">new</span> <span class="fn">ApolloServer</span>({ typeDefs, resolvers });
+<span class="kw">const</span> { url } = <span class="kw">await</span> <span class="fn">startStandaloneServer</span>(server, { listen: { port: <span class="num">4000</span> } });
+console.<span class="fn">log</span>(<span class="str">`🚀 Ready at ${url}`</span>);</code></pre>
+<div class="warn">⚠️ Bez DataLoader pobranie 100 produktów ze ich kategoriami = 101 zapytań SQL. Z DataLoader = 2.</div>
+
+<h2>2. Hot Chocolate (.NET 9)</h2>
+<pre data-lang="csharp"><code><span class="com">// dotnet add package HotChocolate.AspNetCore</span>
+<span class="kw">var</span> builder = WebApplication.<span class="fn">CreateBuilder</span>(args);
+builder.Services
+    .<span class="fn">AddGraphQLServer</span>()
+    .<span class="fn">AddQueryType</span>&lt;Query&gt;()
+    .<span class="fn">AddMutationType</span>&lt;Mutation&gt;()
+    .<span class="fn">AddProjections</span>()
+    .<span class="fn">AddFiltering</span>()
+    .<span class="fn">AddSorting</span>();
+
+<span class="kw">var</span> app = builder.<span class="fn">Build</span>();
+app.<span class="fn">MapGraphQL</span>();
+app.<span class="fn">Run</span>();
+
+<span class="kw">public class</span> <span class="fn">Query</span>
+{
+    [<span class="fn">UseProjection</span>, <span class="fn">UseFiltering</span>, <span class="fn">UseSorting</span>]
+    <span class="kw">public</span> IQueryable&lt;Product&gt; <span class="fn">GetProducts</span>([<span class="fn">Service</span>] AppDbContext db) =&gt; db.Products;
+
+    <span class="kw">public async</span> Task&lt;Product?&gt; <span class="fn">GetProductAsync</span>(<span class="kw">Guid</span> id, [<span class="fn">Service</span>] AppDbContext db) =&gt;
+        <span class="kw">await</span> db.Products.<span class="fn">FindAsync</span>(id);
+}
+
+<span class="kw">public class</span> <span class="fn">Mutation</span>
+{
+    <span class="kw">public async</span> Task&lt;Product&gt; <span class="fn">CreateProductAsync</span>(
+        ProductInput input, [<span class="fn">Service</span>] AppDbContext db)
+    {
+        <span class="kw">if</span> (input.Price &lt;= <span class="num">0</span>) <span class="kw">throw new</span> <span class="fn">GraphQLException</span>(<span class="str">"Invalid price"</span>);
+        <span class="kw">var</span> product = <span class="kw">new</span> <span class="fn">Product</span> { Id = <span class="fn">Guid</span>.<span class="fn">NewGuid</span>(),
+                                   Name = input.Name, Price = input.Price };
+        db.Products.<span class="fn">Add</span>(product);
+        <span class="kw">await</span> db.<span class="fn">SaveChangesAsync</span>();
+        <span class="kw">return</span> product;
+    }
+}
+
+<span class="kw">public record</span> <span class="fn">ProductInput</span>(<span class="kw">string</span> Name, <span class="kw">decimal</span> Price, <span class="kw">Guid</span> CategoryId);</code></pre>
+<div class="tip">💡 <code>[UseProjection]</code> automatycznie generuje SELECT tylko żądanych pól — żadnego N+1.</div>
+
+<h2>3. Strawberry (Python + FastAPI)</h2>
+<pre data-lang="python"><code><span class="com"># pip install strawberry-graphql[fastapi] sqlalchemy</span>
+<span class="kw">import</span> strawberry
+<span class="kw">from</span> strawberry.fastapi <span class="kw">import</span> GraphQLRouter
+<span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI
+<span class="kw">from</span> uuid <span class="kw">import</span> UUID
+
+<span class="com">@strawberry.type</span>
+<span class="kw">class</span> <span class="fn">Category</span>:
+    id: UUID
+    name: str
+
+<span class="com">@strawberry.type</span>
+<span class="kw">class</span> <span class="fn">Product</span>:
+    id: UUID
+    name: str
+    price: float
+    stock: int
+
+    <span class="com">@strawberry.field</span>
+    <span class="kw">async def</span> <span class="fn">category</span>(self) -&gt; Category:
+        <span class="kw">return await</span> category_loader.load(self.category_id)
+
+<span class="com">@strawberry.type</span>
+<span class="kw">class</span> <span class="fn">Query</span>:
+    <span class="com">@strawberry.field</span>
+    <span class="kw">async def</span> <span class="fn">products</span>(self, first: int = <span class="num">20</span>) -&gt; <span class="kw">list</span>[Product]:
+        <span class="kw">return await</span> db.fetch_all(<span class="str">"SELECT * FROM products LIMIT $1"</span>, first)
+
+    <span class="com">@strawberry.field</span>
+    <span class="kw">async def</span> <span class="fn">product</span>(self, id: UUID) -&gt; Product | <span class="kw">None</span>:
+        <span class="kw">return await</span> db.fetch_one(<span class="str">"SELECT * FROM products WHERE id = $1"</span>, id)
+
+<span class="com">@strawberry.input</span>
+<span class="kw">class</span> <span class="fn">ProductInput</span>:
+    name: str
+    price: float
+    stock: int = <span class="num">0</span>
+    category_id: UUID
+
+<span class="com">@strawberry.type</span>
+<span class="kw">class</span> <span class="fn">Mutation</span>:
+    <span class="com">@strawberry.mutation</span>
+    <span class="kw">async def</span> <span class="fn">create_product</span>(self, input: ProductInput) -&gt; Product:
+        <span class="kw">if</span> input.price &lt;= <span class="num">0</span>:
+            <span class="kw">raise</span> Exception(<span class="str">"Invalid price"</span>)
+        row = <span class="kw">await</span> db.fetch_one(
+            <span class="str">"INSERT INTO products (name, price, stock, category_id) "</span>
+            <span class="str">"VALUES ($1, $2, $3, $4) RETURNING *"</span>,
+            input.name, input.price, input.stock, input.category_id)
+        <span class="kw">return</span> Product(**row)
+
+schema = strawberry.Schema(query=Query, mutation=Mutation)
+graphql_app = GraphQLRouter(schema)
+app = FastAPI()
+app.include_router(graphql_app, prefix=<span class="str">"/graphql"</span>)</code></pre>
+
+<h2>4. Query po stronie klienta</h2>
+<pre data-lang="graphql"><code><span class="kw">query</span> ProductsWithCategory {
+  products(first: <span class="num">10</span>) {
+    edges {
+      node {
+        id
+        name
+        price
+        category { name }
+      }
+    }
+    pageInfo { hasNextPage, endCursor }
+  }
+}
+
+<span class="kw">mutation</span> AddProduct($input: ProductInput!) {
+  createProduct(input: $input) {
+    id
+    name
+  }
+}</code></pre>
+
+<h2>5. Bezpieczeństwo: query depth + complexity</h2>
+<pre data-lang="typescript"><code><span class="com">// Apollo: blokuj malicious queries</span>
+<span class="kw">import</span> depthLimit <span class="kw">from</span> <span class="str">'graphql-depth-limit'</span>;
+<span class="kw">import</span> { createComplexityRule } <span class="kw">from</span> <span class="str">'graphql-validation-complexity'</span>;
+
+<span class="kw">const</span> server = <span class="kw">new</span> <span class="fn">ApolloServer</span>({
+    typeDefs, resolvers,
+    validationRules: [
+        <span class="fn">depthLimit</span>(<span class="num">7</span>),                                    <span class="com">// max zagłębienie</span>
+        <span class="fn">createComplexityRule</span>({ maximumComplexity: <span class="num">1000</span> })   <span class="com">// max "punkty"</span>
+    ]
+});</code></pre>
+<div class="warn">⚠️ Bez tego ktoś wykona <code>{ users { posts { comments { author { posts { ... } } } } } }</code> i położy bazę.</div>
+
+<div class="next-prev">
+    <a href="api-rest.html"><div class="label">← Poprzedni</div><div class="title">REST API</div></a>
+    <a href="react.html"><div class="label">Następny →</div><div class="title">React 19</div></a>
+</div>
+</div>
+</body>
+</html>

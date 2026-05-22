@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>12-01 — Podstawy fotowoltaiki</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">12 Fotowoltaika</a><span class="sep">/</span><span class="title">12-01 Podstawy PV</span>
+</div>
+<div class="container">
+<h1>Podstawy fotowoltaiki</h1>
+<p class="subtitle">Rodzaje paneli, moc Wp i warunki STC, krzywa I-V, MPP, sprawność, wpływ temperatury i zacienienia.</p>
+
+<h2>Czym jest panel PV</h2>
+<p>Panel fotowoltaiczny (PV — <em>photovoltaic</em>) zamienia energię promieniowania słonecznego w energię elektryczną prądu stałego (DC) na zasadzie zjawiska fotowoltaicznego w półprzewodniku krzemowym.</p>
+<p>Pojedyncze ogniwo daje ~0,5 V. Panel składa się z 60-72 (lub 120-144 połówkowych) ogniw szeregowo → ~30-45 V w punkcie pracy.</p>
+
+<h2>Rodzaje paneli</h2>
+<table>
+<thead><tr><th>Technologia</th><th>Sprawność</th><th>Cechy</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td><strong>Monokrystaliczny (mono)</strong></td><td>20-22 %</td><td>jednolicie czarne, lepsze przy słabym świetle, długa żywotność</td><td>dominują rynek</td></tr>
+<tr><td><strong>Polikrystaliczny (poli)</strong></td><td>16-18 %</td><td>charakterystyczny niebieski, tańsze, gorsze przy rozproszonym świetle</td><td>wycofywane</td></tr>
+<tr><td><strong>Cienkowarstwowe CIGS / CdTe</strong></td><td>10-14 %</td><td>elastyczne, lekkie, dobrze radzą sobie w cieniu i wysokich temperaturach</td><td>nisza, przemysł</td></tr>
+</tbody>
+</table>
+<p>W domach jednorodzinnych dziś praktycznie wyłącznie <strong>mono PERC / TOPCon / HJT</strong> — sprawność 21-22 %, moc panela 400-450 Wp przy wymiarze ~1,75 × 1,1 m.</p>
+
+<h2>Moc Wp i warunki STC</h2>
+<p><strong>Wp</strong> (<em>watt peak</em>) — moc szczytowa panela w warunkach <strong>STC</strong> (<em>Standard Test Conditions</em>):</p>
+<ul>
+<li>nasłonecznienie 1000 W/m²</li>
+<li>temperatura ogniwa 25 °C</li>
+<li>AM1,5 (<em>Air Mass</em> — widmo światła po przejściu przez atmosferę)</li>
+</ul>
+<p><strong>kWp</strong> = 1000 Wp = jednostka mocy całej instalacji.</p>
+<p>W rzeczywistości panel rzadko osiąga moc STC — częściej mierzymy przez <strong>NOCT</strong> (<em>Nominal Operating Cell Temperature</em>) — ok. 45 °C przy 800 W/m² i 20 °C otoczenia.</p>
+
+<h2>Krzywa I-V i MPP</h2>
+<p>Charakterystyka prądowo-napięciowa panela:</p>
+<pre><code>   I [A]
+   |
+Isc|━━━━━━╲
+   |       ╲
+   |     MPP●
+   |        ╲
+   |         ╲
+   +──────────● Voc → U [V]</code></pre>
+<ul>
+<li><strong>Voc</strong> — <em>open circuit voltage</em> — napięcie przy braku obciążenia (~45-50 V dla typowego panela)</li>
+<li><strong>Isc</strong> — <em>short circuit current</em> — prąd zwarciowy (~11-14 A)</li>
+<li><strong>MPP</strong> — <em>Maximum Power Point</em> — punkt maksymalnej mocy (Vmpp ~35-40 V, Impp ~10-12 A)</li>
+</ul>
+<p>Inwerter z <strong>MPPT</strong> (śledzenie MPP) ciągle dopasowuje obciążenie tak, by panel pracował w MPP.</p>
+
+<h2>Wpływ temperatury</h2>
+<p>Krzem ma ujemny współczynnik temperaturowy mocy: <strong>-0,3 do -0,4 %/K</strong> powyżej 25 °C.</p>
+<p>Latem na czarnym dachu panel osiąga 60-70 °C — strata ~12-15 % mocy względem STC. Mróz natomiast zwiększa moc (panel zaśnieżony to inna historia — zacienienie).</p>
+
+<h2>Sprawność roczna</h2>
+<p>Sprawność roczna w Polsce: <strong>12-16 %</strong> mocy STC w rocznej produkcji energii.</p>
+<table>
+<thead><tr><th>Lokalizacja</th><th>Produkcja roczna</th></tr></thead>
+<tbody>
+<tr><td>Niemcy / Polska północna</td><td>900-980 kWh/kWp</td></tr>
+<tr><td>Polska centralna</td><td>1000-1050 kWh/kWp</td></tr>
+<tr><td>Polska południowa</td><td>1050-1150 kWh/kWp</td></tr>
+<tr><td>Hiszpania</td><td>1500-1700 kWh/kWp</td></tr>
+</tbody>
+</table>
+<p>Reguła kciuka dla PL: <strong>1 kWp ≈ 950-1100 kWh/rok</strong>.</p>
+
+<h2>Wpływ kąta i azymutu</h2>
+<p>Optymalnie: nachylenie <strong>30-35°</strong>, azymut <strong>południe (S, 0°)</strong>. Odchylenie:</p>
+<table>
+<thead><tr><th>Odchylenie azymutu</th><th>Strata roczna</th></tr></thead>
+<tbody>
+<tr><td>0° (S)</td><td>0 %</td></tr>
+<tr><td>±30° (SE/SW)</td><td>-2-4 %</td></tr>
+<tr><td>±45°</td><td>-5-8 %</td></tr>
+<tr><td>±90° (E/W)</td><td>-10-15 %</td></tr>
+<tr><td>180° (N)</td><td>-45 %</td></tr>
+</tbody>
+</table>
+
+<h2>Zacienienie i bypass diody</h2>
+<p>Panele w stringu są połączone <strong>szeregowo</strong> — zacienienie jednego ogniwa ogranicza prąd całego stringu. Bez zabezpieczenia: zacieniony panel z prądem 0 A → cały string przestaje pracować.</p>
+<p>Rozwiązanie:</p>
+<ul>
+<li><strong>Bypass diody</strong> — wbudowane w panel (zwykle 3 sztuki na panel) — zwarcie zacienionej części, reszta panela pracuje dalej, ale ze stratą napięcia</li>
+<li><strong>Optymalizatory mocy</strong> (Solaredge, Tigo) — każdy panel ma osobny moduł MPPT</li>
+<li><strong>Mikroinwertery</strong> (Enphase, APsystems) — każdy panel ma swój inwerter AC</li>
+</ul>
+<div class="tip">W praktyce: jeśli na dachu jest komin lub drzewo rzucające cień — warto rozważyć optymalizatory.</div>
+
+<div class="nav-bottom">
+<a href="index.html">⟵ Spis sekcji 12</a>
+<a href="12-02-dobor-mocy.html">Dobór mocy →</a>
+</div>
+</div>
+</body>
+</html>

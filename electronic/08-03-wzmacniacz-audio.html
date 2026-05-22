@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>08-03-wzmacniacz-audio - Wzmacniacze audio</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--red:#f87171;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:850px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:24px;background:linear-gradient(135deg,var(--red),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:22px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text-muted);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        a{color:var(--accent);text-decoration:none}
+        a:hover{color:var(--accent-hover);text-decoration:underline}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6;white-space:pre}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}        .schem{background:#0a0e1a;border:1px solid var(--border);border-radius:12px;padding:20px;margin:18px 0 24px;display:flex;justify-content:center}
+        .schem svg{width:100%;max-width:520px;height:auto}
+        .schem .wire{stroke:#cbd5e1;stroke-width:1.8;fill:none;stroke-linecap:round}
+        .schem .wire-pos{stroke:#f87171;stroke-width:1.8;fill:none}
+        .schem .comp{stroke:#f1f5f9;stroke-width:1.6;fill:none}
+        .schem .comp-fill{fill:#f1f5f9;stroke:#f1f5f9}
+        .schem .node{fill:#38bdf8}
+        .schem .label{fill:#94a3b8;font-family:'Segoe UI',sans-serif;font-size:11px}
+        .schem .label-val{fill:#4ade80;font-family:'Cascadia Code',monospace;font-size:10px}
+        .schem .label-pin{fill:#fbbf24;font-family:'Cascadia Code',monospace;font-size:9px}
+        .schem .label-pos{fill:#f87171;font-family:'Cascadia Code',monospace;font-size:11px;font-weight:600}
+        .schem .gnd{stroke:#94a3b8;stroke-width:1.6;fill:none}
+        .schem .ic-body{fill:#1e293b;stroke:#f1f5f9;stroke-width:1.5}
+        .schem .ic-label{fill:#e2e8f0;font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:600;text-anchor:middle}
+        .schem-ascii{background:#0a0e1a;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:8px 16px;margin:16px 0 24px}
+        .schem-ascii::before{content:'SCHEMAT (ASCII) - wersja SVG: schematy.html';display:block;font-size:.72rem;color:var(--accent);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+        .schem-ascii pre{background:transparent;border:none;padding:6px 0 12px;margin:0}
+        .schem-banner{background:linear-gradient(135deg,rgba(56,189,248,0.12),rgba(167,139,250,0.08));border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:14px 20px;margin:16px 0 24px;font-size:.92rem;display:flex;align-items:center;gap:12px}
+        .schem-banner .icon{font-size:1.5rem}
+        .schem-banner a{color:var(--accent);font-weight:600;text-decoration:none}
+        .schem-banner a:hover{text-decoration:underline}
+
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Strona glowna</a>
+        <span class="sep">/</span>
+        <a href="08-uklady-elektroniczne.html">08 - Uklady elektroniczne</a>
+        <span class="sep">/</span>
+        <span class="title">08-03-wzmacniacz-audio</span>
+    </div>
+    <div class="container">
+        <h1>Wzmacniacze audio</h1>
+        <div class="schem-banner">
+            <span class="icon">[SVG]</span>
+            <span>Wszystkie schematy z tej strony w pelnej wersji SVG (symbole IEC, kolory, etykiety) - zobacz na stronie <a href="schematy.html">Schematy elektroniczne</a>.</span>
+        </div>
+<h2>Klasy wzmacniaczy</h2>
+<table>
+<thead><tr>
+<th>Klasa</th>
+<th>Sprawność</th>
+<th>Zniekształcenia</th>
+<th>Zastosowanie</th>
+</tr></thead><tbody>
+<tr>
+<td>A</td>
+<td>20-30%</td>
+<td>bardzo niskie</td>
+<td>hi-fi, audiofile</td>
+</tr>
+<tr>
+<td>B</td>
+<td>70-75%</td>
+<td>wysokie (crossover)</td>
+<td>nieużywana sama</td>
+</tr>
+<tr>
+<td>AB</td>
+<td>50-65%</td>
+<td>bardzo niskie</td>
+<td>standard audio</td>
+</tr>
+<tr>
+<td>C</td>
+<td>70-90%</td>
+<td>bardzo wysokie</td>
+<td>RF, nie audio</td>
+</tr>
+<tr>
+<td>D</td>
+<td>85-95%</td>
+<td>umiarkowane</td>
+<td>nowoczesne, oszczędne</td>
+</tr>
+<tr>
+<td>G/H</td>
+<td>70-80%</td>
+<td>niskie</td>
+<td>premium audio</td>
+</tr>
+</tbody></table>
+<p>W audio dominuje <strong>klasa AB</strong> (analog) lub <strong>klasa D</strong> (cyfrowa, PWM).</p>
+<h2>Preamplifier z BJT (klasa A)</h2>
+<p>Najprostszy wzmacniacz sygnału mikrofonu lub gitary.</p>
+<div class="schem">
+<svg viewBox="0 0 640 380" xmlns="http://www.w3.org/2000/svg">
+  <line class="wire-pos" x1="20" y1="40" x2="600" y2="40"/>
+  <text class="label-pos" x="20" y="32">+12V</text>
+  <!-- Rc -->
+  <line class="wire-pos" x1="380" y1="40" x2="380" y2="70"/>
+  <rect class="comp" x="360" y="70" width="40" height="22" rx="3"/>
+  <text class="label-val" x="408" y="86">Rc 4,7k</text>
+  <line class="wire" x1="380" y1="92" x2="380" y2="130"/>
+  <!-- Collector node -->
+  <circle class="node" cx="380" cy="130" r="4"/>
+  <!-- Output cap C2 -->
+  <line class="wire" x1="380" y1="130" x2="440" y2="130"/>
+  <line class="comp" x1="440" y1="120" x2="440" y2="140" stroke-width="2.5"/>
+  <path class="comp" d="M 448,118 Q 454,130 448,142" stroke-width="2"/>
+  <text class="label-val" x="445" y="112">C2 10μF</text>
+  <line class="wire" x1="454" y1="130" x2="580" y2="130"/>
+  <text class="label" x="585" y="126">Vout</text>
+  <text class="label-val" x="585" y="140">audio</text>
+  <!-- Transistor BC547 -->
+  <line class="wire" x1="380" y1="130" x2="380" y2="155"/>
+  <circle class="comp" cx="380" cy="175" r="20"/>
+  <text class="ic-label" x="415" y="178" style="font-size:9px">BC547</text>
+  <line class="comp" x1="380" y1="155" x2="380" y2="162"/>
+  <line class="comp" x1="372" y1="162" x2="380" y2="162"/>
+  <line class="comp" x1="372" y1="162" x2="372" y2="188"/>
+  <line class="comp" x1="372" y1="188" x2="380" y2="188"/>
+  <line class="comp" x1="380" y1="188" x2="380" y2="200"/>
+  <polygon class="comp-fill" points="378,197 382,192 382,200"/>
+  <line class="comp" x1="372" y1="175" x2="360" y2="175"/>
+  <text class="label-pin" x="405" y="160">C</text>
+  <text class="label-pin" x="405" y="200">E</text>
+  <text class="label-pin" x="346" y="172">B</text>
+  <!-- Input cap C1 -->
+  <line class="wire" x1="20" y1="175" x2="100" y2="175"/>
+  <line class="comp" x1="100" y1="163" x2="100" y2="187" stroke-width="2.5"/>
+  <line class="comp" x1="108" y1="163" x2="108" y2="187" stroke-width="2.5"/>
+  <text class="label-val" x="75" y="155">C1 1μF</text>
+  <line class="wire" x1="108" y1="175" x2="160" y2="175"/>
+  <text class="label" x="22" y="172">Vin</text>
+  <text class="label-val" x="22" y="186">(audio)</text>
+  <!-- Base bias divider node -->
+  <line class="wire" x1="160" y1="175" x2="360" y2="175"/>
+  <circle class="node" cx="200" cy="175" r="4"/>
+  <!-- R1 (to +V) -->
+  <line class="wire" x1="200" y1="175" x2="200" y2="110"/>
+  <rect class="comp" x="180" y="88" width="40" height="22" rx="3"/>
+  <text class="label-val" x="130" y="103">R1 100k</text>
+  <line class="wire-pos" x1="200" y1="88" x2="200" y2="40"/>
+  <!-- R2 (to GND) -->
+  <line class="wire" x1="200" y1="175" x2="200" y2="220"/>
+  <rect class="comp" x="180" y="220" width="40" height="22" rx="3"/>
+  <text class="label-val" x="130" y="235">R2 22k</text>
+  <line class="wire" x1="200" y1="242" x2="200" y2="320"/>
+  <!-- Re -->
+  <line class="wire" x1="380" y1="200" x2="380" y2="240"/>
+  <rect class="comp" x="360" y="240" width="40" height="22" rx="3"/>
+  <text class="label-val" x="408" y="256">Re 1k</text>
+  <line class="wire" x1="380" y1="262" x2="380" y2="295"/>
+  <circle class="node" cx="380" cy="295" r="4"/>
+  <!-- Bypass cap (parallel to Re) -->
+  <line class="wire" x1="380" y1="295" x2="450" y2="295"/>
+  <line class="comp" x1="450" y1="285" x2="450" y2="305" stroke-width="3"/>
+  <path class="comp" d="M 458,283 Q 464,295 458,307" stroke-width="2.5"/>
+  <text class="label-pos" x="445" y="278">+</text>
+  <text class="label-val" x="465" y="295">Cb 100μF</text>
+  <text class="label" x="465" y="312">bypass</text>
+  <line class="wire" x1="380" y1="262" x2="450" y2="262"/>
+  <line class="wire" x1="450" y1="262" x2="450" y2="285"/>
+  <!-- GND rail -->
+  <line class="wire" x1="380" y1="295" x2="380" y2="320"/>
+  <line class="wire" x1="20" y1="320" x2="600" y2="320"/>
+  <line class="wire" x1="260" y1="320" x2="260" y2="338"/>
+  <line class="gnd" x1="245" y1="343" x2="275" y2="343"/>
+  <line class="gnd" x1="250" y1="348" x2="270" y2="348"/>
+  <text class="label-pos" x="20" y="332">GND</text>
+  <text class="label" x="500" y="38" style="font-size:10px;fill:#4ade80">Wzmocnienie ≈ Rc/Re (z Cb: ~150×)</text>
+</svg>
+</div>
+<h3>Punkt pracy</h3>
+<pre><code>
+U_B = U_we_DC = +12 · R2/(R1+R2) ≈ +1,5 V (z dzielnika R1=100k, R2=22k)
+U_E = U_B - 0,7 = 0,8 V
+I_E = U_E/Re = 0,8/1000 = 0,8 mA = I_C
+U_C = +12 - 0,8 mA · 4,7 kΩ = 8,2 V (środek zakresu)
+</code></pre>
+<h3>Wzmocnienie</h3>
+<pre><code>
+A_U = -R_C / r_e
+r_e ≈ 25 mV / I_C = 25/0,8 = 31 Ω
+A_U = -4700 / 31 ≈ -150
+</code></pre>
+<p>Wzmocnienie 150× (43 dB) — wystarczy do mikrofonu dynamicznego.</p>
+<h3>Charakterystyka pasmowa</h3>
+<p>f_dolna = 1/(2π·R_in·C1). Dla R_in = 5 kΩ (impedancja wejścia tranzystora), C1 = 1 μF:</p>
+<pre><code>
+f_dolna = 1/(2π · 5000 · 10⁻⁶) = 32 Hz
+</code></pre>
+<p>OK dla audio. Dla pełnego pasma (20 Hz) zwiększ C1 do 2,2 μF.</p>
+<h2>Wzmacniacz mocy LM386 (głośnik 8 Ω, do 1 W)</h2>
+<p>LM386 — klasyczny scalony wzmacniacz mocy mały. Idealny do prototypów, radio, intercom, modeli.</p>
+<h3>Schemat podstawowy (wzmocnienie 20×)</h3>
+<div class="schem">
+<svg viewBox="0 0 560 320">
+  <!-- LM386 IC body -->
+  <rect class="ic-body" x="220" y="80" width="120" height="160" rx="4"/>
+  <text class="ic-label" x="280" y="165">LM386</text>
+  <text class="label-pin" x="190" y="100">1</text>
+  <text class="label-pin" x="190" y="130">2 IN−</text>
+  <text class="label-pin" x="190" y="160">3 IN+</text>
+  <text class="label-pin" x="190" y="190">4 GND</text>
+  <text class="label-pin" x="345" y="100">VCC 6</text>
+  <text class="label-pin" x="345" y="130">OUT 5</text>
+  <text class="label-pin" x="345" y="160">BYP 7</text>
+  <text class="label-pin" x="345" y="190">8</text>
+  <!-- Input signal via C1 -->
+  <line class="wire" x1="20" y1="160" x2="80" y2="160"/>
+  <text class="label" x="20" y="152">sygnał</text>
+  <text class="label-val" x="20" y="174">audio</text>
+  <line class="comp" x1="80" y1="148" x2="80" y2="172" stroke-width="2.5"/>
+  <line class="comp" x1="88" y1="148" x2="88" y2="172" stroke-width="2.5"/>
+  <text class="label-val" x="60" y="140">C1 10μF</text>
+  <line class="wire" x1="88" y1="160" x2="220" y2="160"/>
+  <!-- Pin 2 to GND (input -) -->
+  <line class="wire" x1="220" y1="130" x2="160" y2="130"/>
+  <line class="wire" x1="160" y1="130" x2="160" y2="280"/>
+  <!-- Pin 4 to GND -->
+  <line class="wire" x1="220" y1="190" x2="180" y2="190"/>
+  <line class="wire" x1="180" y1="190" x2="180" y2="280"/>
+  <!-- Pin 6 to +V -->
+  <line class="wire-pos" x1="340" y1="100" x2="380" y2="100"/>
+  <line class="wire-pos" x1="380" y1="100" x2="380" y2="40"/>
+  <line class="wire-pos" x1="20" y1="40" x2="540" y2="40"/>
+  <text class="label-pos" x="22" y="32">+V (5-12V)</text>
+  <!-- Pin 5 to C2 to speaker -->
+  <line class="wire" x1="340" y1="130" x2="380" y2="130"/>
+  <line class="comp" x1="380" y1="118" x2="380" y2="142" stroke-width="2.5"/>
+  <path class="comp" d="M 386,118 Q 392,130 386,142" stroke-width="2"/>
+  <text class="label-val" x="383" y="108">C2 220μF</text>
+  <line class="wire" x1="392" y1="130" x2="450" y2="130"/>
+  <!-- Speaker symbol -->
+  <polygon class="comp" points="450,120 460,120 472,108 472,152 460,140 450,140" fill="none" stroke-width="2"/>
+  <line class="comp" x1="478" y1="108" x2="478" y2="152" stroke-width="1.5"/>
+  <line class="comp" x1="484" y1="100" x2="484" y2="160" stroke-width="1"/>
+  <text class="label" x="495" y="125">głośnik</text>
+  <text class="label-val" x="495" y="140">8 Ω</text>
+  <line class="wire" x1="478" y1="152" x2="478" y2="280"/>
+  <!-- Pin 7 bypass cap -->
+  <line class="wire" x1="340" y1="160" x2="380" y2="160"/>
+  <line class="comp" x1="380" y1="170" x2="380" y2="190" stroke-width="2.5"/>
+  <path class="comp" d="M 386,172 Q 392,180 386,188" stroke-width="2"/>
+  <text class="label-val" x="395" y="185">10μF bypass</text>
+  <line class="wire" x1="380" y1="195" x2="380" y2="280"/>
+  <!-- GND rail -->
+  <line class="wire" x1="20" y1="280" x2="540" y2="280"/>
+  <line class="wire" x1="260" y1="280" x2="260" y2="295"/>
+  <line class="gnd" x1="245" y1="298" x2="275" y2="298"/>
+  <line class="gnd" x1="250" y1="303" x2="270" y2="303"/>
+  <text class="label-pos" x="20" y="293">GND</text>
+</svg>
+</div>
+<h3>Zwiększenie wzmocnienia (do 200×)</h3>
+<div class="schem">
+<svg viewBox="0 0 460 140" xmlns="http://www.w3.org/2000/svg">
+  <line class="wire" x1="40" y1="70" x2="100" y2="70"/>
+  <text class="label-pin" x="20" y="74">pin 1</text>
+  <!-- R 1.2k -->
+  <rect class="comp" x="100" y="59" width="50" height="22" rx="3"/>
+  <text class="label-val" x="105" y="55">R 1,2k</text>
+  <line class="wire" x1="150" y1="70" x2="220" y2="70"/>
+  <!-- C 10μF -->
+  <line class="comp" x1="220" y1="58" x2="220" y2="82" stroke-width="2.5"/>
+  <path class="comp" d="M 228,56 Q 234,70 228,84" stroke-width="2"/>
+  <text class="label-pos" x="215" y="50">+</text>
+  <text class="label-val" x="245" y="70">C 10μF</text>
+  <line class="wire" x1="234" y1="70" x2="370" y2="70"/>
+  <text class="label-pin" x="380" y="74">pin 8</text>
+  <text class="label" x="40" y="110" style="font-size:10px;fill:#4ade80">Bypass dla wewn. R rozszerza wzmocnienie z 20× do 200×</text>
+</svg>
+</div>
+<p>To "obejście" rezystora wewnętrznego — wzmocnienie rośnie z 20 do 200.</p>
+<h3>Moc</h3>
+<pre><code>
+P_max = V²_supply / (8 · R_głośnika) = 12² / (8 · 8) = 2,25 W
+</code></pre>
+<p>W praktyce LM386 daje ok. 0,5-1 W przy 9 V (ograniczenie cieplne).</p>
+<h3>BOM LM386</h3>
+<table>
+<thead><tr>
+<th>Element</th>
+<th>Wartość</th>
+</tr></thead><tbody>
+<tr>
+<td>LM386N-1</td>
+<td>DIP-8</td>
+</tr>
+<tr>
+<td>C1 (wejście)</td>
+<td>10 μF</td>
+</tr>
+<tr>
+<td>C2 (wyjście)</td>
+<td>220-470 μF</td>
+</tr>
+<tr>
+<td>C3 (bypass pin 7)</td>
+<td>10 μF</td>
+</tr>
+<tr>
+<td>C4 (Zobel out)</td>
+<td>100 nF</td>
+</tr>
+<tr>
+<td>R (Zobel out)</td>
+<td>10 Ω</td>
+</tr>
+<tr>
+<td>Potencjometr</td>
+<td>10 kΩ liniowy (głośność)</td>
+</tr>
+</tbody></table>
+<h3>Zobel network</h3>
+<p>Rezystor szeregowo z kondensatorem do GND z wyjścia. Stabilizuje wzmacniacz przy obciążeniach indukcyjnych (głośnik to indukcyjność!).</p>
+<h2>TDA2030 — wzmacniacz 18 W (mono)</h2>
+<p>TDA2030 i TDA2050 to klasyczne integralne wzmacniacze mocy klasy AB. Tanie, niezawodne, dobrze brzmiące.</p>
+<h3>Schemat (single supply ±15 V)</h3>
+<div class="schem">
+<svg viewBox="0 0 660 380" xmlns="http://www.w3.org/2000/svg">
+  <!-- Power rails -->
+  <line class="wire-pos" x1="20" y1="40" x2="620" y2="40"/>
+  <text class="label-pos" x="20" y="32">+15V</text>
+  <line class="wire" x1="20" y1="340" x2="620" y2="340" style="stroke:#60a5fa"/>
+  <text class="label" x="20" y="332" style="fill:#60a5fa">−15V</text>
+  <!-- TDA2030 box -->
+  <rect class="ic-body" x="240" y="140" width="140" height="100" rx="4"/>
+  <text class="ic-label" x="310" y="195">TDA2030</text>
+  <text class="label-pin" x="208" y="170">1 IN+</text>
+  <text class="label-pin" x="208" y="195">2 IN−</text>
+  <text class="label-pin" x="208" y="220">3 OUT</text>
+  <text class="label-pin" x="385" y="170">5 +V</text>
+  <text class="label-pin" x="385" y="220">4 −V</text>
+  <!-- Pin 5 +V -->
+  <line class="wire-pos" x1="380" y1="165" x2="420" y2="165"/>
+  <line class="wire-pos" x1="420" y1="165" x2="420" y2="40"/>
+  <!-- Pin 4 -V -->
+  <line class="wire" x1="380" y1="220" x2="420" y2="220" style="stroke:#60a5fa"/>
+  <line class="wire" x1="420" y1="220" x2="420" y2="340" style="stroke:#60a5fa"/>
+  <!-- Input signal via C1 -->
+  <line class="wire" x1="20" y1="165" x2="80" y2="165"/>
+  <line class="comp" x1="80" y1="153" x2="80" y2="177" stroke-width="2.5"/>
+  <line class="comp" x1="88" y1="153" x2="88" y2="177" stroke-width="2.5"/>
+  <text class="label-val" x="65" y="145">C1 1μF</text>
+  <line class="wire" x1="88" y1="165" x2="240" y2="165"/>
+  <text class="label" x="22" y="158">sygnał</text>
+  <!-- Pin 2 (IN-) with feedback divider -->
+  <line class="wire" x1="240" y1="195" x2="180" y2="195"/>
+  <circle class="node" cx="180" cy="195" r="4"/>
+  <!-- R2 (to GND) -->
+  <line class="wire" x1="180" y1="195" x2="180" y2="270"/>
+  <rect class="comp" x="160" y="270" width="40" height="22" rx="3"/>
+  <text class="label-val" x="120" y="285">R2 680Ω</text>
+  <line class="wire" x1="180" y1="292" x2="180" y2="380"/>
+  <!-- R1 (feedback to OUT) -->
+  <line class="wire" x1="180" y1="195" x2="180" y2="120"/>
+  <line class="wire" x1="180" y1="120" x2="500" y2="120"/>
+  <rect class="comp" x="280" y="109" width="40" height="22" rx="3"/>
+  <text class="label-val" x="288" y="103">R1 22k</text>
+  <!-- OUT -->
+  <line class="wire" x1="380" y1="220" x2="380" y2="220"/>
+  <line class="wire" x1="380" y1="220" x2="500" y2="220"/>
+  <circle class="node" cx="500" cy="220" r="4"/>
+  <line class="wire" x1="500" y1="120" x2="500" y2="220"/>
+  <line class="wire" x1="500" y1="220" x2="540" y2="220"/>
+  <!-- Speaker symbol -->
+  <polygon class="comp" points="540,210 550,210 562,198 562,242 550,230 540,230" fill="none" stroke-width="2"/>
+  <line class="comp" x1="568" y1="198" x2="568" y2="242" stroke-width="1.5"/>
+  <line class="comp" x1="574" y1="190" x2="574" y2="250" stroke-width="1"/>
+  <text class="label" x="585" y="218">głośnik</text>
+  <text class="label-val" x="585" y="232">4 Ω</text>
+  <line class="wire" x1="562" y1="242" x2="562" y2="380"/>
+  <!-- Bottom GND rail (center between +15V and -15V) -->
+  <line class="wire" x1="20" y1="380" x2="620" y2="380"/>
+  <line class="wire" x1="180" y1="380" x2="180" y2="380"/>
+  <line class="wire" x1="300" y1="380" x2="300" y2="380"/>
+  <line class="gnd" x1="285" y1="385" x2="315" y2="385"/>
+  <line class="gnd" x1="290" y1="390" x2="310" y2="390"/>
+  <text class="label-pos" x="20" y="395">GND (0V)</text>
+  <text class="label" x="500" y="60" style="font-size:10px;fill:#4ade80">A = 1 + R1/R2 = 33 (30 dB)</text>
+</svg>
+</div>
+<h3>Pinout TDA2030 (TO-220)</h3>
+<pre><code>
+1: IN+ (nieodwracające)
+2: IN− (odwracające)
+3: OUT
+4: -Vcc
+5: +Vcc
+</code></pre>
+<h3>Moc</h3>
+<table>
+<thead><tr>
+<th>Zasilanie</th>
+<th>Głośnik 4 Ω</th>
+<th>Głośnik 8 Ω</th>
+</tr></thead><tbody>
+<tr>
+<td>±12 V</td>
+<td>14 W</td>
+<td>9 W</td>
+</tr>
+<tr>
+<td>±15 V</td>
+<td>18 W</td>
+<td>12 W</td>
+</tr>
+<tr>
+<td>±18 V (max)</td>
+<td>25 W</td>
+<td>15 W</td>
+</tr>
+</tbody></table>
+<h3>Chłodzenie</h3>
+<p>P_max ~25 W dla TDA2030, 32 W dla TDA2050. Wymagany radiator:</p>
+<pre><code>
+R_θ ≤ (T_J - T_amb) / P
+   ≤ (150 - 50) / 12  (przy ~12 W typowych strat)
+   ≤ 8 K/W
+</code></pre>
+<p>Aluminiowy radiator 80×80×30 mm wystarczy.</p>
+<h3>Zabezpieczenia</h3>
+<p>TDA2030 ma wbudowane:</p>
+<ul>
+<li>Termiczne ucinanie (powyżej 145°C)</li>
+<li>Ograniczenie prądu (~3 A)</li>
+<li>Wykrywanie zwarcia</li>
+</ul>
+<p>Mimo to dodaj diody Schottky na wyjściu (snubber) i bezpiecznik wtórny 2 A.</p>
+<h2>Wzmacniacz stereo TDA2030 + tone control</h2>
+<div class="schem">
+<svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg">
+  <!-- Left channel -->
+  <line class="wire" x1="20" y1="60" x2="80" y2="60"/>
+  <text class="label" x="22" y="52">L_in</text>
+  <!-- Pot -->
+  <rect class="comp" x="80" y="49" width="50" height="22" rx="3"/>
+  <line class="comp" x1="105" y1="40" x2="105" y2="42"/>
+  <polygon class="comp-fill" points="103,42 107,42 105,46"/>
+  <text class="label-val" x="85" y="42">pot</text>
+  <line class="wire" x1="130" y1="60" x2="190" y2="60"/>
+  <!-- Tone net -->
+  <rect class="comp" x="190" y="40" width="80" height="40" rx="3"/>
+  <text class="ic-label" x="230" y="65" style="font-size:9px">tone net</text>
+  <line class="wire" x1="270" y1="60" x2="340" y2="60"/>
+  <!-- TDA2030 #1 -->
+  <rect class="ic-body" x="340" y="40" width="100" height="40" rx="3"/>
+  <text class="ic-label" x="390" y="65">TDA2030</text>
+  <line class="wire" x1="440" y1="60" x2="500" y2="60"/>
+  <!-- Speaker L -->
+  <polygon class="comp" points="500,52 510,52 522,40 522,80 510,68 500,68" fill="none" stroke-width="2"/>
+  <text class="label" x="540" y="60">L_out</text>
+  <!-- Right channel -->
+  <line class="wire" x1="20" y1="160" x2="80" y2="160"/>
+  <text class="label" x="22" y="152">R_in</text>
+  <rect class="comp" x="80" y="149" width="50" height="22" rx="3"/>
+  <line class="comp" x1="105" y1="140" x2="105" y2="142"/>
+  <polygon class="comp-fill" points="103,142 107,142 105,146"/>
+  <text class="label-val" x="85" y="142">pot</text>
+  <line class="wire" x1="130" y1="160" x2="190" y2="160"/>
+  <rect class="comp" x="190" y="140" width="80" height="40" rx="3"/>
+  <text class="ic-label" x="230" y="165" style="font-size:9px">tone net</text>
+  <line class="wire" x1="270" y1="160" x2="340" y2="160"/>
+  <rect class="ic-body" x="340" y="140" width="100" height="40" rx="3"/>
+  <text class="ic-label" x="390" y="165">TDA2030</text>
+  <line class="wire" x1="440" y1="160" x2="500" y2="160"/>
+  <polygon class="comp" points="500,152 510,152 522,140 522,180 510,168 500,168" fill="none" stroke-width="2"/>
+  <text class="label" x="540" y="160">R_out</text>
+  <text class="label" x="22" y="200" style="font-size:10px;fill:#fbbf24">Stereo: 2× ten sam tor (kanał L i R osobno)</text>
+</svg>
+</div>
+<p>Z dodatkowym dwustopniowym tone control (basy + soprany) z op-ampem TL072 jako preamp.</p>
+<h2>Wzmacniacz klasy D — TPA3116</h2>
+<p>Klasa D = sygnał audio modulowany PWM (300-500 kHz) + filtr LC na wyjściu. Sprawność 90%+. Mało ciepła.</p>
+<h3>Parametry TPA3116D2</h3>
+<ul>
+<li>Moc: 2× 50 W (stereo) lub 1× 100 W (mono, BTL)</li>
+<li>Zasilanie: 4,5-24 V (24 V dla pełnej mocy)</li>
+<li>Sprawność: 90%</li>
+<li>Wbudowany filtr DC/przeciw "puknięciu"</li>
+<li>THD: &lt; 0,1%</li>
+</ul>
+<h3>Schemat (uproszczony)</h3>
+<pre><code>
+   sygnał L → IN_L → TPA3116 → PWM_L → LC filter → głośnik L
+   sygnał R → IN_R → TPA3116 → PWM_R → LC filter → głośnik R
+</code></pre>
+<p>Filtr LC na wyjściu:</p>
+<ul>
+<li>L = 10-22 μH (dławik)</li>
+<li>C = 470 nF / 100 V</li>
+</ul>
+<p>W praktyce kupuj gotowe moduły TPA3116 z AliExpress (~30 zł), bo PCB layout krytyczny.</p>
+<h3>Zalety klasy D</h3>
+<ul>
+<li>Wysoka sprawność (90% vs 50% AB)</li>
+<li>Mały radiator (mało ciepła)</li>
+<li>Zasilanie z baterii (Bluetooth speakers, samochodowe)</li>
+</ul>
+<h3>Wady</h3>
+<ul>
+<li>Wymaga starannego PCB layout (EMI)</li>
+<li>Filtr na wyjściu obowiązkowy</li>
+<li>Niekiedy gorszy "feel" w audiofilskim porównaniu</li>
+</ul>
+<h2>Wzmacniacz operacyjny jako preamp + bufor</h2>
+<p>Klasyczny układ — wzmacniacz nieodwracający na op-ampie + bufor.</p>
+<div class="schem">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg">
+  <!-- Input -->
+  <line class="wire" x1="20" y1="110" x2="180" y2="110"/>
+  <text class="label" x="22" y="102">we (audio)</text>
+  <!-- Op-amp -->
+  <polygon class="ic-body" points="180,80 180,160 260,120"/>
+  <text class="label-pin" x="188" y="105">+</text>
+  <text class="label-pin" x="188" y="142">−</text>
+  <text class="ic-label" x="215" y="125" style="font-size:9px">TL072</text>
+  <line class="comp" x1="175" y1="110" x2="185" y2="110"/>
+  <line class="comp" x1="175" y1="130" x2="185" y2="130"/>
+  <!-- Output -->
+  <line class="wire" x1="260" y1="120" x2="340" y2="120"/>
+  <circle class="node" cx="340" cy="120" r="4"/>
+  <!-- Output coupling cap -->
+  <line class="wire" x1="340" y1="120" x2="400" y2="120"/>
+  <line class="comp" x1="400" y1="108" x2="400" y2="132" stroke-width="2.5"/>
+  <line class="comp" x1="408" y1="108" x2="408" y2="132" stroke-width="2.5"/>
+  <text class="label-val" x="395" y="100">C 1μF</text>
+  <line class="wire" x1="408" y1="120" x2="540" y2="120"/>
+  <text class="label" x="545" y="116">→ wzm. mocy</text>
+  <!-- Feedback -->
+  <line class="wire" x1="340" y1="120" x2="340" y2="180"/>
+  <line class="wire" x1="340" y1="180" x2="160" y2="180"/>
+  <line class="wire" x1="160" y1="180" x2="160" y2="130"/>
+  <line class="wire" x1="160" y1="130" x2="175" y2="130"/>
+  <circle class="node" cx="200" cy="180" r="4"/>
+  <!-- R2 (feedback) -->
+  <rect class="comp" x="240" y="169" width="40" height="22" rx="3"/>
+  <text class="label-val" x="248" y="205">R2 9k</text>
+  <!-- R1 to GND -->
+  <line class="wire" x1="200" y1="180" x2="200" y2="210"/>
+  <rect class="comp" x="180" y="210" width="40" height="22" rx="3"/>
+  <text class="label-val" x="135" y="225">R1 1k</text>
+  <line class="wire" x1="200" y1="232" x2="200" y2="260"/>
+  <line class="gnd" x1="185" y1="260" x2="215" y2="260"/>
+  <line class="gnd" x1="190" y1="265" x2="210" y2="265"/>
+  <text class="label" x="500" y="60" style="font-size:10px;fill:#4ade80">A = 1 + R2/R1 = 10 (20 dB)</text>
+</svg>
+</div>
+<p>Z dwoma op-ampami w TL072 (DIP-8) możesz mieć stereo na jednym chipie.</p>
+<h2>Mikser audio (sumator op-amp)</h2>
+<p>3 kanały wejściowe sumowane:</p>
+<div class="schem">
+<svg viewBox="0 0 580 320" xmlns="http://www.w3.org/2000/svg">
+  <!-- Op-amp -->
+  <polygon class="ic-body" points="280,120 280,200 360,160"/>
+  <text class="label-pin" x="288" y="145">−</text>
+  <text class="label-pin" x="288" y="180">+</text>
+  <text class="ic-label" x="315" y="165" style="font-size:9px">TL072</text>
+  <line class="comp" x1="275" y1="150" x2="285" y2="150"/>
+  <line class="comp" x1="275" y1="180" x2="285" y2="180"/>
+  <!-- + input to GND -->
+  <line class="wire" x1="280" y1="180" x2="260" y2="180"/>
+  <line class="wire" x1="260" y1="180" x2="260" y2="220"/>
+  <line class="gnd" x1="245" y1="225" x2="275" y2="225"/>
+  <line class="gnd" x1="250" y1="230" x2="270" y2="230"/>
+  <!-- Output -->
+  <line class="wire" x1="360" y1="160" x2="480" y2="160"/>
+  <circle class="node" cx="440" cy="160" r="4"/>
+  <text class="label" x="485" y="156">Vout</text>
+  <!-- Feedback Rf -->
+  <line class="wire" x1="440" y1="160" x2="440" y2="80"/>
+  <line class="wire" x1="440" y1="80" x2="220" y2="80"/>
+  <line class="wire" x1="220" y1="80" x2="220" y2="150"/>
+  <line class="wire" x1="220" y1="150" x2="275" y2="150"/>
+  <rect class="comp" x="320" y="69" width="40" height="22" rx="3"/>
+  <text class="label-val" x="328" y="63">Rf 10k</text>
+  <circle class="node" cx="220" cy="150" r="4"/>
+  <!-- Input 1 -->
+  <line class="wire" x1="20" y1="110" x2="80" y2="110"/>
+  <text class="label" x="22" y="102">in1</text>
+  <rect class="comp" x="80" y="99" width="40" height="22" rx="3"/>
+  <text class="label-val" x="80" y="93">R1 10k</text>
+  <line class="wire" x1="120" y1="110" x2="220" y2="110"/>
+  <line class="wire" x1="220" y1="110" x2="220" y2="150"/>
+  <!-- Input 2 -->
+  <line class="wire" x1="20" y1="150" x2="80" y2="150"/>
+  <text class="label" x="22" y="142">in2</text>
+  <rect class="comp" x="80" y="139" width="40" height="22" rx="3"/>
+  <text class="label-val" x="80" y="133">R2 10k</text>
+  <line class="wire" x1="120" y1="150" x2="220" y2="150"/>
+  <!-- Input 3 -->
+  <line class="wire" x1="20" y1="190" x2="80" y2="190"/>
+  <text class="label" x="22" y="182">in3</text>
+  <rect class="comp" x="80" y="179" width="40" height="22" rx="3"/>
+  <text class="label-val" x="80" y="173">R3 10k</text>
+  <line class="wire" x1="120" y1="190" x2="220" y2="190"/>
+  <line class="wire" x1="220" y1="190" x2="220" y2="150"/>
+  <text class="label" x="20" y="280" style="font-size:10px;fill:#4ade80">Vout = −(Vin1 + Vin2 + Vin3) — wszystkie kanały sumowane (mikser audio)</text>
+</svg>
+</div>
+<p>Każdy kanał można osłabić niezależnie potencjometrem (10 kΩ) przed wejściem.</p>
+<h2>Tone control — Baxandall (basy + soprany)</h2>
+<p>Klasyczny obwód z lat 50, do dzisiaj standardowy:</p>
+<div class="schem">
+<svg viewBox="0 0 680 320" xmlns="http://www.w3.org/2000/svg">
+  <!-- Input -->
+  <line class="wire" x1="20" y1="100" x2="80" y2="100"/>
+  <text class="label" x="22" y="92">we</text>
+  <!-- C1 -->
+  <line class="comp" x1="80" y1="88" x2="80" y2="112" stroke-width="2.5"/>
+  <line class="comp" x1="88" y1="88" x2="88" y2="112" stroke-width="2.5"/>
+  <text class="label-val" x="68" y="80">C1 47n</text>
+  <line class="wire" x1="88" y1="100" x2="200" y2="100"/>
+  <circle class="node" cx="200" cy="100" r="4"/>
+  <!-- R1 -->
+  <rect class="comp" x="200" y="89" width="40" height="22" rx="3"/>
+  <text class="label-val" x="205" y="83">R1 10k</text>
+  <line class="wire" x1="240" y1="100" x2="380" y2="100"/>
+  <circle class="node" cx="380" cy="100" r="4"/>
+  <!-- C2 -->
+  <line class="comp" x1="380" y1="88" x2="380" y2="112" stroke-width="2.5"/>
+  <line class="comp" x1="388" y1="88" x2="388" y2="112" stroke-width="2.5"/>
+  <text class="label-val" x="395" y="92">C2 100p</text>
+  <line class="wire" x1="388" y1="100" x2="540" y2="100"/>
+  <text class="label" x="545" y="96">wy</text>
+  <!-- Bass branch (left side, downwards from node 200,100) -->
+  <line class="wire" x1="200" y1="100" x2="200" y2="160"/>
+  <!-- Potentiometer (linear, 3-terminal) -->
+  <rect class="comp" x="180" y="160" width="40" height="40" rx="3"/>
+  <line class="comp" x1="200" y1="148" x2="200" y2="152"/>
+  <polygon class="comp-fill" points="195,152 205,152 200,158"/>
+  <text class="label-val" x="225" y="178">pot basy</text>
+  <text class="label-val" x="225" y="192">100k log</text>
+  <line class="wire" x1="200" y1="200" x2="200" y2="220"/>
+  <!-- R2 -->
+  <rect class="comp" x="180" y="220" width="40" height="22" rx="3"/>
+  <text class="label-val" x="225" y="235">R2 4k7</text>
+  <line class="wire" x1="200" y1="242" x2="200" y2="280"/>
+  <!-- Treble branch (right side, downwards from node 380,100) -->
+  <line class="wire" x1="380" y1="100" x2="380" y2="160"/>
+  <rect class="comp" x="360" y="160" width="40" height="40" rx="3"/>
+  <line class="comp" x1="380" y1="148" x2="380" y2="152"/>
+  <polygon class="comp-fill" points="375,152 385,152 380,158"/>
+  <text class="label-val" x="405" y="178">pot soprany</text>
+  <text class="label-val" x="405" y="192">100k log</text>
+  <line class="wire" x1="380" y1="200" x2="380" y2="220"/>
+  <rect class="comp" x="360" y="220" width="40" height="22" rx="3"/>
+  <text class="label-val" x="405" y="235">R3 1k</text>
+  <line class="wire" x1="380" y1="242" x2="380" y2="280"/>
+  <!-- GND rail -->
+  <line class="wire" x1="20" y1="280" x2="540" y2="280"/>
+  <line class="wire" x1="280" y1="280" x2="280" y2="300"/>
+  <line class="gnd" x1="265" y1="302" x2="295" y2="302"/>
+  <line class="gnd" x1="270" y1="308" x2="290" y2="308"/>
+  <text class="label" x="20" y="292">GND</text>
+  <text class="label" x="450" y="60" style="font-size:10px;fill:#fbbf24">Baxandall: ±15 dB na 100 Hz (bas) i 10 kHz (sopran)</text>
+</svg>
+</div>
+<p>Pełny układ daje regulację ±15 dB w basach (100 Hz) i sopranach (10 kHz).</p>
+<h2>Phantom power dla mikrofonu</h2>
+<p>Mikrofony pojemnościowe wymagają zasilania ~48 V (phantom). Schemat:</p>
+<div class="schem">
+<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg">
+  <!-- +48V rail -->
+  <line class="wire-pos" x1="20" y1="50" x2="200" y2="50"/>
+  <text class="label-pos" x="20" y="42">+48V phantom</text>
+  <circle class="node" cx="200" cy="50" r="4"/>
+  <!-- Two 6.8k resistors -->
+  <line class="wire-pos" x1="200" y1="50" x2="200" y2="100"/>
+  <rect class="comp" x="180" y="100" width="40" height="22" rx="3"/>
+  <text class="label-val" x="225" y="115">R 6,8k</text>
+  <line class="wire" x1="200" y1="122" x2="200" y2="160"/>
+  <text class="label-pin" x="220" y="160">pin 2 (mic +)</text>
+  <!-- Right resistor -->
+  <line class="wire-pos" x1="200" y1="50" x2="320" y2="50"/>
+  <line class="wire-pos" x1="320" y1="50" x2="320" y2="100"/>
+  <rect class="comp" x="300" y="100" width="40" height="22" rx="3"/>
+  <text class="label-val" x="345" y="115">R 6,8k</text>
+  <line class="wire" x1="320" y1="122" x2="320" y2="200"/>
+  <text class="label-pin" x="340" y="200">pin 3 (mic −)</text>
+  <!-- XLR mic schematic representation (circles) -->
+  <circle class="comp" cx="450" cy="120" r="40" stroke-width="2"/>
+  <text class="ic-label" x="450" y="124" style="font-size:11px">mikrofon</text>
+  <text class="ic-label" x="450" y="140" style="font-size:9px">XLR-3</text>
+  <line class="wire" x1="410" y1="120" x2="200" y2="120"/>
+  <circle class="node" cx="200" cy="120" r="4"/>
+  <line class="wire" x1="410" y1="160" x2="320" y2="160"/>
+  <line class="wire" x1="320" y1="160" x2="320" y2="200"/>
+  <circle class="node" cx="320" cy="200" r="4"/>
+  <!-- Pin 1 (shield) -->
+  <line class="wire" x1="410" y1="200" x2="100" y2="200"/>
+  <text class="label-pin" x="20" y="200">pin 1</text>
+  <text class="label-pin" x="20" y="216">(shield)</text>
+  <!-- GND -->
+  <line class="wire" x1="100" y1="200" x2="100" y2="240"/>
+  <line class="gnd" x1="85" y1="245" x2="115" y2="245"/>
+  <line class="gnd" x1="90" y1="250" x2="110" y2="250"/>
+  <text class="label" x="22" y="240">GND</text>
+  <text class="label" x="350" y="260" style="font-size:10px;fill:#fbbf24">48V "phantom" – mic odbiera sygnał jako różnicę pin 2 vs pin 3</text>
+</svg>
+</div>
+<p>48 V doprowadzone do obu pinów sygnałowych. Sygnał wraca jako różnica — phantom "niewidzialne".</p>
+<h2>Wskazówki praktyczne</h2>
+<h3>Masa to święta sprawa</h3>
+<p>W audio masa = śmierć projektu, jeśli pominiesz. Zasada <strong>single point ground</strong>:</p>
+<ul>
+<li>Wszystkie masy łączą się <strong>w jednym punkcie</strong></li>
+<li>Masa wejściowa, wyjściowa, zasilania — w jednym</li>
+<li>Brak pętli mas</li>
+</ul>
+<h3>Sprzężenie kondensatorami</h3>
+<p>Każda zmiana DC (przejście między stopniami) przez kondensator. Wartość:</p>
+<pre><code>
+f_dolna = 1 / (2π · R · C)
+</code></pre>
+<p>Dla audio 20 Hz dolna: C ≥ 10 μF przy R = 10 kΩ.</p>
+<h3>Kondensatory wyjściowe</h3>
+<p>Duże (220-1000 μF) sprzęgają wyjście ze głośnikiem. Jakość kondensatora ma znaczenie — preferuj <strong>niskoESR</strong>.</p>
+<h3>Zasilanie czyste</h3>
+<p>Wzmacniacz audio MUSI mieć czyste zasilanie. SMPS daje brum (50 Hz) i piski (HF). Liniowy zasilacz lepiej. Ekstra filtry:</p>
+<ul>
+<li>Duży kondensator (10 000 μF) na wejściu</li>
+<li>Mniejsze (100 nF) tuż przy każdym IC</li>
+<li>Cewka 10-100 μH w szereg dla najczulszych preampów</li>
+</ul>
+<h3>Klucz uziemienia (ground lift)</h3>
+<p>Czasem <strong>pętla masy</strong> powoduje brum. Rozwiązania:</p>
+<ul>
+<li>Lift switch na masie wejścia</li>
+<li>Optoseparator</li>
+<li>Transformator izolacyjny audio (drogi)</li>
+</ul>
+<h2>Podsumowanie</h2>
+<table>
+<thead><tr>
+<th>Cel</th>
+<th>Wybór</th>
+</tr></thead><tbody>
+<tr>
+<td>Mikrofon → słuchawki, prosty</td>
+<td>LM386</td>
+</tr>
+<tr>
+<td>Mały głośnik (radio, modele)</td>
+<td>LM386 lub PAM8403 (klasa D, 3 W)</td>
+</tr>
+<tr>
+<td>Średni głośnik (10-20 W)</td>
+<td>TDA2030 / TDA2050</td>
+</tr>
+<tr>
+<td>Domowy stereo (50-100 W)</td>
+<td>TPA3116 (klasa D) lub TDA7294 (AB)</td>
+</tr>
+<tr>
+<td>Hi-fi audiofile</td>
+<td>klasa A dyskretny lub markowy chip (LM3886)</td>
+</tr>
+<tr>
+<td>Estradowy (kW)</td>
+<td>dedykowane wzmacniacze profesjonalne</td>
+</tr>
+</tbody></table>
+<p>W hobby: zacznij od LM386 → przejdź do TDA2030 → TPA3116. Mocniejsze klasy A buduj po nabyciu doświadczenia.</p>
+
+        <div class="nav-bottom">
+            <a href="08-02-zasilacz-sieciowy.html">&larr; 08-02 Zasilacz</a>
+            <a href="08-04-generatory-i-oscylatory.html">08-04 Generatory &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

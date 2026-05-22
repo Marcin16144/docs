@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Django REST Framework</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--accent-hover:#60a5fa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Python</a>
+  <span class="sep">/</span>
+  <span class="title">Django REST Framework</span>
+</div>
+<div class="container">
+  <h1>Django REST Framework</h1>
+  <p class="subtitle">Serializers, ViewSets, Routers, uprawnienia, autentykacja JWT, paginacja, filtrowanie</p>
+
+  <h2>Wprowadzenie do DRF</h2>
+  <p><strong>Django REST Framework</strong> (DRF) to najpopularniejsza biblioteka do budowania REST API w Django. Oferuje dojrzaly ekosystem, swietna dokumentacje i mnogo gotowych komponentow. Jest wyborem numer jeden dla zespolow ktore juz uzywaja Django i chca szybko wystawic API.</p>
+
+  <div class="card green">
+    <h3>Instalacja</h3>
+    <p><code>pip install djangorestframework djangorestframework-simplejwt django-filter</code><br>
+    Dodaj <code>'rest_framework'</code> i <code>'django_filters'</code> do <code>INSTALLED_APPS</code>.</p>
+  </div>
+
+  <h2>Serializers — walidacja i serializacja</h2>
+  <p>Serializatory DRF pelnia role analogiczna do Pydantic w FastAPI — konwertuja zlozone obiekty (modele Django) na Python dict/JSON i odwrotnie, oraz waliduja dane wejsciowe.</p>
+
+<pre><code># models.py
+from django.db import models
+from django.contrib.auth.models import User
+
+class Kategoria(models.Model):
+    nazwa = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True)
+
+    class Meta:
+        verbose_name_plural = "kategorie"
+
+class Artykul(models.Model):
+    tytul = models.CharField(max_length=300)
+    tresc = models.TextField()
+    autor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="artykuly")
+    kategoria = models.ForeignKey(Kategoria, on_delete=models.SET_NULL, null=True)
+    opublikowano = models.BooleanField(default=False)
+    utworzono = models.DateTimeField(auto_now_add=True)
+    zaktualizowano = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-utworzono"]
+
+# serializers.py
+from rest_framework import serializers
+from .models import Artykul, Kategoria
+
+class KategoriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Kategoria
+        fields = ["id", "nazwa", "slug"]
+
+class ArtykulListSerializer(serializers.ModelSerializer):
+    """Lekki serializer do list — bez pelnej tresci."""
+    autor_nazwa = serializers.SerializerMethodField()
+    kategoria = KategoriaSerializer(read_only=True)
+
+    class Meta:
+        model = Artykul
+        fields = ["id", "tytul", "autor_nazwa", "kategoria", "opublikowano", "utworzono"]
+
+    def get_autor_nazwa(self, obj) -> str:
+        return f"{obj.autor.first_name} {obj.autor.last_name}".strip() or obj.autor.username
+
+class ArtykulDetailSerializer(ArtykulListSerializer):
+    """Pelny serializer — do widokow detali."""
+    class Meta(ArtykulListSerializer.Meta):
+        fields = ArtykulListSerializer.Meta.fields + ["tresc", "zaktualizowano"]
+
+class ArtykulTworzSerializer(serializers.ModelSerializer):
+    """Serializer do tworzenia/edycji — przyjmuje ID kategorii."""
+    class Meta:
+        model = Artykul
+        fields = ["tytul", "tresc", "kategoria", "opublikowany"]
+
+    def validate_tytul(self, value: str) -> str:
+        if len(value) &lt; 5:
+            raise serializers.ValidationError("Tytul musi miec min. 5 znakow.")
+        return value.strip()
+
+    def create(self, validated_data: dict) -> Artykul:
+        # autor jest ustawiany automatycznie z request.user
+        validated_data["autor"] = self.context["request"].user
+        return super().create(validated_data)
+</code></pre>
+
+  <h2>ViewSets i Routers</h2>
+  <p><strong>ViewSet</strong> laczy wiele powiazan widokow (list, detail, create, update, delete) w jednej klasie. <strong>Router</strong> automatycznie generuje URL-e dla ViewSet.</p>
+
+<pre><code># views.py
+from rest_framework import viewsets, permissions, status, filters
+from rest_framework.decorators import action
+from rest_framework.request import Request
+from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+from .models import Artykul, Kategoria
+from .serializers import (
+    ArtykulListSerializer, ArtykulDetailSerializer,
+    ArtykulTworzSerializer, KategoriaSerializer,
+)
+from .permissions import IsAuthorOrReadOnly
+
+class ArtykulViewSet(viewsets.ModelViewSet):
+    """
+    CRUD dla artykulow.
+    list:   GET  /artykuly/
+    create: POST /artykuly/
+    retrieve: GET /artykuly/{id}/
+    update: PUT  /artykuly/{id}/
+    partial_update: PATCH /artykuly/{id}/
+    destroy: DELETE /artykuly/{id}/
+    """
+    queryset = Artykul.objects.select_related("autor", "kategoria").all()
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
+
+    # Filtrowanie, sortowanie, wyszukiwanie
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["kategoria", "opublikowano", "autor"]
+    search_fields = ["tytul", "tresc"]
+    ordering_fields = ["utworzono", "tytul"]
+    ordering = ["-utworzono"]
+
+    def get_serializer_class(self):
+        """Rozny serializer dla listy, detalu i tworzenia."""
+        if self.action == "list":
+            return ArtykulListSerializer
+        if self.action in ("create", "update", "partial_update"):
+            return ArtykulTworzSerializer
+        return ArtykulDetailSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action == "list" and not self.request.user.is_staff:
+            qs = qs.filter(opublikowano=True)
+        return qs
+
+    # Niestandardowa akcja: POST /artykuly/{id}/opublikuj/
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAdminUser])
+    def opublikuj(self, request: Request, pk=None) -> Response:
+        artykul = self.get_object()
+        artykul.opublikowano = True
+        artykul.save(update_fields=["opublikowano"])
+        return Response({"status": "opublikowano"})
+
+    # Niestandardowa akcja: GET /artykuly/moje/
+    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    def moje(self, request: Request) -> Response:
+        qs = Artykul.objects.filter(autor=request.user)
+        serializer = ArtykulListSerializer(qs, many=True, context={"request": request})
+        return Response(serializer.data)
+
+class KategoriaViewSet(viewsets.ReadOnlyModelViewSet):
+    """Tylko odczyt — brak tworzenia/edycji przez API."""
+    queryset = Kategoria.objects.all()
+    serializer_class = KategoriaSerializer
+    permission_classes = [permissions.AllowAny]
+
+# urls.py
+from rest_framework.routers import DefaultRouter
+from django.urls import path, include
+
+router = DefaultRouter()
+router.register("artykuly", ArtykulViewSet, basename="artykul")
+router.register("kategorie", KategoriaViewSet, basename="kategoria")
+
+urlpatterns = [
+    path("api/v1/", include(router.urls)),
+]
+</code></pre>
+
+  <h2>Uprawnienia — permissions</h2>
+  <p>DRF umozliwia tworzenie niestandardowych klas uprawnien poprzez dziedziczenie z <code>BasePermission</code>.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Klasa uprawnienia</th>
+        <th>Opis</th>
+        <th>Typowe uzycie</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>AllowAny</code></td><td>Bez ograniczen</td><td>Publiczne endpointy</td></tr>
+      <tr><td><code>IsAuthenticated</code></td><td>Wymaga zalogowania</td><td>Wiekzosc API</td></tr>
+      <tr><td><code>IsAdminUser</code></td><td>Tylko staff/admin</td><td>Panel administracyjny</td></tr>
+      <tr><td><code>IsAuthenticatedOrReadOnly</code></td><td>Zapis: auth, odczyt: wszyscy</td><td>Blogi, CMS</td></tr>
+      <tr><td><code>DjangoModelPermissions</code></td><td>Uprawnienia modelu Django</td><td>Integracja z admin</td></tr>
+      <tr><td>Wlasna klasa</td><td>Dowolna logika</td><td>Np. IsAuthorOrReadOnly</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Autentykacja JWT z simplejwt</h2>
+  <p>Pakiet <strong>djangorestframework-simplejwt</strong> dostarcza gotowe widoki do logowania, odswiez tokena i weryfikacji.</p>
+
+  <h2>Paginacja i filtrowanie</h2>
+  <p>DRF oferuje wbudowana paginacje — wystarczy skonfigurowac w <code>settings.py</code>:</p>
+
+<pre><code># settings.py — globalna konfiguracja DRF
+REST_FRAMEWORK = {
+    # Autentykacja
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    # Uprawnienia domyslne
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    # Paginacja
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+    # Filtrowanie
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
+    # Throttling (rate limiting)
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+        "user": "1000/day",
+    },
+    # Format odpowiedzi
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+}
+
+# JWT konfiguracja
+from datetime import timedelta
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
+# urls.py — dodaj endpointy JWT
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView, TokenRefreshView, TokenVerifyView,
+)
+urlpatterns += [
+    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
+]
+</code></pre>
+
+  <div class="card orange">
+    <h3>Wydajnosc — select_related i prefetch_related</h3>
+    <p>Zawsze uzywaj <code>select_related()</code> dla ForeignKey i <code>prefetch_related()</code> dla ManyToMany w <code>get_queryset()</code>. Bez tego kazdyv rekord wygeneruje osobne zapytanie SQL (problem N+1).</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="03-fastapi-zaawansowany.html">← 03-fastapi-zaawansowany.html</a>
+    <a href="05-flask-restx.html">05-flask-restx.html →</a>
+  </div>
+</div>
+</body>
+</html>

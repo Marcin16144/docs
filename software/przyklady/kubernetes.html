@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kubernetes — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">Kubernetes</span>
+</div>
+<div class="container">
+<h1>☸️ Kubernetes — gotowe manifesty</h1>
+<p class="lead">Deployment + Service + Ingress + ConfigMap + Secret + HPA — produkcyjny zestaw na 1 stronę.</p>
+
+<h2>1. Deployment + Service</h2>
+<pre data-lang="yaml"><code><span class="kw">apiVersion</span>: apps/v1
+<span class="kw">kind</span>: Deployment
+<span class="kw">metadata</span>:
+  <span class="kw">name</span>: api
+  <span class="kw">labels</span>: { app: api }
+<span class="kw">spec</span>:
+  <span class="kw">replicas</span>: <span class="num">3</span>
+  <span class="kw">strategy</span>:
+    <span class="kw">type</span>: RollingUpdate
+    <span class="kw">rollingUpdate</span>: { maxSurge: <span class="num">1</span>, maxUnavailable: <span class="num">0</span> }
+  <span class="kw">selector</span>:
+    <span class="kw">matchLabels</span>: { app: api }
+  <span class="kw">template</span>:
+    <span class="kw">metadata</span>:
+      <span class="kw">labels</span>: { app: api }
+    <span class="kw">spec</span>:
+      <span class="kw">serviceAccountName</span>: api
+      <span class="kw">securityContext</span>:
+        <span class="kw">runAsNonRoot</span>: <span class="kw">true</span>
+        <span class="kw">runAsUser</span>: <span class="num">1000</span>
+        <span class="kw">fsGroup</span>: <span class="num">1000</span>
+      <span class="kw">containers</span>:
+        - <span class="kw">name</span>: api
+          <span class="kw">image</span>: ghcr.io/myorg/api:<span class="num">1.4</span>.<span class="num">2</span>
+          <span class="kw">ports</span>: [{ containerPort: <span class="num">3000</span> }]
+          <span class="kw">env</span>:
+            - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: api-secrets, key: db_url } } }
+            - { name: LOG_LEVEL, valueFrom: { configMapKeyRef: { name: api-config, key: log_level } } }
+          <span class="kw">resources</span>:
+            <span class="kw">requests</span>: { cpu: <span class="str">"100m"</span>, memory: <span class="str">"128Mi"</span> }
+            <span class="kw">limits</span>:   { cpu: <span class="str">"500m"</span>, memory: <span class="str">"512Mi"</span> }
+          <span class="kw">livenessProbe</span>:
+            <span class="kw">httpGet</span>: { path: /health, port: <span class="num">3000</span> }
+            <span class="kw">initialDelaySeconds</span>: <span class="num">10</span>
+            <span class="kw">periodSeconds</span>: <span class="num">30</span>
+          <span class="kw">readinessProbe</span>:
+            <span class="kw">httpGet</span>: { path: /ready, port: <span class="num">3000</span> }
+            <span class="kw">periodSeconds</span>: <span class="num">5</span>
+          <span class="kw">securityContext</span>:
+            <span class="kw">allowPrivilegeEscalation</span>: <span class="kw">false</span>
+            <span class="kw">readOnlyRootFilesystem</span>: <span class="kw">true</span>
+            <span class="kw">capabilities</span>: { drop: [<span class="str">"ALL"</span>] }
+---
+<span class="kw">apiVersion</span>: v1
+<span class="kw">kind</span>: Service
+<span class="kw">metadata</span>: { name: api }
+<span class="kw">spec</span>:
+  <span class="kw">selector</span>: { app: api }
+  <span class="kw">ports</span>: [{ port: <span class="num">80</span>, targetPort: <span class="num">3000</span> }]
+  <span class="kw">type</span>: ClusterIP</code></pre>
+
+<h2>2. ConfigMap + Secret</h2>
+<pre data-lang="yaml"><code><span class="kw">apiVersion</span>: v1
+<span class="kw">kind</span>: ConfigMap
+<span class="kw">metadata</span>: { name: api-config }
+<span class="kw">data</span>:
+  log_level: <span class="str">"info"</span>
+  feature_flags: |
+    new_checkout: true
+    ai_recommendations: false
+---
+<span class="kw">apiVersion</span>: v1
+<span class="kw">kind</span>: Secret
+<span class="kw">metadata</span>: { name: api-secrets }
+<span class="kw">type</span>: Opaque
+<span class="kw">stringData</span>:    <span class="com"># automatycznie zakodowane base64</span>
+  db_url: postgres://app:secret@db:<span class="num">5432</span>/app
+  jwt_key: <span class="str">"twoj-bardzo-dlugi-klucz-min-32-znaki"</span></code></pre>
+<div class="warn">⚠️ Nie commituj <code>Secret</code> do gita. Użyj <strong>Sealed Secrets</strong>, <strong>External Secrets Operator</strong> lub <strong>SOPS</strong>.</div>
+
+<h2>3. Ingress z TLS (cert-manager + Let's Encrypt)</h2>
+<pre data-lang="yaml"><code><span class="kw">apiVersion</span>: networking.k8s.io/v1
+<span class="kw">kind</span>: Ingress
+<span class="kw">metadata</span>:
+  <span class="kw">name</span>: api
+  <span class="kw">annotations</span>:
+    cert-manager.io/cluster-issuer: <span class="str">"letsencrypt-prod"</span>
+    nginx.ingress.kubernetes.io/proxy-body-size: <span class="str">"10m"</span>
+    nginx.ingress.kubernetes.io/rate-limit-rpm: <span class="str">"60"</span>
+<span class="kw">spec</span>:
+  <span class="kw">ingressClassName</span>: nginx
+  <span class="kw">tls</span>:
+    - { hosts: [api.example.com], secretName: api-tls }
+  <span class="kw">rules</span>:
+    - <span class="kw">host</span>: api.example.com
+      <span class="kw">http</span>:
+        <span class="kw">paths</span>:
+          - <span class="kw">path</span>: /
+            <span class="kw">pathType</span>: Prefix
+            <span class="kw">backend</span>:
+              <span class="kw">service</span>: { name: api, port: { number: <span class="num">80</span> } }</code></pre>
+
+<h2>4. HPA — autoskalowanie</h2>
+<pre data-lang="yaml"><code><span class="kw">apiVersion</span>: autoscaling/v2
+<span class="kw">kind</span>: HorizontalPodAutoscaler
+<span class="kw">metadata</span>: { name: api }
+<span class="kw">spec</span>:
+  <span class="kw">scaleTargetRef</span>:
+    <span class="kw">apiVersion</span>: apps/v1
+    <span class="kw">kind</span>: Deployment
+    <span class="kw">name</span>: api
+  <span class="kw">minReplicas</span>: <span class="num">3</span>
+  <span class="kw">maxReplicas</span>: <span class="num">20</span>
+  <span class="kw">metrics</span>:
+    - <span class="kw">type</span>: Resource
+      <span class="kw">resource</span>: { name: cpu, target: { type: Utilization, averageUtilization: <span class="num">70</span> } }
+    - <span class="kw">type</span>: Resource
+      <span class="kw">resource</span>: { name: memory, target: { type: Utilization, averageUtilization: <span class="num">80</span> } }
+  <span class="kw">behavior</span>:
+    <span class="kw">scaleDown</span>:
+      <span class="kw">stabilizationWindowSeconds</span>: <span class="num">300</span>  <span class="com"># 5 min cooldown</span>
+    <span class="kw">scaleUp</span>:
+      <span class="kw">policies</span>: [{ type: Percent, value: <span class="num">100</span>, periodSeconds: <span class="num">60</span> }]</code></pre>
+
+<h2>5. NetworkPolicy — domyślnie zero-trust</h2>
+<pre data-lang="yaml"><code><span class="com"># Default deny — nic do/ze świata, dopóki nie zezwolisz</span>
+<span class="kw">apiVersion</span>: networking.k8s.io/v1
+<span class="kw">kind</span>: NetworkPolicy
+<span class="kw">metadata</span>: { name: default-deny }
+<span class="kw">spec</span>:
+  <span class="kw">podSelector</span>: {}
+  <span class="kw">policyTypes</span>: [<span class="str">"Ingress"</span>, <span class="str">"Egress"</span>]
+---
+<span class="com"># API może odbierać tylko od ingress-nginx i komunikować się z db</span>
+<span class="kw">apiVersion</span>: networking.k8s.io/v1
+<span class="kw">kind</span>: NetworkPolicy
+<span class="kw">metadata</span>: { name: api-policy }
+<span class="kw">spec</span>:
+  <span class="kw">podSelector</span>: { matchLabels: { app: api } }
+  <span class="kw">policyTypes</span>: [<span class="str">"Ingress"</span>, <span class="str">"Egress"</span>]
+  <span class="kw">ingress</span>:
+    - <span class="kw">from</span>:
+        - { namespaceSelector: { matchLabels: { name: ingress-nginx } } }
+      <span class="kw">ports</span>: [{ port: <span class="num">3000</span> }]
+  <span class="kw">egress</span>:
+    - <span class="kw">to</span>: [{ podSelector: { matchLabels: { app: db } } }]
+      <span class="kw">ports</span>: [{ port: <span class="num">5432</span> }]
+    - <span class="kw">to</span>: []  <span class="com"># DNS</span>
+      <span class="kw">ports</span>: [{ port: <span class="num">53</span>, protocol: UDP }]</code></pre>
+
+<h2>6. Komendy kubectl, których używasz codziennie</h2>
+<pre data-lang="bash"><code><span class="com"># Apply / delete</span>
+kubectl apply -f k8s/
+kubectl delete -f k8s/
+
+<span class="com"># Inspect</span>
+kubectl get pods -A -o wide
+kubectl describe pod api-<span class="num">7</span>d<span class="num">9</span>f<span class="num">8</span>c<span class="num">5</span>d<span class="num">7</span>-x<span class="num">2</span>p<span class="num">9</span>l
+kubectl logs -f deploy/api --tail=<span class="num">100</span>
+kubectl logs -l app=api --since=<span class="num">10</span>m --all-containers
+
+<span class="com"># Debugowanie</span>
+kubectl exec -it deploy/api -- sh
+kubectl port-forward svc/api <span class="num">3000</span>:<span class="num">80</span>
+kubectl run debug --rm -it --image=nicolaka/netshoot -- bash
+kubectl debug -it deploy/api --image=busybox --target=api
+
+<span class="com"># Skalowanie / rollout</span>
+kubectl scale deploy/api --replicas=<span class="num">10</span>
+kubectl rollout status deploy/api
+kubectl rollout history deploy/api
+kubectl rollout undo deploy/api --to-revision=<span class="num">3</span>
+
+<span class="com"># Resources</span>
+kubectl top pods
+kubectl top nodes</code></pre>
+
+<div class="next-prev">
+    <a href="docker.html"><div class="label">← Poprzedni</div><div class="title">Docker</div></a>
+    <a href="git.html"><div class="label">Następny →</div><div class="title">Git</div></a>
+</div>
+</div>
+</body>
+</html>

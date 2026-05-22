@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphQL w Node.js</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Node.js</a>
+  <span class="sep">/</span>
+  <span class="title">GraphQL w Node.js</span>
+</div>
+
+<div class="container">
+  <h1>GraphQL w Node.js</h1>
+  <p class="subtitle">Apollo Server v4, GraphQL Yoga, DataLoader, subscriptions, persisted queries i Pothos — code-first schema</p>
+
+  <h2>Czym jest GraphQL?</h2>
+  <p>GraphQL to jezyk zapytan dla API opracowany przez Facebook (2015). Klient precyzuje <strong>dokladnie</strong> jakich danych potrzebuje — nie wiecej, nie mniej. W odroznieniu od REST, GraphQL ma jeden endpoint (<code>POST /graphql</code>) i pozwala na pobieranie powiazanych danych w jednym zapytaniu, eliminujac problemy over-fetching i under-fetching.</p>
+  <p>GraphQL sprawdza sie szczegolnie w: aplikacjach mobilnych (ograniczone pasmo), BFF (Backend for Frontend), systemach z wieloma klientami o roznych potrzebach danych oraz szybko ewoluujacych API.</p>
+
+  <h2>Apollo Server v4</h2>
+  <p>Apollo Server v4 to najpopularniejsza implementacja serwera GraphQL dla Node.js. Wersja 4 wprowadzila uproszczone API, lepszy performance i separacje adapterow HTTP (standalone, Express, Fastify, Hono).</p>
+
+  <pre><code>// === Standalone Apollo Server v4 ===
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
+import { makeExecutableSchema } from '@graphql-tools/schema';
+import depthLimit from 'graphql-depth-limit';
+
+// Schema SDL (Schema Definition Language)
+const typeDefs = `#graphql
+  type Query {
+    user(id: ID!): User
+    users(page: Int = 1, limit: Int = 20): UserConnection!
+    posts(userId: ID): [Post!]!
+  }
+
+  type Mutation {
+    createUser(input: CreateUserInput!): User!
+    updateUser(id: ID!, input: UpdateUserInput!): User!
+    deleteUser(id: ID!): Boolean!
+  }
+
+  type Subscription {
+    userCreated: User!
+    postAdded(userId: ID): Post!
+  }
+
+  type User {
+    id:        ID!
+    name:      String!
+    email:     String!
+    role:      UserRole!
+    posts:     [Post!]!
+    createdAt: String!
+  }
+
+  type Post {
+    id:      ID!
+    title:   String!
+    content: String!
+    author:  User!
+    tags:    [String!]!
+  }
+
+  type UserConnection {
+    nodes:    [User!]!
+    pageInfo: PageInfo!
+    total:    Int!
+  }
+
+  type PageInfo {
+    hasNextPage:     Boolean!
+    hasPreviousPage: Boolean!
+    currentPage:     Int!
+  }
+
+  enum UserRole { ADMIN USER MODERATOR }
+
+  input CreateUserInput { name: String! email: String! password: String! }
+  input UpdateUserInput { name: String email: String }
+`;
+
+// Resolwery
+const resolvers = {
+  Query: {
+    user: async (_, { id }, context) => {
+      if (!context.user) throw new GraphQLError('Nieautoryzowany', {
+        extensions: { code: 'UNAUTHENTICATED' }
+      });
+      return context.dataSources.userService.findById(id);
+    },
+    users: async (_, { page, limit }, { dataSources }) => {
+      const { nodes, total } = await dataSources.userService.findAll({ page, limit });
+      return {
+        nodes,
+        total,
+        pageInfo: {
+          hasNextPage: page * limit &lt; total,
+          hasPreviousPage: page > 1,
+          currentPage: page,
+        },
+      };
+    },
+  },
+
+  User: {
+    // Resolver pola — uzywany przez DataLoader
+    posts: async (user, _, { dataSources }) => {
+      return dataSources.postLoader.load(user.id); // DataLoader batching!
+    },
+  },
+
+  Mutation: {
+    createUser: async (_, { input }, { dataSources, pubsub }) => {
+      const user = await dataSources.userService.create(input);
+      await pubsub.publish('USER_CREATED', { userCreated: user }); // subscription
+      return user;
+    },
+  },
+};
+
+// Inicjalizacja serwera
+const server = new ApolloServer({
+  schema: makeExecutableSchema({ typeDefs, resolvers }),
+  validationRules: [depthLimit(5)], // max glebokos zapytania: 5 poziomow
+  plugins: [ApolloServerPluginLandingPageLocalDefault({ embed: true })],
+});
+
+const { url } = await startStandaloneServer(server, {
+  listen: { port: 4000 },
+  context: async ({ req }) => ({
+    user: await getUserFromToken(req.headers.authorization),
+    dataSources: {
+      userService: new UserService(),
+      postLoader: createPostLoader(), // DataLoader instance per request!
+    },
+  }),
+});
+console.log(`GraphQL serwer na ${url}`);</code></pre>
+
+  <h2>GraphQL Yoga — framework-agnostic</h2>
+  <p>GraphQL Yoga (Grafbase/The Guild) to alternatywa dla Apollo Server. Zbudowana na Web Standard API — dziala na Node.js, Deno, Bun, Cloudflare Workers. Ma wbudowane: subscriptions przez SSE (nie wymaga WebSocket dla prostych przypadkow), persisted queries, response caching i lepszą wydajnosc niz Apollo.</p>
+
+  <h2>DataLoader — batching i caching</h2>
+  <p>Problem N+1 to klasyczna pulapka GraphQL: zapytanie o 100 uzytkownikow z ich postami wykona 1 + 100 zapytan do bazy. <strong>DataLoader</strong> rozwiazuje to przez batching — zbiera wszystkie wywolania <code>.load(id)</code> w jednym ticku event loop i wykonuje jedno zapytanie do bazy z wszystkimi ID.</p>
+
+  <pre><code>import DataLoader from 'dataloader';
+
+// DataLoader musi byc tworzony PER REQUEST — nie wspoldzielony miedzy requestami
+// (cache jest per-request, co zapobiega ujawnieniu danych miedzy uzytkownikami)
+
+function createPostLoader() {
+  return new DataLoader&lt;string, Post[]&gt;(async (userIds) => {
+    // userIds to tablica wszystkich ID zebranych w jednym ticku
+    // np. ['user-1', 'user-2', 'user-3', ...]
+    const posts = await db.post.findMany({
+      where: { authorId: { in: userIds as string[] } },
+    });
+
+    // DataLoader wymaga aby wyniki byly w tej samej kolejnosci co wejscie!
+    return userIds.map(userId => posts.filter(p => p.authorId === userId));
+  }, {
+    cache: true,           // cache w ramach requesta (domyslnie true)
+    maxBatchSize: 100,     // max batch size
+    batchScheduleFn: (cb) => setTimeout(cb, 0), // lub process.nextTick(cb)
+  });
+}
+
+// W resolwerze:
+User: {
+  posts: (user, _, { dataSources }) => dataSources.postLoader.load(user.id),
+  // Przy 100 uzytkownikach: 100x .load() -> 1x zapytanie do bazy (batch)
+}</code></pre>
+
+  <h2>Subscriptions — WebSocket</h2>
+  <p>Subscriptions umozliwiaja real-time komunikacje. Apollo Server v4 wspiera subscriptions przez <code>graphql-ws</code> (WebSocket) lub <code>@graphql-sse/server</code> (Server-Sent Events). Wymagaja osobnego serwera WebSocket lub integracji z HTTP serverem.</p>
+
+  <h2>Pothos — code-first schema builder</h2>
+  <p>Pothos (dawniej GiraphQL) to code-first builder schematu GraphQL z najlepszym typowaniem TypeScript sposrod dostepnych opcji. Schemat jest definiowany w TypeScript — typy SDL sa generowane automatycznie. Pluginy rozszerzaja funkcjonalnosc: auth, relay, prisma, zod.</p>
+
+  <h2>Zabezpieczenia GraphQL</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Zagrozenie</th>
+        <th>Opis</th>
+        <th>Rozwiazanie</th>
+        <th>Biblioteka</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Depth attack</td>
+        <td>Głeboko zagniezdzone zapytania wyczerpuja pamiec</td>
+        <td>Limit glebokosci zapytania</td>
+        <td><code>graphql-depth-limit</code></td>
+      </tr>
+      <tr>
+        <td>Complexity attack</td>
+        <td>Zapytanie o duza liczbe pol/polaczen</td>
+        <td>Limit zlozonosci zapytania</td>
+        <td><code>graphql-query-complexity</code></td>
+      </tr>
+      <tr>
+        <td>Introspection w produkcji</td>
+        <td>Ujawnienie schematu atakujacemu</td>
+        <td>Wylacz introspection w produkcji</td>
+        <td>Apollo config / custom rule</td>
+      </tr>
+      <tr>
+        <td>N+1 queries</td>
+        <td>Nadmierna liczba zapytan do bazy</td>
+        <td>DataLoader batching</td>
+        <td><code>dataloader</code></td>
+      </tr>
+      <tr>
+        <td>Brak autentykacji</td>
+        <td>Dostep do prywatnych danych</td>
+        <td>Sprawdzanie kontekstu w resolwerach</td>
+        <td>Pothos auth plugin</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Persisted Queries</h2>
+  <p>Persisted queries to mechanizm, w którym klient wysyla hash zapytania zamiast pelnego tekstu. Serwer przechowuje mapowanie hash -> zapytanie. Zalety: zmniejszone zuzycie pasma, mozliwosc whitelisty zapytan (bezpieczenstwo), mozliwosc cache'owania na poziomie CDN (GET z hashem).</p>
+
+  <div class="card blue">
+    <strong>Apollo vs Yoga vs Pothos — kiedy co wybrac?</strong>
+    <p style="margin-top:8px;margin-bottom:0"><strong>Apollo Server</strong> — duzy ekosystem, dobra dokumentacja, najpopularniejszy wybor korporacyjny. <strong>GraphQL Yoga</strong> — edge-compatible, lepszy performance, aktywny rozwoj (The Guild). <strong>Pothos</strong> — najlepsze TypeScript DX, code-first, wymaga Pothos jako buildera schematu (nie standalone serwer).</p>
+  </div>
+
+  <div class="card orange">
+    <strong>GraphQL nie jest zawsze lepszy od REST</strong>
+    <p style="margin-top:8px;margin-bottom:0">GraphQL dodaje zlozonosc: N+1 problem, trudniejsze cacheowanie (POST nie jest cacheowalny przez CDN), trudniejsza autoryzacja na poziomie pol. Dla prostych CRUD API z niezmiennym klientem — REST jest prostsza i lepsza opcja. GraphQL swieci w przypadku wielu klientow z roznymi potrzebami danych.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="06-rest-typescript.html">← 06-rest-typescript.html</a>
+    <a href="08-trpc.html">08-trpc.html →</a>
+  </div>
+</div>
+</body>
+</html>

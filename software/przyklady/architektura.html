@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architektura — przykłady kodu</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span>
+    <a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span>
+    <span class="crumb">Architektura</span>
+</div>
+<div class="container">
+<h1>🏛️ Architektura — działające przykłady</h1>
+<p class="lead">SOLID, DDD, Repository, Saga, Circuit Breaker — w C#, TypeScript i Pythonie. Kod skopiowany z produkcyjnych projektów.</p>
+
+<div class="toc">
+<div class="toc-title">Spis treści</div>
+<ul>
+    <li><a href="#solid-srp">1. SOLID — Single Responsibility</a></li>
+    <li><a href="#solid-dip">2. SOLID — Dependency Inversion</a></li>
+    <li><a href="#repository">3. Repository + Unit of Work</a></li>
+    <li><a href="#ddd">4. DDD — Aggregate Root</a></li>
+    <li><a href="#cqrs">5. CQRS — Command/Query split</a></li>
+    <li><a href="#saga">6. Saga Pattern (orchestration)</a></li>
+    <li><a href="#circuit">7. Circuit Breaker (Polly + Resilience4j-ts)</a></li>
+    <li><a href="#hexagonal">8. Hexagonal — Ports &amp; Adapters</a></li>
+</ul>
+</div>
+
+<h2 id="solid-srp">1. Single Responsibility — refaktoryzacja</h2>
+<p><span class="tag">C#</span> <span class="tag">.NET 9</span> Klasa, która łamie SRP, i ta sama logika po podziale.</p>
+
+<h3>❌ Przed (3 odpowiedzialności w jednej klasie)</h3>
+<pre data-lang="csharp"><code><span class="kw">public class</span> <span class="fn">OrderService</span>
+{
+    <span class="kw">public void</span> <span class="fn">PlaceOrder</span>(Order order)
+    {
+        <span class="com">// 1. Walidacja</span>
+        <span class="kw">if</span> (order.Items.Count == <span class="num">0</span>) <span class="kw">throw new</span> <span class="fn">InvalidOperationException</span>(<span class="str">"Empty"</span>);
+        <span class="com">// 2. Zapis do bazy</span>
+        <span class="kw">using var</span> conn = <span class="kw">new</span> <span class="fn">SqlConnection</span>(_connStr);
+        conn.<span class="fn">Execute</span>(<span class="str">"INSERT INTO orders ..."</span>, order);
+        <span class="com">// 3. Email do klienta</span>
+        <span class="kw">var</span> smtp = <span class="kw">new</span> <span class="fn">SmtpClient</span>(<span class="str">"smtp.example.com"</span>);
+        smtp.<span class="fn">Send</span>(<span class="kw">new</span> <span class="fn">MailMessage</span>(...));
+    }
+}</code></pre>
+
+<h3>✅ Po (każda klasa ma jedną rację zmiany)</h3>
+<pre data-lang="csharp"><code><span class="kw">public interface</span> <span class="fn">IOrderValidator</span> { <span class="kw">void</span> <span class="fn">Validate</span>(Order o); }
+<span class="kw">public interface</span> <span class="fn">IOrderRepository</span> { Task <span class="fn">SaveAsync</span>(Order o); }
+<span class="kw">public interface</span> <span class="fn">IOrderNotifier</span> { Task <span class="fn">NotifyAsync</span>(Order o); }
+
+<span class="kw">public class</span> <span class="fn">PlaceOrderHandler</span>(
+    IOrderValidator validator,
+    IOrderRepository repo,
+    IOrderNotifier notifier)
+{
+    <span class="kw">public async</span> Task <span class="fn">HandleAsync</span>(Order order)
+    {
+        validator.<span class="fn">Validate</span>(order);
+        <span class="kw">await</span> repo.<span class="fn">SaveAsync</span>(order);
+        <span class="kw">await</span> notifier.<span class="fn">NotifyAsync</span>(order);
+    }
+}</code></pre>
+<div class="tip">💡 <strong>Praktyczny test SRP:</strong> opisz klasę jednym zdaniem bez słowa "i". Nie da się? Łamie SRP.</div>
+
+<h2 id="solid-dip">2. Dependency Inversion + DI Container</h2>
+<p><span class="tag">.NET 9</span> Rejestracja zależności w nowoczesnej minimal API.</p>
+<pre data-lang="csharp"><code><span class="com">// Program.cs</span>
+<span class="kw">var</span> builder = WebApplication.<span class="fn">CreateBuilder</span>(args);
+
+<span class="com">// Wysokopoziomowy moduł NIE zależy od konkretnej bazy/SMTP</span>
+builder.Services.<span class="fn">AddScoped</span>&lt;IOrderRepository, PostgresOrderRepository&gt;();
+builder.Services.<span class="fn">AddScoped</span>&lt;IOrderNotifier, SmtpOrderNotifier&gt;();
+builder.Services.<span class="fn">AddScoped</span>&lt;PlaceOrderHandler&gt;();
+
+<span class="kw">var</span> app = builder.<span class="fn">Build</span>();
+
+app.<span class="fn">MapPost</span>(<span class="str">"/orders"</span>, <span class="kw">async</span> (Order order, PlaceOrderHandler h) =&gt;
+{
+    <span class="kw">await</span> h.<span class="fn">HandleAsync</span>(order);
+    <span class="kw">return</span> Results.<span class="fn">Created</span>($<span class="str">"/orders/{order.Id}"</span>, order);
+});
+
+app.<span class="fn">Run</span>();</code></pre>
+
+<h2 id="repository">3. Repository + Unit of Work (TypeScript + Prisma)</h2>
+<pre data-lang="typescript"><code><span class="kw">import</span> { PrismaClient } <span class="kw">from</span> <span class="str">'@prisma/client'</span>;
+
+<span class="kw">export interface</span> <span class="fn">UserRepository</span> {
+    findById(id: <span class="kw">string</span>): Promise&lt;User | <span class="kw">null</span>&gt;;
+    save(user: User): Promise&lt;<span class="kw">void</span>&gt;;
+}
+
+<span class="kw">export class</span> <span class="fn">PrismaUserRepository</span> <span class="kw">implements</span> UserRepository {
+    <span class="kw">constructor</span>(<span class="kw">private</span> tx: PrismaClient) {}
+    <span class="fn">findById</span>(id: <span class="kw">string</span>) { <span class="kw">return</span> <span class="kw">this</span>.tx.user.findUnique({ where: { id } }); }
+    <span class="kw">async</span> <span class="fn">save</span>(user: User) { <span class="kw">await</span> <span class="kw">this</span>.tx.user.upsert({
+        where: { id: user.id }, update: user, create: user
+    }); }
+}
+
+<span class="com">// Unit of Work przez Prisma transaction</span>
+<span class="kw">export async function</span> <span class="fn">transferMoney</span>(prisma: PrismaClient, from: <span class="kw">string</span>, to: <span class="kw">string</span>, amount: <span class="kw">number</span>) {
+    <span class="kw">return</span> prisma.<span class="fn">$transaction</span>(<span class="kw">async</span> (tx) =&gt; {
+        <span class="kw">const</span> repo = <span class="kw">new</span> <span class="fn">PrismaUserRepository</span>(tx <span class="kw">as</span> PrismaClient);
+        <span class="kw">const</span> sender = <span class="kw">await</span> repo.<span class="fn">findById</span>(from);
+        <span class="kw">const</span> receiver = <span class="kw">await</span> repo.<span class="fn">findById</span>(to);
+        <span class="kw">if</span> (!sender || !receiver) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'User not found'</span>);
+        <span class="kw">if</span> (sender.balance &lt; amount) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Insufficient funds'</span>);
+        sender.balance -= amount;
+        receiver.balance += amount;
+        <span class="kw">await</span> repo.<span class="fn">save</span>(sender);
+        <span class="kw">await</span> repo.<span class="fn">save</span>(receiver);
+    });
+}</code></pre>
+
+<h2 id="ddd">4. DDD — Aggregate Root z inwariantami</h2>
+<p><span class="tag">Python</span> Domena nie zależy od bazy/HTTP — czysta logika biznesowa.</p>
+<pre data-lang="python"><code><span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> decimal <span class="kw">import</span> Decimal
+<span class="kw">from</span> uuid <span class="kw">import</span> UUID, uuid4
+
+<span class="com">@dataclass(frozen=True)</span>
+<span class="kw">class</span> <span class="fn">Money</span>:  <span class="com"># Value Object</span>
+    amount: Decimal
+    currency: str
+
+    <span class="kw">def</span> <span class="fn">__add__</span>(self, other: <span class="str">"Money"</span>) -&gt; <span class="str">"Money"</span>:
+        <span class="kw">if</span> self.currency != other.currency:
+            <span class="kw">raise</span> ValueError(<span class="str">"Currency mismatch"</span>)
+        <span class="kw">return</span> Money(self.amount + other.amount, self.currency)
+
+<span class="com">@dataclass</span>
+<span class="kw">class</span> <span class="fn">OrderLine</span>:
+    product_id: UUID
+    quantity: int
+    price: Money
+
+<span class="kw">class</span> <span class="fn">Order</span>:  <span class="com"># Aggregate Root</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, customer_id: UUID):
+        self.id = uuid4()
+        self.customer_id = customer_id
+        self._lines: list[OrderLine] = []
+        self.status = <span class="str">"draft"</span>
+        self._events: list = []
+
+    <span class="kw">def</span> <span class="fn">add_line</span>(self, line: OrderLine):
+        <span class="kw">if</span> self.status != <span class="str">"draft"</span>:
+            <span class="kw">raise</span> ValueError(<span class="str">"Cannot modify confirmed order"</span>)
+        <span class="kw">if</span> line.quantity &lt;= <span class="num">0</span>:
+            <span class="kw">raise</span> ValueError(<span class="str">"Quantity must be positive"</span>)
+        self._lines.append(line)
+
+    <span class="kw">def</span> <span class="fn">confirm</span>(self):
+        <span class="kw">if</span> <span class="kw">not</span> self._lines:
+            <span class="kw">raise</span> ValueError(<span class="str">"Empty order"</span>)
+        self.status = <span class="str">"confirmed"</span>
+        self._events.append({<span class="str">"type"</span>: <span class="str">"OrderConfirmed"</span>, <span class="str">"id"</span>: str(self.id)})
+
+    <span class="com">@property</span>
+    <span class="kw">def</span> <span class="fn">total</span>(self) -&gt; Money:
+        <span class="kw">return</span> sum((Money(l.price.amount * l.quantity, l.price.currency) <span class="kw">for</span> l <span class="kw">in</span> self._lines),
+                   start=Money(Decimal(<span class="str">"0"</span>), <span class="str">"PLN"</span>))</code></pre>
+<div class="note">📝 Aggregate Root chroni inwarianty — nikt z zewnątrz nie modyfikuje <code>_lines</code> bezpośrednio.</div>
+
+<h2 id="cqrs">5. CQRS — split Command i Query</h2>
+<pre data-lang="csharp"><code><span class="com">// COMMAND (write side) — używa bogatej domeny</span>
+<span class="kw">public record</span> <span class="fn">CreateProductCommand</span>(<span class="kw">string</span> Name, <span class="kw">decimal</span> Price);
+
+<span class="kw">public class</span> <span class="fn">CreateProductHandler</span>(IProductRepository repo)
+{
+    <span class="kw">public async</span> Task&lt;<span class="kw">Guid</span>&gt; <span class="fn">HandleAsync</span>(CreateProductCommand cmd)
+    {
+        <span class="kw">var</span> product = <span class="fn">Product</span>.<span class="fn">Create</span>(cmd.Name, cmd.Price); <span class="com">// validates invariants</span>
+        <span class="kw">await</span> repo.<span class="fn">SaveAsync</span>(product);
+        <span class="kw">return</span> product.Id;
+    }
+}
+
+<span class="com">// QUERY (read side) — czysty SQL, projekcja, bez ORM</span>
+<span class="kw">public record</span> <span class="fn">ProductListItem</span>(<span class="kw">Guid</span> Id, <span class="kw">string</span> Name, <span class="kw">decimal</span> Price, <span class="kw">int</span> Stock);
+
+<span class="kw">public class</span> <span class="fn">ProductListQuery</span>(<span class="kw">string</span> connStr)
+{
+    <span class="kw">public async</span> Task&lt;IReadOnlyList&lt;ProductListItem&gt;&gt; <span class="fn">ExecuteAsync</span>(<span class="kw">int</span> page, <span class="kw">int</span> size)
+    {
+        <span class="kw">using var</span> conn = <span class="kw">new</span> <span class="fn">NpgsqlConnection</span>(connStr);
+        <span class="kw">return</span> (<span class="kw">await</span> conn.<span class="fn">QueryAsync</span>&lt;ProductListItem&gt;(
+            <span class="str">@"SELECT id, name, price, stock FROM products
+              ORDER BY name LIMIT @size OFFSET @offset"</span>,
+            <span class="kw">new</span> { size, offset = (page - <span class="num">1</span>) * size })).<span class="fn">ToList</span>();
+    }
+}</code></pre>
+
+<h2 id="saga">6. Saga (orchestration) — TypeScript + Temporal</h2>
+<pre data-lang="typescript"><code><span class="kw">import</span> { proxyActivities } <span class="kw">from</span> <span class="str">'@temporalio/workflow'</span>;
+<span class="kw">import type</span> * <span class="kw">as</span> activities <span class="kw">from</span> <span class="str">'./activities'</span>;
+
+<span class="kw">const</span> { reserveInventory, chargePayment, shipOrder,
+        releaseInventory, refundPayment } = proxyActivities&lt;<span class="kw">typeof</span> activities&gt;({
+    startToCloseTimeout: <span class="str">'1 minute'</span>,
+    retry: { maximumAttempts: <span class="num">3</span> }
+});
+
+<span class="kw">export async function</span> <span class="fn">orderSaga</span>(orderId: <span class="kw">string</span>): Promise&lt;<span class="kw">void</span>&gt; {
+    <span class="kw">let</span> inventoryReserved = <span class="kw">false</span>;
+    <span class="kw">let</span> paymentCharged = <span class="kw">false</span>;
+    <span class="kw">try</span> {
+        <span class="kw">await</span> <span class="fn">reserveInventory</span>(orderId); inventoryReserved = <span class="kw">true</span>;
+        <span class="kw">await</span> <span class="fn">chargePayment</span>(orderId);     paymentCharged = <span class="kw">true</span>;
+        <span class="kw">await</span> <span class="fn">shipOrder</span>(orderId);
+    } <span class="kw">catch</span> (err) {
+        <span class="com">// Compensating transactions — w odwrotnej kolejności</span>
+        <span class="kw">if</span> (paymentCharged) <span class="kw">await</span> <span class="fn">refundPayment</span>(orderId);
+        <span class="kw">if</span> (inventoryReserved) <span class="kw">await</span> <span class="fn">releaseInventory</span>(orderId);
+        <span class="kw">throw</span> err;
+    }
+}</code></pre>
+
+<h2 id="circuit">7. Circuit Breaker (Polly w .NET 9)</h2>
+<pre data-lang="csharp"><code><span class="kw">using</span> Polly;
+<span class="kw">using</span> Polly.CircuitBreaker;
+
+<span class="kw">var</span> pipeline = <span class="kw">new</span> <span class="fn">ResiliencePipelineBuilder</span>&lt;HttpResponseMessage&gt;()
+    .<span class="fn">AddCircuitBreaker</span>(<span class="kw">new</span> CircuitBreakerStrategyOptions&lt;HttpResponseMessage&gt;
+    {
+        FailureRatio = <span class="num">0.5</span>,                       <span class="com">// 50% błędów otwiera obwód</span>
+        MinimumThroughput = <span class="num">10</span>,                  <span class="com">// po min. 10 requestach</span>
+        SamplingDuration = TimeSpan.<span class="fn">FromSeconds</span>(<span class="num">30</span>),
+        BreakDuration = TimeSpan.<span class="fn">FromSeconds</span>(<span class="num">15</span>),
+        ShouldHandle = <span class="kw">new</span> <span class="fn">PredicateBuilder</span>&lt;HttpResponseMessage&gt;()
+            .<span class="fn">Handle</span>&lt;HttpRequestException&gt;()
+            .<span class="fn">HandleResult</span>(r =&gt; (<span class="kw">int</span>)r.StatusCode &gt;= <span class="num">500</span>)
+    })
+    .<span class="fn">Build</span>();
+
+<span class="kw">var</span> response = <span class="kw">await</span> pipeline.<span class="fn">ExecuteAsync</span>(<span class="kw">async</span> ct =&gt;
+    <span class="kw">await</span> httpClient.<span class="fn">GetAsync</span>(<span class="str">"https://api.partner.com/data"</span>, ct));</code></pre>
+<div class="warn">⚠️ Circuit otwarty rzuca <code>BrokenCircuitException</code>. Zawsze daj fallback (cached data, default values).</div>
+
+<h2 id="hexagonal">8. Hexagonal — Ports &amp; Adapters</h2>
+<pre data-lang="typescript"><code><span class="com">// === DOMAIN (core) ===</span>
+<span class="kw">export interface</span> <span class="fn">PaymentPort</span> {
+    charge(amount: <span class="kw">number</span>, currency: <span class="kw">string</span>): Promise&lt;<span class="kw">string</span>&gt;;
+}
+<span class="kw">export class</span> <span class="fn">CheckoutService</span> {
+    <span class="kw">constructor</span>(<span class="kw">private</span> payment: PaymentPort) {}
+    <span class="kw">async</span> <span class="fn">checkout</span>(cartTotal: <span class="kw">number</span>): Promise&lt;<span class="kw">string</span>&gt; {
+        <span class="kw">return</span> <span class="kw">this</span>.payment.<span class="fn">charge</span>(cartTotal, <span class="str">'PLN'</span>);
+    }
+}
+
+<span class="com">// === ADAPTER (infrastructure) ===</span>
+<span class="kw">export class</span> <span class="fn">StripeAdapter</span> <span class="kw">implements</span> PaymentPort {
+    <span class="kw">constructor</span>(<span class="kw">private</span> stripe: Stripe) {}
+    <span class="kw">async</span> <span class="fn">charge</span>(amount: <span class="kw">number</span>, currency: <span class="kw">string</span>): Promise&lt;<span class="kw">string</span>&gt; {
+        <span class="kw">const</span> intent = <span class="kw">await</span> <span class="kw">this</span>.stripe.paymentIntents.<span class="fn">create</span>({
+            amount: Math.<span class="fn">round</span>(amount * <span class="num">100</span>), currency
+        });
+        <span class="kw">return</span> intent.id;
+    }
+}
+
+<span class="com">// === TEST (in-memory adapter) ===</span>
+<span class="kw">export class</span> <span class="fn">InMemoryPayment</span> <span class="kw">implements</span> PaymentPort {
+    charges: { amount: <span class="kw">number</span> }[] = [];
+    <span class="kw">async</span> <span class="fn">charge</span>(amount: <span class="kw">number</span>) { <span class="kw">this</span>.charges.<span class="fn">push</span>({ amount }); <span class="kw">return</span> <span class="str">'mock-id'</span>; }
+}</code></pre>
+
+<div class="next-prev">
+    <a href="index.html"><div class="label">← Wróć do</div><div class="title">Spisu przykładów</div></a>
+    <a href="llm.html"><div class="label">Następny →</div><div class="title">LLM</div></a>
+</div>
+
+</div>
+</body>
+</html>

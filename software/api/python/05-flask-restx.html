@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flask + Flask-RESTX</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--accent-hover:#60a5fa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Python</a>
+  <span class="sep">/</span>
+  <span class="title">Flask + Flask-RESTX</span>
+</div>
+<div class="container">
+  <h1>Flask + Flask-RESTX</h1>
+  <p class="subtitle">App factory, Blueprint, Flask-RESTX, marshmallow, Flask-SQLAlchemy, Swagger UI</p>
+
+  <h2>Flask — kiedy uzywac</h2>
+  <p><strong>Flask</strong> to mikro-framework — daje minimalne narzedzia i pozwala samodzielnie dobrac reszte stosu. Idealny gdy potrzebujesz pelnej kontroli, masz specyficzne wymagania integracyjne albo budujesz maly serwis bez potrzeby pelnego frameworka jak Django.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Kryterium</th>
+        <th>Flask + Flask-RESTX</th>
+        <th>FastAPI</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Paradygmat</td>
+        <td>WSGI (synchroniczny), opcjonalny async</td>
+        <td>ASGI (async natywny)</td>
+      </tr>
+      <tr>
+        <td>Wydajnosc</td>
+        <td>Srednia (WSGI)</td>
+        <td>Wysoka (ASGI + async)</td>
+      </tr>
+      <tr>
+        <td>Dokumentacja OpenAPI</td>
+        <td>Automatyczna przez Flask-RESTX</td>
+        <td>Automatyczna (wbudowana)</td>
+      </tr>
+      <tr>
+        <td>Walidacja danych</td>
+        <td>marshmallow lub wtyczki</td>
+        <td>Pydantic (wbudowany)</td>
+      </tr>
+      <tr>
+        <td>ORM</td>
+        <td>Flask-SQLAlchemy (popularny)</td>
+        <td>Dowolny (SQLAlchemy, Tortoise)</td>
+      </tr>
+      <tr>
+        <td>Dojrzalosc ekosystemu</td>
+        <td>Bardzo dojrzaly, duzo wtyczek</td>
+        <td>Szybko rosnacy</td>
+      </tr>
+      <tr>
+        <td>Krzywa uczenia sie</td>
+        <td>Niska — prosty poczatek</td>
+        <td>Srednia — wymaga znajom. async</td>
+      </tr>
+      <tr>
+        <td>Idealny dla</td>
+        <td>Male API, mikroserwisy, legacy</td>
+        <td>Nowe projekty, high-perf API</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>App Factory Pattern</h2>
+  <p>Wzorzec fabryki aplikacji pozwala tworzyc wiele instancji Flask z rozna konfiguracja (np. testowa vs produkcyjna) i unika globalnego stanu. Jest standardem w wiekszych projektach Flask.</p>
+
+<pre><code># config.py
+import os
+from dataclasses import dataclass
+
+@dataclass
+class Config:
+    SECRET_KEY: str = os.environ.get("SECRET_KEY", "dev-secret-zmien-na-produkcji")
+    SQLALCHEMY_DATABASE_URI: str = os.environ.get("DATABASE_URL", "sqlite:///dev.db")
+    SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
+    JWT_SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", "jwt-secret")
+    DEBUG: bool = False
+
+@dataclass
+class DevelopmentConfig(Config):
+    DEBUG: bool = True
+    SQLALCHEMY_ECHO: bool = True
+
+@dataclass
+class ProductionConfig(Config):
+    SQLALCHEMY_DATABASE_URI: str = os.environ["DATABASE_URL"]
+
+config_map = {
+    "development": DevelopmentConfig,
+    "production": ProductionConfig,
+    "default": DevelopmentConfig,
+}
+
+# extensions.py — obiekty rozszerzen bez aplikacji (late binding)
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_jwt_extended import JWTManager
+
+db = SQLAlchemy()
+migrate = Migrate()
+jwt = JWTManager()
+
+# app/__init__.py — fabryka aplikacji
+from flask import Flask
+from .extensions import db, migrate, jwt
+from .config import config_map
+import os
+
+def create_app(config_name: str | None = None) -> Flask:
+    if config_name is None:
+        config_name = os.environ.get("FLASK_ENV", "default")
+
+    app = Flask(__name__)
+    app.config.from_object(config_map[config_name])
+
+    # Inicjalizacja rozszerzen
+    db.init_app(app)
+    migrate.init_app(app, db)
+    jwt.init_app(app)
+
+    # Rejestracja Blueprint i API
+    from .api import api_bp
+    app.register_blueprint(api_bp, url_prefix="/api/v1")
+
+    return app
+</code></pre>
+
+  <h2>Flask-RESTX — Api, Resource, Namespace</h2>
+  <p><strong>Flask-RESTX</strong> (nastepca Flask-RESTPlus) dodaje do Flaska klasy Resource zamiast funkcji widoku oraz automatyczna generacje Swagger UI bez zadnej dodatkowej konfiguracji.</p>
+
+<pre><code># api/__init__.py
+from flask import Blueprint
+from flask_restx import Api
+
+api_bp = Blueprint("api", __name__)
+
+api = Api(
+    api_bp,
+    version="1.0",
+    title="Moje Flask API",
+    description="API zbudowane z Flask-RESTX",
+    doc="/docs",  # Swagger UI pod /api/v1/docs
+)
+
+# Importuj namespace po inicjalizacji api
+from .produkty import ns_produkty
+from .uzytkownicy import ns_uzytkownicy
+
+api.add_namespace(ns_produkty, path="/produkty")
+api.add_namespace(ns_uzytkownicy, path="/uzytkownicy")
+
+# api/produkty.py
+from flask_restx import Namespace, Resource, fields
+from flask import request
+from marshmallow import Schema, fields as mf, validate, ValidationError
+from ..extensions import db
+
+ns_produkty = Namespace("produkty", description="Operacje na produktach")
+
+# ---- Model do dokumentacji Swagger ----
+produkt_model = ns_produkty.model("Produkt", {
+    "id": fields.Integer(readonly=True),
+    "nazwa": fields.String(required=True, description="Nazwa produktu"),
+    "cena": fields.Float(required=True, description="Cena brutto"),
+    "kategoria": fields.String(description="Kategoria"),
+    "dostepny": fields.Boolean(default=True),
+})
+
+produkt_input_model = ns_produkty.model("ProduktInput", {
+    "nazwa": fields.String(required=True),
+    "cena": fields.Float(required=True),
+    "kategoria": fields.String(),
+})
+
+# ---- Marshmallow Schema do walidacji ----
+class ProduktSchema(Schema):
+    nazwa = mf.Str(required=True, validate=validate.Length(min=1, max=200))
+    cena = mf.Float(required=True, validate=validate.Range(min=0.01))
+    kategoria = mf.Str(load_default="ogolne")
+    dostepny = mf.Bool(load_default=True)
+
+produkt_schema = ProduktSchema()
+produkty_schema = ProduktSchema(many=True)
+
+# ---- Resource — lista i tworzenie ----
+@ns_produkty.route("/")
+class ProduktLista(Resource):
+    @ns_produkty.marshal_list_with(produkt_model)
+    def get(self):
+        """Pobierz liste produktow."""
+        return []  # db.session.execute(select(Produkt)).scalars().all()
+
+    @ns_produkty.expect(produkt_input_model, validate=True)
+    @ns_produkty.marshal_with(produkt_model, code=201)
+    def post(self):
+        """Utworz nowy produkt."""
+        try:
+            dane = produkt_schema.load(request.json)
+        except ValidationError as err:
+            ns_produkty.abort(400, str(err.messages))
+        # produkt = Produkt(**dane); db.session.add(produkt); db.session.commit()
+        return {"id": 1, **dane}, 201
+
+# ---- Resource — pojedynczy zasob ----
+@ns_produkty.route("/<int:produkt_id>")
+@ns_produkty.param("produkt_id", "ID produktu")
+@ns_produkty.response(404, "Nie znaleziono")
+class ProduktZasob(Resource):
+    @ns_produkty.marshal_with(produkt_model)
+    def get(self, produkt_id: int):
+        """Pobierz produkt po ID."""
+        # produkt = db.get_or_404(Produkt, produkt_id)
+        return {"id": produkt_id, "nazwa": "Przykladowy", "cena": 99.99, "dostepny": True}
+
+    @ns_produkty.expect(produkt_input_model)
+    @ns_produkty.marshal_with(produkt_model)
+    def put(self, produkt_id: int):
+        """Zastap produkt."""
+        dane = produkt_schema.load(request.json)
+        return {"id": produkt_id, **dane}
+
+    @ns_produkty.response(204, "Usunieto")
+    def delete(self, produkt_id: int):
+        """Usun produkt."""
+        return "", 204
+</code></pre>
+
+  <h2>Flask-SQLAlchemy i Flask-Migrate</h2>
+  <p>Flask-SQLAlchemy integruje SQLAlchemy z kontekstem aplikacji Flask. Flask-Migrate (oparty na Alembic) zarzadza migracjami schematu bazy danych.</p>
+
+  <div class="card blue">
+    <h3>Komendy migracji</h3>
+    <ul>
+      <li><code>flask db init</code> — inicjalizacja katalogu migrations/</li>
+      <li><code>flask db migrate -m "Dodaj tabele produktow"</code> — wygeneruj migrace</li>
+      <li><code>flask db upgrade</code> — zastosuj migracje</li>
+      <li><code>flask db downgrade</code> — cofnij ostatnia migrace</li>
+    </ul>
+  </div>
+
+  <div class="card orange">
+    <h3>reqparse vs marshmallow</h3>
+    <p><strong>reqparse</strong> (wbudowany w Flask-RESTX) jest przestarzaly i zostanie usuniecie w przyszlych wersjach. Uzywaj <strong>marshmallow</strong> do walidacji — oferuje bardziej elastyczne schematy, zagniezdzanie, niestandardowe typy i lepsza obsluge bledow.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="04-django-rest-framework.html">← 04-django-rest-framework.html</a>
+    <a href="06-litestar.html">06-litestar.html →</a>
+  </div>
+</div>
+</body>
+</html>

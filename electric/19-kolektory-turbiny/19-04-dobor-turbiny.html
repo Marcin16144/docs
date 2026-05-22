@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>19-04 — Dobór turbiny wiatrowej</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">19 Kolektory i turbiny</a><span class="sep">/</span><span class="title">19-04 Dobór turbiny wiatrowej</span>
+</div>
+<div class="container">
+<h1>Dobór turbiny wiatrowej — obliczenia</h1>
+<p class="subtitle">Zasoby wiatru, wzór mocy P = 0,5·ρ·A·v³·Cp, limit Betza, produkcja roczna oraz uczciwa tabela opłacalności.</p>
+
+<h2>Klucz: zasoby wiatru w lokalizacji</h2>
+<p>Najważniejszą liczbą przy doborze turbiny jest <strong>średnia roczna prędkość wiatru [m/s]</strong> na wysokości masztu. To ona — przez zależność sześcienną — decyduje o produkcji. Bez znajomości tej liczby dobór turbiny jest zgadywaniem.</p>
+<p>Średnią prędkość wiatru można odczytać z map wietrzności lub zmierzyć anemometrem na docelowej wysokości przez kilka miesięcy.</p>
+
+<h2>Mapa wietrzności Polski</h2>
+<table>
+<thead><tr><th>Region</th><th>Średni wiatr (10 m n.p.t.)</th><th>Ocena dla turbiny przydomowej</th></tr></thead>
+<tbody>
+<tr><td>Wybrzeże Bałtyku</td><td>4,5–6,0 m/s</td><td>dobry — turbina ma sens</td></tr>
+<tr><td>Suwalszczyzna, Pojezierze</td><td>4,0–5,0 m/s</td><td>dobry / przyzwoity</td></tr>
+<tr><td>Polska północna i pas pojezierzy</td><td>3,5–4,5 m/s</td><td>przeciętny</td></tr>
+<tr><td>Centrum kraju (niziny)</td><td>3,0–4,0 m/s</td><td>słaby — rzadko opłacalny</td></tr>
+<tr><td>Doliny górskie, kotliny</td><td>2,5–3,5 m/s</td><td>bardzo słaby</td></tr>
+</tbody>
+</table>
+<div class="warning">Większość kraju to tereny o słabym wietrze przy gruncie. To główny powód, dla którego turbiny przydomowe rzadko są w Polsce opłacalne (patrz tabela opłacalności na końcu).</div>
+
+<h2>Wzór na moc wiatru</h2>
+<p>Moc, jaką turbina może odebrać ze strumienia wiatru:</p>
+<pre><code>P = 0,5 · ρ · A · v³ · Cp
+
+P  — moc elektryczna [W]
+ρ  — gęstość powietrza = 1,225 kg/m³ (na poziomie morza, 15 °C)
+A  — powierzchnia zatoczona przez wirnik [m²]
+v  — prędkość wiatru [m/s]
+Cp — współczynnik wykorzystania energii wiatru</code></pre>
+<p>Powierzchnia wirnika o średnicy D:</p>
+<pre><code>A = π · (D/2)²</code></pre>
+
+<h3>Limit Betza i realny Cp</h3>
+<p>Teoria mówi, że żadna turbina nie odbierze więcej niż <strong>59,3%</strong> energii strumienia wiatru — to <strong>limit Betza</strong> (Cp max = 0,593). W praktyce, po uwzględnieniu strat aerodynamicznych, mechanicznych i generatora:</p>
+<table>
+<thead><tr><th>Typ turbiny</th><th>Realny Cp</th></tr></thead>
+<tbody>
+<tr><td>Limit teoretyczny (Betz)</td><td>0,593</td></tr>
+<tr><td>Dobra turbina HAWT przydomowa</td><td>0,35–0,45</td></tr>
+<tr><td>Turbina VAWT</td><td>0,15–0,30</td></tr>
+<tr><td>Do obliczeń przyjmij</td><td><strong>0,30–0,40</strong></td></tr>
+</tbody>
+</table>
+
+<h2>Przykład obliczeniowy</h2>
+<p>Turbina HAWT, średnica wirnika 3 m, wiatr 6 m/s, Cp = 0,35.</p>
+<pre><code>A  = π · (3/2)² = π · 2,25 ≈ 7 m²
+v³ = 6³ = 216
+ρ  = 1,225 kg/m³
+Cp = 0,35
+
+P = 0,5 · 1,225 · 7 · 216 · 0,35 ≈ 324 W</code></pre>
+<div class="callout">Przy wietrze 6 m/s ta turbina daje około <strong>324 W</strong> — i to tylko w chwili, gdy wiatr faktycznie wieje 6 m/s.</div>
+<div class="warning"><strong>Uwaga na moc znamionową.</strong> Producent może oznaczyć tę samą turbinę jako „1 kW" — bo przy 11 m/s da rzeczywiście ~1 kW. Ale wiatr 11 m/s w typowej lokalizacji występuje rzadko. Liczy się produkcja przy wietrze, który WYSTĘPUJE, a nie przy znamionowym.</div>
+
+<h2>Produkcja roczna</h2>
+<p>Turbina nie pracuje cały czas z mocą maksymalną. Roczną produkcję szacuje się przez <strong>współczynnik wykorzystania mocy</strong> (capacity factor):</p>
+<pre><code>E_rok = P_znamionowa · 8760 h · CF
+
+8760 — liczba godzin w roku
+CF   — współczynnik wykorzystania</code></pre>
+<table>
+<thead><tr><th>Jakość lokalizacji</th><th>Współczynnik wykorzystania CF</th></tr></thead>
+<tbody>
+<tr><td>Słaby wiatr (centrum PL)</td><td>5–10%</td></tr>
+<tr><td>Przeciętny wiatr</td><td>10–15%</td></tr>
+<tr><td>Dobry wiatr (wybrzeże)</td><td>15–25%</td></tr>
+<tr><td>Bardzo dobry wiatr</td><td>25–30%</td></tr>
+</tbody>
+</table>
+<p>Przykład: turbina 1 kW na wybrzeżu, CF = 18%:</p>
+<pre><code>E_rok = 1 kW · 8760 h · 0,18 ≈ 1577 kWh/rok</code></pre>
+<p>Ta sama turbina w centrum Polski (CF = 8%) da tylko ~700 kWh/rok — ponad dwukrotnie mniej.</p>
+
+<h2>Dobór masztu</h2>
+<ul>
+<li>Maszt <strong>minimum 10–12 m</strong>, a w terenie z przeszkodami wyżej.</li>
+<li>Wirnik musi pracować ponad strefą turbulencji od budynków i drzew.</li>
+<li>Wyższy maszt to wyższy koszt i wymóg solidnego fundamentu oraz odciągów — ale przez zależność sześcienną często zwraca się lepiej niż większa turbina na niskim maszcie.</li>
+</ul>
+
+<h2>Pozwolenia i zgłoszenia</h2>
+<ul>
+<li>Małe turbiny na maszcie do określonej wysokości zwykle wymagają tylko <strong>zgłoszenia</strong> w urzędzie; wyższe konstrukcje — pozwolenia na budowę.</li>
+<li>Przepisy lokalne (plan zagospodarowania) mogą ograniczać wysokość masztu.</li>
+<li>Instalację przyłączaną do sieci trzeba zgłosić do operatora sieci (OSD), podobnie jak mikroinstalację PV.</li>
+<li>Należy uwzględnić hałas i odległość od granicy działki oraz sąsiadów.</li>
+</ul>
+
+<h2>Tabela: prędkość wiatru a opłacalność</h2>
+<table>
+<thead><tr><th>Średni wiatr na maszcie</th><th>Ocena</th><th>Opłacalność turbiny przydomowej</th></tr></thead>
+<tbody>
+<tr><td>poniżej 3,5 m/s</td><td>bardzo słaby</td><td>praktycznie nieopłacalna</td></tr>
+<tr><td>3,5–4,5 m/s</td><td>słaby / przeciętny</td><td>zwykle nieopłacalna, bardzo długi zwrot</td></tr>
+<tr><td>4,5–5,5 m/s</td><td>dobry</td><td>na granicy opłacalności, sens w off-grid</td></tr>
+<tr><td>5,5–7,0 m/s</td><td>bardzo dobry</td><td>turbina może się opłacać</td></tr>
+<tr><td>powyżej 7,0 m/s</td><td>doskonały</td><td>turbina opłacalna (rzadkość w PL)</td></tr>
+</tbody>
+</table>
+<div class="warning"><strong>Wniosek.</strong> Zanim kupisz turbinę, zmierz lub rzetelnie oszacuj średni wiatr w swojej lokalizacji na wysokości masztu. Jeśli wynosi poniżej ~4,5 m/s, turbina niemal na pewno się nie zwróci — te same pieniądze włożone w PV dadzą wielokrotnie więcej energii.</div>
+
+<div class="nav-bottom">
+<a href="19-03-turbiny-zasada-typy.html">⟵ Turbiny — zasada i typy</a>
+<a href="19-05-integracja-hybryda.html">Integracja źródeł — systemy hybrydowe →</a>
+</div>
+</div>
+</body>
+</html>

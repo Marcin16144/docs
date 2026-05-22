@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uwierzytelnianie w Go</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Go</a>
+  <span class="sep">/</span>
+  <span class="title">Uwierzytelnianie w Go</span>
+</div>
+<div class="container">
+  <h1>Uwierzytelnianie w Go</h1>
+  <p class="subtitle">JWT, OAuth2, Casbin RBAC, bcrypt i walidacja kluczy API — kompletny przewodnik po bezpieczenstwie API</p>
+
+  <h2>JWT z golang-jwt/jwt v5</h2>
+  <p>Pakiet <code>github.com/golang-jwt/jwt/v5</code> to standardowa biblioteka JWT dla Go. Wersja 5 wprowadza poprawki bezpieczenstwa i bardziej rygorystyczna walidacje claimow (exp, nbf, iss, aud). Nigdy nie uzywaj starszych wersji w nowych projektach.</p>
+
+<pre><code>package auth
+
+import (
+    "errors"
+    "time"
+
+    "github.com/golang-jwt/jwt/v5"
+)
+
+var jwtSecret = []byte("super-tajny-klucz-min-32-znaki!!!")
+
+// Wlasne claims — rozszerzamy jwt.RegisteredClaims
+type Claims struct {
+    UserID int    `json:"uid"`
+    Role   string `json:"role"`
+    jwt.RegisteredClaims
+}
+
+// GenerateToken tworzy podpisany token JWT
+func GenerateToken(userID int, role string) (string, error) {
+    claims := Claims{
+        UserID: userID,
+        Role:   role,
+        RegisteredClaims: jwt.RegisteredClaims{
+            Subject:   strconv.Itoa(userID),
+            Issuer:    "myapi",
+            Audience:  jwt.ClaimStrings{"web", "mobile"},
+            IssuedAt:  jwt.NewNumericDate(time.Now()),
+            ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+            NotBefore: jwt.NewNumericDate(time.Now()),
+        },
+    }
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    return token.SignedString(jwtSecret)
+}
+
+// ParseToken weryfikuje token i zwraca claims
+func ParseToken(tokenStr string) (*Claims, error) {
+    claims := &Claims{}
+
+    token, err := jwt.ParseWithClaims(tokenStr, claims,
+        func(t *jwt.Token) (any, error) {
+            // Sprawdzenie algorytmu — krytyczne dla bezpieczenstwa!
+            if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+                return nil, fmt.Errorf("nieoczekiwany algorytm: %v", t.Header["alg"])
+            }
+            return jwtSecret, nil
+        },
+        jwt.WithExpirationRequired(),
+        jwt.WithIssuedAt(),
+        jwt.WithAudience("web"),
+    )
+
+    if err != nil {
+        switch {
+        case errors.Is(err, jwt.ErrTokenExpired):
+            return nil, errors.New("token wygasl")
+        case errors.Is(err, jwt.ErrTokenSignatureInvalid):
+            return nil, errors.New("niepoprawny podpis")
+        default:
+            return nil, errors.New("niepoprawny token")
+        }
+    }
+    if !token.Valid {
+        return nil, errors.New("token niepoprawny")
+    }
+    return claims, nil
+}</code></pre>
+
+  <h2>JWT Middleware dla Gin / Chi / Echo</h2>
+  <p>Middleware przechwytuje zadanie, wyciaga token z naglowka <code>Authorization: Bearer &lt;token&gt;</code>, weryfikuje go i zapisuje claims w kontekscie. Handlery pobieraja claims przez <code>c.Get("claims")</code> (Gin) lub <code>r.Context().Value(key)</code> (Chi).</p>
+
+<pre><code>// Middleware dla Gin
+func GinJWTMiddleware() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        header := c.GetHeader("Authorization")
+        if !strings.HasPrefix(header, "Bearer ") {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+                "error": "brak tokenu autoryzacji",
+            })
+            return
+        }
+
+        tokenStr := strings.TrimPrefix(header, "Bearer ")
+        claims, err := ParseToken(tokenStr)
+        if err != nil {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+                "error": err.Error(),
+            })
+            return
+        }
+
+        // Zapisz claims w kontekscie
+        c.Set("userID", claims.UserID)
+        c.Set("role", claims.Role)
+        c.Set("claims", claims)
+        c.Next()
+    }
+}
+
+// Uzycie w routerze
+protected := r.Group("/api/v1")
+protected.Use(GinJWTMiddleware())
+protected.GET("/profile", getProfile)
+
+// W handlerze
+func getProfile(c *gin.Context) {
+    userID, _ := c.Get("userID")
+    role, _ := c.Get("role")
+    c.JSON(200, gin.H{"user_id": userID, "role": role})
+}</code></pre>
+
+  <h2>OAuth2 z golang.org/x/oauth2</h2>
+  <p>Pakiet <code>golang.org/x/oauth2</code> implementuje klienta OAuth2. Obsluguje flow Authorization Code (dla uzytkownikow) i Client Credentials (dla serwisow). Dostarcza gotowe konfiguracje dla popularnych dostawcow: Google, GitHub, Facebook.</p>
+
+  <table>
+    <thead>
+      <tr><th>Flow OAuth2</th><th>Zastosowanie</th><th>Pakiet Go</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Authorization Code</td><td>Logowanie uzytkownikow przez Google/GitHub</td><td>golang.org/x/oauth2</td></tr>
+      <tr><td>Client Credentials</td><td>Komunikacja serwis-serwis</td><td>golang.org/x/oauth2/clientcredentials</td></tr>
+      <tr><td>PKCE (z Code Challenge)</td><td>SPA i aplikacje mobilne</td><td>golang.org/x/oauth2 + reczny PKCE</td></tr>
+      <tr><td>Device Flow</td><td>CLI, smart TV, IoT</td><td>golang.org/x/oauth2/deviceauth</td></tr>
+      <tr><td>JWT Bearer</td><td>Google APIs (service account)</td><td>golang.org/x/oauth2/google</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Casbin — RBAC i kontrola dostepu</h2>
+  <p>Casbin (<code>github.com/casbin/casbin/v2</code>) to potezna biblioteka do kontroli dostepu. Obsluguje modele: RBAC (role-based), ABAC (attribute-based) i ACL. Reguly sa definiowane w plikach konfiguracyjnych lub w bazie danych.</p>
+
+  <div class="card orange">
+    <h3>Podstawowy wzorzec RBAC z Casbin</h3>
+    <p>Definiujesz model (kto moze co robic z jakim zasobem), polityki (admin moze PUT /users, user moze GET /profile) i sprawdzasz: <code>ok, _ := enforcer.Enforce(role, path, method)</code>. Polityki mozna ladowac z PostgreSQL przez adapter Casbin.</p>
+  </div>
+
+  <h2>bcrypt — hashowanie hasel</h2>
+  <p>Pakiet <code>golang.org/x/crypto/bcrypt</code> implementuje algorytm bcrypt do bezpiecznego przechowywania hasel. Bcrypt automatycznie dodaje sol (salt) i jest celowo wolny (koszt obliczeniowy), co utrudnia ataki brute-force.</p>
+
+<pre><code>import "golang.org/x/crypto/bcrypt"
+
+// Hashowanie hasla przy rejestracji
+func HashPassword(password string) (string, error) {
+    // Cost 12 to dobry balans bezpieczenstwa i wydajnosci (ok 300ms)
+    bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+    return string(bytes), err
+}
+
+// Weryfikacja hasla przy logowaniu
+func CheckPassword(password, hash string) bool {
+    err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+    return err == nil
+}
+
+// Przyklad uzycia
+func loginHandler(c *gin.Context) {
+    var req struct {
+        Email    string `json:"email"    binding:"required,email"`
+        Password string `json:"password" binding:"required,min=8"`
+    }
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(400, gin.H{"error": err.Error()})
+        return
+    }
+
+    user, err := db.FindByEmail(c.Request.Context(), req.Email)
+    if err != nil || user == nil {
+        // Ten sam komunikat dla braku uzytkownika i zlego hasla (security)
+        c.JSON(401, gin.H{"error": "niepoprawne dane logowania"})
+        return
+    }
+
+    if !CheckPassword(req.Password, user.PasswordHash) {
+        c.JSON(401, gin.H{"error": "niepoprawne dane logowania"})
+        return
+    }
+
+    token, err := GenerateToken(user.ID, user.Role)
+    if err != nil {
+        c.JSON(500, gin.H{"error": "blad generowania tokenu"})
+        return
+    }
+
+    c.JSON(200, gin.H{"token": token, "expires_in": 86400})
+}</code></pre>
+
+  <h2>Walidacja kluczy API</h2>
+  <p>Klucze API to prosta alternatywa dla JWT gdy klient jest serwisem (nie uzytkownikiem). Klucz przekazywany jest w naglowku <code>X-API-Key</code> lub <code>Authorization: ApiKey &lt;key&gt;</code>.</p>
+
+  <div class="card green">
+    <h3>Dobre praktyki bezpieczenstwa API</h3>
+    <ul>
+      <li>Zawsze weryfikuj algorytm JWT — ustaw oczekiwany algorytm jawnie</li>
+      <li>Uzyj krotkich tokenow dostepu (15-60 min) i dluzszych refresh tokenow</li>
+      <li>Przechowuj refresh tokeny w bazie danych (mozliwosc unierwaznienia)</li>
+      <li>Nigdy nie loguj tokenow, hasel ani kluczy API</li>
+      <li>Uzyj HTTPS wsedzie — JWT w HTTP to jak zamkniete drzwi bez sciany</li>
+      <li>Klucze API hashuj przed zapisem w bazie (SHA-256), pokazuj uzytkownikowi tylko raz</li>
+      <li>Rotuj sekrety JWT przy podejrzeniu wycieku — uzyj versjonowanych kluczy</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="07-grpc.html">&#8592; 07-grpc.html</a>
+    <a href="09-testing.html">09-testing.html &#8594;</a>
+  </div>
+</div>
+</body>
+</html>

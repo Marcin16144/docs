@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docker — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">Docker</span>
+</div>
+<div class="container">
+<h1>🐳 Docker — działające przykłady</h1>
+<p class="lead">Multi-stage Dockerfile dla każdego stacku, docker-compose dla pełnego środowiska dev/prod, optymalizacje.</p>
+
+<h2>1. Dockerfile dla Node.js (multi-stage, ~120MB → ~80MB)</h2>
+<pre data-lang="dockerfile"><code><span class="com"># syntax=docker/dockerfile:1</span>
+<span class="kw">FROM</span> node:<span class="num">22</span>-alpine <span class="kw">AS</span> deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
+
+<span class="kw">FROM</span> node:<span class="num">22</span>-alpine <span class="kw">AS</span> build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+COPY . .
+RUN npm run build
+
+<span class="kw">FROM</span> node:<span class="num">22</span>-alpine <span class="kw">AS</span> runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY package.json ./
+USER node
+EXPOSE <span class="num">3000</span>
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD wget -qO- http://localhost:<span class="num">3000</span>/health || exit <span class="num">1</span>
+CMD [<span class="str">"node"</span>, <span class="str">"dist/server.js"</span>]</code></pre>
+<div class="tip">💡 <code>--mount=type=cache</code> przyspiesza rebuild 10× — wymaga BuildKit (domyślnie w Docker 23+).</div>
+
+<h2>2. Dockerfile Python — FastAPI z uv</h2>
+<pre data-lang="dockerfile"><code><span class="kw">FROM</span> python:<span class="num">3.13</span>-slim <span class="kw">AS</span> base
+ENV PYTHONUNBUFFERED=<span class="num">1</span> PYTHONDONTWRITEBYTECODE=<span class="num">1</span> UV_COMPILE_BYTECODE=<span class="num">1</span>
+RUN pip install --no-cache-dir uv
+
+<span class="kw">FROM</span> base <span class="kw">AS</span> deps
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
+
+<span class="kw">FROM</span> base <span class="kw">AS</span> runtime
+WORKDIR /app
+COPY --from=deps /app/.venv /app/.venv
+ENV PATH=<span class="str">"/app/.venv/bin:$PATH"</span>
+COPY ./app ./app
+RUN useradd -m app &amp;&amp; chown -R app:app /app
+USER app
+EXPOSE <span class="num">8000</span>
+CMD [<span class="str">"uvicorn"</span>, <span class="str">"app.main:app"</span>, <span class="str">"--host"</span>, <span class="str">"0.0.0.0"</span>, <span class="str">"--port"</span>, <span class="str">"8000"</span>]</code></pre>
+
+<h2>3. Dockerfile .NET 9 — AOT, image 25MB</h2>
+<pre data-lang="dockerfile"><code><span class="kw">FROM</span> mcr.microsoft.com/dotnet/sdk:<span class="num">9.0</span>-alpine <span class="kw">AS</span> build
+WORKDIR /src
+COPY *.csproj ./
+RUN dotnet restore -r linux-musl-x64
+COPY . .
+RUN dotnet publish -c Release -r linux-musl-x64 \
+    /p:PublishAot=true /p:StripSymbols=true -o /app
+
+<span class="kw">FROM</span> mcr.microsoft.com/dotnet/runtime-deps:<span class="num">9.0</span>-alpine-aot
+WORKDIR /app
+COPY --from=build /app .
+USER $APP_UID
+EXPOSE <span class="num">8080</span>
+ENTRYPOINT [<span class="str">"./Api"</span>]</code></pre>
+
+<h2>4. Dockerfile Rust — distroless, ~15MB</h2>
+<pre data-lang="dockerfile"><code><span class="kw">FROM</span> rust:<span class="num">1.85</span>-alpine <span class="kw">AS</span> build
+WORKDIR /app
+RUN apk add --no-cache musl-dev
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src &amp;&amp; echo <span class="str">"fn main(){}"</span> &gt; src/main.rs &amp;&amp; cargo build --release
+COPY src ./src
+RUN touch src/main.rs &amp;&amp; cargo build --release
+
+<span class="kw">FROM</span> gcr.io/distroless/static-debian12
+COPY --from=build /app/target/release/api /api
+EXPOSE <span class="num">3000</span>
+ENTRYPOINT [<span class="str">"/api"</span>]</code></pre>
+
+<h2>5. docker-compose.yaml — pełny stack (API + DB + Redis + Mailhog)</h2>
+<pre data-lang="yaml"><code><span class="kw">services</span>:
+  api:
+    <span class="kw">build</span>: .
+    <span class="kw">ports</span>: [<span class="str">"3000:3000"</span>]
+    <span class="kw">environment</span>:
+      DATABASE_URL: postgres://app:secret@db:<span class="num">5432</span>/app
+      REDIS_URL: redis://redis:<span class="num">6379</span>
+    <span class="kw">depends_on</span>:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+    <span class="kw">healthcheck</span>:
+      test: [<span class="str">"CMD"</span>, <span class="str">"wget"</span>, <span class="str">"-qO-"</span>, <span class="str">"http://localhost:3000/health"</span>]
+      interval: 10s
+      retries: 3
+    <span class="kw">restart</span>: unless-stopped
+    <span class="kw">develop</span>:
+      <span class="kw">watch</span>:
+        - { action: sync, path: ./src, target: /app/src }
+        - { action: rebuild, path: package.json }
+
+  db:
+    <span class="kw">image</span>: postgres:<span class="num">17</span>-alpine
+    <span class="kw">environment</span>:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: app
+    <span class="kw">volumes</span>: [<span class="str">"db-data:/var/lib/postgresql/data"</span>]
+    <span class="kw">healthcheck</span>:
+      test: [<span class="str">"CMD-SHELL"</span>, <span class="str">"pg_isready -U app"</span>]
+      interval: 5s
+    <span class="kw">ports</span>: [<span class="str">"5432:5432"</span>]
+
+  redis:
+    <span class="kw">image</span>: redis:<span class="num">7</span>-alpine
+    <span class="kw">command</span>: redis-server --save <span class="num">60</span> <span class="num">1</span> --loglevel warning
+    <span class="kw">volumes</span>: [<span class="str">"redis-data:/data"</span>]
+
+  mailhog:
+    <span class="kw">image</span>: mailhog/mailhog
+    <span class="kw">ports</span>: [<span class="str">"1025:1025"</span>, <span class="str">"8025:8025"</span>]   <span class="com"># SMTP, web UI</span>
+    <span class="kw">profiles</span>: [<span class="str">"dev"</span>]                <span class="com"># tylko docker compose --profile dev up</span>
+
+<span class="kw">volumes</span>:
+  db-data:
+  redis-data:</code></pre>
+<div class="tip">💡 <code>docker compose watch</code> (v2.22+) zastępuje <code>nodemon</code> — auto-rebuild/sync przy zmianie plików.</div>
+
+<h2>6. Reverse proxy z Caddy (auto-HTTPS dla dev)</h2>
+<pre data-lang="yaml"><code><span class="com"># compose.yaml — dodaj jako kolejny service</span>
+<span class="kw">caddy</span>:
+    <span class="kw">image</span>: caddy:<span class="num">2</span>-alpine
+    <span class="kw">ports</span>: [<span class="str">"80:80"</span>, <span class="str">"443:443"</span>]
+    <span class="kw">volumes</span>:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+<span class="kw">volumes</span>: { caddy-data: }</code></pre>
+<pre data-lang="caddyfile"><code><span class="com"># Caddyfile</span>
+api.localhost {
+    reverse_proxy api:<span class="num">3000</span>
+}
+db.localhost {
+    reverse_proxy adminer:<span class="num">8080</span>
+}</code></pre>
+
+<h2>7. Bezpieczeństwo — Trivy scan + non-root</h2>
+<pre data-lang="bash"><code><span class="com"># Skanowanie obrazu na CVE (open source, instant)</span>
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+    aquasec/trivy image my-app:latest --severity HIGH,CRITICAL
+
+<span class="com"># Sprawdź, że obraz nie odpala jako root</span>
+docker inspect my-app:latest --format <span class="str">'{{ .Config.User }}'</span>
+<span class="com"># Pusty? Źle. Powinno być &quot;node&quot;, &quot;app&quot;, &quot;1000&quot; itp.</span>
+
+<span class="com"># Rootless Docker daemon (Linux only)</span>
+dockerd-rootless-setuptool.sh install
+systemctl --user start docker
+docker context use rootless</code></pre>
+
+<h2>8. Najczęstsze błędy</h2>
+<table>
+<tr><th>Symptom</th><th>Przyczyna</th><th>Fix</th></tr>
+<tr><td>Image 2GB</td><td>node_modules + cache w finalu</td><td>Multi-stage, kopiuj tylko dist + production deps</td></tr>
+<tr><td>Wolny build</td><td>Każda zmiana = npm install</td><td>Najpierw <code>COPY package*.json</code>, potem reszta</td></tr>
+<tr><td>"command not found" w runtime</td><td>Alpine vs glibc binarki</td><td>Albo <code>-bullseye-slim</code>, albo zbuduj pod <code>musl</code></td></tr>
+<tr><td>App crashes na K8s ale działa lokalnie</td><td>OOMKilled</td><td>Ustaw <code>--max-old-space-size</code> w Node, limit memory w K8s</td></tr>
+<tr><td>Build slow w CI</td><td>Brak cache między buildami</td><td>BuildKit + <code>docker buildx</code> + cache to GHA cache</td></tr>
+</table>
+
+<div class="next-prev">
+    <a href="react.html"><div class="label">← Poprzedni</div><div class="title">React</div></a>
+    <a href="kubernetes.html"><div class="label">Następny →</div><div class="title">Kubernetes</div></a>
+</div>
+</div>
+</body>
+</html>

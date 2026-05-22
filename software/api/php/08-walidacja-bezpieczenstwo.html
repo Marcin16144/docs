@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Walidacja i bezpieczenstwo PHP API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">PHP</a><span class="sep">/</span>
+  <span class="title">Walidacja i bezpieczenstwo PHP API</span>
+</div>
+<div class="container">
+  <h1>Walidacja i bezpieczenstwo PHP API</h1>
+  <p class="subtitle">Laravel Validation, Symfony Constraints, CORS, Rate Limiting i OWASP API Security Top 10</p>
+
+  <h2>Laravel Validation</h2>
+  <p>Laravel oferuje bogaty system walidacji danych wejsciowych z dziesiatkami wbudowanych regul. Walidacje mozna definiowac inline w kontrolerze przez <code>$request->validate()</code>, przez <code>Validator::make()</code> lub przez dedykowane klasy <strong>Form Request</strong>.</p>
+
+<pre><code>&lt;?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Requests\StoreProductRequest;
+use App\Models\Product;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+
+class ProductController extends Controller
+{
+    // Metoda 1: inline validate() — najprostsza
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name'        => ['required', 'string', 'min:2', 'max:255', 'unique:products'],
+            'price'       => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
+            'category_id' => ['required', 'integer', 'exists:categories,id'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'tags'        => ['sometimes', 'array', 'max:10'],
+            'tags.*'      => ['integer', 'exists:tags,id'],
+            'status'      => ['required', 'in:draft,published,archived'],
+        ]);
+
+        $product = Product::create($validated);
+        return response()->json($product, 201);
+    }
+
+    // Metoda 2: Validator::make() — reczna kontrola
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'name'  => ['sometimes', 'string', 'min:2', 'max:255', "unique:products,name,{$id}"],
+            'price' => ['sometimes', 'numeric', 'min:0.01'],
+        ]);
+
+        // Dodanie wlasnej reguly warunkowej
+        $validator->sometimes('discount', 'required|numeric|between:0,100', function ($input) {
+            return isset($input->price) && $input->price > 100;
+        });
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed.',
+                'errors'  => $validator->errors()->toArray(),
+            ], 422);
+        }
+
+        $product = Product::findOrFail($id)->update($validator->validated());
+        return response()->json($product);
+    }
+}
+</code></pre>
+
+  <h3>Form Request — dedykowane klasy walidacji</h3>
+  <p>Form Request to klasy hermetyzujace logike walidacji i autoryzacji dla konkretnego zadania HTTP. Sa automatycznie wstrzykiwane przez kontener IoC — jesli walidacja nie przejdzie, Laravel zwraca 422 z bledam przed wywolaniem metody kontrolera.</p>
+
+  <div class="card green">
+    <strong>Form Request z wlasna regula walidacji</strong>
+    <pre style="margin:8px 0 0"><code>&lt;?php
+// php artisan make:request StoreProductRequest
+
+namespace App\Http\Requests;
+
+use App\Rules\NoOffensiveWords;
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreProductRequest extends FormRequest
+{
+    // Autoryzacja — czy uzytkownik moze wykonac to zadanie?
+    public function authorize(): bool
+    {
+        return $this->user()->can('create', Product::class);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name'  => ['required', 'string', 'min:2', 'max:255', new NoOffensiveWords()],
+            'price' => ['required', 'decimal:0,2', 'min:0.01'],
+            'sku'   => ['required', 'regex:/^[A-Z]{2}-\d{6}$/'],
+        ];
+    }
+
+    // Wlasne komunikaty bledow
+    public function messages(): array
+    {
+        return [
+            'sku.regex' => 'SKU musi miec format XX-000000 (2 litery, 6 cyfr).',
+        ];
+    }
+
+    // Wlasne nazwy pol w komunikatach
+    public function attributes(): array
+    {
+        return ['category_id' => 'kategoria'];
+    }
+}
+
+// Wlasna regula walidacji (php artisan make:rule NoOffensiveWords)
+namespace App\Rules;
+use Closure;
+use Illuminate\Contracts\Validation\ValidationRule;
+
+class NoOffensiveWords implements ValidationRule
+{
+    public function validate(string $attribute, mixed $value, Closure $fail): void
+    {
+        $blacklist = ['spam', 'scam', 'fake'];
+        foreach ($blacklist as $word) {
+            if (stripos($value, $word) !== false) {
+                $fail("Pole :attribute zawiera niedozwolone slowo: {$word}.");
+            }
+        }
+    }
+}
+</code></pre>
+  </div>
+
+  <h2>Symfony Constraints</h2>
+  <p>Symfony Validator uzywa ograniczen (constraints) definiowanych jako atrybuty PHP 8, adnotacje, YAML lub XML. Constraints mozna stosowac do wlasciwosci encji, DTO lub metod.</p>
+
+<pre><code>&lt;?php
+
+namespace App\Dto;
+
+use Symfony\Component\Validator\Constraints as Assert;
+
+class CreateProductDto
+{
+    #[Assert\NotBlank(message: 'Nazwa produktu jest wymagana.')]
+    #[Assert\Length(min: 2, max: 255, minMessage: 'Nazwa musi miec co najmniej {{ limit }} znaki.')]
+    public readonly string $name;
+
+    #[Assert\Positive(message: 'Cena musi byc wieksza od zera.')]
+    #[Assert\Type(type: 'float')]
+    public readonly float $price;
+
+    #[Assert\NotNull]
+    #[Assert\Regex(pattern: '/^[A-Z]{2}-\d{6}$/', message: 'Nieprawidlowy format SKU.')]
+    public readonly string $sku;
+
+    #[Assert\Valid]  // Walidacja zagniezdzonego obiektu
+    public readonly CategoryDto $category;
+
+    #[Assert\All([
+        new Assert\NotBlank(),
+        new Assert\Length(max: 50),
+    ])]
+    public readonly array $tags = [];
+}
+
+// Wlasny ConstraintValidator
+use Symfony\Component\Validator\Constraint;
+use Symfony\Component\Validator\ConstraintValidator;
+
+class UniqueSkuValidator extends ConstraintValidator
+{
+    public function __construct(private readonly ProductRepository $repo) {}
+
+    public function validate(mixed $value, Constraint $constraint): void
+    {
+        if ($this->repo->findBySku($value)) {
+            $this->context->buildViolation($constraint->message)
+                ->setParameter('{{ sku }}', $value)
+                ->addViolation();
+        }
+    }
+}
+</code></pre>
+
+  <h2>CORS — Cross-Origin Resource Sharing</h2>
+  <p>CORS to mechanizm przegladarki kontrolujacy, czy skrypt z domeny A moze wywolywac API z domeny B. Serwer musi zwrocic odpowiednie naglowki <code>Access-Control-*</code>. Bledna konfiguracja CORS to czesty problem przy integracji SPA z API.</p>
+
+  <h2>Rate Limiting</h2>
+  <p>Rate limiting chroni API przed naduzyciem — czy to przez ataki brute-force, denial of service, czy po prostu zbyt agresywnych klientow. Laravel i Symfony oferuja wbudowane mechanizmy ograniczania liczby zapytan.</p>
+
+  <table>
+    <thead>
+      <tr><th>Narzedzie</th><th>Laravel</th><th>Symfony</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Wbudowany rate limiter</td><td>RateLimiter facade + throttle middleware</td><td>symfony/rate-limiter component</td></tr>
+      <tr><td>Backend storage</td><td>Cache (Redis, Memcached, DB)</td><td>Cache (PSR-6), Redis</td></tr>
+      <tr><td>Algorytmy</td><td>Fixed window (domyslny)</td><td>Fixed window, Sliding window, Token bucket</td></tr>
+      <tr><td>Naglowki odpowiedzi</td><td>X-RateLimit-Limit/Remaining/Reset</td><td>Reczna konfiguracja</td></tr>
+      <tr><td>Konfiguracja tras</td><td>throttle:60,1 w middleware</td><td>Atrybut #[RateLimit] lub serwis</td></tr>
+      <tr><td>Per-user limiting</td><td>by(userId) w RateLimiter</td><td>Klucz oparty o user ID</td></tr>
+    </tbody>
+  </table>
+
+<pre><code>// Laravel — konfiguracja rate limiter (AppServiceProvider)
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
+
+RateLimiter::for('api', function (Request $request) {
+    return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+});
+
+RateLimiter::for('login', function (Request $request) {
+    return [
+        Limit::perMinute(5)->by($request->ip()),
+        Limit::perMinute(3)->by($request->input('email')),
+    ];
+});
+
+// routes/api.php
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::apiResource('products', ProductController::class);
+});
+Route::post('/login', [AuthController::class, 'login'])
+    ->middleware('throttle:login');
+</code></pre>
+
+  <h2>OWASP API Security Top 10 w PHP</h2>
+
+  <div class="card red">
+    <strong>Najwazniejsze zagrozenia i ochrona w PHP</strong>
+    <ul style="margin-top:10px;margin-bottom:0">
+      <li><strong>API1 — Broken Object Level Authorization:</strong> zawsze weryfikuj, czy uzytkownik ma prawo do konkretnego zasobu przez ID, nie polegaj tylko na uwierzytelnieniu</li>
+      <li><strong>API2 — Broken Authentication:</strong> uzyj Sanctum/Passport, wymuszaj silne hasla, implementuj MFA dla wrazliwych operacji</li>
+      <li><strong>API3 — Broken Object Property Level Authorization:</strong> uzyj $fillable w Eloquent i grup serializacji w Resources</li>
+      <li><strong>API4 — Unrestricted Resource Consumption:</strong> rate limiting, walidacja rozmiaru uploadu, paginacja wynikow</li>
+      <li><strong>API5 — Broken Function Level Authorization:</strong> osobne middleware dla ról, nie polegaj na ukrywaniu endpointow</li>
+      <li><strong>API8 — Security Misconfiguration:</strong> wyłacz display_errors na produkcji, ustaw bezpieczne naglowki HTTP</li>
+      <li><strong>API9 — Improper Inventory Management:</strong> wersjonuj API, wylaczaj stare endpointy, dokumentuj wszystkie trasy</li>
+    </ul>
+  </div>
+
+  <h3>SQL Injection — ochrona przez prepared statements</h3>
+  <p>Eloquent i Doctrine uzywaja prepared statements domyslnie — interpolacja wartosci w zapytaniach jest automatycznie zabezpieczona. Niebezpieczne sa zapytania z interpolacja PHP bezposrednio w SQL lub niewalidowane kolumny sortowania.</p>
+
+  <h3>Output Sanitization</h3>
+  <p>API zwracajace JSON nie jest podatne na XSS w przegladarce jesli Content-Type jest ustawiony na <code>application/json</code>. Niebezpieczne jest zwracanie HTML generowanego z danych uzytkownika lub uzywanie <code>echo $userInput</code> bez escapowania.</p>
+
+  <div class="nav-bottom">
+    <a href="07-doctrine-orm.html">← 07-doctrine-orm.html</a>
+    <a href="09-openapi-php.html">09-openapi-php.html →</a>
+  </div>
+</div>
+</body>
+</html>

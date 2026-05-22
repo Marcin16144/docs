@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testowanie — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">Testowanie</span>
+</div>
+<div class="container">
+<h1>🧪 Testowanie — działający kod</h1>
+<p class="lead">Vitest, pytest, xUnit, Testcontainers (real DB w testach), Playwright E2E.</p>
+
+<h2>1. Vitest — unit + integration (TypeScript)</h2>
+<pre data-lang="typescript"><code><span class="com">// npm i -D vitest @vitest/coverage-v8</span>
+<span class="com">// vitest.config.ts</span>
+<span class="kw">import</span> { defineConfig } <span class="kw">from</span> <span class="str">'vitest/config'</span>;
+<span class="kw">export default</span> <span class="fn">defineConfig</span>({
+    test: {
+        environment: <span class="str">'node'</span>,
+        coverage: { reporter: [<span class="str">'text'</span>, <span class="str">'html'</span>, <span class="str">'lcov'</span>], lines: <span class="num">80</span> }
+    }
+});
+
+<span class="com">// src/cart.ts</span>
+<span class="kw">export class</span> <span class="fn">Cart</span> {
+    items: { id: <span class="kw">string</span>, qty: <span class="kw">number</span>, price: <span class="kw">number</span> }[] = [];
+    <span class="fn">add</span>(id: <span class="kw">string</span>, price: <span class="kw">number</span>) {
+        <span class="kw">const</span> existing = <span class="kw">this</span>.items.<span class="fn">find</span>(i =&gt; i.id === id);
+        existing ? existing.qty++ : <span class="kw">this</span>.items.<span class="fn">push</span>({ id, qty: <span class="num">1</span>, price });
+    }
+    <span class="kw">get</span> <span class="fn">total</span>() { <span class="kw">return</span> <span class="kw">this</span>.items.<span class="fn">reduce</span>((s, i) =&gt; s + i.qty * i.price, <span class="num">0</span>); }
+}
+
+<span class="com">// src/cart.test.ts</span>
+<span class="kw">import</span> { describe, it, expect, beforeEach, vi } <span class="kw">from</span> <span class="str">'vitest'</span>;
+<span class="kw">import</span> { Cart } <span class="kw">from</span> <span class="str">'./cart'</span>;
+
+<span class="fn">describe</span>(<span class="str">'Cart'</span>, () =&gt; {
+    <span class="kw">let</span> cart: Cart;
+    <span class="fn">beforeEach</span>(() =&gt; { cart = <span class="kw">new</span> <span class="fn">Cart</span>(); });
+
+    <span class="fn">it</span>(<span class="str">'dodaje pierwszy produkt'</span>, () =&gt; {
+        cart.<span class="fn">add</span>(<span class="str">'a'</span>, <span class="num">10</span>);
+        <span class="fn">expect</span>(cart.items).<span class="fn">toHaveLength</span>(<span class="num">1</span>);
+        <span class="fn">expect</span>(cart.items[<span class="num">0</span>]).<span class="fn">toMatchObject</span>({ id: <span class="str">'a'</span>, qty: <span class="num">1</span>, price: <span class="num">10</span> });
+    });
+
+    <span class="fn">it</span>(<span class="str">'zwiększa ilość przy ponownym dodaniu'</span>, () =&gt; {
+        cart.<span class="fn">add</span>(<span class="str">'a'</span>, <span class="num">10</span>);
+        cart.<span class="fn">add</span>(<span class="str">'a'</span>, <span class="num">10</span>);
+        <span class="fn">expect</span>(cart.items[<span class="num">0</span>].qty).<span class="fn">toBe</span>(<span class="num">2</span>);
+    });
+
+    <span class="fn">it</span>(<span class="str">'liczy total'</span>, () =&gt; {
+        cart.<span class="fn">add</span>(<span class="str">'a'</span>, <span class="num">10</span>);
+        cart.<span class="fn">add</span>(<span class="str">'b'</span>, <span class="num">5</span>);
+        cart.<span class="fn">add</span>(<span class="str">'a'</span>, <span class="num">10</span>);
+        <span class="fn">expect</span>(cart.total).<span class="fn">toBe</span>(<span class="num">25</span>);
+    });
+});
+
+<span class="com">// Mockowanie modułu</span>
+<span class="fn">vi</span>.<span class="fn">mock</span>(<span class="str">'./db'</span>, () =&gt; ({
+    saveOrder: <span class="fn">vi</span>.<span class="fn">fn</span>().<span class="fn">mockResolvedValue</span>({ id: <span class="str">'mock-id'</span> })
+}));</code></pre>
+
+<h2>2. pytest — Python z fixtures</h2>
+<pre data-lang="python"><code><span class="com"># pip install pytest pytest-asyncio pytest-cov httpx</span>
+<span class="com"># tests/conftest.py — wspólne fixtures</span>
+<span class="kw">import</span> pytest
+<span class="kw">from</span> httpx <span class="kw">import</span> AsyncClient
+<span class="kw">from</span> myapi.main <span class="kw">import</span> app
+
+<span class="com">@pytest.fixture</span>
+<span class="kw">async def</span> <span class="fn">client</span>():
+    <span class="kw">async with</span> AsyncClient(app=app, base_url=<span class="str">"http://test"</span>) <span class="kw">as</span> c:
+        <span class="kw">yield</span> c
+
+<span class="com">@pytest.fixture</span>
+<span class="kw">def</span> <span class="fn">sample_user</span>():
+    <span class="kw">return</span> {<span class="str">"email"</span>: <span class="str">"test@example.com"</span>, <span class="str">"name"</span>: <span class="str">"Test"</span>}
+
+<span class="com"># tests/test_api.py</span>
+<span class="kw">import</span> pytest
+
+<span class="com">@pytest.mark.asyncio</span>
+<span class="kw">async def</span> <span class="fn">test_create_user</span>(client, sample_user):
+    response = <span class="kw">await</span> client.post(<span class="str">"/users"</span>, json=sample_user)
+    <span class="kw">assert</span> response.status_code == <span class="num">201</span>
+    <span class="kw">assert</span> response.json()[<span class="str">"email"</span>] == sample_user[<span class="str">"email"</span>]
+
+<span class="com">@pytest.mark.parametrize("email,expected", [
+    ("a@b.com", 200),
+    ("invalid", 422),
+    ("", 422),
+    ("a@b", 422),
+])</span>
+<span class="kw">async def</span> <span class="fn">test_email_validation</span>(client, email, expected):
+    response = <span class="kw">await</span> client.post(<span class="str">"/users"</span>, json={<span class="str">"email"</span>: email, <span class="str">"name"</span>: <span class="str">"X"</span>})
+    <span class="kw">assert</span> response.status_code == expected
+
+<span class="com"># Mock zewnętrznej zależności</span>
+<span class="kw">def</span> <span class="fn">test_with_mock</span>(monkeypatch):
+    <span class="kw">def</span> <span class="fn">fake_send_email</span>(to, subj):
+        <span class="kw">return</span> {<span class="str">"sent"</span>: <span class="kw">True</span>, <span class="str">"to"</span>: to}
+    monkeypatch.setattr(<span class="str">"myapi.email.send"</span>, fake_send_email)
+
+    result = my_function_that_sends_email(<span class="str">"a@b.com"</span>)
+    <span class="kw">assert</span> result[<span class="str">"sent"</span>]
+
+<span class="com"># Uruchom</span>
+<span class="com"># pytest -v --cov=myapi --cov-report=html</span></code></pre>
+
+<h2>3. xUnit (.NET 9)</h2>
+<pre data-lang="csharp"><code><span class="com">// dotnet new xunit -n MyApi.Tests
+// dotnet add reference ../MyApi/MyApi.csproj
+// dotnet add package FluentAssertions
+// dotnet add package Moq</span>
+
+<span class="kw">using</span> FluentAssertions;
+<span class="kw">using</span> Moq;
+<span class="kw">using</span> Xunit;
+
+<span class="kw">public class</span> <span class="fn">CartServiceTests</span>
+{
+    [<span class="fn">Fact</span>]
+    <span class="kw">public void</span> <span class="fn">Add_NewItem_IncreasesItemCount</span>()
+    {
+        <span class="kw">var</span> cart = <span class="kw">new</span> <span class="fn">Cart</span>();
+        cart.<span class="fn">Add</span>(<span class="str">"a"</span>, <span class="num">10</span>);
+        cart.Items.<span class="fn">Should</span>().<span class="fn">HaveCount</span>(<span class="num">1</span>);
+        cart.Items[<span class="num">0</span>].Qty.<span class="fn">Should</span>().<span class="fn">Be</span>(<span class="num">1</span>);
+    }
+
+    [<span class="fn">Theory</span>]
+    [<span class="fn">InlineData</span>(<span class="num">10</span>, <span class="num">5</span>, <span class="num">50</span>)]
+    [<span class="fn">InlineData</span>(<span class="num">0</span>, <span class="num">100</span>, <span class="num">0</span>)]
+    [<span class="fn">InlineData</span>(<span class="num">1.5</span>, <span class="num">2</span>, <span class="num">3</span>)]
+    <span class="kw">public void</span> <span class="fn">Total_CalculatesCorrectly</span>(<span class="kw">decimal</span> price, <span class="kw">int</span> qty, <span class="kw">decimal</span> expected)
+    {
+        <span class="kw">var</span> cart = <span class="kw">new</span> <span class="fn">Cart</span>();
+        <span class="kw">for</span> (<span class="kw">var</span> i = <span class="num">0</span>; i &lt; qty; i++) cart.<span class="fn">Add</span>(<span class="str">"a"</span>, price);
+        cart.Total.<span class="fn">Should</span>().<span class="fn">Be</span>(expected);
+    }
+
+    [<span class="fn">Fact</span>]
+    <span class="kw">public async</span> Task <span class="fn">PlaceOrder_CallsRepository</span>()
+    {
+        <span class="kw">var</span> repoMock = <span class="kw">new</span> <span class="fn">Mock</span>&lt;IOrderRepository&gt;();
+        repoMock.<span class="fn">Setup</span>(r =&gt; r.<span class="fn">SaveAsync</span>(<span class="fn">It</span>.<span class="fn">IsAny</span>&lt;Order&gt;()))
+            .<span class="fn">Returns</span>(Task.CompletedTask);
+
+        <span class="kw">var</span> service = <span class="kw">new</span> <span class="fn">OrderService</span>(repoMock.Object);
+        <span class="kw">await</span> service.<span class="fn">PlaceOrderAsync</span>(<span class="kw">new</span> <span class="fn">Order</span>());
+
+        repoMock.<span class="fn">Verify</span>(r =&gt; r.<span class="fn">SaveAsync</span>(<span class="fn">It</span>.<span class="fn">IsAny</span>&lt;Order&gt;()), <span class="fn">Times</span>.<span class="fn">Once</span>);
+    }
+}</code></pre>
+
+<h2>4. Testcontainers — prawdziwa baza w testach</h2>
+<pre data-lang="typescript"><code><span class="com">// npm i -D testcontainers @testcontainers/postgresql</span>
+<span class="kw">import</span> { describe, it, beforeAll, afterAll, expect } <span class="kw">from</span> <span class="str">'vitest'</span>;
+<span class="kw">import</span> { PostgreSqlContainer, StartedPostgreSqlContainer } <span class="kw">from</span> <span class="str">'@testcontainers/postgresql'</span>;
+<span class="kw">import</span> { Client } <span class="kw">from</span> <span class="str">'pg'</span>;
+
+<span class="fn">describe</span>(<span class="str">'UserRepository integration'</span>, () =&gt; {
+    <span class="kw">let</span> container: StartedPostgreSqlContainer;
+    <span class="kw">let</span> db: Client;
+
+    <span class="fn">beforeAll</span>(<span class="kw">async</span> () =&gt; {
+        container = <span class="kw">await new</span> <span class="fn">PostgreSqlContainer</span>(<span class="str">'postgres:17-alpine'</span>)
+            .<span class="fn">withDatabase</span>(<span class="str">'testdb'</span>)
+            .<span class="fn">withUsername</span>(<span class="str">'test'</span>)
+            .<span class="fn">withPassword</span>(<span class="str">'test'</span>)
+            .<span class="fn">start</span>();
+
+        db = <span class="kw">new</span> <span class="fn">Client</span>({ connectionString: container.<span class="fn">getConnectionUri</span>() });
+        <span class="kw">await</span> db.<span class="fn">connect</span>();
+        <span class="kw">await</span> db.<span class="fn">query</span>(<span class="str">'CREATE TABLE users (id SERIAL, email TEXT UNIQUE)'</span>);
+    }, <span class="num">60_000</span>);
+
+    <span class="fn">afterAll</span>(<span class="kw">async</span> () =&gt; {
+        <span class="kw">await</span> db.<span class="fn">end</span>();
+        <span class="kw">await</span> container.<span class="fn">stop</span>();
+    });
+
+    <span class="fn">it</span>(<span class="str">'wstawia użytkownika'</span>, <span class="kw">async</span> () =&gt; {
+        <span class="kw">await</span> db.<span class="fn">query</span>(<span class="str">'INSERT INTO users (email) VALUES ($1)'</span>, [<span class="str">'a@b.com'</span>]);
+        <span class="kw">const</span> { rows } = <span class="kw">await</span> db.<span class="fn">query</span>(<span class="str">'SELECT * FROM users'</span>);
+        <span class="fn">expect</span>(rows).<span class="fn">toHaveLength</span>(<span class="num">1</span>);
+    });
+});</code></pre>
+<div class="tip">💡 Testcontainers daje <strong>prawdziwą</strong> bazę, Redis, Kafka, Mailhog w &lt;5s. Wymaga Dockera. Mocki SQL kłamią — Testcontainers nie.</div>
+
+<h2>5. Playwright E2E</h2>
+<pre data-lang="typescript"><code><span class="com">// npm init playwright@latest</span>
+<span class="kw">import</span> { test, expect } <span class="kw">from</span> <span class="str">'@playwright/test'</span>;
+
+<span class="fn">test</span>(<span class="str">'user can complete purchase'</span>, <span class="kw">async</span> ({ page }) =&gt; {
+    <span class="kw">await</span> page.<span class="fn">goto</span>(<span class="str">'/products'</span>);
+    <span class="kw">await</span> page.<span class="fn">getByRole</span>(<span class="str">'button'</span>, { name: <span class="str">'Add to cart'</span> }).<span class="fn">first</span>().<span class="fn">click</span>();
+    <span class="kw">await</span> page.<span class="fn">getByRole</span>(<span class="str">'link'</span>, { name: <span class="str">'Cart (1)'</span> }).<span class="fn">click</span>();
+    <span class="kw">await</span> <span class="fn">expect</span>(page.<span class="fn">getByText</span>(<span class="str">'Mechaniczna klawiatura'</span>)).<span class="fn">toBeVisible</span>();
+    <span class="kw">await</span> page.<span class="fn">getByRole</span>(<span class="str">'button'</span>, { name: <span class="str">'Checkout'</span> }).<span class="fn">click</span>();
+
+    <span class="com">// Form fill</span>
+    <span class="kw">await</span> page.<span class="fn">getByLabel</span>(<span class="str">'Email'</span>).<span class="fn">fill</span>(<span class="str">'test@example.com'</span>);
+    <span class="kw">await</span> page.<span class="fn">getByLabel</span>(<span class="str">'Card number'</span>).<span class="fn">fill</span>(<span class="str">'4242 4242 4242 4242'</span>);
+    <span class="kw">await</span> page.<span class="fn">getByRole</span>(<span class="str">'button'</span>, { name: <span class="str">'Pay'</span> }).<span class="fn">click</span>();
+
+    <span class="kw">await</span> <span class="fn">expect</span>(page.<span class="fn">getByText</span>(<span class="str">'Order confirmed'</span>)).<span class="fn">toBeVisible</span>({ timeout: <span class="num">10_000</span> });
+});
+
+<span class="fn">test</span>(<span class="str">'mobile viewport'</span>, <span class="kw">async</span> ({ page }) =&gt; {
+    <span class="kw">await</span> page.<span class="fn">setViewportSize</span>({ width: <span class="num">375</span>, height: <span class="num">667</span> });
+    <span class="kw">await</span> page.<span class="fn">goto</span>(<span class="str">'/'</span>);
+    <span class="kw">await</span> <span class="fn">expect</span>(page.<span class="fn">getByLabel</span>(<span class="str">'Open menu'</span>)).<span class="fn">toBeVisible</span>();
+});
+
+<span class="com">// playwright.config.ts — multi-browser</span>
+<span class="kw">export default</span> {
+    projects: [
+        { name: <span class="str">'chromium'</span>, use: { ...<span class="fn">devices</span>[<span class="str">'Desktop Chrome'</span>] } },
+        { name: <span class="str">'firefox'</span>, use: { ...<span class="fn">devices</span>[<span class="str">'Desktop Firefox'</span>] } },
+        { name: <span class="str">'webkit'</span>, use: { ...<span class="fn">devices</span>[<span class="str">'Desktop Safari'</span>] } },
+        { name: <span class="str">'mobile'</span>, use: { ...<span class="fn">devices</span>[<span class="str">'iPhone 14'</span>] } }
+    ],
+    use: { trace: <span class="str">'on-first-retry'</span>, screenshot: <span class="str">'only-on-failure'</span> }
+};</code></pre>
+
+<h2>6. Test pyramid (zasada Mike Cohn'a, zaktualizowana 2026)</h2>
+<table>
+<tr><th>Poziom</th><th>Ilość</th><th>Czas</th><th>Pewność</th></tr>
+<tr><td>Unit</td><td>~70%</td><td>ms</td><td>Logika biznesowa</td></tr>
+<tr><td>Integration (Testcontainers)</td><td>~20%</td><td>s</td><td>Adapters, DB, kolejki</td></tr>
+<tr><td>E2E (Playwright)</td><td>~10%</td><td>min</td><td>Critical user journeys</td></tr>
+<tr><td>Manual exploratory</td><td>1× przed release</td><td>godziny</td><td>UX, edge cases</td></tr>
+</table>
+<div class="warn">⚠️ Anti-pattern <strong>ice cream cone</strong>: dużo E2E, mało unit → wolny CI, flaky tests.</div>
+
+<div class="next-prev">
+    <a href="net-i-sieci.html"><div class="label">← Poprzedni</div><div class="title">Sieci</div></a>
+    <a href="ci-cd.html"><div class="label">Następny →</div><div class="title">CI/CD</div></a>
+</div>
+</div>
+</body>
+</html>

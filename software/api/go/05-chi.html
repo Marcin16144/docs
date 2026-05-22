@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chi Router</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Go</a>
+  <span class="sep">/</span>
+  <span class="title">Chi Router</span>
+</div>
+<div class="container">
+  <h1>Chi Router</h1>
+  <p class="subtitle">Idiomatyczny, lekki router dla Go — w pelni kompatybilny z net/http, kompozycyjne middleware, zero zaleznosci zewnetrznych</p>
+
+  <h2>Filozofia Chi — minimalizm i idiomatycznosc</h2>
+  <p>Chi jest routerem, nie frameworkiem. Nie narzuca struktury projektu, nie dostarcza systemu szablonow, bazy danych ani walidacji. Robi jedno i robi to dobrze: <strong>routuje zadania HTTP do handlerow</strong>. Kazdy handler to zwykly <code>http.HandlerFunc</code> — standard Go bez owijania.</p>
+  <p>Ta zgodnosc z <code>net/http</code> oznacza, ze mozesz uzywac dowolnego middleware napisanego dla standardowej biblioteki, np. <code>golang.org/x/net/http2</code> czy pakietow do obslugi sesji i CORS.</p>
+
+<pre><code>package main
+
+import (
+    "encoding/json"
+    "net/http"
+
+    "github.com/go-chi/chi/v5"
+    "github.com/go-chi/chi/v5/middleware"
+    "github.com/go-chi/cors"
+)
+
+func main() {
+    r := chi.NewRouter()
+
+    // Middleware globalne — kompozycja przez Use()
+    r.Use(middleware.RequestID)
+    r.Use(middleware.RealIP)
+    r.Use(middleware.Logger)
+    r.Use(middleware.Recoverer)
+    r.Use(middleware.Timeout(60 * time.Second))
+
+    // CORS (go-chi/cors)
+    r.Use(cors.Handler(cors.Options{
+        AllowedOrigins: []string{"https://*.example.com"},
+        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+        AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
+        MaxAge:         300,
+    }))
+
+    // Trasy
+    r.Get("/", homeHandler)
+    r.Get("/health", healthHandler)
+
+    // Sub-router dla /api/v1
+    r.Mount("/api/v1", apiRouter())
+
+    http.ListenAndServe(":8080", r)
+}
+
+func apiRouter() http.Handler {
+    r := chi.NewRouter()
+    r.Use(authMiddleware) // middleware tylko dla /api/v1
+
+    r.Get("/users", listUsers)
+    r.Post("/users", createUser)
+
+    r.Route("/users/{id}", func(r chi.Router) {
+        r.Get("/", getUser)
+        r.Put("/", updateUser)
+        r.Delete("/", deleteUser)
+        r.Get("/orders", getUserOrders)
+    })
+
+    return r
+}</code></pre>
+
+  <h2>chi.URLParam — parametry sciezki</h2>
+  <p>Chi przechowuje parametry URL w kontekscie zadania. Dostep przez <code>chi.URLParam(r, "name")</code> lub <code>chi.URLParamFromCtx(ctx, "name")</code>. Parametry sa dostepne w handlerach i w middleware wywolywanych po routowaniu.</p>
+
+<pre><code>func getUser(w http.ResponseWriter, r *http.Request) {
+    // Pobranie parametru sciezki
+    idStr := chi.URLParam(r, "id")
+    id, err := strconv.Atoi(idStr)
+    if err != nil {
+        http.Error(w, "niepoprawne ID", http.StatusBadRequest)
+        return
+    }
+
+    // Pobranie danych z kontekstu (ustawionych przez middleware)
+    userID, _ := r.Context().Value(userIDKey).(int)
+
+    user, err := db.FindUser(r.Context(), id)
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            http.Error(w, "nie znaleziono", http.StatusNotFound)
+            return
+        }
+        http.Error(w, "blad serwera", http.StatusInternalServerError)
+        return
+    }
+
+    _ = userID
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(user)
+}
+
+// Middleware ustawiajace dane w kontekscie
+type contextKey string
+const userIDKey contextKey = "userID"
+
+func authMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        token := r.Header.Get("Authorization")
+        if token == "" {
+            http.Error(w, "brak autoryzacji", http.StatusUnauthorized)
+            return
+        }
+        // Weryfikacja tokenu...
+        ctx := context.WithValue(r.Context(), userIDKey, 42)
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
+}</code></pre>
+
+  <h2>Sub-routery i chi.Mount</h2>
+  <p>Chi pozwala na montowanie calych sub-routerow pod okreslonym prefiksem przez <code>r.Mount("/prefix", handler)</code>. Sub-router to zwykly <code>http.Handler</code> — moze byc kolejnym <code>chi.Router</code> lub dowolnym innym handlerem.</p>
+  <p>Metoda <code>r.Route(pattern, fn)</code> to skrot pozwalajacy zdefiniowac sub-router inline za pomoca funkcji konfiguracyjnej — przydatne dla zasobow RESTful (wszystkie operacje na <code>/users/{id}</code> w jednym miejscu).</p>
+
+  <h2>chi.RouteContext i introspekcja</h2>
+  <p><code>chi.RouteContext(ctx)</code> zwraca obiekt <code>*chi.Context</code> zawierajacy informacje o trasie: dopasowany wzorzec, parametry URL i liste middleware. Przydatne w middleware do inspekcji lub logowania.</p>
+
+  <table>
+    <thead>
+      <tr><th>Metoda</th><th>Opis</th><th>Przyklad</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>chi.URLParam(r, "id")</code></td><td>Parametr sciezki z zadania</td><td><code>/users/{id}</code></td></tr>
+      <tr><td><code>chi.URLParamFromCtx(ctx, "id")</code></td><td>Parametr z kontekstu (middleware)</td><td>Middleware przed handlerem</td></tr>
+      <tr><td><code>chi.RouteContext(ctx).RoutePattern()</code></td><td>Wzorzec dopasowanej trasy</td><td><code>/users/{id}/orders</code></td></tr>
+      <tr><td><code>chi.RouteContext(ctx).URLParams</code></td><td>Wszystkie parametry URL</td><td>Mapa klucz-wartosc</td></tr>
+      <tr><td><code>r.Mount("/v1", sub)</code></td><td>Montuje sub-router</td><td>Modularyzacja API</td></tr>
+      <tr><td><code>r.Route("/res/{id}", fn)</code></td><td>Inline sub-router</td><td>CRUD dla zasobu</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Idiomatyczny design API w Go z Chi</h2>
+  <p>Chi promuje wzorzec gdzie kazdy zasob API to oddzielny typ implementujacy metody handlerow. Dzieki temu zaleznosci (DB, logger, cache) sa wstrzykiwane przez konstruktor, a nie przez zmienne globalne.</p>
+
+  <div class="card blue">
+    <h3>Wzorzec Resource Handler</h3>
+    <p>Definiujesz typ <code>UserHandler struct { db *sql.DB; log *slog.Logger }</code>, nastepnie metody <code>(h *UserHandler) List(w, r)</code>, <code>Create(w, r)</code> itd. Rejestrujesz przez <code>h := NewUserHandler(db, log); r.Get("/users", h.List)</code>. To czyste, testowalne i idiomatyczne Go.</p>
+  </div>
+
+  <h2>Kiedy Chi vs Gin — minimalistyczne podejscie</h2>
+  <table>
+    <thead>
+      <tr><th>Kryterium</th><th>Wybierz Chi</th><th>Wybierz Gin</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Styl kodu</td><td>Idiomatyczne Go, net/http</td><td>Wygoda i skrocony zapis</td></tr>
+      <tr><td>Middleware</td><td>Dowolne net/http middleware</td><td>Tylko gin.HandlerFunc</td></tr>
+      <tr><td>Testowanie</td><td>httptest bez adapterow</td><td>httptest z gin.Context</td></tr>
+      <tr><td>Zaleznosci</td><td>Minimalne (tylko chi)</td><td>Wiecej (validator, render)</td></tr>
+      <tr><td>Binding/walidacja</td><td>Reczna lub biblioteka zewn.</td><td>Wbudowana</td></tr>
+      <tr><td>Wielkosc projektu</td><td>Kazda — szczeg. mikroserwisy</td><td>Srednie i duze projekty</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <h3>Wbudowane middleware Chi</h3>
+    <ul>
+      <li><code>middleware.RequestID</code> — generuje unikalny ID dla kazdego zadania</li>
+      <li><code>middleware.RealIP</code> — wyciaga prawdziwy IP z X-Forwarded-For</li>
+      <li><code>middleware.Logger</code> — strukturalny log kazdego zadania</li>
+      <li><code>middleware.Recoverer</code> — lapie paniki i zwraca 500</li>
+      <li><code>middleware.Compress(level)</code> — gzip/br kompresja odpowiedzi</li>
+      <li><code>middleware.Timeout(d)</code> — timeout kontekstu dla zadania</li>
+      <li><code>middleware.StripSlashes</code> — usuwanie trailing slasha</li>
+      <li><code>middleware.Throttle(limit)</code> — ograniczanie wspolbieznosci</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="04-fiber.html">&#8592; 04-fiber.html</a>
+    <a href="06-database.html">06-database.html &#8594;</a>
+  </div>
+</div>
+</body>
+</html>

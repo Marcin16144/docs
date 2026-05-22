@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uwierzytelnianie Rust API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f97316;--accent-hover:#fb923c;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Rust</a>
+  <span class="sep">/</span>
+  <span class="title">Uwierzytelnianie Rust API</span>
+</div>
+<div class="container">
+  <h1>Uwierzytelnianie Rust API</h1>
+  <p class="subtitle">JWT, OAuth2 PKCE, haszowanie hasel (bcrypt/argon2), middleware autoryzacyjne i ekstrakcja API key w Axum.</p>
+
+  <h2>jsonwebtoken — JWT encode/decode</h2>
+  <p>Crate <strong>jsonwebtoken</strong> implementuje standard RFC 7519. Wspiera algorytmy symetryczne (HS256, HS512) i asymetryczne (RS256, ES256). Dla produkcji zalecany jest <strong>RS256</strong> — klucz prywatny sluzy do podpisywania, publiczny do weryfikacji (mozna go udostepnic publicznie).</p>
+
+  <pre><code>use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
+use serde::{Serialize, Deserialize};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Claims {
+    pub sub: String,          // subject (user id)
+    pub email: String,
+    pub role: String,
+    pub exp: usize,           // expiration (Unix timestamp)
+    pub iat: usize,           // issued at
+    pub jti: String,          // JWT ID (do revokacji)
+}
+
+pub struct JwtService {
+    encoding_key: EncodingKey,
+    decoding_key: DecodingKey,
+    validation: Validation,
+}
+
+impl JwtService {
+    pub fn new_hs256(secret: &amp;[u8]) -> Self {
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.leeway = 5; // 5 sekund tolerancji
+        Self {
+            encoding_key: EncodingKey::from_secret(secret),
+            decoding_key: DecodingKey::from_secret(secret),
+            validation,
+        }
+    }
+
+    pub fn new_rs256(private_pem: &amp;[u8], public_pem: &amp;[u8]) -> anyhow::Result&lt;Self&gt; {
+        Ok(Self {
+            encoding_key: EncodingKey::from_rsa_pem(private_pem)?,
+            decoding_key: DecodingKey::from_rsa_pem(public_pem)?,
+            validation: Validation::new(Algorithm::RS256),
+        })
+    }
+
+    pub fn sign(&amp;self, user_id: &amp;str, email: &amp;str, role: &amp;str) -> anyhow::Result&lt;String&gt; {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
+        let claims = Claims {
+            sub: user_id.to_string(),
+            email: email.to_string(),
+            role: role.to_string(),
+            iat: now,
+            exp: now + 3600,  // 1 godzina
+            jti: uuid::Uuid::new_v4().to_string(),
+        };
+        Ok(encode(&amp;Header::new(Algorithm::HS256), &amp;claims, &amp;self.encoding_key)?)
+    }
+
+    pub fn verify(&amp;self, token: &amp;str) -> anyhow::Result&lt;Claims&gt; {
+        let data = decode::&lt;Claims&gt;(token, &amp;self.decoding_key, &amp;self.validation)?;
+        Ok(data.claims)
+    }
+}</code></pre>
+
+  <h2>JWT middleware dla Axum</h2>
+  <p>Najczystszy sposob to implementacja <code>FromRequestParts</code> — Axum wywola go automatycznie gdy handler ma odpowiedni argument.</p>
+
+  <pre><code>use axum::{extract::FromRequestParts, http::{request::Parts, StatusCode}};
+use axum::async_trait;
+
+pub struct AuthUser(pub Claims);
+
+#[async_trait]
+impl&lt;S&gt; FromRequestParts&lt;S&gt; for AuthUser
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, axum::Json&lt;serde_json::Value&gt;);
+
+    async fn from_request_parts(parts: &amp;mut Parts, _state: &amp;S) -&gt; Result&lt;Self, Self::Rejection&gt; {
+        let token = parts.headers
+            .get("Authorization")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .ok_or_else(|| (
+                StatusCode::UNAUTHORIZED,
+                axum::Json(serde_json::json!({"error": "Brak tokena"}))
+            ))?;
+
+        // JwtService pobrany z extensions (dodany przez middleware)
+        let jwt = parts.extensions.get::&lt;Arc&lt;JwtService&gt;&gt;()
+            .ok_or_else(|| (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({}))))?;
+
+        jwt.verify(token)
+            .map(AuthUser)
+            .map_err(|_| (
+                StatusCode::UNAUTHORIZED,
+                axum::Json(serde_json::json!({"error": "Nieprawidlowy token"}))
+            ))
+    }
+}
+
+// Uzycie w handlerze — Axum automatycznie weryfikuje JWT
+async fn protected_handler(auth: AuthUser) -> impl IntoResponse {
+    axum::Json(serde_json::json!({"user_id": auth.0.sub, "role": auth.0.role}))
+}</code></pre>
+
+  <h2>Algorytmy i wybor metody — tabela</h2>
+
+  <table>
+    <thead>
+      <tr><th>Metoda</th><th>Algorytm</th><th>Klucz</th><th>Uzycie</th><th>Uwagi</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>HS256</td><td>HMAC-SHA256</td><td>symetryczny secret</td><td>monolity, single-service</td><td>prosty, nie mozna publikowac klucza</td></tr>
+      <tr><td>RS256</td><td>RSA-SHA256</td><td>para RSA 2048+</td><td>mikroserwisy, publiczne API</td><td>klucz publiczny mozna udostepnic</td></tr>
+      <tr><td>ES256</td><td>ECDSA-SHA256</td><td>para EC P-256</td><td>mobile, IoT</td><td>krotszy token niz RSA</td></tr>
+      <tr><td>argon2</td><td>Argon2id</td><td>haslo + sol</td><td>haszowanie hasel</td><td>odporny na GPU, zalecany OWASP</td></tr>
+      <tr><td>bcrypt</td><td>Blowfish</td><td>haslo + sol</td><td>haszowanie hasel (legacy)</td><td>prostszy, cost factor regulowany</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Haszowanie hasel — argon2 i bcrypt</h2>
+  <p>Nigdy nie przechowuj hasel w postaci plaintext ani jako MD5/SHA. Uzyj dedykowanych funkcji do haszowania hasel z wbudowanym soleniem.</p>
+
+  <pre><code>// argon2 — ZALECANE (OWASP 2024)
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
+
+pub fn hash_password(password: &amp;str) -> anyhow::Result&lt;String&gt; {
+    let salt = SaltString::generate(&amp;mut OsRng);
+    let argon2 = Argon2::default();
+    let hash = argon2
+        .hash_password(password.as_bytes(), &amp;salt)?
+        .to_string();
+    Ok(hash)
+}
+
+pub fn verify_password(password: &amp;str, hash: &amp;str) -> anyhow::Result&lt;bool&gt; {
+    let parsed_hash = PasswordHash::new(hash)?;
+    Ok(Argon2::default().verify_password(password.as_bytes(), &amp;parsed_hash).is_ok())
+}
+
+// bcrypt — alternatywa
+use bcrypt::{hash, verify, DEFAULT_COST};
+
+pub fn hash_bcrypt(password: &amp;str) -> anyhow::Result&lt;String&gt; {
+    Ok(hash(password, DEFAULT_COST + 2)?)  // cost 14 dla lepszego bezpieczenstwa
+}
+
+pub fn verify_bcrypt(password: &amp;str, hash: &amp;str) -> anyhow::Result&lt;bool&gt; {
+    Ok(verify(password, hash)?)
+}</code></pre>
+
+  <div class="card red">
+    <strong>Uwaga bezpieczenstwo:</strong> Haszowanie hasel jest kosztowne obliczeniowo (celowo!). Wywoluj je w <code>tokio::task::spawn_blocking</code> aby nie blokowac runtime Tokio: <code>spawn_blocking(move || hash_password(&amp;pwd)).await??</code>
+  </div>
+
+  <h2>OAuth2 — PKCE flow z crate oauth2</h2>
+  <p>Crate <strong>oauth2</strong> implementuje RFC 6749 i RFC 7636 (PKCE). PKCE (Proof Key for Code Exchange) jest obowiazkowy dla aplikacji publicznych (SPA, mobile).</p>
+
+  <pre><code>use oauth2::{
+    AuthorizationCode, AuthUrl, ClientId, ClientSecret, CsrfToken,
+    PkceCodeChallenge, RedirectUrl, Scope, TokenUrl,
+    basic::BasicClient,
+};
+
+pub fn build_oauth_client() -> BasicClient {
+    BasicClient::new(
+        ClientId::new(std::env::var("OAUTH_CLIENT_ID").unwrap()),
+        Some(ClientSecret::new(std::env::var("OAUTH_CLIENT_SECRET").unwrap())),
+        AuthUrl::new("https://accounts.google.com/o/oauth2/v2/auth".to_string()).unwrap(),
+        Some(TokenUrl::new("https://oauth2.googleapis.com/token".to_string()).unwrap()),
+    )
+    .set_redirect_uri(RedirectUrl::new(std::env::var("OAUTH_REDIRECT_URI").unwrap()).unwrap())
+}
+
+// Krok 1: Generowanie URL autoryzacji
+pub async fn oauth_start(State(client): State&lt;Arc&lt;BasicClient&gt;&gt;) -> impl IntoResponse {
+    let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
+    let (auth_url, csrf_token) = client
+        .authorize_url(CsrfToken::new_random)
+        .add_scope(Scope::new("openid".to_string()))
+        .add_scope(Scope::new("email".to_string()))
+        .set_pkce_challenge(pkce_challenge)
+        .url();
+
+    // Zapisz csrf_token i pkce_verifier w sesji/redis
+    axum::Json(serde_json::json!({"url": auth_url.to_string()}))
+}
+
+// Krok 2: Wymiana kodu na token
+pub async fn oauth_callback(
+    Query(params): Query&lt;CallbackParams&gt;,
+    State(client): State&lt;Arc&lt;BasicClient&gt;&gt;,
+) -> impl IntoResponse {
+    // Weryfikacja csrf_token z sesji
+    // Pobranie pkce_verifier z sesji
+    let token = client
+        .exchange_code(AuthorizationCode::new(params.code))
+        .set_pkce_verifier(/* pkce_verifier z sesji */)
+        .request_async(oauth2::reqwest::async_http_client)
+        .await
+        .unwrap();
+    // Pobranie profilu uzytkownika i wystawienie wlasnego JWT
+}</code></pre>
+
+  <h2>API Key extractor — FromRequestParts</h2>
+  <p>API key to prostszy mechanizm dla serwis-do-serwis komunikacji. Mozna go odczytywac z naglowka <code>X-API-Key</code> lub query param <code>?api_key=</code>.</p>
+
+  <pre><code>pub struct ApiKey(pub String);
+
+#[async_trait]
+impl&lt;S: Send + Sync&gt; FromRequestParts&lt;S&gt; for ApiKey {
+    type Rejection = (StatusCode, axum::Json&lt;serde_json::Value&gt;);
+
+    async fn from_request_parts(parts: &amp;mut Parts, _: &amp;S) -&gt; Result&lt;Self, Self::Rejection&gt; {
+        // Proba z naglowka X-API-Key
+        let key = parts.headers
+            .get("X-API-Key")
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+
+        match key {
+            Some(k) if !k.is_empty() =&gt; Ok(ApiKey(k)),
+            _ =&gt; Err((
+                StatusCode::UNAUTHORIZED,
+                axum::Json(serde_json::json!({"error": "Wymagany naglowek X-API-Key"}))
+            ))
+        }
+    }
+}</code></pre>
+
+  <div class="card green">
+    <strong>Refresh tokeny:</strong> Przechowuj refresh tokeny w bazie danych (tabela <code>refresh_tokens</code> z polem <code>revoked_at</code>). Przy kazdym uzyciu sprawdzaj czy nie zostal uniewazniony. Access token powinien miec krotki czas zycia (15 min), refresh token dlugi (30 dni).
+  </div>
+
+  <div class="nav-bottom">
+    <a href="07-seaorm.html">← 07-seaorm.html</a>
+    <a href="09-testing.html">09-testing.html →</a>
+  </div>
+</div>
+</body>
+</html>

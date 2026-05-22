@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linux / Bash — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">Linux / Bash</span>
+</div>
+<div class="container">
+<h1>🐧 Linux / Bash — działające skrypty</h1>
+<p class="lead">systemd unit, bash z error handling, iptables/nftables, cron, monitoring zasobów.</p>
+
+<h2>1. systemd unit dla Node/Python/Go aplikacji</h2>
+<pre data-lang="ini"><code><span class="com"># /etc/systemd/system/myapi.service</span>
+[<span class="kw">Unit</span>]
+Description=My API
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[<span class="kw">Service</span>]
+Type=simple
+User=app
+Group=app
+WorkingDirectory=/opt/myapi
+EnvironmentFile=/etc/myapi.env
+ExecStart=/usr/bin/node /opt/myapi/dist/server.js
+Restart=on-failure
+RestartSec=<span class="num">5</span>s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=myapi
+
+<span class="com"># Hardening</span>
+NoNewPrivileges=<span class="kw">true</span>
+PrivateTmp=<span class="kw">true</span>
+ProtectSystem=strict
+ProtectHome=<span class="kw">true</span>
+ReadWritePaths=/opt/myapi/data
+ProtectKernelTunables=<span class="kw">true</span>
+ProtectKernelModules=<span class="kw">true</span>
+ProtectControlGroups=<span class="kw">true</span>
+RestrictNamespaces=<span class="kw">true</span>
+LockPersonality=<span class="kw">true</span>
+MemoryDenyWriteExecute=<span class="kw">true</span>
+RestrictSUIDSGID=<span class="kw">true</span>
+SystemCallArchitectures=native
+
+[<span class="kw">Install</span>]
+WantedBy=multi-user.target</code></pre>
+<pre data-lang="bash"><code><span class="com"># Aktywacja</span>
+sudo systemctl daemon-reload
+sudo systemctl enable --now myapi.service
+
+<span class="com"># Logi</span>
+journalctl -u myapi -f --since <span class="str">"10 minutes ago"</span>
+journalctl -u myapi -p err --since today    <span class="com"># tylko błędy</span>
+
+<span class="com"># Status</span>
+systemctl status myapi
+systemctl show myapi --property=MemoryCurrent,CPUUsageNSec</code></pre>
+
+<h2>2. Bash z error handling (production-grade)</h2>
+<pre data-lang="bash"><code><span class="com">#!/usr/bin/env bash</span>
+<span class="com"># backup-db.sh — backup PostgreSQL z rotacją</span>
+<span class="kw">set</span> -euo pipefail      <span class="com"># exit on error, undefined var, pipe failure</span>
+<span class="kw">IFS</span>=$<span class="str">'\n\t'</span>             <span class="com"># bezpieczny IFS (nie wyłapuje spacji)</span>
+
+<span class="kw">readonly</span> BACKUP_DIR=<span class="str">"/var/backups/postgres"</span>
+<span class="kw">readonly</span> RETENTION_DAYS=<span class="num">14</span>
+<span class="kw">readonly</span> DB_NAME=<span class="str">"production"</span>
+<span class="kw">readonly</span> S3_BUCKET=<span class="str">"s3://my-backups/db"</span>
+
+<span class="fn">log</span>() { echo <span class="str">"[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"</span> &gt;&amp;<span class="num">2</span>; }
+<span class="fn">die</span>() { log <span class="str">"ERROR: $*"</span>; exit <span class="num">1</span>; }
+
+<span class="fn">cleanup</span>() {
+    <span class="kw">local</span> rc=$?
+    <span class="kw">if</span> [[ -n <span class="str">"${TMPFILE:-}"</span> &amp;&amp; -f <span class="str">"$TMPFILE"</span> ]]; <span class="kw">then</span>
+        rm -f <span class="str">"$TMPFILE"</span>
+    <span class="kw">fi</span>
+    <span class="kw">return</span> $rc
+}
+trap cleanup EXIT
+
+<span class="fn">main</span>() {
+    mkdir -p <span class="str">"$BACKUP_DIR"</span>
+    <span class="kw">local</span> timestamp; timestamp=$(date -u +%Y%m%d-%H%M%S)
+    <span class="kw">local</span> file=<span class="str">"$BACKUP_DIR/${DB_NAME}-${timestamp}.sql.gz"</span>
+    TMPFILE=$(mktemp)
+
+    log <span class="str">"Backing up $DB_NAME → $file"</span>
+    pg_dump <span class="str">"$DB_NAME"</span> | gzip -<span class="num">9</span> &gt; <span class="str">"$TMPFILE"</span> || die <span class="str">"pg_dump failed"</span>
+
+    <span class="com"># Atomowo przenieś (rename = atomic na tym samym fs)</span>
+    mv <span class="str">"$TMPFILE"</span> <span class="str">"$file"</span>
+    unset TMPFILE
+
+    <span class="com"># Wgraj do S3</span>
+    aws s3 cp <span class="str">"$file"</span> <span class="str">"$S3_BUCKET/"</span> --storage-class STANDARD_IA \
+        || log <span class="str">"WARN: S3 upload failed (local backup OK)"</span>
+
+    <span class="com"># Rotacja lokalnie</span>
+    find <span class="str">"$BACKUP_DIR"</span> -name <span class="str">"${DB_NAME}-*.sql.gz"</span> -mtime +$RETENTION_DAYS -delete
+
+    log <span class="str">"Done. Size: $(du -h "</span>$file<span class="str">" | cut -f1)"</span>
+}
+
+main <span class="str">"$@"</span></code></pre>
+
+<h2>3. Cron + healthcheck</h2>
+<pre data-lang="bash"><code><span class="com"># Edytuj crontab</span>
+crontab -e
+
+<span class="com"># Format: m h dom mon dow command</span>
+<span class="com">#  ↓ co minutę</span>
+*/<span class="num">5</span> * * * * /usr/local/bin/healthcheck.sh
+
+<span class="com">#  ↓ 03:30 codziennie, log do pliku</span>
+<span class="num">30</span> <span class="num">3</span> * * * /opt/scripts/backup-db.sh &gt;&gt; /var/log/backup.log <span class="num">2</span>&gt;&amp;<span class="num">1</span>
+
+<span class="com">#  ↓ co poniedziałek 04:00</span>
+<span class="num">0</span> <span class="num">4</span> * * <span class="num">1</span> /opt/scripts/weekly-report.sh
+
+<span class="com"># healthcheck.sh — ping healthchecks.io</span>
+<span class="com">#!/usr/bin/env bash</span>
+<span class="kw">set</span> -euo pipefail
+url=$(curl -sf http://localhost:<span class="num">3000</span>/health) &amp;&amp; \
+    curl -fsS --retry <span class="num">3</span> https://hc-ping.com/YOUR-UUID &gt; /dev/null
+<span class="com"># Jeśli zwróci błąd: healthchecks.io śle alert email/Slack</span></code></pre>
+
+<h2>4. nftables (zastępca iptables w 2026)</h2>
+<pre data-lang="bash"><code><span class="com"># /etc/nftables.conf</span>
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        <span class="com"># Pozwól loopback, established</span>
+        iif lo accept
+        ct state established,related accept
+        ct state invalid drop
+
+        <span class="com"># ICMP (ping) — limit</span>
+        ip protocol icmp icmp type echo-request limit rate <span class="num">5</span>/second accept
+        ip<span class="num">6</span> nexthdr icmpv<span class="num">6</span> accept
+
+        <span class="com"># SSH na port 2222 + brute force protection</span>
+        tcp dport <span class="num">2222</span> ct state new limit rate <span class="num">3</span>/minute accept
+        tcp dport <span class="num">2222</span> ct state new drop
+
+        <span class="com"># HTTP/HTTPS</span>
+        tcp dport { <span class="num">80</span>, <span class="num">443</span> } accept
+
+        <span class="com"># Drop reszta + log</span>
+        log prefix <span class="str">"nft drop: "</span> limit rate <span class="num">5</span>/minute
+        counter
+    }
+    chain forward { type filter hook forward priority filter; policy drop; }
+    chain output  { type filter hook output priority filter; policy accept; }
+}</code></pre>
+<pre data-lang="bash"><code><span class="com"># Włącz</span>
+sudo systemctl enable --now nftables
+sudo nft -f /etc/nftables.conf
+sudo nft list ruleset
+
+<span class="com"># Tymczasowo blokuj IP</span>
+sudo nft add rule inet filter input ip saddr <span class="num">203.0</span>.<span class="num">113.42</span> drop</code></pre>
+
+<h2>5. Monitoring CPU/RAM/disk z bash</h2>
+<pre data-lang="bash"><code><span class="com"># Top procesy po RAM</span>
+ps aux --sort=-%mem | head -<span class="num">10</span>
+
+<span class="com"># Top procesy po CPU</span>
+ps aux --sort=-%cpu | head -<span class="num">10</span>
+
+<span class="com"># Wykorzystanie disk z procentami</span>
+df -hT --exclude-type=tmpfs --exclude-type=devtmpfs
+
+<span class="com"># I/O per proces (apt install iotop)</span>
+sudo iotop -oPa
+
+<span class="com"># Co zajmuje najwięcej miejsca w katalogu (uniwersalny one-liner)</span>
+du -h --max-depth=<span class="num">1</span> /var | sort -hr | head -<span class="num">10</span>
+
+<span class="com"># Network connections per process</span>
+sudo ss -tunlp
+
+<span class="com"># Live monitoring (najlepszy w 2026: btop)</span>
+sudo apt install btop -y
+btop</code></pre>
+
+<h2>6. Logrotate</h2>
+<pre data-lang="ini"><code><span class="com"># /etc/logrotate.d/myapi</span>
+/var/log/myapi/*.log {
+    daily
+    rotate <span class="num">14</span>
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create <span class="num">640</span> app app
+    sharedscripts
+    postrotate
+        systemctl reload myapi.service &gt; /dev/null <span class="num">2</span>&gt;&amp;<span class="num">1</span> || <span class="kw">true</span>
+    endscript
+}</code></pre>
+
+<h2>7. SSH hardening</h2>
+<pre data-lang="bash"><code><span class="com"># /etc/ssh/sshd_config.d/99-hardening.conf</span>
+Port <span class="num">2222</span>
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+MaxAuthTries <span class="num">3</span>
+LoginGraceTime <span class="num">30</span>
+AllowUsers app deploy
+ClientAliveInterval <span class="num">300</span>
+ClientAliveCountMax <span class="num">2</span>
+
+<span class="com"># Tylko silne algorytmy</span>
+KexAlgorithms curve<span class="num">25519</span>-sha<span class="num">256</span>@libssh.org,diffie-hellman-group<span class="num">16</span>-sha<span class="num">512</span>
+Ciphers chacha<span class="num">20</span>-poly<span class="num">1305</span>@openssh.com,aes<span class="num">256</span>-gcm@openssh.com
+MACs hmac-sha<span class="num">2</span>-<span class="num">512</span>-etm@openssh.com
+
+<span class="com"># Test konfiguracji PRZED restartem (inaczej możesz się zalockować)</span>
+sudo sshd -t
+
+<span class="com"># Restart</span>
+sudo systemctl restart sshd
+
+<span class="com"># W innym oknie sprawdź czy login działa zanim zamkniesz to!</span>
+ssh -p <span class="num">2222</span> app@server</code></pre>
+
+<div class="next-prev">
+    <a href="iis.html"><div class="label">← Poprzedni</div><div class="title">IIS</div></a>
+    <a href="vst.html"><div class="label">Następny →</div><div class="title">VST</div></a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11-03 — Test wyłącznika RCD</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">11 Pomiary</a><span class="sep">/</span><span class="title">11-03 Test RCD</span>
+</div>
+<div class="container">
+<h1>Test wyłącznika RCD</h1>
+<p class="subtitle">Mernik MRCD, prąd zadziałania IΔ, czas zadziałania, próby 0,5×, 1×, 5×IΔn, test selektywny S, typy AC/A/F/B/B+.</p>
+
+<h2>Czym jest RCD i co testujemy</h2>
+<p><strong>RCD</strong> (<em>Residual Current Device</em>, wyłącznik różnicowoprądowy) — urządzenie wyłączające obwód przy wykryciu prądu różnicowego IΔ. Standard domowy: <strong>IΔn = 30 mA</strong> (ochrona dodatkowa przed porażeniem).</p>
+<p>Norma: <strong>PN-HD 60364-6</strong>, <strong>PN-EN 61008</strong>, <strong>PN-EN 61009</strong>.</p>
+<p>Testujemy 4 parametry:</p>
+<ol>
+<li><strong>Prąd zadziałania IΔ</strong> — przy jakim prądzie różnicowym RCD się wyłącza,</li>
+<li><strong>Czas zadziałania t</strong> — jak szybko (przy 1×IΔn i 5×IΔn),</li>
+<li><strong>Brak zadziałania przy 0,5×IΔn</strong> — RCD nie może wyłączać przy małych prądach roboczych,</li>
+<li><strong>Test przyciskiem T</strong> — mechanika sprężyny i kontaktów.</li>
+</ol>
+
+<h2>Mernik RCD (MRCD)</h2>
+<table>
+<thead><tr><th>Model</th><th>Producent</th><th>Tryby</th><th>Cena</th></tr></thead>
+<tbody>
+<tr><td><strong>Sonel MRP-200</strong></td><td>Sonel</td><td>wszystkie typy AC/A/B/F, S</td><td>~4500 zł</td></tr>
+<tr><td><strong>Sonel MRP-201</strong></td><td>Sonel</td><td>+ B+</td><td>~5500 zł</td></tr>
+<tr><td><strong>Sonel MPI-540</strong></td><td>Sonel</td><td>wieloparametrowy (RCD + Zs + Riso + R)</td><td>~7000 zł</td></tr>
+<tr><td><strong>Kyoritsu 5410</strong></td><td>Kyoritsu</td><td>AC, A</td><td>~2500 zł</td></tr>
+<tr><td><strong>Megger DLRO10</strong></td><td>Megger</td><td>DLRO + RCD</td><td>~5000 zł</td></tr>
+</tbody>
+</table>
+
+<h2>Procedura: 4 pomiary podstawowe</h2>
+
+<h3>1. Prąd zadziałania IΔ (rampa)</h3>
+<ul>
+<li>mernik podaje prąd narastający <strong>od 0,1×IΔn do 1,0×IΔn</strong>,</li>
+<li>mierzy <strong>IΔ rzeczywisty</strong> — przy jakiej wartości RCD wyłączył,</li>
+<li>norma wymaga: <strong>0,5×IΔn ≤ IΔ ≤ 1,0×IΔn</strong> (RCD musi zadziałać między 50% a 100% IΔn).</li>
+</ul>
+<p>Dla RCD 30 mA → poprawne IΔ = <strong>15–30 mA</strong>.</p>
+
+<h3>2. Czas zadziałania przy 1×IΔn</h3>
+<ul>
+<li>mernik wymusza dokładnie IΔn (np. 30 mA),</li>
+<li>mierzy <strong>czas wyłączenia</strong> w ms.</li>
+</ul>
+<table>
+<thead><tr><th>Typ RCD</th><th>Maks. czas przy 1×IΔn</th></tr></thead>
+<tbody>
+<tr><td>Standardowy (AC, A)</td><td><strong>300 ms</strong></td></tr>
+<tr><td>Selektywny S</td><td><strong>130–500 ms</strong> (świadome opóźnienie)</td></tr>
+</tbody>
+</table>
+
+<h3>3. Brak zadziałania przy 0,5×IΔn</h3>
+<ul>
+<li>prąd 0,5×IΔn (dla 30 mA → 15 mA),</li>
+<li>RCD <strong>NIE może</strong> się wyłączyć przez minimum 2 s,</li>
+<li>weryfikuje brak fałszywych wyłączeń przy prądach upływowych w normalnej pracy.</li>
+</ul>
+
+<h3>4. Czas zadziałania przy 5×IΔn</h3>
+<ul>
+<li>prąd 5×IΔn (dla 30 mA → 150 mA),</li>
+<li>mernik mierzy czas wyłączenia,</li>
+<li><strong>wymóg: ≤ 40 ms</strong> (szybkie zadziałanie przy dużym prądzie różnicowym).</li>
+</ul>
+
+<h2>Tabela wymaganych czasów</h2>
+<table>
+<thead><tr><th>Typ RCD</th><th>0,5×IΔn</th><th>1×IΔn</th><th>2×IΔn</th><th>5×IΔn</th></tr></thead>
+<tbody>
+<tr><td><strong>AC, A standard</strong></td><td>brak zadziałania</td><td>≤ 300 ms</td><td>≤ 150 ms</td><td><strong>≤ 40 ms</strong></td></tr>
+<tr><td><strong>AC, A typ G</strong> (generalny opóźniony)</td><td>brak</td><td>≤ 500 ms</td><td>≤ 200 ms</td><td>≤ 150 ms</td></tr>
+<tr><td><strong>AC, A typ S</strong> (selektywny)</td><td>brak min. 130 ms</td><td>≤ 500 ms</td><td>≤ 200 ms</td><td>≤ 150 ms</td></tr>
+</tbody>
+</table>
+
+<h2>Typy RCD i co wykrywają</h2>
+<table>
+<thead><tr><th>Typ</th><th>Wykrywa</th><th>Symbol</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td><strong>AC</strong></td><td>sinusoidalny AC</td><td>~</td><td>proste odbiorniki rezystancyjne</td></tr>
+<tr><td><strong>A</strong></td><td>AC + pulsujący DC</td><td>~ + ⎍</td><td>większość odbiorników domowych, falowniki PWM</td></tr>
+<tr><td><strong>F</strong></td><td>A + miks. wysokie częst.</td><td>~ + ⎍ + ~~~</td><td>klimatyzacje inwerterowe, falowniki jednofazowe</td></tr>
+<tr><td><strong>B</strong></td><td>A + gładki DC</td><td>~ + ⎍ + ⎯</td><td>falowniki PV, ładowarki EV 3-faz</td></tr>
+<tr><td><strong>B+</strong></td><td>B + częstotliwości do 20 kHz</td><td>jw. + symbol</td><td>nowoczesne ładowarki EV, AC EVSE</td></tr>
+</tbody>
+</table>
+<p>W typowym domu: <strong>A</strong> lub <strong>F</strong>. Dla EV i PV: <strong>B/B+</strong>.</p>
+
+<h2>Test przyciskiem T (test self-check)</h2>
+<p>Każdy RCD ma przycisk <strong>„T"</strong> (Test) — wewnętrzny rezystor wymusza prąd ~IΔn → RCD powinien się wyłączyć.</p>
+<ul>
+<li><strong>Częstość</strong>: <strong>raz w miesiącu</strong> (użytkownik),</li>
+<li>nie zastępuje pomiaru mernikiem (tylko sprawdza mechanikę),</li>
+<li>jeśli T nie wybija → RCD do wymiany.</li>
+</ul>
+
+<h2>Test pełny (mernikiem)</h2>
+<ul>
+<li><strong>Częstość</strong>: <strong>raz w roku</strong> dla mieszkań, <strong>raz na 5 lat</strong> dla domów jednorodzinnych przy pomiarach okresowych,</li>
+<li>po każdej burzy z silnym przepięciem,</li>
+<li>po remoncie instalacji.</li>
+</ul>
+
+<h2>Krok po kroku: pomiar mernikiem</h2>
+<ol>
+<li><strong>Wstaw wtyk MRCD</strong> w dowolne gniazdo chronione przez testowany RCD (lub podłącz krokodylki do obwodu).</li>
+<li><strong>Sprawdź typ RCD</strong> (AC, A, F, B) — wybierz w mernku.</li>
+<li><strong>Ustaw IΔn</strong> (10, 30, 100, 300 mA — wg etykiety RCD).</li>
+<li><strong>Pomiar 0,5×IΔn</strong> — RCD ma NIE zadziałać.</li>
+<li><strong>Pomiar 1×IΔn</strong> — czas wyłączenia ≤ 300 ms.</li>
+<li><strong>Pomiar 5×IΔn</strong> — czas ≤ 40 ms.</li>
+<li><strong>Pomiar IΔ (rampa)</strong> — czy mieści się w 0,5–1,0×IΔn.</li>
+<li><strong>Pomiar fazy startowej</strong> — niektóre mierniki testują z fazą 0° i 180° (powinno działać symetrycznie).</li>
+<li><strong>Wpisz w protokół</strong>.</li>
+</ol>
+
+<h2>Selektywność RCD (kaskada)</h2>
+<p>W rozdzielnicy często stosuje się <strong>dwa RCD</strong>:</p>
+<ul>
+<li><strong>przed</strong>: RCD typu <strong>S</strong> (selektywny, 100 lub 300 mA) — ochrona zwarciowa, ognioodporna,</li>
+<li><strong>za</strong>: RCD 30 mA — ochrona przeciwporażeniowa.</li>
+</ul>
+<p>Wymóg selektywności:</p>
+<ul>
+<li>IΔn przed &gt; 3 × IΔn za (np. 100 mA / 30 mA),</li>
+<li>t_przed &gt; t_za (selektywny S opóźnia o min. 50 ms).</li>
+</ul>
+<p>Test obu RCD osobno, plus test selektywności: zwarcie L-PE → wyłącza tylko RCD 30 mA, nie wyłącza RCD S.</p>
+
+<h2>Typowe wyniki w protokole</h2>
+<pre><code>Mernik: Sonel MRP-200, S/N 23456
+RCD: F&amp;G FI-30/4 (typ A, 30 mA, 25 A)
+Lokalizacja: RCD główne dla obwodów gniazd
+
+Pomiar               | Wartość zmierzona | Wymóg       | Ocena
+─────────────────────┼───────────────────┼─────────────┼──────
+0,5×IΔn (15 mA), 2s  | brak zadziałania  | brak        | OK
+1×IΔn (30 mA)        | 22 ms             | ≤ 300 ms    | OK
+5×IΔn (150 mA)       | 9 ms              | ≤ 40 ms     | OK
+Rampa IΔ             | 19,2 mA           | 15–30 mA    | OK
+Przycisk T           | wyłączył          | musi wyłącz | OK</code></pre>
+
+<h2>Najczęstsze problemy</h2>
+<table>
+<thead><tr><th>Symptom</th><th>Przyczyna</th></tr></thead>
+<tbody>
+<tr><td>RCD wybija przy 0,5×IΔn</td><td>starość, wewnętrzny upływ — wymiana</td></tr>
+<tr><td>RCD nie wybija przy 1×IΔn</td><td>uszkodzony — natychmiastowa wymiana</td></tr>
+<tr><td>Czas zadziałania &gt; 300 ms</td><td>zacięte styki, stara sprężyna</td></tr>
+<tr><td>RCD wybija „samoistnie"</td><td>inne odbiorniki upływowe (kuchenka, falownik PV typu A na RCD typu A) — podziel obwody lub zmień RCD na typ F/B</td></tr>
+<tr><td>Przycisk T nie działa</td><td>wewnętrzny rezystor przegrzany — wymiana</td></tr>
+</tbody>
+</table>
+
+<h2>Wymiana RCD</h2>
+<p>Typowy RCD ma żywotność <strong>10–15 lat</strong>. Wymieniaj:</p>
+<ul>
+<li>gdy przekroczy parametry w teście,</li>
+<li>po silnym przepięciu (test mernikiem),</li>
+<li>gdy zacznie samowyzwalać się przy normalnej pracy,</li>
+<li>przy modernizacji obwodów (np. dodanie EV → typ B).</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="11-02-petla-zwarcia.html">⟵ Impedancja Zs</a>
+<a href="11-04-uziemienie.html">Pomiar uziemienia →</a>
+</div>
+</div>
+</body>
+</html>

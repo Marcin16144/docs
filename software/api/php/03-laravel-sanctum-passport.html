@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laravel Sanctum i Passport</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">PHP</a><span class="sep">/</span>
+  <span class="title">Laravel Sanctum i Passport</span>
+</div>
+<div class="container">
+  <h1>Laravel Sanctum i Passport</h1>
+  <p class="subtitle">Uwierzytelnianie SPA, API tokens, OAuth2 server i zarzadzanie tokenami w Laravel</p>
+
+  <h2>Sanctum vs Passport — kiedy co wybrac?</h2>
+  <p>Laravel oferuje dwa oficjalne pakiety do uwierzytelniania API: <strong>Sanctum</strong> (prostszy, lzejszy) i <strong>Passport</strong> (pelny serwer OAuth2). Wybor zalezy od wymagan projektu — Sanctum wystarczy dla wiekszosci aplikacji SPA i mobilnych, Passport jest potrzebny gdy budujesz publiczne API z trzecimi stronami lub potrzebujesz pelnego OAuth2.</p>
+
+  <table>
+    <thead>
+      <tr><th>Kryterium</th><th>Sanctum</th><th>Passport</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Zlozonosc instalacji</td><td>Bardzo prosta</td><td>Srednia (klucze RSA, migracje)</td></tr>
+      <tr><td>OAuth2</td><td>Nie</td><td>Tak (pelny serwer)</td></tr>
+      <tr><td>SPA (cookie-based)</td><td>Tak (natywne)</td><td>Nie (token-based)</td></tr>
+      <tr><td>API Tokens</td><td>Tak (proste)</td><td>Tak (przez personal access)</td></tr>
+      <tr><td>Token abilities/scopes</td><td>Abilities (uproszczone)</td><td>Scopes (pelne OAuth2)</td></tr>
+      <tr><td>Trzecie strony (OAuth clients)</td><td>Nie</td><td>Tak</td></tr>
+      <tr><td>Refresh tokens</td><td>Nie (domyslnie)</td><td>Tak</td></tr>
+      <tr><td>Zalecane dla</td><td>SPA, mobile, simple API</td><td>Publiczne API, marketplace</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Laravel Sanctum — instalacja i konfiguracja</h2>
+  <p>Sanctum oferuje trzy mechanizmy uwierzytelniania: <strong>SPA authentication</strong> (cookie + CSRF), <strong>API tokens</strong> (opaque tokens w bazie danych) i <strong>mobile authentication</strong> (tokens dla aplikacji mobilnych). Kazdy z nich jest odpowiedni dla innego przypadku uzycia.</p>
+
+<pre><code># Instalacja Sanctum
+composer require laravel/sanctum
+
+# Publikacja konfiguracji i migracji
+php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
+
+# Uruchomienie migracji (tworzy tabele personal_access_tokens)
+php artisan migrate
+
+# Model User musi uzywac traitu HasApiTokens
+</code></pre>
+
+  <div class="card green">
+    <strong>Model User z HasApiTokens</strong>
+    <pre style="margin:8px 0 0"><code>&lt;?php
+
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable
+{
+    use HasApiTokens;
+
+    protected $fillable = ['name', 'email', 'password'];
+
+    protected $hidden = ['password', 'remember_token'];
+}
+</code></pre>
+  </div>
+
+  <h2>API Tokens — tworzenie i abilities</h2>
+  <p>API tokens Sanctum to opaque tokeny przechowywane (zahashowane) w tabeli <code>personal_access_tokens</code>. Kazdy token moze miec zestaw <strong>abilities</strong> — uprawnien okreslajacych, co token moze robic. To uproszczona wersja OAuth2 scopes.</p>
+
+<pre><code>&lt;?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+
+class AuthController extends Controller
+{
+    // Logowanie — tworzenie tokenu
+    public function login(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email'       => 'required|email',
+            'password'    => 'required',
+            'device_name' => 'required|string|max:255',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['Podane dane logowania sa nieprawidlowe.'],
+            ]);
+        }
+
+        // Tworzenie tokenu z abilities
+        $token = $user->createToken(
+            name: $request->device_name,
+            abilities: ['read:posts', 'write:posts', 'read:profile'],
+            expiresAt: now()->addDays(30) // wymagane Laravel 10.x+
+        );
+
+        return response()->json([
+            'token' => $token->plainTextToken,
+            'type'  => 'Bearer',
+        ]);
+    }
+
+    // Wylogowanie — uniewaznie biezacy token
+    public function logout(Request $request): JsonResponse
+    {
+        // Usuniecie tokenu uzytego w biezacym zadaniu
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json(['message' => 'Wylogowano pomyslnie.']);
+    }
+
+    // Wylogowanie ze wszystkich urzadzen
+    public function logoutAll(Request $request): JsonResponse
+    {
+        $request->user()->tokens()->delete();
+
+        return response()->json(['message' => 'Wylogowano ze wszystkich urzadzen.']);
+    }
+}
+
+// Sprawdzenie abilities w kontrolerze
+public function store(Request $request): JsonResponse
+{
+    if (!$request->user()->tokenCan('write:posts')) {
+        return response()->json(['error' => 'Brak uprawnien.'], 403);
+    }
+    // ... tworzenie posta
+}
+</code></pre>
+
+  <h2>SPA Authentication — cookie-based</h2>
+  <p>Dla Single Page Applications Sanctum oferuje uwierzytelnianie oparte na sesjach i ciasteczkach (jak klasyczne aplikacje webowe) zamiast tokenow. SPA musi znajdowac sie na tej samej domenie lub subdomenej co API. Przed pierwszym logowaniem SPA musi wywolac endpoint <code>/sanctum/csrf-cookie</code>, aby otrzymac token CSRF.</p>
+
+  <div class="card orange">
+    <strong>Konfiguracja stateful domains (config/sanctum.php)</strong>
+    <pre style="margin:8px 0 0"><code>'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', implode(',', [
+    'localhost',
+    'localhost:3000',
+    '127.0.0.1',
+    '127.0.0.1:8000',
+    'app.mysite.com', // domena SPA
+]))),
+</code></pre>
+  </div>
+
+  <h2>Laravel Passport — OAuth2 Server</h2>
+  <p>Passport implementuje pelny serwer OAuth2 z obsluga Authorization Code Grant, Client Credentials Grant, Password Grant (deprecated w OAuth 2.1) i Implicit Grant. Uzywa kluczy RSA do podpisywania JWT tokenow.</p>
+
+<pre><code># Instalacja Passport
+composer require laravel/passport
+
+php artisan migrate
+php artisan passport:install  # Generuje klucze RSA i domyslnych klientow
+
+# Model User
+use Laravel\Passport\HasApiTokens;
+
+class User extends Authenticatable
+{
+    use HasApiTokens;
+}
+
+# config/auth.php — guard api
+'guards' => [
+    'api' => [
+        'driver'   => 'passport',
+        'provider' => 'users',
+    ],
+],
+
+# AuthServiceProvider::boot() — rejestracja scopes
+Passport::tokensCan([
+    'read-posts'    => 'Odczyt postow',
+    'write-posts'   => 'Tworzenie i edycja postow',
+    'delete-posts'  => 'Usuwanie postow',
+    'manage-users'  => 'Zarzadzanie uzytkownikami',
+]);
+
+# Opcjonalne — czas waznosci tokenow
+Passport::tokensExpireIn(now()->addDays(15));
+Passport::refreshTokensExpireIn(now()->addDays(30));
+Passport::personalAccessTokensExpireIn(now()->addMonths(6));
+</code></pre>
+
+  <h2>Authorization Code Flow (Passport)</h2>
+  <p>Authorization Code Flow to najbezpieczniejszy grant OAuth2 — uzywany gdy trzecia aplikacja chce uzyskac dostep do danych uzytkownika. Uzytkownik loguje sie na stronie aplikacji Laravel, a aplikacja trzecia otrzymuje kod, ktory wymienia na token.</p>
+
+  <h3>Client Credentials Grant</h3>
+  <p>Client Credentials Grant sluzy do komunikacji machine-to-machine (M2M) — gdy inna userwer chce wywolac API bez kontekstu uzytkownika. Token jest wydawany bezposrednio na podstawie client_id i client_secret.</p>
+
+  <h2>Guards i middleware</h2>
+  <p>Laravel Guards definiuja, jak uzytkownik jest uwierzytelniany dla danego zadania. Guard <code>api</code> konfiguruje sie w <code>config/auth.php</code> — dla Sanctum driver to <code>sanctum</code>, dla Passport to <code>passport</code>.</p>
+
+  <div class="card blue">
+    <strong>Middleware w routes/api.php</strong>
+    <pre style="margin:8px 0 0"><code>// Sanctum — wymaga tokenu LUB sesji SPA
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user', fn(Request $r) => $r->user());
+    Route::apiResource('posts', PostController::class);
+});
+
+// Passport — z weryfikacja scope
+Route::middleware(['auth:api', 'scopes:read-posts'])->group(function () {
+    Route::get('/posts', [PostController::class, 'index']);
+});
+
+// Passport — wystarczy jeden z zakresow (scope)
+Route::middleware(['auth:api', 'scope:read-posts,write-posts'])->group(function () {
+    Route::post('/posts', [PostController::class, 'store']);
+});
+</code></pre>
+  </div>
+
+  <h2>Rewokacja tokenow</h2>
+  <p>Rewokacja (uniewaznie) tokenow jest krytyczna dla bezpieczenstwa. Sanctum przechowuje tokeny w bazie danych — usuniecie rekordu natychmiast uniewa tokeny. Passport rowniez pozwala rewokac tokeny i refresh tokeny.</p>
+
+  <ul>
+    <li>Uzyj krotkich czasow waznosci tokenow i refresh tokenow</li>
+    <li>Implementuj endpoint do wylogowania rewokujacy token</li>
+    <li>Regularnie czys przeterminowane tokeny (Sanctum: <code>sanctum:prune-expired</code>)</li>
+    <li>Dla Sanctum tokenow — rozwaz hashing SHA-256 dla dodatkowego bezpieczenstwa</li>
+    <li>Nie przechowuj plaintext tokenow po ich wydaniu</li>
+  </ul>
+
+  <div class="nav-bottom">
+    <a href="02-laravel-api-resources.html">← 02-laravel-api-resources.html</a>
+    <a href="04-symfony-api-platform.html">04-symfony-api-platform.html →</a>
+  </div>
+</div>
+</body>
+</html>

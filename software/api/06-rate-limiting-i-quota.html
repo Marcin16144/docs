@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rate limiting i quota</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../index.html">API</a><span class="sep">/</span>
+  <span class="title">Rate limiting i quota</span>
+</div>
+<div class="container">
+  <h1>Rate limiting i quota</h1>
+  <p class="subtitle">Algorytmy ograniczania ruchu, implementacja w Redis, naglowki HTTP i plany uzytkowania.</p>
+
+  <h2>Dlaczego rate limiting jest konieczny</h2>
+  <p>Rate limiting chroni API przed nadmiernym uzyciem — celowym (DoS, brute force, scraping) i niezamierzonym (bledy w kodzie klienta, petle requestow). Quota to miesięczny lub dobowy limit calkowity, rate limit to chwilowe ograniczenie predkosci.</p>
+
+  <h2>Algorytmy rate limiting</h2>
+
+  <h3>Token Bucket</h3>
+  <p>Wiadro zawiera tokeny. Kazdy request zuzywa jeden token. Tokeny sa uzupelniane ze stalym tempem (np. 10/s). Jezeli wiadro jest puste — request jest odrzucany. Pozwala na kratkotrefne bursts do maksymalnej pojemnosci wiadra.</p>
+
+  <h3>Leaky Bucket</h3>
+  <p>Zapytania wpadaja do kolejki (wiadra z dziura). Sa przetwarzane ze stalym tempem niezaleznie od liczby przychodzacych requestow. Wygladzа ruch — brak burstow wychodzacych. Uzywa sie go do ochrony downstream services.</p>
+
+  <h3>Fixed Window Counter</h3>
+  <p>Zlicza requesty w stale ustalonych oknach czasowych (np. 0-60s, 60-120s). Prosty w implementacji, ale podatny na efekt granicy okna — klient moze wyslac 2x limit na granicy dwoch okien.</p>
+
+  <h3>Sliding Window Log</h3>
+  <p>Przechowuje timestamp kazdego requestu w posortowanej liscie. Przy kazdym req sprawdza ile requestow bylo w ostatnich N sekundach. Dokladny, ale pamieciozierna przy duzym ruchu.</p>
+
+  <h3>Sliding Window Counter</h3>
+  <p>Kompromis miedzy fixed window a sliding window log. Uzywa dwoch licznikow (biezace i poprzednie okno) z wazonym interpolowaniem. Dokladny, wydajny, powszechnie stosowany w produkcji.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Algorytm</th>
+        <th>Burst support</th>
+        <th>Dokladnosc</th>
+        <th>Pamiec Redis</th>
+        <th>Zlozonosc</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Token Bucket</strong></td>
+        <td>Tak — do pojemnosci wiadra</td>
+        <td>Wysoka</td>
+        <td>O(1) per klucz</td>
+        <td>Srednia</td>
+      </tr>
+      <tr>
+        <td><strong>Leaky Bucket</strong></td>
+        <td>Nie — staly outflow</td>
+        <td>Wysoka</td>
+        <td>O(1) per klucz</td>
+        <td>Srednia</td>
+      </tr>
+      <tr>
+        <td><strong>Fixed Window</strong></td>
+        <td>Czesciowo — na granicy okna</td>
+        <td>Niska (boundary attack)</td>
+        <td>O(1) per klucz</td>
+        <td>Niska</td>
+      </tr>
+      <tr>
+        <td><strong>Sliding Window Log</strong></td>
+        <td>Tak</td>
+        <td>Bardzo wysoka</td>
+        <td>O(N) — kazdy timestamp</td>
+        <td>Wysoka</td>
+      </tr>
+      <tr>
+        <td><strong>Sliding Window Counter</strong></td>
+        <td>Tak</td>
+        <td>Wysoka (~0.1% blad)</td>
+        <td>O(1) per klucz</td>
+        <td>Niska-srednia</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Implementacja Sliding Window w Redis</h2>
+
+  <pre><code>-- rate_limit.lua (Redis Lua script — atomowe wykonanie)
+local key        = KEYS[1]          -- np. "rl:user:42:GET:/api/users"
+local now        = tonumber(ARGV[1]) -- timestamp w ms
+local window     = tonumber(ARGV[2]) -- okno w ms, np. 60000 (1 min)
+local limit      = tonumber(ARGV[3]) -- maks requestow w oknie
+local request_id = ARGV[4]           -- unikalny ID requestu
+
+-- Usun stare wpisy (poza oknem)
+redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
+
+-- Policz aktualne requesty
+local count = redis.call('ZCARD', key)
+
+if count >= limit then
+  -- Pobierz najstarszy timestamp do obliczenia Retry-After
+  local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+  local reset_at = oldest[2] + window
+  return { 0, count, reset_at }
+end
+
+-- Dodaj biezacy request
+redis.call('ZADD', key, now, request_id)
+redis.call('PEXPIRE', key, window)
+
+return { 1, count + 1, now + window }
+</code></pre>
+
+  <pre><code>// rate-limiter.ts (Node.js + ioredis)
+import Redis from 'ioredis';
+import { readFileSync } from 'fs';
+
+const redis = new Redis(process.env.REDIS_URL);
+const script = readFileSync('./rate_limit.lua', 'utf8');
+
+interface RateLimitResult {
+  allowed:   boolean;
+  count:     number;
+  resetAt:   number;
+  remaining: number;
+}
+
+async function checkRateLimit(
+  userId:  string,
+  method:  string,
+  path:    string,
+  limit:   number = 100,
+  window:  number = 60_000,  // 1 minuta w ms
+): Promise<RateLimitResult> {
+  const key = `rl:${userId}:${method}:${path}`;
+  const now = Date.now();
+  const requestId = `${now}-${Math.random()}`;
+
+  const [allowed, count, resetAt] = await redis.eval(
+    script, 1, key, now, window, limit, requestId
+  ) as [number, number, number];
+
+  return {
+    allowed:   allowed === 1,
+    count,
+    resetAt,
+    remaining: Math.max(0, limit - count),
+  };
+}
+
+// Middleware Express
+export async function rateLimitMiddleware(req: any, res: any, next: any) {
+  const userId = req.user?.id ?? req.ip;
+  const plan   = req.user?.plan ?? 'free';
+
+  const limits: Record<string, number> = {
+    free:       100,
+    pro:        1000,
+    enterprise: 10_000,
+  };
+
+  const result = await checkRateLimit(
+    userId, req.method, req.path, limits[plan]
+  );
+
+  // Zawsze ustawiaj naglowki
+  res.set({
+    'X-RateLimit-Limit':     limits[plan],
+    'X-RateLimit-Remaining': result.remaining,
+    'X-RateLimit-Reset':     Math.ceil(result.resetAt / 1000),
+    'X-RateLimit-Policy':    `${limits[plan]};w=60`,
+  });
+
+  if (!result.allowed) {
+    const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000);
+    res.set('Retry-After', retryAfter);
+    return res.status(429).json({
+      error: {
+        code:    'RATE_LIMIT_EXCEEDED',
+        message: 'Too many requests. Please slow down.',
+        retryAfter,
+        resetAt: new Date(result.resetAt).toISOString(),
+      }
+    });
+  }
+
+  next();
+}
+</code></pre>
+
+  <h2>Naglowki X-RateLimit</h2>
+
+  <pre><code># Standardowe naglowki rate limiting (IETF Draft)
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 1000          # limit w oknie
+X-RateLimit-Remaining: 847       # pozostale zapytania
+X-RateLimit-Reset: 1746706200    # Unix timestamp resetu (UTC)
+X-RateLimit-Policy: 1000;w=3600  # 1000 req na godzine (RFC draft)
+
+# Przy przekroczeniu limitu
+HTTP/1.1 429 Too Many Requests
+Retry-After: 47                  # sekundy do mozliwosci ponowienia
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1746706200
+</code></pre>
+
+  <h2>Quota per plan</h2>
+  <p>Quota to dlugoterminowy limit (dzienny, miesieczny) nalezacy do planu subskrypcji. Rate limit to chwilowe ograniczenie przepustowosci. Oba mechanizmy powinny dzialac jednoczesnie.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Plan</th>
+        <th>Rate limit</th>
+        <th>Dzienna quota</th>
+        <th>Miesięczna quota</th>
+        <th>Burst</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Free</strong></td>
+        <td>10 req/min</td>
+        <td>1 000</td>
+        <td>10 000</td>
+        <td>Nie</td>
+      </tr>
+      <tr>
+        <td><strong>Pro</strong></td>
+        <td>100 req/min</td>
+        <td>50 000</td>
+        <td>500 000</td>
+        <td>200 req przez 10s</td>
+      </tr>
+      <tr>
+        <td><strong>Enterprise</strong></td>
+        <td>1 000 req/min</td>
+        <td>Bez limitu</td>
+        <td>Bez limitu</td>
+        <td>Negocjowalny</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Obsluga bledu 429 po stronie klienta</h2>
+
+  <div class="card orange">
+    <h3>Exponential Backoff z Jitter</h3>
+    <p>Nie ponawiaj requestow natychmiast po 429. Uzyj exponential backoff z losowym jitterem, aby uniknac synchronized retry storm — sytuacji, gdzie wszyscy klienci probuja ponownie w tym samym momencie.</p>
+  </div>
+
+  <pre><code>// retry-with-backoff.ts
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit = {},
+  maxRetries = 3,
+): Promise<Response> {
+  for (let attempt = 0; attempt &lt;= maxRetries; attempt++) {
+    const response = await fetch(url, options);
+
+    if (response.status !== 429) return response;
+
+    if (attempt === maxRetries) return response;  // ostatnia proba
+
+    // Pobierz Retry-After z naglowka lub oblicz backoff
+    const retryAfter = response.headers.get('Retry-After');
+    const waitMs = retryAfter
+      ? parseInt(retryAfter) * 1000
+      : Math.min(1000 * 2 ** attempt + Math.random() * 1000, 30_000);
+
+    console.warn(`Rate limited. Retry ${attempt + 1}/${maxRetries} in ${waitMs}ms`);
+    await new Promise(resolve => setTimeout(resolve, waitMs));
+  }
+
+  throw new Error('Max retries exceeded');
+}
+
+// Przyklad uzycia
+const data = await fetchWithRetry('/api/v1/users', {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+</code></pre>
+
+  <div class="card blue">
+    <h3>API Gateway — rate limiting bez kodu</h3>
+    <p>Kong, AWS API Gateway, Tyk i Azure APIM oferuja rate limiting jako wbudowane pluginy/polityki. Konfiguracja bez pisania kodu, centralne zarzadzanie, integracja z planami subskrypcji i dashboardem analitycznym.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="05-dokumentacja-api.html">← Dokumentacja API</a>
+    <a href="07-versioning.html">API Versioning →</a>
+  </div>
+</div>
+</body>
+</html>

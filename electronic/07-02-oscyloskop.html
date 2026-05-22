@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>07-02-oscyloskop - Oscyloskop</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:850px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:24px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:22px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text-muted);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6;white-space:pre}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Strona glowna</a>
+        <span class="sep">/</span>
+        <a href="07-praktyka-warsztatowa.html">07 - Praktyka</a>
+        <span class="sep">/</span>
+        <span class="title">07-02-oscyloskop</span>
+    </div>
+    <div class="container">
+        <h1>Oscyloskop</h1>
+<h2>Czym jest oscyloskop</h2>
+<p>Przyrząd wyświetlający przebieg napięcia w czasie. Pokazuje <strong>kształt sygnału</strong> — nie tylko wartość. To okno na żywą elektronikę.</p>
+<p>Multimetr powie ci "5 V DC", oscyloskop dodatkowo pokaże:</p>
+<ul>
+<li>Czy to czysty DC, czy z tętnieniami?</li>
+<li>Jak szybko narasta?</li>
+<li>Jaki kształt ma sygnał?</li>
+<li>Czy są spike'i, zniekształcenia?</li>
+</ul>
+<h2>Typy oscyloskopów</h2>
+<h3>Analogowy (CRT)</h3>
+<p>Z lampą obrazową. Sygnał wprost odchyla wiązkę elektronów. Klasyka XX wieku.</p>
+<ul>
+<li><strong>+ Bezpośredni obraz</strong> sygnału (zero opóźnień)</li>
+<li><strong>+ Bardzo szeroki dynamik</strong></li>
+<li><strong>− Brak pomiarów cyfrowych</strong></li>
+<li><strong>− Wymiary i waga</strong></li>
+<li><strong>− Trudna kalibracja</strong></li>
+</ul>
+<h3>Cyfrowy (DSO — Digital Storage Oscilloscope)</h3>
+<p>Sygnał próbkowany ADC, wyświetlany cyfrowo. Standard dziś.</p>
+<ul>
+<li><strong>+ Pomiary automatyczne</strong> (RMS, F, T_rise, itd.)</li>
+<li><strong>+ Pamięć</strong> — możesz przejrzeć historię</li>
+<li><strong>+ Triggery cyfrowe</strong> (na sekwencje bitów, itd.)</li>
+<li><strong>+ FFT, dekoder protokołów</strong></li>
+<li><strong>− Sample rate i pamięć ograniczone</strong></li>
+</ul>
+<h3>MSO (Mixed Signal)</h3>
+<p>Cyfrowy + kanały logiczne (8-16 cyfrowych wejść). Stosowane do debugowania MCU + komunikacji.</p>
+<h3>Handheld</h3>
+<p>Przenośny, na baterie. Mniej parametrów, ale do serwisu super.</p>
+<h2>Parametry oscyloskopu</h2>
+<h3>Pasmo (Bandwidth, BW)</h3>
+<p>Najwyższa częstotliwość sygnału, którą oscyloskop może wyświetlić z amplitudą zachowaną w 70% (-3 dB).</p>
+<p>Wybór: pasmo <strong>co najmniej 5× wyższe</strong> niż najszybsza częstotliwość mierzona.</p>
+<table>
+<thead><tr>
+<th>Klasa</th>
+<th>BW</th>
+</tr></thead><tbody>
+<tr>
+<td>Hobby</td>
+<td>50-100 MHz</td>
+</tr>
+<tr>
+<td>Average pro</td>
+<td>200-500 MHz</td>
+</tr>
+<tr>
+<td>Premium</td>
+<td>1-2 GHz</td>
+</tr>
+<tr>
+<td>Ekstrema</td>
+<td>6-100 GHz</td>
+</tr>
+</tbody></table>
+<h3>Sample rate</h3>
+<p>Próbki na sekundę (SPS, samples per second). Powinien być <strong>co najmniej 5-10× pasmo</strong> dla dobrej rekonstrukcji.</p>
+<p>100 MHz BW → minimum 1 GSPS. Lepiej 2-5 GSPS.</p>
+<h3>Liczba kanałów</h3>
+<ul>
+<li>2 — standard</li>
+<li>4 — wygodniejsze (sygnał + sterowanie + odpowiedź + clock)</li>
+<li>8 — rzadkie, drogie</li>
+</ul>
+<h3>Pamięć (memory depth)</h3>
+<p>Ile próbek pamięta. Wpływa na to, jak długi przebieg możesz przeglądać z pełną prędkością.</p>
+<p>100 Mpts = 100 milionów próbek. Standard dziś.</p>
+<h3>Rozdzielczość ADC</h3>
+<ul>
+<li>8 bit — większość scope hobby (256 poziomów)</li>
+<li>10-12 bit — premium (1024-4096 poziomów)</li>
+</ul>
+<p>Dla pomiarów precyzyjnych — wybierz wyższą rozdzielczość.</p>
+<h2>Sondy oscyloskopu</h2>
+<h3>Pasywna 1:1</h3>
+<p>Bezpośrednia. Wysoka pojemność (100-300 pF) → wpływa na obwód, ogranicza pasmo.</p>
+<h3>Pasywna 10:1 (standardowa)</h3>
+<p>Tłumi sygnał 10×, ale <strong>redukuje pojemność wejściową</strong> (12-15 pF). Standardowa sonda.</p>
+<ul>
+<li>W oscyloskopie wybierz tryb 10× (lub manualnie dodaj 10× do wartości)</li>
+<li>Pasmo: kilkadziesiąt – kilkaset MHz</li>
+</ul>
+<h3>Pasywna 100:1</h3>
+<p>Do wysokich napięć (do 2 kV).</p>
+<h3>Aktywna (FET probe)</h3>
+<p>Wbudowany wzmacniacz FET. Pasmo gigaherców, niska pojemność (kilka pF). Drogie.</p>
+<h3>Sonda różnicowa</h3>
+<p>Mierzy różnicę dwóch sygnałów. Niezbędna do napięć w obwodach pływających (sieciowych, falowniki).</p>
+<h3>Sonda prądowa</h3>
+<p>Cęgi z czujnikiem Halla — pomiar prądu bez przerywania obwodu.</p>
+<h2>Kalibracja sondy</h2>
+<p>Każda sonda 10:1 ma śrubę kompensacji. Procedura:</p>
+<ol>
+<li>Podłącz sondę do gniazda kalibracji oscyloskopu (sygnał prostokątny, np. 1 kHz, 5 V).</li>
+<li>Wyświetl przebieg.</li>
+<li>Kręć śrubę aż prostokąt jest naprawdę prostokątem — bez "narastających" lub "opadających" zboczy.</li>
+</ul>
+<p>Bez tego kompensacji pomiary HF są błędne.</p>
+<h2>Podstawowa obsługa</h2>
+<h3>Pokrętła główne</h3>
+<ul>
+<li><strong>Volts/Div</strong> — czułość pionowa (1 mV/działkę do 10 V/działkę)</li>
+<li><strong>Time/Div</strong> — skala czasu (1 ns/działkę do kilku s)</li>
+<li><strong>Position Y</strong> — pozycja przebiegu pionowo</li>
+<li><strong>Position X</strong> — pozycja triggera</li>
+</ul>
+<h3>Triggering</h3>
+<p>Najważniejsza koncepcja. Bez wyzwalania obraz "płynie" — różne fragmenty sygnału w różnych miejscach.</p>
+<p>Tryby:</p>
+<ul>
+<li><strong>Auto</strong> — wyświetla coś nawet bez triggera (uczy się znajdować)</li>
+<li><strong>Normal</strong> — czeka na trigger, bez niego nic nie pokazuje</li>
+<li><strong>Single</strong> — jedno wyzwolenie, zatrzymuje obraz</li>
+</ul>
+<p>Źródło triggera:</p>
+<ul>
+<li>Channel 1, 2, ...</li>
+<li>External (zewnętrzne wejście)</li>
+<li>Line (sieć 50/60 Hz)</li>
+</ul>
+<p>Zbocze:</p>
+<ul>
+<li>Rising / Falling</li>
+<li>Level (próg napięcia)</li>
+</ul>
+<p>Zaawansowane triggery:</p>
+<ul>
+<li>Pulse width</li>
+<li>Slope (sloped trigger)</li>
+<li>Pattern (sekwencja bitów)</li>
+<li>Protocol (UART, SPI, I2C, CAN)</li>
+</ul>
+<h3>Tryby akwizycji</h3>
+<ul>
+<li><strong>Sample</strong> — pojedyncza próbka na piksel</li>
+<li><strong>Peak detect</strong> — najwyższy/najniższy z grupy próbek</li>
+<li><strong>Average</strong> — uśrednianie wielu wyświetleń (dla powtarzalnych sygnałów)</li>
+<li><strong>High res</strong> — uśrednianie próbek z większą rozdzielczością</li>
+</ul>
+<h2>Pomiary</h2>
+<h3>Manualne — kursorami</h3>
+<p>Dwie linie pionowe (czas) lub poziome (napięcie). Czytasz różnicę.</p>
+<h3>Automatyczne</h3>
+<p>Oscyloskop oblicza:</p>
+<ul>
+<li>V_pp (peak-to-peak)</li>
+<li>V_max, V_min</li>
+<li>V_avg (średnia)</li>
+<li>V_RMS</li>
+<li>Frequency</li>
+<li>Period</li>
+<li>Rise time</li>
+<li>Fall time</li>
+<li>Duty cycle</li>
+<li>Overshoot</li>
+</ul>
+<h3>Math</h3>
+<p>Suma/różnica kanałów, mnożenie (np. obliczanie mocy: U·I), pochodna, całka.</p>
+<h3>FFT</h3>
+<p>Transformata Fouriera — przebieg w dziedzinie częstotliwości. Pokazuje harmoniczne, zakłócenia.</p>
+<h2>Typowe zastosowania</h2>
+<h3>1. Pomiar tętnień zasilacza</h3>
+<p>Sonda 10:1, AC coupling (odcięcie DC), 100 mV/dz, 5 ms/dz. Pokaże RMS i amplitudę pp tętnień.</p>
+<h3>2. Sygnał PWM</h3>
+<p>Pomiar duty cycle. Wybierz kanał, podłącz do wyjścia. Automatyczny pomiar "Duty +".</p>
+<h3>3. Komunikacja UART</h3>
+<p>Sonda na linii TX/RX, trigger na zbocze opadające (start bit), dekodowanie protokołu.</p>
+<h3>4. Czas reakcji systemu</h3>
+<p>Trigger na wejście (np. naciśnięcie przycisku), pomiar do zmiany wyjścia. T_rise.</p>
+<h3>5. Ringing / oscylacje</h3>
+<p>Po skoku sygnału obserwujesz ewentualne dzwonienie. To efekt indukcyjności i pojemności pasożytniczych.</p>
+<h3>6. SMPS na sondzie</h3>
+<p>Sonda na drenie MOSFETa. Widzisz przebieg przełączania. Iglice, oscylacje, kształt fali.</p>
+<h2>Podłączanie sondy</h2>
+<h3>Masa sondy</h3>
+<p><strong>Krytyczne!</strong> Krokodyl masy musi być <strong>jak najbliżej</strong> punktu pomiarowego. Długi przewód masy = pętla indukcyjna = błędne odczyty HF, ringing.</p>
+<p>Dla pomiarów &gt; 100 MHz używaj "spring tip" — krótka sprężynka zamiast krokodyla.</p>
+<h3>Polaryzacja</h3>
+<p>Sonda w wejściu Channel 1 (zwykle żółty kanał). Masa (krokodyl) do masy układu.</p>
+<h3>Uwaga na izolację</h3>
+<p>Masa oscyloskopu jest <strong>uziemiona przez kabel zasilający</strong>. Jeśli mierzysz obwód sieciowy bez izolacji (np. wprost na sieci 230 V) → zwarcie przez oscyloskop.</p>
+<p>Rozwiązanie:</p>
+<ul>
+<li>Transformator izolacyjny w sieci urządzenia (NIE oscyloskopu — nigdy odłączać uziemienia oscyloskopu!)</li>
+<li>Sonda różnicowa</li>
+</ul>
+<h2>Pułapki i triki</h2>
+<h3>Aliasing</h3>
+<p>Częstotliwość sygnału &gt; 1/2 sample rate → na ekranie inna częstotliwość (efekt stroboskopowy). Zwiększ sample rate albo dodaj filtr.</p>
+<h3>Niska pamięć</h3>
+<p>Krótkie przebiegi widać dobrze, długie tracą szczegóły. Wybierz między "głębią" a "rozdzielczością".</p>
+<h3>Auto-range</h3>
+<p>Większość scope nie ma — trzeba ręcznie ustawić Volts/Div, Time/Div, trigger.</p>
+<h3>Maska / pass-fail</h3>
+<p>Profesjonalne scope umieją testować przebieg w okolicach maski (czy mieści się w toleracji).</p>
+<h3>Eye diagram</h3>
+<p>Akumulacja wielu przebiegów cyfrowych — pokazuje "oko" sygnału. Standardowo w komunikacji HF (Gb Ethernet, USB).</p>
+<h2>Stara szkoła: scope analogowy</h2>
+<p>Klasyki:</p>
+<ul>
+<li><strong>Hameg HM303</strong> — proste, 50 MHz, niezawodne</li>
+<li><strong>Tektronix 2200 / 2400</strong> — przemysłowy standard</li>
+<li><strong>HP 545xx</strong> — wszechstronne</li>
+</ul>
+<p>Wciąż użyteczne do podstaw, choć w 2026 cyfrowe scope można kupić od 800 zł.</p>
+<h2>Polecane scope cyfrowe (2026)</h2>
+<h3>Hobby (1500-3000 zł)</h3>
+<ul>
+<li><strong>Rigol DS1102Z-E</strong> — 100 MHz, 2 kanały, klasyk</li>
+<li><strong>Siglent SDS1104X-E</strong> — 100 MHz, 4 kanały, świetny</li>
+<li><strong>Owon SDS1102</strong> — taniej, 100 MHz</li>
+</ul>
+<h3>Średnia liga (4000-8000 zł)</h3>
+<ul>
+<li><strong>Rigol DHO924S</strong> — 250 MHz, 4 kanały, 12-bit ADC</li>
+<li><strong>Siglent SDS2104X Plus</strong> — 100 MHz upgrade do 200/350 MHz</li>
+<li><strong>PicoScope 2208B MSO</strong> — USB scope, świetne software</li>
+</ul>
+<h3>Premium</h3>
+<ul>
+<li><strong>Tektronix MSO5</strong> — 1 GHz+, profesjonalny</li>
+<li><strong>Keysight DSOX3104A</strong> — wysokiej klasy</li>
+<li><strong>R&amp;S RTM3000</strong> — niemiecka jakość</li>
+</ul>
+<h2>Najczęstsze błędy</h2>
+<ol>
+<li><strong>Długi krokodyl masy</strong> — ringing na ekranie nie jest w sygnale.</li>
+<li><strong>Sonda 10× ale ustawiony 1×</strong> — wartość 10× za niska.</li>
+<li><strong>Brak kalibracji sondy</strong> — błędne pomiary HF.</li>
+<li><strong>Pomiar bez triggera</strong> — wyświetla bezsensowny szum.</li>
+<li><strong>Pomyłka coupling AC/DC</strong> — w AC odcięcie DC daje fałszywą "0 V baseline".</li>
+<li><strong>Mierzenie pływającego obwodu z uziemionym scope</strong> — zwarcie, awaria.</li>
+<li><strong>Pomiar napięcia powyżej zakresu sondy</strong> (np. 600V na sondzie 300V) — uszkodzenie sondy, ryzyko porażenia.</li>
+<li><strong>Brak ochrony 10:1 sondy w obwodzie 1000 V</strong> — krótkie zwarcie, awaria.</li>
+</ul>
+<h2>Podsumowanie</h2>
+<p>Oscyloskop to:</p>
+<ul>
+<li><strong>Najpotężniejsze narzędzie</strong> elektronika (po multimetrze)</li>
+<li><strong>Niezbędne</strong> do debugowania sygnałów cyfrowych i analogowych</li>
+<li><strong>Inwestycja</strong> — kupuj raz, używaj 10+ lat</li>
+<li><strong>Wymaga praktyki</strong> — sam zakup nie wystarcza, trzeba ćwiczyć</li>
+</ul>
+<p>Bez oscyloskopu można robić proste rzeczy. Z oscyloskopem widać, <strong>co naprawdę się dzieje</strong>.</p>
+
+        <div class="nav-bottom">
+            <a href="07-01-multimetr.html">&larr; 07-01 Multimetr</a>
+            <a href="07-03-lutowanie.html">07-03 Lutowanie &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

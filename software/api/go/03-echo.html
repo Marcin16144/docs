@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Echo Framework</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Go</a>
+  <span class="sep">/</span>
+  <span class="title">Echo Framework</span>
+</div>
+<div class="container">
+  <h1>Echo Framework</h1>
+  <p class="subtitle">Minimalistyczny, wysokowydajny framework HTTP — czysty interfejs, rozbudowany middleware, swietna dokumentacja</p>
+
+  <h2>echo.New() i podstawowa konfiguracja</h2>
+  <p>Echo jest frameworkiem skupionym na prostocie i wydajnosci. Glowna roznica wzgledem Gin to bardziej konsekwentny interfejs <code>echo.Context</code> oraz wbudowany mechanizm obslugi bledow przez <code>HTTPErrorHandler</code>.</p>
+
+<pre><code>package main
+
+import (
+    "net/http"
+    "github.com/labstack/echo/v4"
+    "github.com/labstack/echo/v4/middleware"
+)
+
+func main() {
+    e := echo.New()
+
+    // Middleware globalne
+    e.Use(middleware.Logger())
+    e.Use(middleware.Recover())
+    e.Use(middleware.CORS())
+
+    // Trasy
+    e.GET("/", func(c echo.Context) error {
+        return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+    })
+
+    // Grupy
+    api := e.Group("/api/v1")
+    api.Use(middleware.JWT([]byte("secret")))
+
+    api.GET("/users", listUsers)
+    api.POST("/users", createUser)
+    api.GET("/users/:id", getUser)
+
+    // Uruchomienie z TLS
+    // e.StartTLS(":443", "cert.pem", "key.pem")
+    e.Logger.Fatal(e.Start(":8080"))
+}</code></pre>
+
+  <h2>Router groups i middleware chain</h2>
+  <p>Grupy w Echo pozwalaja na dodawanie prefiksow i middleware do zestawu tras. Metoda <code>Echo.Use()</code> rejestruje middleware globalnie, natomiast <code>Group.Use()</code> — tylko dla tras w danej grupie. Kolejnosc rejestracji ma znaczenie.</p>
+
+  <h3>Lancuch middleware</h3>
+  <p>Echo wykonuje middleware w kolejnosci rejestracji. Kazdy middleware wywoluje <code>next(c)</code> by przekazac sterowanie — podobnie jak w Gin <code>c.Next()</code>. Middleware moze modyfikowac zadanie i odpowiedz, zanim i po wykonaniu handlera.</p>
+
+  <h3>Przypisywanie middleware do pojedynczych tras</h3>
+  <p>Middleware mozna przekazac bezposrednio jako dodatkowe argumenty metod routingu: <code>e.GET("/admin", handler, authMiddleware, rateLimitMiddleware)</code>. Echo wykona je w podanej kolejnosci przed handlerem.</p>
+
+  <h2>Binder — echo.Bind i echo.Context</h2>
+  <p>Echo automatycznie wykrywa typ danych na podstawie naglowka <code>Content-Type</code> i binduje je do struktury. Domyslny binder obsluguje JSON, XML, form data i query params.</p>
+
+<pre><code>type CreateProductRequest struct {
+    Name        string  `json:"name"     form:"name"     validate:"required,min=2"`
+    Price       float64 `json:"price"    form:"price"    validate:"required,gt=0"`
+    Description string  `json:"description" validate:"max=500"`
+    CategoryID  int     `json:"category_id" validate:"required"`
+}
+
+func createProduct(c echo.Context) error {
+    var req CreateProductRequest
+
+    // Bind parsuje body (JSON/XML/form) i query params
+    if err := c.Bind(&req); err != nil {
+        return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+    }
+
+    // Walidacja po bindowaniu
+    if err := c.Validate(&req); err != nil {
+        return err // HTTPErrorHandler sam obsluzy blad walidacji
+    }
+
+    // Dostepu do parametrow sciezki
+    // id := c.Param("id")
+    // Query param z wartoscia domyslna
+    // page := c.QueryParam("page")
+
+    return c.JSON(http.StatusCreated, map[string]any{
+        "id":   99,
+        "name": req.Name,
+    })
+}</code></pre>
+
+  <h2>Custom Validator</h2>
+  <p>Echo nie dolacza domyslnego walidatora — nalezy dostarczyc wlasny implementujac interfejs <code>echo.Validator</code>. Typowo uzywa sie <code>go-playground/validator/v10</code>, tak samo jak w Gin.</p>
+
+  <div class="card blue">
+    <h3>Rejestracja walidatora</h3>
+    <p>Implementujesz interfejs <code>Validate(i interface{}) error</code>, tworzysz instancje i przypisujesz: <code>e.Validator = &CustomValidator{validator: validator.New()}</code>. Odtad <code>c.Validate(req)</code> uzywa Twojego walidatora.</p>
+  </div>
+
+  <h2>HTTPErrorHandler — centralna obsluga bledow</h2>
+  <p>Echo dostarcza zunifikowany mechanizm obslugi bledow. Kazdy handler moze zwrocic blad — Echo przekazuje go do <code>HTTPErrorHandler</code>, ktory decyduje o formacie i kodzie odpowiedzi. To eliminuje powielanie kodu obslugi bledow w handlerach.</p>
+
+  <h3>Wlasny HTTPErrorHandler</h3>
+  <p>Przypisujesz wlasna funkcje do <code>e.HTTPErrorHandler</code>. Mozesz rozroznic typy bledow: <code>*echo.HTTPError</code> (bledy jawnie zwracane), <code>validator.ValidationErrors</code> (bledy walidacji) i dowolne inne bledy (500).</p>
+
+  <h2>echo.Context — rozszerzony interfejs</h2>
+  <p>Interfejs <code>echo.Context</code> to jedno z wiekszych roznic miedzy Echo a Gin. Jest interfejsem (nie strukturą), co ulatwia mockowanie w testach jednostkowych.</p>
+  <ul>
+    <li><code>c.Request()</code> / <code>c.Response()</code> — dostep do HTTP primitywow</li>
+    <li><code>c.Param("name")</code> — parametry sciezki</li>
+    <li><code>c.QueryParam("name")</code> — query string</li>
+    <li><code>c.FormValue("name")</code> — dane formularza</li>
+    <li><code>c.Set(key, val)</code> / <code>c.Get(key)</code> — dane kontekstu</li>
+    <li><code>c.RealIP()</code> — adres IP z uwzglednieniem proxy</li>
+    <li><code>c.Logger()</code> — logger przypisany do zadania</li>
+    <li><code>c.NoContent(status)</code> — odpowiedz bez ciala (np. 204)</li>
+  </ul>
+
+  <h2>Echo vs Gin — porownanie</h2>
+  <table>
+    <thead>
+      <tr><th>Cecha</th><th>Echo v4</th><th>Gin v1</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Context</td><td>Interfejs (latwiejsze mockowanie)</td><td>Struktura wskaznikowa</td></tr>
+      <tr><td>Obsluga bledow</td><td>Centralny HTTPErrorHandler</td><td>Reczne zwracanie JSON</td></tr>
+      <tr><td>Walidacja</td><td>Brak wbudowanej — trzeba dostarczyc</td><td>Wbudowana przez go-playground</td></tr>
+      <tr><td>Binding</td><td>Auto-detekcja Content-Type</td><td>Oddzielne metody (BindJSON, BindQuery)</td></tr>
+      <tr><td>WebSocket</td><td>Wbudowany upgrader</td><td>Wymaga gorilla/websocket</td></tr>
+      <tr><td>Middleware JWT</td><td>Wbudowany w pakiecie</td><td>Osobny pakiet gin-contrib/jwt</td></tr>
+      <tr><td>Statyczne pliki</td><td>e.Static(), e.StaticFS()</td><td>r.Static(), r.StaticFS()</td></tr>
+      <tr><td>Dokumentacja</td><td>Bardzo dobra, przykladowa</td><td>Dobra, duza spolecznosc</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <h3>Kiedy wybrac Echo zamiast Gin?</h3>
+    <ul>
+      <li>Chcesz centralnej obslugi bledow bez powielania kodu w handlerach</li>
+      <li>Testujesz handlery jednostkowo i chcesz mockowac Context</li>
+      <li>Potrzebujesz wbudowanej obslugi WebSocket</li>
+      <li>Cenisz bardziej idiomatyczne Go (interfejsy zamiast struktur)</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="02-gin.html">&#8592; 02-gin.html</a>
+    <a href="04-fiber.html">04-fiber.html &#8594;</a>
+  </div>
+</div>
+</body>
+</html>

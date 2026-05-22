@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galeria elementów elektronicznych — podgląd</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --surface-hi: #283649;
+            --border: #334155;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --green: #4ade80;
+            --purple: #a78bfa;
+            --orange: #fb923c;
+            --yellow: #fbbf24;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg); color: var(--text); line-height: 1.6;
+        }
+        .topbar {
+            background: var(--surface); border-bottom: 1px solid var(--border);
+            padding: 14px 24px; display: flex; align-items: center; gap: 16px;
+            position: sticky; top: 0; z-index: 10;
+        }
+        .topbar a { color: var(--accent); text-decoration: none; font-size: .9rem; font-weight: 500; }
+        .topbar .sep { color: var(--border); }
+        .topbar .title { color: var(--text-muted); font-size: .9rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px 80px; }
+        h1 {
+            font-size: 2.2rem; font-weight: 700; margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .subtitle { color: var(--text-muted); margin-bottom: 40px; font-size: 1.05rem; }
+        h2 {
+            font-size: 1.4rem; font-weight: 600; color: var(--accent);
+            margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+        }
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin-top: 20px;
+        }
+        .item {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; padding: 20px;
+            transition: all 0.2s;
+        }
+        .item:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .item-preview {
+            background: linear-gradient(135deg, #1a1f3a, #0f172a);
+            border-radius: 10px;
+            height: 180px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 14px;
+            overflow: hidden;
+        }
+        .item h3 {
+            color: var(--accent); font-size: 1.05rem; font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .item .symbol {
+            color: var(--text-muted); font-size: .8rem;
+            font-family: 'Cascadia Code', monospace;
+            margin-bottom: 8px;
+        }
+        .item p { color: var(--text-muted); font-size: .85rem; margin-bottom: 10px; }
+        .item .link {
+            display: inline-block; font-size: .8rem; color: var(--accent);
+            text-decoration: none; padding: 4px 10px;
+            background: rgba(56,189,248,0.1); border-radius: 6px;
+            margin-top: 4px;
+        }
+        .item .link:hover { background: rgba(56,189,248,0.25); }
+
+        /* Photo gallery */
+        .photo-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin: 20px 0 36px;
+        }
+        .photo-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+        .photo-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+        }
+        .photo-frame {
+            background: #f8fafc;
+            height: 200px;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .photo-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 8px;
+        }
+        .photo-frame .photo-fallback {
+            position: absolute; inset: 0;
+            display: none;
+            align-items: center; justify-content: center;
+            color: var(--text-muted); font-size: 0.85rem;
+            background: linear-gradient(135deg, #1a1f3a, #0f172a);
+        }
+        .photo-frame img[data-failed="true"] + .photo-fallback { display: flex; }
+        .photo-info {
+            padding: 14px 18px 18px;
+            flex: 1;
+            display: flex; flex-direction: column;
+        }
+        .photo-info h3 {
+            color: var(--accent); font-size: 1rem; font-weight: 600;
+            margin: 0 0 6px;
+        }
+        .photo-info .photo-type {
+            color: var(--text-muted); font-size: 0.78rem;
+            font-family: 'Cascadia Code', monospace;
+            margin-bottom: 8px;
+        }
+        .photo-info p {
+            color: var(--text-muted); font-size: 0.85rem;
+            margin: 0 0 10px;
+            flex: 1;
+        }
+        .photo-source {
+            font-size: 0.72rem; color: var(--text-muted);
+            margin-top: auto;
+        }
+        .photo-source a { color: var(--accent); text-decoration: none; }
+        .photo-source a:hover { text-decoration: underline; }
+
+        .info-banner {
+            background: linear-gradient(135deg, rgba(56,189,248,0.1), rgba(167,139,250,0.08));
+            border: 1px solid rgba(56,189,248,0.2);
+            border-radius: 10px;
+            padding: 14px 20px;
+            margin: 16px 0 24px;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+        }
+        .info-banner strong { color: var(--accent); }
+
+        .nav-bottom {
+            display: flex; justify-content: space-between;
+            margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border);
+        }
+        .nav-bottom a { color: var(--accent); text-decoration: none; font-size: .9rem; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Strona główna</a>
+        <span class="sep">/</span>
+        <span class="title">Galeria elementów (zdjęcia + SVG)</span>
+    </div>
+
+    <div class="container">
+        <h1>Galeria elementów elektronicznych</h1>
+        <p class="subtitle">Prawdziwe zdjęcia komponentów z Wikimedia Commons + wizualizacje SVG. Zobacz jak wyglądają fizycznie te elementy, o których czytasz w dokumentacji.</p>
+
+        <h2>📷 Prawdziwe zdjęcia — Wikipedia / Wikimedia Commons</h2>
+        <div class="info-banner">
+            Poniższe zdjęcia pochodzą z <strong>Wikimedia Commons</strong> (licencje CC / public domain). Wymagają połączenia z Internetem do wyświetlenia. Wszystkie URL-e wskazują na <code>upload.wikimedia.org</code>.
+        </div>
+
+        <h3 style="color: var(--purple); margin-top: 28px;">Rezystory</h3>
+        <div class="photo-gallery">
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Electronic-Axial-Lead-Resistors-Array.png/250px-Electronic-Axial-Lead-Resistors-Array.png" alt="Rezystory THT z paskami" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Rezystory aksjalne THT</h3>
+                    <div class="photo-type">paski kolorowe • 1/4-1 W</div>
+                    <p>Klasyczne rezystory warstwowe węglowe lub metalowe. Wartość odczytywana z 4-5 kolorowych pasków.</p>
+                    <div class="photo-source">Wikipedia · <a href="02-01-rezystory.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Carbon_and_ceramic_resistors_of_different_power_ratings.jpg/330px-Carbon_and_ceramic_resistors_of_different_power_ratings.jpg" alt="Rezystory różnych mocy" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Rezystory różnych mocy</h3>
+                    <div class="photo-type">1/8 W → 5 W • THT</div>
+                    <p>Większa moc → fizycznie większy korpus. Drutowe ceramiczne dla największych mocy (5-50 W).</p>
+                    <div class="photo-source">Wikipedia · <a href="02-01-rezystory.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Carbon-resistor-TR212-1.jpg/250px-Carbon-resistor-TR212-1.jpg" alt="Rezystor węglowy" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Rezystor węglowy (zbliżenie)</h3>
+                    <div class="photo-type">carbon film • 1/4 W</div>
+                    <p>Zbliżenie typowego rezystora. Widać pasek tolerancji oddzielony od cyfr.</p>
+                    <div class="photo-source">Wikipedia · <a href="kody-kolorow-rezystorow.html">dekoder kolorów →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/KTSU_resistors.jpg/250px-KTSU_resistors.jpg" alt="Rezystory KTSU" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Pakiet rezystorów</h3>
+                    <div class="photo-type">starter kit • różne wartości</div>
+                    <p>Typowy zestaw startowy z setkami rezystorów różnych wartości z szeregu E12 lub E24.</p>
+                    <div class="photo-source">Wikipedia · <a href="02-01-rezystory.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Danotherm_HS50_power_resistor.jpg/250px-Danotherm_HS50_power_resistor.jpg" alt="Rezystor mocy" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Rezystor mocy z radiatorem</h3>
+                    <div class="photo-type">power resistor • 50 W</div>
+                    <p>Rezystor dużej mocy w aluminiowej obudowie z otworami montażowymi. Hamulce, balastery.</p>
+                    <div class="photo-source">Wikipedia · <a href="02-01-rezystory.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Metal_foil_resistor.png/250px-Metal_foil_resistor.png" alt="Rezystor foliowy precyzyjny" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Rezystor foliowy precyzyjny</h3>
+                    <div class="photo-type">metal foil • ±0,01%</div>
+                    <p>Najwyższej precyzji do przyrządów pomiarowych. Tolerancja do 0,005%, bardzo stabilne.</p>
+                    <div class="photo-source">Wikipedia · <a href="02-01-rezystory.html">więcej →</a></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple); margin-top: 28px;">Kondensatory</h3>
+        <div class="photo-gallery">
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/Capacitors_%287189597135%29.jpg/250px-Capacitors_%287189597135%29.jpg" alt="Asortyment kondensatorów" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Asortyment kondensatorów</h3>
+                    <div class="photo-type">elektrolit • ceramik • film</div>
+                    <p>Różne typy kondensatorów: niebieskie cylindry to elektrolity, żółto-pomarańczowe dyski to ceramiczne.</p>
+                    <div class="photo-source">Wikipedia · <a href="02-02-kondensatory.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Big_SMD_capacitor_2.jpg/250px-Big_SMD_capacitor_2.jpg" alt="Kondensator SMD" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Kondensator SMD (MLCC)</h3>
+                    <div class="photo-type">ceramik wielowarstwowy • 1206</div>
+                    <p>Multilayer Ceramic Capacitor — standard współczesnego SMD. Setki warstw ceramiki + elektrod.</p>
+                    <div class="photo-source">Wikipedia · <a href="02-02-kondensatory.html">więcej →</a></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple); margin-top: 28px;">Cewki / induktory</h3>
+        <div class="photo-gallery">
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Common_mode_choke_2A_with_20mH_inductance.jpg/250px-Common_mode_choke_2A_with_20mH_inductance.jpg" alt="Dławik wspólny" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Common-mode choke</h3>
+                    <div class="photo-type">2 A • 20 mH • dwa uzwojenia</div>
+                    <p>Dławik wspólny — tłumi zakłócenia EMI w zasilaczach sieciowych. Dwa uzwojenia na wspólnym rdzeniu.</p>
+                    <div class="photo-source">Wikipedia · <a href="02-03-cewki.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Electronic_component_inductors.jpg/250px-Electronic_component_inductors.jpg" alt="Asortyment cewek" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Asortyment cewek</h3>
+                    <div class="photo-type">μH → mH • THT</div>
+                    <p>Drobne cewki o różnych wartościach indukcyjności. Zielono-żółte to typowe dławiki SMPS.</p>
+                    <div class="photo-source">Wikipedia · <a href="02-03-cewki.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Ferrite_bead_no_shell.jpg/250px-Ferrite_bead_no_shell.jpg" alt="Koralik ferrytowy" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Koralik ferrytowy</h3>
+                    <div class="photo-type">ferrite bead • EMI suppressor</div>
+                    <p>Koralik na przewodzie tłumi zakłócenia HF. Często widoczny na kablach USB, HDMI, audio.</p>
+                    <div class="photo-source">Wikipedia · <a href="02-03-cewki.html">więcej →</a></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple); margin-top: 28px;">Diody i LED</h3>
+        <div class="photo-gallery">
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Dioden.JPG/250px-Dioden.JPG" alt="Diody różnego typu" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Diody różnego typu</h3>
+                    <div class="photo-type">mostek • 1N4148 • Zener</div>
+                    <p>Mostek prostowniczy, dioda sygnałowa szklana 1N4148, dioda Zenera. Pasek na obudowie = katoda.</p>
+                    <div class="photo-source">Wikipedia · <a href="03-01-dioda.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Diode-closeup.jpg/250px-Diode-closeup.jpg" alt="Dioda zbliżenie" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Dioda prostownicza (zbliżenie)</h3>
+                    <div class="photo-type">1N400x • silicon • 1 A</div>
+                    <p>Czarny cylinder z białym paskiem = katoda. Typowe diody 1N4001-1N4007 (50V-1000V).</p>
+                    <div class="photo-source">Wikipedia · <a href="03-01-dioda.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/LED_Rainbow_Pack_-_5mm_PTH_12903-01_new_aranged.jpg/250px-LED_Rainbow_Pack_-_5mm_PTH_12903-01_new_aranged.jpg" alt="LED 5mm różnokolorowe" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>LED 5mm THT (rainbow)</h3>
+                    <div class="photo-type">PTH 5mm • 20 mA • różne kolory</div>
+                    <p>Klasyczne LED 5mm w różnych kolorach. Dłuższa nóżka = anoda. Wymagają rezystora ograniczającego.</p>
+                    <div class="photo-source">Wikipedia · <a href="03-02-dioda-zenera-led.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/RBG-LED.jpg/250px-RBG-LED.jpg" alt="LED RGB 5mm" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>LED RGB 5mm</h3>
+                    <div class="photo-type">Common Anode/Cathode • 4 nóżki</div>
+                    <p>Trzy diody R-G-B w jednej obudowie. Wspólna anoda lub katoda. Sterowanie 3 sygnałami PWM.</p>
+                    <div class="photo-source">Wikipedia · <a href="03-02-dioda-zenera-led.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Single_and_multicolor_surface_mount_miniature_LEDs_in_most_common_sizes.jpg/250px-Single_and_multicolor_surface_mount_miniature_LEDs_in_most_common_sizes.jpg" alt="LED SMD" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>LED SMD różnych rozmiarów</h3>
+                    <div class="photo-type">0402 • 0603 • 5050 • 2835</div>
+                    <p>Powierzchniowo montowane LED. Standard w nowoczesnej elektronice — paski LED, podświetlenia.</p>
+                    <div class="photo-source">Wikipedia · <a href="03-02-dioda-zenera-led.html">więcej →</a></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple); margin-top: 28px;">Tranzystory</h3>
+        <div class="photo-gallery">
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Transistorer_%28cropped%29.jpg/250px-Transistorer_%28cropped%29.jpg" alt="Tranzystory różne obudowy" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Obudowy tranzystorów</h3>
+                    <div class="photo-type">SOT-23 • TO-92 • TO-126 • TO-3</div>
+                    <p>Od lewej: mały SMD, klasyczny TO-92 (BC547), średni TO-126, mocny TO-3 (2N3055). Rosnąca moc.</p>
+                    <div class="photo-source">Wikipedia · <a href="03-03-tranzystor-bipolarny.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/BipolarTransistor3Dmodel.png/250px-BipolarTransistor3Dmodel.png" alt="Tranzystor TO-92 3D" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>BJT w obudowie TO-92</h3>
+                    <div class="photo-type">BC547 • NPN • 100 mA</div>
+                    <p>Półokrągła czarna obudowa z 3 nóżkami (B-C-E). Najpopularniejszy tranzystor sygnałowy.</p>
+                    <div class="photo-source">Wikipedia · <a href="03-03-tranzystor-bipolarny.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/D2PAK.JPG/330px-D2PAK.JPG" alt="MOSFET D2PAK" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>MOSFET mocy D2PAK</h3>
+                    <div class="photo-type">120 V • 30 A • SMD</div>
+                    <p>MOSFET mocy w obudowie SMD z tabem do radiatora PCB. Stosowane w SMPS, falownikach.</p>
+                    <div class="photo-source">Wikipedia · <a href="03-04-tranzystor-polowy.html">więcej →</a></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple); margin-top: 28px;">Układy scalone</h3>
+        <div class="photo-gallery">
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Signetics_NE555N.JPG/250px-Signetics_NE555N.JPG" alt="NE555 DIP-8" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>NE555 (DIP-8)</h3>
+                    <div class="photo-type">timer • 8 nóżek • THT</div>
+                    <p>Najsłynniejszy układ scalony. Generator, monostabilny, modulator PWM. Wyprodukowano miliardy sztuk.</p>
+                    <div class="photo-source">Wikipedia · <a href="04-03-timer-ne555.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/NE555_DIP_%26_SOIC.jpg/250px-NE555_DIP_%26_SOIC.jpg" alt="NE555 DIP i SOIC" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>NE555: DIP-8 vs SOIC-8</h3>
+                    <div class="photo-type">THT vs SMD • porównanie</div>
+                    <p>Ten sam układ w dwóch obudowach. SMD znacznie mniejszy — dominuje we współczesnej elektronice.</p>
+                    <div class="photo-source">Wikipedia · <a href="04-03-timer-ne555.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/7812_voltage_regulator.jpg/250px-7812_voltage_regulator.jpg" alt="7812 stabilizator" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Stabilizator 7812 (TO-220)</h3>
+                    <div class="photo-type">12 V • 1 A • 3 nóżki</div>
+                    <p>Klasyczny stabilizator stały. Czarna obudowa TO-220 z metalowym tabem do radiatora.</p>
+                    <div class="photo-source">Wikipedia · <a href="04-01-stabilizatory-napiecia.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/LM2676.jpg/120px-LM2676.jpg" alt="LM2676 SMPS" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>LM2676 — switching regulator</h3>
+                    <div class="photo-type">SMPS • 3 A • TO-263</div>
+                    <p>Stabilizator impulsowy buck (step-down). Sprawność &gt;90% vs liniowy ~50%. SMD z tabem.</p>
+                    <div class="photo-source">Wikipedia · <a href="05-03-zasilacze-impulsowe.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/AD570JD.jpg/250px-AD570JD.jpg" alt="AD570 DIP" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>AD570 — przetwornik ADC w DIP</h3>
+                    <div class="photo-type">ADC • DIP-18 • ceramika</div>
+                    <p>Przykład IC w ceramicznej obudowie DIP-18. Złote pinout — sprzęt wojskowy / przemysłowy.</p>
+                    <div class="photo-source">Wikipedia · <a href="04-02-bramki-logiczne.html">więcej →</a></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple); margin-top: 28px;">Transformatory</h3>
+        <div class="photo-gallery">
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Transformer.filament.agr.jpg/250px-Transformer.filament.agr.jpg" alt="Transformator EI sieciowy" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Transformator EI sieciowy</h3>
+                    <div class="photo-type">blacha EI • karkas plastik</div>
+                    <p>Klasyczny mały transformator sieciowy. Widać pakiet blach EI i uzwojenia w karkasie.</p>
+                    <div class="photo-source">Wikipedia · <a href="06-02-rdzenie-magnetyczne.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d8/Small_toroidal_transformer.jpg/250px-Small_toroidal_transformer.jpg" alt="Transformator toroidalny" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Transformator toroidalny</h3>
+                    <div class="photo-type">rdzeń pierścień • żelazo</div>
+                    <p>Brązowy pierścień z nawiniętym drutem. Wyższa sprawność niż EI, mniejsze pole rozproszenia.</p>
+                    <div class="photo-source">Wikipedia · <a href="06-02-rdzenie-magnetyczne.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/EI-transformer_core_interleaved_with_flux_paths.png/250px-EI-transformer_core_interleaved_with_flux_paths.png" alt="Rdzeń EI z ścieżkami" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Rdzeń EI — przepływ strumienia</h3>
+                    <div class="photo-type">schemat • blach E i I</div>
+                    <p>Naprzemienne układanie blach E i I minimalizuje szczelinę. Strzałki pokazują strumień magnetyczny.</p>
+                    <div class="photo-source">Wikipedia · <a href="06-01-budowa-i-zasada-dzialania.html">więcej →</a></div>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple); margin-top: 28px;">Przekaźniki, bezpieczniki, kwarce</h3>
+        <div class="photo-gallery">
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Relay.jpg" alt="Przekaźnik" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Przekaźnik elektromagnetyczny</h3>
+                    <div class="photo-type">cewka + styki • 12 V DC</div>
+                    <p>Klasyczny przekaźnik samochodowo-elektroniczny. Cewka steruje stykami, dioda freewheel obowiązkowa.</p>
+                    <div class="photo-source">Wikipedia · <a href="08-07-sterowanie-silnikiem.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/39/Relay2.jpg" alt="Przekaźnik PCB" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Przekaźnik PCB (cradle)</h3>
+                    <div class="photo-type">5 V / 12 V • montaż PCB</div>
+                    <p>Niebieska/czarna obudowa do lutowania na płytce. Styki 10 A / 250 V AC typowo.</p>
+                    <div class="photo-source">Wikipedia · <a href="08-07-sterowanie-silnikiem.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Relay_Parts.jpg/250px-Relay_Parts.jpg" alt="Wnętrze przekaźnika" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Wnętrze przekaźnika</h3>
+                    <div class="photo-type">cewka • jarzmo • styki</div>
+                    <p>Rozłożony przekaźnik: widać cewkę miedzianą, jarzmo żelazne, sprężynę i styki srebrne.</p>
+                    <div class="photo-source">Wikipedia · <a href="02-03-cewki.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Fuseholders_no-bg.jpg/250px-Fuseholders_no-bg.jpg" alt="Bezpieczniki ceramiczne" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Bezpieczniki ceramiczne</h3>
+                    <div class="photo-type">5×20 mm • 6,3×32 mm</div>
+                    <p>Bezpieczniki cylindryczne — szklane (transparent) lub ceramiczne (białe). Klasy T (zwłoczne), F (szybkie).</p>
+                    <div class="photo-source">Wikipedia · <a href="02-04-bezpieczniki.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/16MHZ_Crystal.jpg/250px-16MHZ_Crystal.jpg" alt="Kwarc 16 MHz HC-49" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Kwarc 16 MHz (HC-49)</h3>
+                    <div class="photo-type">crystal oscillator • mikroprocesory</div>
+                    <p>Srebrna metalowa obudowa z napisem częstotliwości. Standard zegara Arduino UNO, AVR, PIC.</p>
+                    <div class="photo-source">Wikipedia · <a href="08-04-generatory-i-oscylatory.html">więcej →</a></div>
+                </div>
+            </div>
+            <div class="photo-card">
+                <div class="photo-frame">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/32768_Hz_quartz_crystal_resonator.jpg/250px-32768_Hz_quartz_crystal_resonator.jpg" alt="Kwarc 32768 Hz" loading="lazy">
+                </div>
+                <div class="photo-info">
+                    <h3>Kwarc 32,768 kHz (RTC)</h3>
+                    <div class="photo-type">tuning fork • zegary RTC</div>
+                    <p>Mały cylinder srebrny — standardowy kwarc do zegarów RTC, BIOS, mikrokontrolerów. 2^15 Hz.</p>
+                    <div class="photo-source">Wikipedia · <a href="08-04-generatory-i-oscylatory.html">więcej →</a></div>
+                </div>
+            </div>
+        </div>
+
+        <h2 style="margin-top: 56px;">🎨 Wizualizacje SVG (symboliczne)</h2>
+        <p style="color: var(--text-muted); margin-bottom: 20px;">Poniżej własne wizualizacje SVG renderowane offline — działają bez Internetu, pokazują typowy wygląd komponentu i symbol schematyczny.</p>
+
+        <h3 style="color: var(--purple);">Rezystory</h3>
+        <div class="gallery">
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 240 100" width="100%" style="max-width:230px">
+                        <line x1="5" y1="50" x2="50" y2="50" stroke="#aaa" stroke-width="3"/>
+                        <line x1="190" y1="50" x2="235" y2="50" stroke="#aaa" stroke-width="3"/>
+                        <rect x="50" y="25" width="140" height="50" rx="25" ry="25" fill="#d4b896" stroke="#7a5f3e" stroke-width="1.5"/>
+                        <rect x="50" y="28" width="140" height="14" rx="20" ry="20" fill="rgba(255,255,255,0.18)"/>
+                        <rect x="70" y="25" width="10" height="50" fill="#7c3a08"/>
+                        <rect x="90" y="25" width="10" height="50" fill="#000"/>
+                        <rect x="110" y="25" width="10" height="50" fill="#dc2626"/>
+                        <rect x="165" y="25" width="10" height="50" fill="#d4a017"/>
+                    </svg>
+                </div>
+                <h3>Rezystor warstwowy THT (axial)</h3>
+                <div class="symbol">──[ ]──</div>
+                <p>Beżowy korpus z paskami kolorowymi. Wyprowadzenia aksjalne (na osi). 1/8 - 5 W.</p>
+                <a class="link" href="02-01-rezystory.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:170px">
+                        <rect x="50" y="35" width="100" height="30" fill="#1a1a1a" stroke="#444" stroke-width="1" rx="2"/>
+                        <rect x="40" y="38" width="12" height="24" fill="#c0c0c0"/>
+                        <rect x="148" y="38" width="12" height="24" fill="#c0c0c0"/>
+                        <text x="100" y="55" fill="#fff" font-size="13" text-anchor="middle" font-family="monospace">472</text>
+                    </svg>
+                </div>
+                <h3>Rezystor SMD 1206</h3>
+                <div class="symbol">472 = 4,7 kΩ</div>
+                <p>Czarna prostokątna obudowa, srebrne pady na końcach. Kod cyfrowy. 0402 - 2512.</p>
+                <a class="link" href="kody-kolorow-rezystorow.html">Dekoder kodów →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:160px">
+                        <circle cx="100" cy="50" r="35" fill="#3a4a6b" stroke="#1a2a4a" stroke-width="2"/>
+                        <circle cx="100" cy="50" r="28" fill="none" stroke="#5a6a8b" stroke-width="1"/>
+                        <line x1="100" y1="20" x2="100" y2="80" stroke="#1a2a4a" stroke-width="2"/>
+                        <line x1="100" y1="15" x2="100" y2="10" stroke="#aaa" stroke-width="2"/>
+                        <text x="100" y="55" fill="#fff" font-size="12" text-anchor="middle" font-family="sans-serif">10k</text>
+                    </svg>
+                </div>
+                <h3>Potencjometr obrotowy</h3>
+                <div class="symbol">──[─┴─]──</div>
+                <p>Niebieski/szary z osią obrotową. 3 wyprowadzenia: dwa końce + suwak. Liniowy (B) lub logarytmiczny (A).</p>
+                <a class="link" href="02-01-rezystory.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:180px">
+                        <rect x="40" y="30" width="120" height="40" fill="#ccc" stroke="#555" stroke-width="1" rx="3"/>
+                        <line x1="50" y1="35" x2="50" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <line x1="60" y1="35" x2="60" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <line x1="70" y1="35" x2="70" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <line x1="80" y1="35" x2="80" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <line x1="90" y1="35" x2="90" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <line x1="100" y1="35" x2="100" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <line x1="110" y1="35" x2="110" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <line x1="120" y1="35" x2="120" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <line x1="130" y1="35" x2="130" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <line x1="140" y1="35" x2="140" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <line x1="150" y1="35" x2="150" y2="65" stroke="#222" stroke-width="1.5"/>
+                        <text x="100" y="20" fill="#aaa" font-size="10" text-anchor="middle">5W 10R</text>
+                    </svg>
+                </div>
+                <h3>Rezystor drutowy ceramiczny</h3>
+                <div class="symbol">─UUUU─</div>
+                <p>Biała ceramika z drutem oporowym. 1-50 W. Duże moce, ale indukcyjny — nie do HF.</p>
+                <a class="link" href="02-01-rezystory.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <circle cx="100" cy="50" r="32" fill="#222" stroke="#000" stroke-width="2"/>
+                        <text x="100" y="55" fill="#facc15" font-size="12" text-anchor="middle">NTC</text>
+                        <line x1="90" y1="85" x2="90" y2="95" stroke="#999" stroke-width="2"/>
+                        <line x1="110" y1="85" x2="110" y2="95" stroke="#999" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3>Termistor NTC</h3>
+                <div class="symbol">──[─t°─]──</div>
+                <p>Czarny disk lub kulka. Rezystancja maleje z temperaturą. Czujniki temp., inrush limiter.</p>
+                <a class="link" href="02-01-rezystory.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <rect x="60" y="20" width="80" height="60" fill="#2a4a2a" stroke="#1a3a1a" stroke-width="2" rx="4"/>
+                        <circle cx="100" cy="50" r="20" fill="#0a0a0a"/>
+                        <circle cx="100" cy="50" r="16" fill="#1a1a1a"/>
+                        <line x1="80" y1="85" x2="80" y2="95" stroke="#aaa" stroke-width="2"/>
+                        <line x1="120" y1="85" x2="120" y2="95" stroke="#aaa" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3>Fotorezystor (LDR)</h3>
+                <div class="symbol">──[─λ─]──</div>
+                <p>Płaski sensor z widoczną meandrującą ścieżką CdS. Rezystancja zależy od oświetlenia.</p>
+                <a class="link" href="02-01-rezystory.html">Szczegóły →</a>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple);">Kondensatory</h3>
+        <div class="gallery">
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <rect x="55" y="20" width="90" height="60" rx="6" fill="#1a3a5a" stroke="#0a2a4a" stroke-width="2"/>
+                        <rect x="58" y="22" width="84" height="14" rx="4" fill="rgba(200,200,255,0.2)"/>
+                        <text x="100" y="50" fill="#fff" font-size="11" text-anchor="middle" font-family="sans-serif">100μF</text>
+                        <text x="100" y="63" fill="#fff" font-size="9" text-anchor="middle" font-family="sans-serif">25V</text>
+                        <line x1="85" y1="80" x2="85" y2="95" stroke="#aaa" stroke-width="2"/>
+                        <line x1="115" y1="80" x2="115" y2="95" stroke="#aaa" stroke-width="2"/>
+                        <text x="65" y="75" fill="#999" font-size="9">−</text>
+                    </svg>
+                </div>
+                <h3>Kondensator elektrolityczny</h3>
+                <div class="symbol">──┤├──</div>
+                <p>Niebieski/czarny cylinder z paskiem minus. SPOLARYZOWANY! Duże pojemności μF-mF.</p>
+                <a class="link" href="02-02-kondensatory.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <ellipse cx="100" cy="50" rx="35" ry="25" fill="#d4a517" stroke="#7a5a08" stroke-width="2"/>
+                        <text x="100" y="48" fill="#000" font-size="10" text-anchor="middle" font-weight="bold">104</text>
+                        <text x="100" y="60" fill="#000" font-size="8" text-anchor="middle">50V</text>
+                        <line x1="85" y1="73" x2="85" y2="95" stroke="#888" stroke-width="2"/>
+                        <line x1="115" y1="73" x2="115" y2="95" stroke="#888" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3>Kondensator ceramiczny disk</h3>
+                <div class="symbol">──││──</div>
+                <p>Pomarańczowy/żółty disk. Małe pojemności pF-μF. Niespolaryzowany. Klasyczne 104 = 100 nF.</p>
+                <a class="link" href="02-02-kondensatory.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <rect x="80" y="35" width="40" height="30" fill="#666" stroke="#333" stroke-width="1"/>
+                        <rect x="78" y="38" width="6" height="24" fill="#c0c0c0"/>
+                        <rect x="116" y="38" width="6" height="24" fill="#c0c0c0"/>
+                    </svg>
+                </div>
+                <h3>Kondensator MLCC SMD</h3>
+                <div class="symbol">──││──</div>
+                <p>Mały brązowy/szary prostokąt, bez oznaczeń. 0402, 0603, 1206. Standard współczesnych PCB.</p>
+                <a class="link" href="02-02-kondensatory.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:160px">
+                        <rect x="40" y="25" width="120" height="50" fill="#c0392b" stroke="#7a1d10" stroke-width="2" rx="3"/>
+                        <text x="100" y="48" fill="#fff" font-size="11" text-anchor="middle">220nF</text>
+                        <text x="100" y="62" fill="#fff" font-size="9" text-anchor="middle">X2 275V</text>
+                        <line x1="60" y1="75" x2="60" y2="95" stroke="#888" stroke-width="2"/>
+                        <line x1="140" y1="75" x2="140" y2="95" stroke="#888" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3>Kondensator foliowy MKP/X2</h3>
+                <div class="symbol">──││──</div>
+                <p>Czerwony/żółty prostokąt. Klasa X (sieciowy) lub MKP (audio). Niskie straty, długa żywotność.</p>
+                <a class="link" href="02-02-kondensatory.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:130px">
+                        <rect x="60" y="30" width="80" height="40" fill="#facc15" stroke="#7a6010" stroke-width="2" rx="4"/>
+                        <text x="100" y="48" fill="#000" font-size="9" text-anchor="middle" font-weight="bold">10μF</text>
+                        <text x="100" y="60" fill="#000" font-size="8" text-anchor="middle">+ 16V</text>
+                        <line x1="75" y1="70" x2="75" y2="92" stroke="#888" stroke-width="2"/>
+                        <line x1="125" y1="70" x2="125" y2="92" stroke="#888" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3>Kondensator tantalowy</h3>
+                <div class="symbol">──┤├──</div>
+                <p>Żółty z paskiem PLUS (uwaga, odwrotnie niż elektrolit!). Stabilny, mały. Wrażliwy na przepięcia.</p>
+                <a class="link" href="02-02-kondensatory.html">Szczegóły →</a>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple);">Cewki / induktory</h3>
+        <div class="gallery">
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:170px">
+                        <line x1="5" y1="50" x2="40" y2="50" stroke="#aaa" stroke-width="2"/>
+                        <line x1="160" y1="50" x2="195" y2="50" stroke="#aaa" stroke-width="2"/>
+                        <path d="M40,50 Q47,30 54,50 Q61,30 68,50 Q75,30 82,50 Q89,30 96,50 Q103,30 110,50 Q117,30 124,50 Q131,30 138,50 Q145,30 152,50 Q159,30 160,50"
+                              fill="none" stroke="#b8860b" stroke-width="3"/>
+                        <line x1="40" y1="60" x2="160" y2="60" stroke="#444" stroke-width="3"/>
+                    </svg>
+                </div>
+                <h3>Cewka rdzeniowa (dławik)</h3>
+                <div class="symbol">──UUUU──</div>
+                <p>Miedziany drut nawinięty na rdzeniu ferrytowym lub żelaznym proszkowym. Standard SMPS.</p>
+                <a class="link" href="02-03-cewki.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <ellipse cx="100" cy="50" rx="40" ry="25" fill="none" stroke="#444" stroke-width="14"/>
+                        <ellipse cx="100" cy="50" rx="40" ry="25" fill="none" stroke="#b8860b" stroke-width="2"/>
+                        <ellipse cx="100" cy="50" rx="22" ry="14" fill="#0f172a"/>
+                    </svg>
+                </div>
+                <h3>Cewka toroidalna</h3>
+                <div class="symbol">──UUUU──</div>
+                <p>Drut nawinięty na pierścień (toroid). Niskie EMI, wysoka sprawność. Filtry, dławiki PFC.</p>
+                <a class="link" href="02-03-cewki.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:120px">
+                        <rect x="60" y="30" width="80" height="40" fill="#222" stroke="#000" stroke-width="2" rx="3"/>
+                        <text x="100" y="55" fill="#facc15" font-size="11" text-anchor="middle" font-weight="bold">10μH</text>
+                        <rect x="55" y="40" width="8" height="20" fill="#c0c0c0"/>
+                        <rect x="137" y="40" width="8" height="20" fill="#c0c0c0"/>
+                    </svg>
+                </div>
+                <h3>Cewka SMD ekranowana</h3>
+                <div class="symbol">──UUUU──</div>
+                <p>Czarna kostka SMD. Wewnątrz rdzeń + zwoje. Najpopularniejsza w SMPS i SMD.</p>
+                <a class="link" href="02-03-cewki.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:130px">
+                        <line x1="5" y1="50" x2="60" y2="50" stroke="#666" stroke-width="2"/>
+                        <line x1="140" y1="50" x2="195" y2="50" stroke="#666" stroke-width="2"/>
+                        <ellipse cx="100" cy="50" rx="40" ry="14" fill="#222" stroke="#000" stroke-width="1.5"/>
+                        <ellipse cx="100" cy="50" rx="36" ry="10" fill="none" stroke="#444" stroke-width="0.5"/>
+                    </svg>
+                </div>
+                <h3>Koralik ferrytowy</h3>
+                <div class="symbol">──Z──</div>
+                <p>Czarny "koralik" na przewodzie. Tłumi zakłócenia HF. Stosowany na kablach USB, audio.</p>
+                <a class="link" href="02-03-cewki.html">Szczegóły →</a>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple);">Diody</h3>
+        <div class="gallery">
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:170px">
+                        <line x1="5" y1="50" x2="55" y2="50" stroke="#aaa" stroke-width="2"/>
+                        <line x1="145" y1="50" x2="195" y2="50" stroke="#aaa" stroke-width="2"/>
+                        <rect x="55" y="35" width="90" height="30" fill="#1a1a1a" stroke="#000" stroke-width="1" rx="3"/>
+                        <rect x="125" y="35" width="6" height="30" fill="#c0c0c0"/>
+                        <text x="90" y="55" fill="#c0c0c0" font-size="11" text-anchor="middle">1N4007</text>
+                    </svg>
+                </div>
+                <h3>Dioda prostownicza THT</h3>
+                <div class="symbol">──▷│──</div>
+                <p>Czarny cylinder z białym/srebrnym paskiem = katoda (K). 1N4001-1N4007 = klasyka.</p>
+                <a class="link" href="03-01-dioda.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:150px">
+                        <line x1="5" y1="50" x2="65" y2="50" stroke="#aaa" stroke-width="2"/>
+                        <line x1="135" y1="50" x2="195" y2="50" stroke="#aaa" stroke-width="2"/>
+                        <ellipse cx="100" cy="50" rx="35" ry="13" fill="#fff5cc" stroke="#888" stroke-width="1"/>
+                        <rect x="125" y="40" width="3" height="20" fill="#000"/>
+                    </svg>
+                </div>
+                <h3>Dioda sygnałowa szklana</h3>
+                <div class="symbol">──▷│──</div>
+                <p>Przezroczyste szkło z czarnym paskiem. 1N4148, 1N914. Mała, szybka, do 200 mA.</p>
+                <a class="link" href="03-01-dioda.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <line x1="95" y1="80" x2="95" y2="95" stroke="#888" stroke-width="2"/>
+                        <line x1="105" y1="80" x2="105" y2="95" stroke="#888" stroke-width="2"/>
+                        <line x1="80" y1="85" x2="120" y2="85" stroke="#444" stroke-width="1"/>
+                        <path d="M70,50 L70,75 L130,75 L130,50 Q100,15 70,50 Z" fill="rgba(255,80,80,0.7)" stroke="#aa3030" stroke-width="1.5"/>
+                        <ellipse cx="92" cy="45" rx="6" ry="4" fill="rgba(255,255,255,0.5)"/>
+                    </svg>
+                </div>
+                <h3>LED 5mm THT</h3>
+                <div class="symbol">──▷│↑↑</div>
+                <p>Kopułka kolorowa, 2 nóżki (długa = anoda). Czerwona, zielona, niebieska, biała, RGB.</p>
+                <a class="link" href="03-02-dioda-zenera-led.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <rect x="65" y="35" width="70" height="35" fill="#fff" stroke="#666" stroke-width="1" rx="3"/>
+                        <rect x="65" y="35" width="70" height="3" fill="#dc2626"/>
+                        <rect x="55" y="42" width="12" height="20" fill="#c0c0c0"/>
+                        <rect x="133" y="42" width="12" height="20" fill="#c0c0c0"/>
+                        <text x="100" y="58" fill="#dc2626" font-size="10" text-anchor="middle" font-weight="bold">LED</text>
+                    </svg>
+                </div>
+                <h3>LED SMD 5050</h3>
+                <div class="symbol">──▷│↑</div>
+                <p>Płaski kwadrat z 4 padami. RGB lub jednokolorowa. Pasek LED, podświetlenia.</p>
+                <a class="link" href="03-02-dioda-zenera-led.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:160px">
+                        <rect x="40" y="25" width="120" height="50" fill="#1a1a1a" stroke="#000" stroke-width="2" rx="4"/>
+                        <text x="80" y="42" fill="#c0c0c0" font-size="9" text-anchor="middle">AC</text>
+                        <text x="120" y="42" fill="#c0c0c0" font-size="9" text-anchor="middle">DC</text>
+                        <text x="60" y="62" fill="#facc15" font-size="11" text-anchor="middle">~</text>
+                        <text x="100" y="62" fill="#dc2626" font-size="11" text-anchor="middle">+</text>
+                        <text x="140" y="62" fill="#facc15" font-size="11" text-anchor="middle">~</text>
+                        <line x1="50" y1="80" x2="50" y2="95" stroke="#aaa" stroke-width="2"/>
+                        <line x1="80" y1="80" x2="80" y2="95" stroke="#aaa" stroke-width="2"/>
+                        <line x1="120" y1="80" x2="120" y2="95" stroke="#aaa" stroke-width="2"/>
+                        <line x1="150" y1="80" x2="150" y2="95" stroke="#aaa" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3>Mostek prostowniczy</h3>
+                <div class="symbol">4× dioda</div>
+                <p>Czarny blok z 4 wyprowadzeniami: ~ ~ + −. KBPC, GBU. Prądy 1-50 A.</p>
+                <a class="link" href="05-01-prostowniki.html">Szczegóły →</a>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple);">Tranzystory</h3>
+        <div class="gallery">
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:130px">
+                        <path d="M65,30 L135,30 L135,65 Q100,80 65,65 Z" fill="#1a1a1a" stroke="#000" stroke-width="1.5"/>
+                        <line x1="80" y1="80" x2="80" y2="95" stroke="#888" stroke-width="2"/>
+                        <line x1="100" y1="80" x2="100" y2="95" stroke="#888" stroke-width="2"/>
+                        <line x1="120" y1="80" x2="120" y2="95" stroke="#888" stroke-width="2"/>
+                        <text x="100" y="50" fill="#c0c0c0" font-size="11" text-anchor="middle" font-weight="bold">BC547</text>
+                    </svg>
+                </div>
+                <h3>Tranzystor BJT TO-92</h3>
+                <div class="symbol">C-B-E</div>
+                <p>Półkolista czarna obudowa, 3 nóżki. BC547 (NPN), BC557 (PNP), 2N2222, 2N3904.</p>
+                <a class="link" href="03-03-tranzystor-bipolarny.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:150px">
+                        <rect x="50" y="15" width="100" height="50" fill="#1a1a1a" stroke="#000" stroke-width="2" rx="3"/>
+                        <rect x="55" y="20" width="90" height="35" fill="rgba(255,255,255,0.05)"/>
+                        <rect x="80" y="15" width="40" height="8" fill="#c0c0c0" stroke="#666" stroke-width="0.5"/>
+                        <circle cx="100" cy="19" r="4" fill="#0f172a"/>
+                        <line x1="70" y1="65" x2="70" y2="95" stroke="#888" stroke-width="2.5"/>
+                        <line x1="100" y1="65" x2="100" y2="95" stroke="#888" stroke-width="2.5"/>
+                        <line x1="130" y1="65" x2="130" y2="95" stroke="#888" stroke-width="2.5"/>
+                        <text x="100" y="42" fill="#c0c0c0" font-size="10" text-anchor="middle" font-weight="bold">TIP31</text>
+                    </svg>
+                </div>
+                <h3>Tranzystor mocy TO-220</h3>
+                <div class="symbol">B-C-E lub G-D-S</div>
+                <p>Czarny prostokąt z metalowym tabem do radiatora. Otwór montażowy. TIP31C, IRF540N, 7805.</p>
+                <a class="link" href="03-04-tranzystor-polowy.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:110px">
+                        <rect x="75" y="35" width="50" height="30" fill="#1a1a1a" stroke="#000" stroke-width="1" rx="2"/>
+                        <rect x="75" y="40" width="50" height="3" fill="#c0c0c0"/>
+                        <line x1="80" y1="65" x2="80" y2="80" stroke="#888" stroke-width="1.5"/>
+                        <line x1="100" y1="65" x2="100" y2="80" stroke="#888" stroke-width="1.5"/>
+                        <line x1="120" y1="65" x2="120" y2="80" stroke="#888" stroke-width="1.5"/>
+                        <text x="100" y="55" fill="#c0c0c0" font-size="7" text-anchor="middle">SOT-23</text>
+                    </svg>
+                </div>
+                <h3>Tranzystor SMD SOT-23</h3>
+                <div class="symbol">B-C-E</div>
+                <p>Mały czarny SMD z 3 padami. AO3400 (N-MOS logic-level), BSS138, MMBT2222.</p>
+                <a class="link" href="03-04-tranzystor-polowy.html">Szczegóły →</a>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple);">Układy scalone</h3>
+        <div class="gallery">
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:170px">
+                        <rect x="50" y="25" width="100" height="50" fill="#1a1a1a" stroke="#000" stroke-width="2" rx="2"/>
+                        <circle cx="60" cy="35" r="2.5" fill="#444"/>
+                        <line x1="55" y1="40" x2="55" y2="20" stroke="#444" stroke-width="0.5"/>
+                        <text x="100" y="48" fill="#c0c0c0" font-size="10" text-anchor="middle">NE555</text>
+                        <text x="100" y="60" fill="#888" font-size="7" text-anchor="middle">DIP-8</text>
+                        <g fill="#c0c0c0">
+                            <rect x="48" y="30" width="4" height="6"/><rect x="48" y="40" width="4" height="6"/>
+                            <rect x="48" y="50" width="4" height="6"/><rect x="48" y="60" width="4" height="6"/>
+                            <rect x="148" y="30" width="4" height="6"/><rect x="148" y="40" width="4" height="6"/>
+                            <rect x="148" y="50" width="4" height="6"/><rect x="148" y="60" width="4" height="6"/>
+                        </g>
+                    </svg>
+                </div>
+                <h3>IC DIP-8</h3>
+                <div class="symbol">8 nóżek THT</div>
+                <p>Czarny prostokąt z 8 nóżkami. NE555, op-amp LM358, eeprom. Kropka oznacza pin 1.</p>
+                <a class="link" href="04-03-timer-ne555.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:150px">
+                        <rect x="55" y="20" width="90" height="60" fill="#1a1a1a" stroke="#000" stroke-width="1.5" rx="2"/>
+                        <circle cx="62" cy="28" r="2" fill="#444"/>
+                        <text x="100" y="52" fill="#c0c0c0" font-size="9" text-anchor="middle">ATmega328</text>
+                        <g fill="#c0c0c0">
+                            <rect x="52" y="25" width="4" height="4"/><rect x="52" y="33" width="4" height="4"/>
+                            <rect x="52" y="41" width="4" height="4"/><rect x="52" y="49" width="4" height="4"/>
+                            <rect x="52" y="57" width="4" height="4"/><rect x="52" y="65" width="4" height="4"/>
+                            <rect x="52" y="73" width="4" height="4"/>
+                            <rect x="144" y="25" width="4" height="4"/><rect x="144" y="33" width="4" height="4"/>
+                            <rect x="144" y="41" width="4" height="4"/><rect x="144" y="49" width="4" height="4"/>
+                            <rect x="144" y="57" width="4" height="4"/><rect x="144" y="65" width="4" height="4"/>
+                            <rect x="144" y="73" width="4" height="4"/>
+                        </g>
+                    </svg>
+                </div>
+                <h3>IC DIP-28 (mikrokontroler)</h3>
+                <div class="symbol">28 nóżek THT</div>
+                <p>Większy DIP. ATmega328, PIC16F877. Mikrokontroler Arduino UNO.</p>
+                <a class="link" href="04-02-bramki-logiczne.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:150px">
+                        <rect x="60" y="25" width="80" height="50" fill="#1a1a1a" stroke="#000" stroke-width="1.5" rx="2"/>
+                        <circle cx="68" cy="32" r="2" fill="#444"/>
+                        <text x="100" y="55" fill="#c0c0c0" font-size="8" text-anchor="middle">LM358</text>
+                        <g stroke="#c0c0c0" stroke-width="2" fill="none">
+                            <path d="M55,32 L60,32 M55,42 L60,42 M55,52 L60,52 M55,62 L60,62"/>
+                            <path d="M140,32 L145,32 M140,42 L145,42 M140,52 L145,52 M140,62 L145,62"/>
+                        </g>
+                    </svg>
+                </div>
+                <h3>IC SOIC-8 SMD</h3>
+                <div class="symbol">8 padów SMD</div>
+                <p>SMD wersja 8-pin. Op-ampy, mikrokontrolery, regulatory. Mniejszy niż DIP-8.</p>
+                <a class="link" href="03-06-wzmacniacz-operacyjny.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:150px">
+                        <rect x="50" y="15" width="100" height="50" fill="#1a1a1a" stroke="#000" stroke-width="2" rx="3"/>
+                        <rect x="80" y="15" width="40" height="8" fill="#c0c0c0"/>
+                        <circle cx="100" cy="19" r="3.5" fill="#0f172a"/>
+                        <text x="100" y="45" fill="#c0c0c0" font-size="11" text-anchor="middle">7805</text>
+                        <line x1="70" y1="65" x2="70" y2="95" stroke="#888" stroke-width="2.5"/>
+                        <line x1="100" y1="65" x2="100" y2="95" stroke="#888" stroke-width="2.5"/>
+                        <line x1="130" y1="65" x2="130" y2="95" stroke="#888" stroke-width="2.5"/>
+                        <text x="70" y="98" fill="#666" font-size="7" text-anchor="middle">IN</text>
+                        <text x="100" y="98" fill="#666" font-size="7" text-anchor="middle">GND</text>
+                        <text x="130" y="98" fill="#666" font-size="7" text-anchor="middle">OUT</text>
+                    </svg>
+                </div>
+                <h3>Stabilizator 7805 TO-220</h3>
+                <div class="symbol">IN-GND-OUT</div>
+                <p>Klasyczny stabilizator napięcia. Tab metalowy do radiatora. 7805, 7812, LM317.</p>
+                <a class="link" href="04-01-stabilizatory-napiecia.html">Szczegóły →</a>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple);">Transformatory</h3>
+        <div class="gallery">
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:160px">
+                        <rect x="40" y="20" width="120" height="60" fill="#666" stroke="#333" stroke-width="2"/>
+                        <rect x="40" y="20" width="120" height="60" fill="none" stroke="#444" stroke-width="0.5" stroke-dasharray="60 1" />
+                        <rect x="70" y="30" width="60" height="40" fill="#222" stroke="#000" stroke-width="1.5"/>
+                        <line x1="100" y1="0" x2="100" y2="20" stroke="#aaa" stroke-width="3"/>
+                        <line x1="100" y1="80" x2="100" y2="100" stroke="#aaa" stroke-width="3"/>
+                    </svg>
+                </div>
+                <h3>Transformator EI sieciowy</h3>
+                <div class="symbol">pierw ║ wtórne</div>
+                <p>Pakiet blach EI z karkasem w środku. Klasyczny sieciowy 230 V. 5 - 1000 VA.</p>
+                <a class="link" href="06-02-rdzenie-magnetyczne.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <ellipse cx="100" cy="50" rx="45" ry="32" fill="#7a5f3e" stroke="#5a3f2e" stroke-width="2"/>
+                        <ellipse cx="100" cy="50" rx="45" ry="32" fill="none" stroke="#222" stroke-width="14" opacity="0.4"/>
+                        <ellipse cx="100" cy="50" rx="22" ry="14" fill="#0f172a"/>
+                    </svg>
+                </div>
+                <h3>Transformator toroidalny</h3>
+                <div class="symbol">obw. zamknięty</div>
+                <p>Brązowy pierścień z izolowanym uzwojeniem. Wyższa sprawność, mniej EMI niż EI.</p>
+                <a class="link" href="06-02-rdzenie-magnetyczne.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:130px">
+                        <rect x="50" y="20" width="100" height="60" fill="#2a2a2a" stroke="#000" stroke-width="2" rx="4"/>
+                        <rect x="60" y="30" width="80" height="40" fill="#444" stroke="#222" stroke-width="1"/>
+                        <line x1="60" y1="85" x2="60" y2="95" stroke="#888" stroke-width="1.5"/>
+                        <line x1="80" y1="85" x2="80" y2="95" stroke="#888" stroke-width="1.5"/>
+                        <line x1="120" y1="85" x2="120" y2="95" stroke="#888" stroke-width="1.5"/>
+                        <line x1="140" y1="85" x2="140" y2="95" stroke="#888" stroke-width="1.5"/>
+                    </svg>
+                </div>
+                <h3>Transformator impulsowy (ferryt)</h3>
+                <div class="symbol">HF SMPS</div>
+                <p>Czarna kostka ferrytowa z karkasem. SMPS, flyback. Pracuje 50-500 kHz.</p>
+                <a class="link" href="06-05-transformatory-impulsowe.html">Szczegóły →</a>
+            </div>
+        </div>
+
+        <h3 style="color: var(--purple);">Pozostałe elementy</h3>
+        <div class="gallery">
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:160px">
+                        <ellipse cx="100" cy="50" rx="40" ry="13" fill="rgba(255,255,255,0.95)" stroke="#888" stroke-width="1.5"/>
+                        <line x1="65" y1="50" x2="135" y2="50" stroke="#999" stroke-width="0.8"/>
+                        <line x1="5" y1="50" x2="60" y2="50" stroke="#999" stroke-width="2"/>
+                        <line x1="140" y1="50" x2="195" y2="50" stroke="#999" stroke-width="2"/>
+                        <text x="100" y="54" fill="#000" font-size="9" text-anchor="middle">T 500mA</text>
+                    </svg>
+                </div>
+                <h3>Bezpiecznik szklany 5×20</h3>
+                <div class="symbol">──[FU]──</div>
+                <p>Przezroczysta rurka szklana z drutem topikowym wewnątrz. T (zwłoczny) lub F (szybki).</p>
+                <a class="link" href="02-04-bezpieczniki.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <circle cx="100" cy="50" r="32" fill="#7a4a08" stroke="#3a2a08" stroke-width="2"/>
+                        <text x="100" y="54" fill="#facc15" font-size="10" text-anchor="middle">14K275</text>
+                        <line x1="100" y1="82" x2="92" y2="95" stroke="#888" stroke-width="2"/>
+                        <line x1="100" y1="82" x2="108" y2="95" stroke="#888" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3>Warystor MOV</h3>
+                <div class="symbol">──◇──</div>
+                <p>Brązowy/żółty disk z numerem. Ochrona przed przepięciami w listwach i zasilaczach.</p>
+                <a class="link" href="02-04-bezpieczniki.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:140px">
+                        <rect x="55" y="25" width="90" height="55" fill="#3a3a3a" stroke="#1a1a1a" stroke-width="2" rx="3"/>
+                        <rect x="60" y="30" width="80" height="20" fill="#888"/>
+                        <circle cx="100" cy="65" r="6" fill="#222"/>
+                        <text x="100" y="40" fill="#fff" font-size="9" text-anchor="middle">JQX-115</text>
+                    </svg>
+                </div>
+                <h3>Przekaźnik</h3>
+                <div class="symbol">cewka + styki</div>
+                <p>Niebieska/czarna obudowa z cewką. Kostka + styki przełączane elektromagnetycznie.</p>
+                <a class="link" href="02-03-cewki.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:160px">
+                        <rect x="40" y="35" width="120" height="30" fill="#c0c0c0" stroke="#666" stroke-width="1.5" rx="2"/>
+                        <rect x="50" y="42" width="100" height="16" fill="#999"/>
+                        <text x="100" y="55" fill="#000" font-size="9" text-anchor="middle">8.000 MHz</text>
+                        <line x1="55" y1="65" x2="55" y2="95" stroke="#888" stroke-width="2"/>
+                        <line x1="145" y1="65" x2="145" y2="95" stroke="#888" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h3>Rezonator kwarcowy</h3>
+                <div class="symbol">─||─</div>
+                <p>Srebrna obudowa metalowa z napisem częstotliwości. 4 MHz, 8 MHz, 16 MHz, 32 kHz.</p>
+                <a class="link" href="08-04-generatory-i-oscylatory.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:170px">
+                        <rect x="40" y="30" width="120" height="40" fill="#1a1a1a" stroke="#000" stroke-width="2" rx="2"/>
+                        <g fill="#c0c0c0">
+                            <rect x="45" y="22" width="10" height="8"/>
+                            <rect x="55" y="22" width="10" height="8"/>
+                            <rect x="65" y="22" width="10" height="8"/>
+                            <rect x="75" y="22" width="10" height="8"/>
+                            <rect x="85" y="22" width="10" height="8"/>
+                            <rect x="95" y="22" width="10" height="8"/>
+                            <rect x="105" y="22" width="10" height="8"/>
+                        </g>
+                        <text x="100" y="55" fill="#c0c0c0" font-size="11" text-anchor="middle">DIP-14</text>
+                    </svg>
+                </div>
+                <h3>Listwa goldpin</h3>
+                <div class="symbol">2,54 mm raster</div>
+                <p>Złoto-niebieski pasek z pinami. Standardowe złącza prototypowe (Arduino headers).</p>
+                <a class="link" href="07-03-lutowanie.html">Szczegóły →</a>
+            </div>
+
+            <div class="item">
+                <div class="item-preview">
+                    <svg viewBox="0 0 200 100" width="100%" style="max-width:160px">
+                        <rect x="40" y="20" width="120" height="60" fill="#3a3a3a" stroke="#0a0a0a" stroke-width="2" rx="3"/>
+                        <rect x="50" y="32" width="20" height="36" fill="#1a1a1a"/>
+                        <rect x="74" y="32" width="20" height="36" fill="#1a1a1a"/>
+                        <rect x="98" y="32" width="20" height="36" fill="#1a1a1a"/>
+                        <rect x="122" y="32" width="20" height="36" fill="#1a1a1a"/>
+                        <rect x="55" y="22" width="10" height="6" fill="#facc15"/>
+                        <rect x="79" y="22" width="10" height="6" fill="#facc15"/>
+                        <rect x="103" y="22" width="10" height="6" fill="#facc15"/>
+                        <rect x="127" y="22" width="10" height="6" fill="#facc15"/>
+                    </svg>
+                </div>
+                <h3>Złącze śrubowe</h3>
+                <div class="symbol">terminal block</div>
+                <p>Zielone/niebieskie złącze z otworami i śrubkami. Pewne mocowanie kabli.</p>
+                <a class="link" href="07-03-lutowanie.html">Szczegóły →</a>
+            </div>
+        </div>
+
+        <div class="nav-bottom">
+            <a href="index.html">← Strona główna</a>
+            <a href="02-elementy-bierne.html">02 — Elementy bierne →</a>
+        </div>
+    </div>
+</body>
+</html>

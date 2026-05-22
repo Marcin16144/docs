@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FastAPI — zaawansowany</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--accent-hover:#60a5fa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Python</a>
+  <span class="sep">/</span>
+  <span class="title">FastAPI — zaawansowany</span>
+</div>
+<div class="container">
+  <h1>FastAPI — zaawansowany</h1>
+  <p class="subtitle">Middleware, CORS, Background Tasks, WebSocket, File upload, OAuth2, lifespan, custom exception handlers</p>
+
+  <h2>Middleware</h2>
+  <p>Middleware to warstwa kodu wykonywana dla kazdego zadania przed i po obsludze przez endpoint. FastAPI/Starlette oferuje dwa sposoby definiowania middleware.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Sposob</th>
+        <th>Kiedy uzywac</th>
+        <th>Uwagi</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>@app.middleware("http")</code></td>
+        <td>proste przypadki, logging, timing</td>
+        <td>Funkcja async, latwiejszy dostep do request/response</td>
+      </tr>
+      <tr>
+        <td><code>BaseHTTPMiddleware</code></td>
+        <td>zlozony middleware jako klasa</td>
+        <td>Latwa do testowania i wielokrotnego uzycia</td>
+      </tr>
+      <tr>
+        <td><code>app.add_middleware()</code></td>
+        <td>gotowe middleware (CORS, GZip itd.)</td>
+        <td>Standardowe Starlette middleware</td>
+      </tr>
+    </tbody>
+  </table>
+
+<pre><code>from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+import time
+import uuid
+
+app = FastAPI()
+
+# ---- Middleware przez dekorator ----
+@app.middleware("http")
+async def dodaj_czas_odpowiedzi(request: Request, call_next) -> Response:
+    start = time.perf_counter()
+    response = await call_next(request)
+    czas = time.perf_counter() - start
+    response.headers["X-Process-Time"] = f"{czas:.4f}s"
+    return response
+
+# ---- Middleware jako klasa ----
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next) -> Response:
+        request_id = str(uuid.uuid4())
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+app.add_middleware(RequestIdMiddleware)
+
+# ---- CORS ----
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://moja-aplikacja.pl", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    expose_headers=["X-Process-Time", "X-Request-ID"],
+    max_age=3600,  # cache preflight przez 1h
+)
+
+# ---- GZip kompresja odpowiedzi ----
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+</code></pre>
+
+  <h2>Background Tasks</h2>
+  <p><strong>BackgroundTasks</strong> pozwala uruchamiac zadania po wyslaniu odpowiedzi do klienta — bez blokowania. Dobre dla: wysylania emaili, logowania, powiadomien. Do ciezkich zadan (kolejki) uzyj Celery lub ARQ.</p>
+
+<pre><code>from fastapi import BackgroundTasks
+import asyncio
+
+async def wyslij_email_powitalny(email: str, imie: str) -> None:
+    """Symulacja wysylania emaila — moze trwac dlugo."""
+    await asyncio.sleep(2)
+    print(f"Email wyslany do {email}: Witaj {imie}!")
+
+async def zapisz_log_akcji(akcja: str, user_id: int) -> None:
+    await asyncio.sleep(0.1)
+    print(f"LOG: user={user_id} akcja={akcja}")
+
+class RejestrujDTO(BaseModel):
+    email: str
+    imie: str
+
+@app.post("/rejestruj", status_code=201)
+async def rejestruj(
+    dane: RejestrujDTO,
+    background_tasks: BackgroundTasks,
+) -> dict[str, str]:
+    # Zapisz uzytkownika do bazy...
+    nowy_id = 42
+
+    # Zaplanuj zadania w tle (wykonaja sie po zwroceniu odpowiedzi)
+    background_tasks.add_task(wyslij_email_powitalny, dane.email, dane.imie)
+    background_tasks.add_task(zapisz_log_akcji, "rejestracja", nowy_id)
+
+    # Odpowiedz wraca NATYCHMIAST, email i log w tle
+    return {"status": "zarejestrowano", "user_id": str(nowy_id)}
+</code></pre>
+
+  <h2>WebSocket</h2>
+  <p>FastAPI wspiera WebSocket poprzez Starlette. Endpoint <code>@app.websocket()</code> utrzymuje polaczenie dwukierunkowe — idealne dla czatow, powiadomien real-time, dashboardow.</p>
+
+  <h2>File Upload — UploadFile</h2>
+  <p>FastAPI uzywa <code>UploadFile</code> do obslugi przesilanych plikow. Pliki sa przesylane jako <code>multipart/form-data</code>, nie JSON.</p>
+
+<pre><code>from fastapi import WebSocket, WebSocketDisconnect, UploadFile, File, Form
+from typing import Annotated
+import aiofiles
+import os
+
+# ---- WebSocket endpoint ----
+class ConnectionManager:
+    def __init__(self):
+        self.active: list[WebSocket] = []
+
+    async def connect(self, ws: WebSocket):
+        await ws.accept()
+        self.active.append(ws)
+
+    def disconnect(self, ws: WebSocket):
+        self.active.remove(ws)
+
+    async def broadcast(self, message: str):
+        for connection in self.active:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/{room_id}")
+async def websocket_endpoint(websocket: WebSocket, room_id: str):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await manager.broadcast(f"[{room_id}] {data}")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        await manager.broadcast(f"[{room_id}] Uzytkownik rozlaczony")
+
+# ---- File upload ----
+UPLOAD_DIR = "/tmp/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/upload-plik/")
+async def upload_plik(
+    plik: Annotated[UploadFile, File(description="Plik do wgrania")],
+    opis: Annotated[str, Form()] = "",
+) -> dict:
+    # Walidacja rozszerzenia
+    dozwolone = {".jpg", ".jpeg", ".png", ".pdf"}
+    ext = os.path.splitext(plik.filename or "")[1].lower()
+    if ext not in dozwolone:
+        from fastapi import HTTPException
+        raise HTTPException(400, f"Niedozwolone rozszerzenie: {ext}")
+
+    sciezka = os.path.join(UPLOAD_DIR, plik.filename or "plik")
+    async with aiofiles.open(sciezka, "wb") as f:
+        while chunk := await plik.read(1024 * 64):  # 64KB chunk
+            await f.write(chunk)
+
+    return {
+        "nazwa": plik.filename,
+        "rozmiar": plik.size,
+        "typ": plik.content_type,
+        "opis": opis,
+    }
+
+@app.post("/upload-wiele/")
+async def upload_wiele(
+    pliki: Annotated[list[UploadFile], File()],
+) -> dict:
+    wyniki = []
+    for p in pliki:
+        wyniki.append({"nazwa": p.filename, "rozmiar": p.size})
+    return {"przeslane": len(wyniki), "pliki": wyniki}
+</code></pre>
+
+  <h2>OAuth2 i bezpieczenstwo</h2>
+  <p><strong>OAuth2PasswordBearer</strong> to schemat bezpieczenstwa FastAPI do obslugi tokenow Bearer. Automatycznie pojawia sie w Swagger UI jako pole autoryzacji.</p>
+
+  <h2>Lifespan — startup i shutdown</h2>
+  <p>Nowoczesny sposob inicjalizacji aplikacji (zalecany od FastAPI 0.93+). Zastepuje przestarzale <code>@app.on_event("startup")</code>.</p>
+
+  <div class="card blue">
+    <h3>Custom Exception Handlers</h3>
+    <p>Mozesz definiowac globalne handlery dla dowolnych wyjatkow za pomoca <code>@app.exception_handler(MyException)</code>. FastAPI domyslnie zwraca 422 dla bledow walidacji Pydantic i 404 dla brakujacych zasobow — mozesz je nadpisac aby dostosowac format odpowiedzi bledu.</p>
+  </div>
+
+  <h2>Starlette — integracja niskopoziomowa</h2>
+  <p>FastAPI jest zbudowany na <strong>Starlette</strong> — mozesz uzywac bezposrednio wszystkich komponentow Starlette: <code>Request</code>, <code>Response</code>, <code>JSONResponse</code>, <code>StreamingResponse</code>, <code>FileResponse</code>, <code>StaticFiles</code>, <code>Mount</code>. FastAPI to Starlette z dodatkiem Pydantic i automatycznej dokumentacji.</p>
+
+  <div class="nav-bottom">
+    <a href="02-fastapi.html">← 02-fastapi.html</a>
+    <a href="04-django-rest-framework.html">04-django-rest-framework.html →</a>
+  </div>
+</div>
+</body>
+</html>

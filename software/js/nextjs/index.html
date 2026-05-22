@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Next.js 15 — JS/TS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#e2e8f0;--accent-hover:#f8fafc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:36px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);color:var(--text-muted);font-size:.9rem}
+.footer a{color:var(--accent);text-decoration:none}.footer a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">JS-TS</a>
+  <span class="sep">/</span>
+  <span class="title">Next.js</span>
+</div>
+
+<div class="container">
+  <h1>Next.js 15</h1>
+  <p class="subtitle">React meta-framework. App Router, Server Components, Partial Prerendering.</p>
+
+  <h2>1. App Router vs Pages Router</h2>
+  <p>Next.js 13 wprowadzil <strong>App Router</strong> — nowy system routingu oparty na React Server Components. Pages Router (stary system) nadal dziala i jest wspierany, ale App Router jest zalecanym podejsciem dla nowych projektow.</p>
+
+  <table>
+    <tr><th>Cecha</th><th>App Router (zalecany)</th><th>Pages Router (legacy)</th></tr>
+    <tr><td>Katalog</td><td><code>app/</code></td><td><code>pages/</code></td></tr>
+    <tr><td>Domyslny typ komponentu</td><td>Server Component</td><td>Client Component</td></tr>
+    <tr><td>Layouts</td><td>Nested layouts (layout.tsx)</td><td>_app.tsx (globalny)</td></tr>
+    <tr><td>Data fetching</td><td>async/await w komponentach</td><td>getServerSideProps / getStaticProps</td></tr>
+    <tr><td>Loading states</td><td>loading.tsx (automatyczny Suspense)</td><td>Manualny</td></tr>
+    <tr><td>Error handling</td><td>error.tsx per route</td><td>_error.tsx (globalny)</td></tr>
+    <tr><td>Server Actions</td><td>Tak (natywne)</td><td>Nie</td></tr>
+    <tr><td>Streaming</td><td>Natywny (Suspense)</td><td>Ograniczony</td></tr>
+  </table>
+
+  <pre><code># Nowy projekt Next.js 15
+npx create-next-app@latest moj-projekt
+# Opcje: TypeScript, ESLint, Tailwind, App Router, Turbopack
+
+# Struktura App Router:
+# app/
+#   layout.tsx          ← Root layout (wymagany)
+#   page.tsx            ← Strona glowna /
+#   loading.tsx         ← Skeleton/spinner podczas ladowania
+#   error.tsx           ← Obsluga bledow dla tego segmentu
+#   not-found.tsx       ← Strona 404
+#   blog/
+#     page.tsx          ← /blog
+#     [slug]/
+#       page.tsx        ← /blog/dowolny-slug
+#   (auth)/             ← Route group (nie wpływa na URL)
+#     login/page.tsx    ← /login
+#     register/page.tsx ← /register</code></pre>
+
+  <h2>2. Server Components vs Client Components</h2>
+  <p>W App Router <strong>kazdy komponent jest domyslnie Server Component</strong>. Server Components sa renderowane na serwerze i nie wymagaja JavaScriptu po stronie klienta. Dyrektywa <code>'use client'</code> oznacza granice klient-serwer.</p>
+  <pre><code>// app/users/page.tsx — Server Component (domyslnie)
+// Moze byc async! Moze uzywac await bezposrednio!
+// Nie trafia do bundle po stronie klienta
+
+import { db } from '@/lib/db';
+import { UserCard } from './UserCard';  // moze byc client component
+
+export default async function UsersPage() {
+  // Bezposredni dostep do bazy danych — dziala tylko na serwerze
+  const users = await db.user.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 20
+  });
+
+  return (
+    &lt;main&gt;
+      &lt;h1&gt;Uzytkownicy ({users.length})&lt;/h1&gt;
+      &lt;div className="grid"&gt;
+        {users.map(user =&gt; (
+          &lt;UserCard key={user.id} user={user} /&gt;
+        ))}
+      &lt;/div&gt;
+    &lt;/main&gt;
+  );
+}
+
+// app/users/UserCard.tsx — Client Component
+// Uzywaj 'use client' tylko gdy potrzebujesz:
+// - useState, useEffect, useReducer
+// - onClick, onChange i inne event handlery
+// - Dostep do window, document, localStorage
+// - Biblioteki zewnetrzne bez wsparcia RSC
+
+'use client';
+
+import { useState } from 'react';
+
+interface User { id: string; name: string; email: string; }
+
+export function UserCard({ user }: { user: User }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    &lt;div className="card" onClick={() =&gt; setExpanded(!expanded)}&gt;
+      &lt;h3&gt;{user.name}&lt;/h3&gt;
+      {expanded &amp;&amp; &lt;p&gt;{user.email}&lt;/p&gt;}
+    &lt;/div&gt;
+  );
+}</code></pre>
+
+  <h2>3. Server Actions</h2>
+  <p>Server Actions to funkcje wykonywane na serwerze, wywoływane bezposrednio z komponentow klienckich lub formularzy. Zastepuja tradycyjne API routes dla mutacji danych.</p>
+  <pre><code">// app/actions/users.ts — Server Actions
+'use server';
+
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { db } from '@/lib/db';
+import { z } from 'zod';
+
+const CreateUserSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email()
+});
+
+export async function createUser(formData: FormData) {
+  // Walidacja
+  const parsed = CreateUserSchema.safeParse({
+    name: formData.get('name'),
+    email: formData.get('email')
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors };
+  }
+
+  // Zapis do bazy
+  await db.user.create({ data: parsed.data });
+
+  // Inwalidacja cache — strona /users zostanie przeladowana
+  revalidatePath('/users');
+
+  // Przekierowanie
+  redirect('/users');
+}
+
+// Uzycie w Server Component (formularz z progressywnym usprawnieniem)
+import { createUser } from '../actions/users';
+
+export default function NewUserPage() {
+  return (
+    &lt;form action={createUser}&gt;
+      &lt;input name="name" placeholder="Imie" required /&gt;
+      &lt;input name="email" type="email" placeholder="Email" required /&gt;
+      &lt;button type="submit"&gt;Dodaj uzytkownika&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}
+
+// Uzycie w Client Component (z useActionState)
+'use client';
+import { useActionState } from 'react';
+import { createUser } from '../actions/users';
+
+export function NewUserForm() {
+  const [state, action, isPending] = useActionState(createUser, null);
+  return (
+    &lt;form action={action}&gt;
+      &lt;input name="name" /&gt;
+      &lt;input name="email" /&gt;
+      &lt;button disabled={isPending}&gt;
+        {isPending ? 'Zapisywanie...' : 'Zapisz'}
+      &lt;/button&gt;
+      {state?.error &amp;&amp; &lt;p&gt;Blad: {JSON.stringify(state.error)}&lt;/p&gt;}
+    &lt;/form&gt;
+  );
+}</code></pre>
+
+  <h2>4. Strategie renderowania</h2>
+
+  <table>
+    <tr><th>Strategia</th><th>Kiedy generowany</th><th>Uzycie</th><th>Cache</th></tr>
+    <tr><td><strong>SSG</strong> (Static)</td><td>Build time</td><td>Strony bez zmiennych danych</td><td>CDN na zawsze</td></tr>
+    <tr><td><strong>SSR</strong> (Dynamic)</td><td>Kazde zadanie</td><td>Dane personalizowane, real-time</td><td>Brak lub krotki TTL</td></tr>
+    <tr><td><strong>ISR</strong> (Incremental)</td><td>Build + rewalidacja</td><td>Blog, e-commerce z rzadkimi zmianami</td><td>CDN + rewalidacja co N sekund</td></tr>
+    <tr><td><strong>PPR</strong> (Partial Prerendering)</td><td>Build (shell) + Runtime (dynamic parts)</td><td>Strony z mieszana trescia</td><td>CDN dla shella</td></tr>
+  </table>
+
+  <pre><code>// Kontrola cache przez fetch options
+async function getData() {
+  // SSG: cache na zawsze (domyslne w Next.js 14, NIE w 15)
+  const res1 = await fetch('https://api.example.com/static', {
+    cache: 'force-cache'
+  });
+
+  // SSR: bez cache, zawsze swiezy
+  const res2 = await fetch('https://api.example.com/live', {
+    cache: 'no-store'
+  });
+
+  // ISR: rewalidacja co 60 sekund
+  const res3 = await fetch('https://api.example.com/posts', {
+    next: { revalidate: 60 }
+  });
+
+  // ISR z tagami (rewalidacja on-demand)
+  const res4 = await fetch('https://api.example.com/products', {
+    next: { tags: ['products'] }
+  });
+}
+
+// Rewalidacja taga z Server Action lub API route
+import { revalidateTag } from 'next/cache';
+revalidateTag('products');  // inwaliduje wszystkie fetche z tym tagiem
+
+// Wymuszenie dynamicznosci calej strony
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;</code></pre>
+
+  <h2>5. Routing — nested layouts, loading, error</h2>
+  <pre><code>// app/layout.tsx — Root layout (renderowany dla kazdej strony)
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: { template: '%s | Moja Aplikacja', default: 'Moja Aplikacja' },
+  description: 'Opis aplikacji'
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    &lt;html lang="pl"&gt;
+      &lt;body className={inter.className}&gt;
+        &lt;nav&gt;Nawigacja&lt;/nav&gt;
+        {children}
+        &lt;footer&gt;Stopka&lt;/footer&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  );
+}
+
+// app/blog/loading.tsx — Pokazywany podczas ladowania
+export default function Loading() {
+  return &lt;div className="skeleton"&gt;Ladowanie postow...&lt;/div&gt;;
+}
+
+// app/blog/error.tsx — Client Component do obslugi bledow
+'use client';
+export default function Error({
+  error, reset
+}: {
+  error: Error &amp; { digest?: string };
+  reset: () =&gt; void;
+}) {
+  return (
+    &lt;div&gt;
+      &lt;h2&gt;Cos poszlo nie tak!&lt;/h2&gt;
+      &lt;button onClick={reset}&gt;Sprobuj ponownie&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+
+  <h2>6. Data fetching z cache i revalidate</h2>
+  <p>W Next.js 15 domyslne zachowanie cache dla <code>fetch</code> zmienilo sie — teraz domyslnie jest <code>no-store</code> (brak cache). Trzeba jawnie podac <code>cache: 'force-cache'</code> lub <code>next: { revalidate }</code> dla ISR.</p>
+
+  <h2>7. Middleware</h2>
+  <pre><code">// middleware.ts — uruchamiany na Edge przed kazdym requestem
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  const token = request.cookies.get('auth-token')?.value;
+
+  // Przekierowanie niezalogowanych uzytkownikow
+  if (!token &amp;&amp; request.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // Dodanie custom headera
+  const response = NextResponse.next();
+  response.headers.set('X-Custom-Header', 'wartość');
+  return response;
+}
+
+// Konfiguracja — ktore trasy obejmuje middleware
+export const config = {
+  matcher: [
+    '/dashboard/:path*',
+    '/admin/:path*',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)'
+  ]
+};</code></pre>
+
+  <h2>8. Optymalizacje: next/image, next/font, next/link</h2>
+  <ul>
+    <li><strong>next/image</strong> — automatyczna optymalizacja: WebP/AVIF, lazy loading, blurDataURL, responsive srcset</li>
+    <li><strong>next/font</strong> — zero layout shift przy ladowaniu fontow, self-hosting, subsets</li>
+    <li><strong>next/link</strong> — prefetching w widoku, Client-side navigation</li>
+  </ul>
+
+  <h2>9. API Routes (route.ts)</h2>
+  <pre><code">// app/api/users/route.ts — GET i POST
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = request.nextUrl;
+  const page = Number(searchParams.get('page') ?? '1');
+
+  const users = await db.user.findMany({
+    skip: (page - 1) * 20,
+    take: 20
+  });
+
+  return NextResponse.json({ users, page });
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const user = await db.user.create({ data: body });
+  return NextResponse.json(user, { status: 201 });
+}
+
+// app/api/users/[id]/route.ts — dynamiczny parametr
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise&lt;{ id: string }&gt; }
+) {
+  const { id } = await params;  // params sa teraz Promise w Next.js 15
+  const user = await db.user.findUnique({ where: { id } });
+  if (!user) return NextResponse.json({ error: 'Nie znaleziono' }, { status: 404 });
+  return NextResponse.json(user);
+}</code></pre>
+
+  <h2>10. Deployment</h2>
+  <ul>
+    <li><strong>Vercel</strong> — natywna platforma Next.js, zero konfiguracji, edge functions, ISR out-of-the-box</li>
+    <li><strong>Self-host Node.js</strong> — <code>npm run build &amp;&amp; node .next/standalone/server.js</code></li>
+    <li><strong>Docker</strong> — oficjalny Dockerfile z output standalone w next.config.ts</li>
+    <li><strong>Netlify / Cloudflare Pages</strong> — przez oficjalne adaptery</li>
+  </ul>
+
+  <h2>11. Kiedy Next.js vs Nuxt vs Astro vs Remix</h2>
+  <table>
+    <tr><th>Scenariusz</th><th>Zalecenie</th></tr>
+    <tr><td>Aplikacja React z SSR/SSG</td><td>Next.js 15 (dominujacy wybor)</td></tr>
+    <tr><td>Aplikacja Vue z SSR/SSG</td><td>Nuxt 3</td></tr>
+    <tr><td>Blog, docs, strona statyczna</td><td>Astro 5 (zero JS, lepsze CWV)</td></tr>
+    <tr><td>Web standards, progressive enhancement</td><td>Remix / React Router 7</td></tr>
+    <tr><td>E-commerce z dynamiczna trescia</td><td>Next.js 15 (PPR, ISR)</td></tr>
+    <tr><td>Dashboard / SaaS</td><td>Next.js 15 (Server Actions, Auth.js)</td></tr>
+    <tr><td>Startup MVP na Vercel</td><td>Next.js 15 (ekosystem, integracje)</td></tr>
+  </table>
+
+  <div class="card green">
+    <strong>Next.js 15 to domyslny wybor dla React SSR.</strong> Ogromny ekosystem, najlepsza integracja z Vercel, aktywny rozwoj przez Vercel team. Jesli budujesz nowa aplikacje React i potrzebujesz SSR — Next.js to bezpieczny wybor ze swietnym wsparciem.
+  </div>
+
+  <div class="footer">
+    <a href="../../index.html">← Wroc do JS/TS</a>
+  </div>
+</div>
+
+</body>
+</html>

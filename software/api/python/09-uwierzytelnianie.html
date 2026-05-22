@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uwierzytelnianie Python API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--accent-hover:#60a5fa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Python</a>
+  <span class="sep">/</span>
+  <span class="title">Uwierzytelnianie Python API</span>
+</div>
+<div class="container">
+  <h1>Uwierzytelnianie Python API</h1>
+  <p class="subtitle">JWT (python-jose), OAuth2, refresh token, Auth0, Azure AD (MSAL), passlib, rate limiting (slowapi)</p>
+
+  <h2>JWT — JSON Web Tokens</h2>
+  <p><strong>JWT</strong> to standard tokenow nosnych (Bearer tokens) zawierajacych zakodowane claims (twierdzenia) o uzytkownikach. Skladaja sie z trzech czesci: header, payload, signature — oddzielonych kropkami. Serwer nie musi przechowywac sesji — token jest weryfikowany przez podpis kryptograficzny.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Typ tokenu</th>
+        <th>Czas zycia</th>
+        <th>Zastosowanie</th>
+        <th>Przechowywanie</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Access Token</td>
+        <td>15-60 minut</td>
+        <td>Autoryzacja requestow API</td>
+        <td>Pamiec (memory), nie localStorage</td>
+      </tr>
+      <tr>
+        <td>Refresh Token</td>
+        <td>7-30 dni</td>
+        <td>Odnowienie access tokenu</td>
+        <td>HttpOnly cookie (bezpieczne)</td>
+      </tr>
+      <tr>
+        <td>ID Token (OIDC)</td>
+        <td>jednorazowy</td>
+        <td>Informacje o uzytkownikuu</td>
+        <td>Klient (po weryfikacji)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>JWT z python-jose w FastAPI</h2>
+
+<pre><code>from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from datetime import datetime, timedelta, timezone
+from typing import Annotated
+import os
+
+app = FastAPI()
+
+# ---- Konfiguracja ----
+SECRET_KEY = os.environ.get("SECRET_KEY", "zmien-na-produkcji-min-32-znaki!!!")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+# ---- Haszowanie hasel (bcrypt przez passlib) ----
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def haszuj_haslo(haslo: str) -> str:
+    return pwd_context.hash(haslo)
+
+def weryfikuj_haslo(haslo_plain: str, haslo_hash: str) -> bool:
+    return pwd_context.verify(haslo_plain, haslo_hash)
+
+# ---- Schemat OAuth2 — wskazuje endpoint logowania ----
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+
+# ---- Schematy Pydantic ----
+class TokenOdpowiedz(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
+class TokenData(BaseModel):
+    sub: str | None = None
+    rola: str = "user"
+
+class UzytkownikDTO(BaseModel):
+    id: int
+    email: str
+    imie: str
+    rola: str
+
+# ---- Tworzenie tokenow ----
+def utworz_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+    payload = data.copy()
+    expire = datetime.now(timezone.utc) + (
+        expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    payload.update({
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "type": "access",
+    })
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def utworz_refresh_token(sub: str) -> str:
+    payload = {
+        "sub": sub,
+        "exp": datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        "iat": datetime.now(timezone.utc),
+        "type": "refresh",
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def dekoduj_token(token: str) -> TokenData:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        sub: str | None = payload.get("sub")
+        if sub is None:
+            raise HTTPException(status_code=401, detail="Nieprawidlowy token")
+        return TokenData(sub=sub, rola=payload.get("rola", "user"))
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nie mozna zweryfikowac tokenu",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+# ---- Dependency: biezacy uzytkownik ----
+async def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)]
+) -> UzytkownikDTO:
+    token_data = dekoduj_token(token)
+    # W realnej aplikacji: pobranie uzytkownika z bazy po token_data.sub
+    return UzytkownikDTO(
+        id=int(token_data.sub or "0"),
+        email="jan@example.com",
+        imie="Jan",
+        rola=token_data.rola,
+    )
+
+async def wymaga_admina(
+    uzytkownik: Annotated[UzytkownikDTO, Depends(get_current_user)]
+) -> UzytkownikDTO:
+    if uzytkownik.rola != "admin":
+        raise HTTPException(status_code=403, detail="Wymagane uprawnienia admina")
+    return uzytkownik
+
+# ---- Endpointy autentykacji ----
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+
+router_auth = APIRouter(prefix="/auth", tags=["auth"])
+
+@router_auth.post("/token", response_model=TokenOdpowiedz)
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> TokenOdpowiedz:
+    # W realnej aplikacji: weryfikacja z baza danych
+    if form_data.username != "jan@example.com" or form_data.password != "tajne":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nieprawidlowe dane logowania",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user_id = "1"
+    access_token = utworz_access_token({"sub": user_id, "rola": "user"})
+    refresh_token = utworz_refresh_token(user_id)
+    return TokenOdpowiedz(access_token=access_token, refresh_token=refresh_token)
+
+@router_auth.post("/refresh", response_model=TokenOdpowiedz)
+async def refresh(refresh_token: str) -> TokenOdpowiedz:
+    token_data = dekoduj_token(refresh_token)
+    new_access = utworz_access_token({"sub": token_data.sub, "rola": token_data.rola})
+    new_refresh = utworz_refresh_token(token_data.sub or "")
+    return TokenOdpowiedz(access_token=new_access, refresh_token=new_refresh)
+
+@router_auth.get("/me", response_model=UzytkownikDTO)
+async def me(uzytkownik: Annotated[UzytkownikDTO, Depends(get_current_user)]) -> UzytkownikDTO:
+    return uzytkownik
+
+app.include_router(router_auth)
+</code></pre>
+
+  <h2>Rate Limiting — slowapi</h2>
+  <p><strong>slowapi</strong> to biblioteka rate limiting dla FastAPI oparta na <code>limits</code>. Oferuje podobne API do Flask-Limiter.</p>
+
+<pre><code>from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi import Request
+
+# Inicjalizacja limitera — klucz po IP
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Zastosowanie limitow na endpointy
+@app.get("/publiczny/dane")
+@limiter.limit("100/minute")
+async def publiczne_dane(request: Request) -> dict:
+    return {"dane": "publiczne"}
+
+@app.post("/auth/token")
+@limiter.limit("5/minute;20/hour")  # zlozony limit
+async def login_z_limitem(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
+    return {"token": "..."}
+
+# Limit globalny dla calej aplikacji
+@app.middleware("http")
+async def global_rate_limit(request: Request, call_next):
+    # mozna dodac globalny limit przez middleware
+    return await call_next(request)
+</code></pre>
+
+  <h2>Auth0 i Azure AD (MSAL)</h2>
+  <p>Dla produkcyjnych systemow warto rozwazyc zewnetrznych dostawcow tozsamosci zamiast implementowac autentykacje od zera.</p>
+
+  <div class="card blue">
+    <h3>Auth0 — weryfikacja JWT</h3>
+    <p>Auth0 wystawia tokeny JWT podpisane kluczem RSA. Weryfikacja polega na pobraniu publicznego klucza z <code>https://TWOJA_DOMENA.auth0.com/.well-known/jwks.json</code> i weryfikacji podpisu. Biblioteka <code>python-jose[cryptography]</code> obsluguje RSA.</p>
+  </div>
+
+  <div class="card blue">
+    <h3>Azure AD — MSAL Python</h3>
+    <p>Pakiet <code>msal</code> (Microsoft Authentication Library) dostarcza gotowe flow dla Azure AD: <code>ConfidentialClientApplication</code> dla serwer-serwer (client credentials), <code>PublicClientApplication</code> dla logowania uzytkownikow. Tokeny Azure AD weryfikuj przez <code>jwks_uri</code> z OpenID configuration endpoint.</p>
+  </div>
+
+  <div class="card red">
+    <h3>Bezpieczenstwo — wazne zasady</h3>
+    <ul>
+      <li>Nigdy nie przechowuj secret key w kodzie — uzyj zmiennych srodowiskowych</li>
+      <li>Uzyj <strong>bcrypt</strong> (przez passlib) do hasel — nigdy MD5, SHA1, SHA256</li>
+      <li>Refresh tokeny przechowuj w HttpOnly, Secure, SameSite=Strict cookies</li>
+      <li>Implementuj blackliste tokenow przy wylogowaniu (Redis lub baza danych)</li>
+      <li>Ustaw krotki czas zycia access tokena (15-30 min)</li>
+      <li>Zawsze uzyj HTTPS na produkcji — tokeny Bearer sa jawne</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="08-beanie-mongodb.html">← 08-beanie-mongodb.html</a>
+    <a href="10-deployment.html">10-deployment.html →</a>
+  </div>
+</div>
+</body>
+</html>

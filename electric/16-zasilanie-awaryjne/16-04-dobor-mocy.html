@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>16-04 — Dobór mocy agregatu</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">16 Zasilanie awaryjne</a><span class="sep">/</span><span class="title">16-04 Dobór mocy agregatu</span>
+</div>
+<div class="container">
+<h1>Dobór mocy agregatu</h1>
+<p class="subtitle">Zbyt mały agregat wyłączy się pod obciążeniem; zbyt duży to wyrzucone pieniądze i praca z niską sprawnością. To rozdział, w którym liczymy.</p>
+
+<h2>Moc pozorna S vs moc czynna P</h2>
+<p>Agregaty są opisywane mocą pozorną <strong>S w kVA</strong>, a odbiorniki — mocą czynną <strong>P w kW</strong>. To nie to samo.</p>
+<pre><code>S = P / cos φ            [kVA]
+P = S · cos φ            [kW]</code></pre>
+<p>Typowy <strong>cos φ agregatu wynosi 0,8</strong>. Oznacza to:</p>
+<pre><code>Agregat 5 kVA  →  P = 5 · 0,8 = 4 kW mocy czynnej
+Agregat 6 kVA  →  P = 6 · 0,8 = 4,8 kW
+Agregat 8 kVA  →  P = 8 · 0,8 = 6,4 kW</code></pre>
+<p><strong>Wniosek:</strong> agregat „5 kVA" realnie odda około 4 kW. Licz potrzeby w kW i przeliczaj na kVA dzieląc przez 0,8.</p>
+
+<h2>Prąd rozruchowy — najważniejsza pułapka</h2>
+<p>Odbiorniki z silnikiem (lodówka, zamrażarka, pompa, klimatyzacja, sprężarka) w chwili startu pobierają <strong>3–7-krotność</strong> prądu znamionowego. Trwa to ułamek sekundy, ale agregat musi tę moc dostarczyć, inaczej napięcie zapadnie i silnik się nie rozkręci.</p>
+<pre><code>P_rozruch = P_znamionowa · k_rozruch
+
+k_rozruch:  lodówka, zamrażarka   ~6×
+            pompa obiegowa CO     ~6×
+            pompa wody / hydrofor ~3–4×
+            klimatyzacja          ~5×
+            elektronarzędzia      ~3×
+            grzałki, oświetlenie  1× (brak rozruchu)</code></pre>
+
+<h2>Metoda doboru — krok po kroku</h2>
+<ol>
+<li><strong>Wypisz odbiorniki krytyczne</strong> — to, co naprawdę musi działać podczas blackoutu (nie cały dom).</li>
+<li><strong>Zsumuj moc ciągłą</strong> wszystkich tych odbiorników (tak, jakby działały razem).</li>
+<li><strong>Dodaj największy prąd rozruchowy</strong> — zakładamy, że w najgorszym momencie startuje jeden, najbardziej „prądożerny" silnik, gdy reszta już pracuje.</li>
+<li><strong>Dodaj zapas 20–25 %</strong> — na starzenie się agregatu, temperaturę, niedokładność danych.</li>
+</ol>
+<pre><code>P_potrzebna = ( Σ P_ciągła + P_rozruch_max ) · 1,25
+S_agregatu  = P_potrzebna / 0,8</code></pre>
+
+<h2>Przykład liczbowy — dom jednorodzinny</h2>
+<p>Lista odbiorników krytycznych:</p>
+<table>
+<thead><tr><th>Odbiornik</th><th>Moc ciągła</th><th>Rozruch</th></tr></thead>
+<tbody>
+<tr><td>Lodówka</td><td>150 W</td><td>900 W (6×)</td></tr>
+<tr><td>Pompa obiegowa CO</td><td>100 W</td><td>600 W (6×)</td></tr>
+<tr><td>Oświetlenie LED</td><td>200 W</td><td>200 W</td></tr>
+<tr><td>Router, elektronika</td><td>100 W</td><td>100 W</td></tr>
+<tr><td>Pompa wody (hydrofor)</td><td>800 W</td><td>3000 W (~4×)</td></tr>
+<tr><td><strong>Suma mocy ciągłej</strong></td><td><strong>1350 W</strong></td><td>—</td></tr>
+</tbody>
+</table>
+<p>Krok 3 — największy rozruch to pompa wody (3000 W). Zakładamy, że startuje, gdy reszta pracuje już na mocy ciągłej. Ale w czasie rozruchu pompy odejmujemy jej moc ciągłą z sumy, bo „rozruch" ją zawiera:</p>
+<pre><code>Σ P_ciągła pozostałych = 1350 − 800 = 550 W
+moment szczytowy = 550 + 3000 = 3550 W</code></pre>
+<p>Krok 4 — zapas 25 %:</p>
+<pre><code>P_potrzebna = 3550 · 1,25 ≈ 4440 W ≈ 4,5 kW
+S_agregatu  = 4,5 / 0,8 ≈ 5,6 kVA</code></pre>
+<div class="callout"><strong>Dobór: agregat około 5,5–6 kVA.</strong> Dla samego komfortu (margines, ewentualne dołożenie odbiornika) rozsądny jest model 6 kVA.</div>
+
+<h2>Tabela prądów rozruchowych typowych odbiorników</h2>
+<table>
+<thead><tr><th>Odbiornik</th><th>Moc ciągła</th><th>Krotność</th><th>Moc rozruchowa</th></tr></thead>
+<tbody>
+<tr><td>Lodówka / zamrażarka</td><td>100–200 W</td><td>~6×</td><td>600–1200 W</td></tr>
+<tr><td>Pompa obiegowa CO</td><td>60–120 W</td><td>~6×</td><td>360–700 W</td></tr>
+<tr><td>Pompa głębinowa / hydrofor</td><td>600–1100 W</td><td>3–4×</td><td>2000–4000 W</td></tr>
+<tr><td>Klimatyzator (split)</td><td>800–1500 W</td><td>~5×</td><td>4000–7500 W</td></tr>
+<tr><td>Pralka (silnik)</td><td>400 W</td><td>3–4×</td><td>1500 W</td></tr>
+<tr><td>Elektronarzędzie (szlifierka)</td><td>1000 W</td><td>~3×</td><td>3000 W</td></tr>
+<tr><td>Grzałka, czajnik, bojler</td><td>dowolna</td><td>1×</td><td>bez rozruchu</td></tr>
+<tr><td>Oświetlenie LED, RTV, router</td><td>dowolna</td><td>1×</td><td>bez rozruchu</td></tr>
+</tbody>
+</table>
+
+<h2>Zalecenie — agregat inwerterowy dla elektroniki</h2>
+<p>Jeśli wśród odbiorników krytycznych jest sprzęt z elektroniką (kocioł gazowy ze sterownikiem, pompa ciepła, komputer, sprzęt RTV) — wybierz agregat <strong>inwerterowy</strong> (THD &lt; 3 %). Agregat klasyczny może uszkodzić zasilacze lub powodować błędy sterowników. Inwerterowy lepiej też radzi sobie z rozruchami, bo ma chwilowy zapas mocy szczytowej.</p>
+
+<div class="tip"><strong>Wskazówka.</strong> Nie dobieraj agregatu „na cały dom z zapasem 100 %". Lepiej wydzielić obwody krytyczne (rozdział 16-06) i kupić mniejszy, tańszy, oszczędniejszy agregat, który i tak udźwignie to, co naprawdę potrzebne.</div>
+
+<div class="nav-bottom">
+<a href="16-03-jedno-trojfazowy.html">⟵ Agregat 1- i 3-fazowy</a>
+<a href="16-05-przelaczanie-szr-ats.html">Przełączanie sieć/agregat →</a>
+</div>
+</div>
+</body>
+</html>

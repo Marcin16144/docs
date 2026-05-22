@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment Node.js API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Node.js</a>
+  <span class="sep">/</span>
+  <span class="title">Deployment Node.js API</span>
+</div>
+
+<div class="container">
+  <h1>Deployment Node.js API</h1>
+  <p class="subtitle">PM2, Docker, docker-compose, platformy chmurowe, graceful shutdown, health check i zarzadzanie env</p>
+
+  <h2>Przeglad strategii deploymentu</h2>
+  <p>Deployment aplikacji Node.js mozna zrealizowac na wiele sposobow — od prostego PM2 na VPS, przez kontenery Docker, po zarzadzane platformy chmurowe. Wybor zalezy od wymagan projektu: skalowalnosc, budzet, kontrola infrastruktury i wielkosc zespolu.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Strategia</th>
+        <th>Kontrola</th>
+        <th>Zlozonosc</th>
+        <th>Koszt</th>
+        <th>Kiedy stosowac</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>PM2 na VPS</td>
+        <td>Pelna</td>
+        <td>Srednia</td>
+        <td>Niski</td>
+        <td>Malezesne projekty, pelna kontrola OS</td>
+      </tr>
+      <tr>
+        <td>Docker + VPS</td>
+        <td>Pelna</td>
+        <td>Srednia-wysoka</td>
+        <td>Niski-sredni</td>
+        <td>Reprodukowalny deployment, izolacja</td>
+      </tr>
+      <tr>
+        <td>Railway / Render</td>
+        <td>Ograniczona</td>
+        <td>Niska</td>
+        <td>Sredni</td>
+        <td>Szybki start, brak DevOps w zespole</td>
+      </tr>
+      <tr>
+        <td>Fly.io</td>
+        <td>Srednia</td>
+        <td>Srednia</td>
+        <td>Sredni</td>
+        <td>Globalny deployment, edge regions</td>
+      </tr>
+      <tr>
+        <td>AWS/GCP/Azure (managed)</td>
+        <td>Pelna</td>
+        <td>Wysoka</td>
+        <td>Wysoki</td>
+        <td>Enterprise, compliance, duze zespoly</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>PM2 — Process Manager</h2>
+  <p>PM2 to produkcyjny menadzer procesow dla Node.js. Zapewnia: automatyczny restart po awarii, tryb cluster (wiele procesow na wszystkich CPU), rotacje logow, monitorowanie oraz wbudowany load balancer. Konfiguracja przez plik <code>ecosystem.config.js</code>.</p>
+
+  <pre><code>// ecosystem.config.js — konfiguracja PM2
+module.exports = {
+  apps: [
+    {
+      name: 'api-server',
+      script: './dist/index.js',
+      instances: 'max',           // uruchom tyle instancji ile CPU (cluster mode)
+      exec_mode: 'cluster',       // load balancing miedzy instancjami
+      watch: false,               // wylacz watch w produkcji
+      max_memory_restart: '500M', // restart jesli proces przekroczy 500 MB RAM
+
+      // Zmienne srodowiskowe
+      env: {
+        NODE_ENV: 'development',
+        PORT: 3000,
+      },
+      env_production: {
+        NODE_ENV: 'production',
+        PORT: 3000,
+      },
+
+      // Rotacja logow
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      error_file: './logs/error.log',
+      out_file: './logs/out.log',
+      merge_logs: true,
+
+      // Graceful shutdown — czekaj max 5 sekund na zakonczenie zapytan
+      kill_timeout: 5000,
+      wait_ready: true,           // czekaj na process.send('ready')
+      listen_timeout: 10000,
+
+      // Restart strategy
+      max_restarts: 10,
+      min_uptime: '30s',          // minimalna czas dzialania by nie uznac za crash loop
+      restart_delay: 1000,
+    }
+  ],
+
+  deploy: {
+    production: {
+      user: 'deploy',
+      host: 'myserver.com',
+      ref: 'origin/main',
+      repo: 'git@github.com:user/repo.git',
+      path: '/var/www/api',
+      'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.js --env production',
+    }
+  }
+};
+
+// Komendy PM2:
+// pm2 start ecosystem.config.js --env production
+// pm2 reload api-server          # zero-downtime reload (cluster mode)
+// pm2 logs api-server --lines 100
+// pm2 monit                      # interaktywny monitor
+// pm2 save && pm2 startup        # autorestart po restarcie serwera</code></pre>
+
+  <h2>Docker — multi-stage Dockerfile</h2>
+  <p>Multi-stage build redukuje rozmiar finalnego obrazu Docker przez oddzielenie etapu budowania (kompilacja TypeScript, instalacja devDependencies) od etapu produkcyjnego (tylko runtime i zaleznosci produkcyjne). Finalny obraz moze byc o 60-80% mniejszy.</p>
+
+  <pre><code># Dockerfile — multi-stage build dla Node.js 22
+# ============ STAGE 1: Builder ============
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# Kopiuj tylko package files — warstwa jest cachowana jesli nie zmienily sie zaleznosci
+COPY package*.json ./
+RUN npm ci --include=dev          # instaluj tez devDependencies (tsc, typy)
+
+# Kopiuj kod zrodlowy i kompiluj
+COPY tsconfig.json ./
+COPY src/ ./src/
+RUN npm run build                 # tsc -> dist/
+
+# ============ STAGE 2: Production ============
+FROM node:22-alpine AS production
+
+# Bezpieczenstwo: nie uruchamiaj jako root
+RUN addgroup -g 1001 -S nodejs && adduser -S nodeuser -u 1001 -G nodejs
+
+WORKDIR /app
+
+# Kopiuj tylko package files produkcyjne
+COPY package*.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+
+# Kopiuj skompilowany kod z buildera
+COPY --from=builder /app/dist ./dist
+
+# Zmien wlasciciela plikow
+RUN chown -R nodeuser:nodejs /app
+USER nodeuser
+
+# Metadane obrazu
+LABEL org.opencontainers.image.source="https://github.com/user/repo"
+LABEL org.opencontainers.image.description="My API Server"
+
+EXPOSE 3000
+
+# Healthcheck wbudowany w Docker
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+
+CMD ["node", "dist/index.js"]
+
+# --- Roznice alpine vs slim ---
+# node:22-alpine  (~65 MB)  — minimalistyczny, musl libc, brak niektorych narzedzi
+# node:22-slim    (~180 MB) — Debian bez zbednych paczek, glibc, lepsza kompatybilnosc
+# node:22         (~950 MB) — pelny Debian — tylko do developmentu!</code></pre>
+
+  <h2>docker-compose — lokalne srodowisko</h2>
+  <pre><code># docker-compose.yml — API + PostgreSQL + Redis
+services:
+  api:
+    build: { context: ., dockerfile: Dockerfile, target: production }
+    ports: ['3000:3000']
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:secret@postgres:5432/mydb
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}           # z pliku .env hosta
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    restart: unless-stopped
+    networks: [app-network]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d mydb']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [app-network]
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+    networks: [app-network]
+
+volumes: { postgres-data: {}, redis-data: {} }
+networks: { app-network: { driver: bridge } }</code></pre>
+
+  <h2>Graceful Shutdown</h2>
+  <p>Graceful shutdown to proces bezpiecznego zamkniecia aplikacji: zatrzymanie przyjmowania nowych polaczen, dokonczenie obslugi biezacych zapytan, zamkniecie polaczen z baza danych i innymi zasobami. Bez tego, zatrzymanie procesu moze przerwac aktywne transakcje i uszkodzic dane.</p>
+
+  <pre><code>// graceful-shutdown.ts — implementacja dla Express + Prisma
+import { Server } from 'http';
+import { PrismaClient } from '@prisma/client';
+
+export function setupGracefulShutdown(server: Server, prisma: PrismaClient) {
+  let isShuttingDown = false;
+
+  async function shutdown(signal: string) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    console.log(`\n[Shutdown] Otrzymano ${signal} — rozpoczynam graceful shutdown...`);
+
+    // 1. Zatrzymaj przyjmowanie nowych polaczen
+    server.close(async (err) => {
+      if (err) {
+        console.error('[Shutdown] Blad zamkniecia serwera HTTP:', err);
+        process.exit(1);
+      }
+
+      console.log('[Shutdown] Serwer HTTP zamkniety');
+
+      try {
+        // 2. Zamknij polaczenie z baza danych
+        await prisma.$disconnect();
+        console.log('[Shutdown] Polaczenie z baza danych zamkniete');
+
+        // 3. Inne zasoby (Redis, kolejki, etc.)
+        // await redisClient.quit();
+        // await messageQueue.close();
+
+        console.log('[Shutdown] Aplikacja zamknieta pomyslnie');
+        process.exit(0);
+      } catch (cleanupErr) {
+        console.error('[Shutdown] Blad podczas czyszczenia zasobow:', cleanupErr);
+        process.exit(1);
+      }
+    });
+
+    // Wymuszony exit po 30 sekundach (deadline)
+    setTimeout(() => {
+      console.error('[Shutdown] Timeout! Wymuszone zamkniecie.');
+      process.exit(1);
+    }, 30_000).unref(); // .unref() — nie blokuje event loop
+  }
+
+  // Sygnaly systemowe
+  process.on('SIGTERM', () => shutdown('SIGTERM')); // Docker stop, Kubernetes, PM2
+  process.on('SIGINT',  () => shutdown('SIGINT'));  // Ctrl+C w terminalu
+
+  // Niezlapane bledy — loguj i zamknij
+  process.on('uncaughtException', (err) => {
+    console.error('[FATAL] Niezlapany wyjatek:', err);
+    shutdown('uncaughtException');
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('[FATAL] Niezlapane odrzucenie Promise:', reason);
+    shutdown('unhandledRejection');
+  });
+
+  // Sygnalizacja gotowosci PM2 (wait_ready: true w ecosystem.config.js)
+  if (process.send) process.send('ready');
+  console.log('[App] Serwer gotowy, czeka na polaczenia');
+}</code></pre>
+
+  <h2>Health Check Endpoint</h2>
+  <p>Endpoint <code>/health</code> (lub <code>/healthz</code>) jest sprawdzany przez load balancery, Docker, Kubernetes i platformy PaaS. Powinien sprawdzic krytyczne zaleznosci (baza danych, cache) i odpowiedziec szybko.</p>
+
+  <h2>Zarzadzanie zmiennymi srodowiskowymi</h2>
+  <p>Zmienne srodowiskowe sa standardem dla konfiguracji aplikacji (12-factor app). Wazne zasady: nie commituj <code>.env</code> do repozytorium, uzyj <code>.env.example</code> z placeholderami, waliduj zmienne przy starcie aplikacji.</p>
+
+  <h3>dotenv vs @dotenvx/dotenvx</h3>
+  <p><strong>dotenv</strong> to klasyczna biblioteka ladowania <code>.env</code>. <strong>@dotenvx/dotenvx</strong> (2024) rozszerza dotenv o: szyfrowanie plikow <code>.env</code> (mozna je commitowac!), wsparcie dla wielu srodowisk (<code>.env.production</code>, <code>.env.staging</code>) i CLI do zarzadzania sekretami.</p>
+
+  <h2>Platformy PaaS — Railway, Fly.io, Render</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Platforma</th>
+        <th>Deployment</th>
+        <th>Bazy danych</th>
+        <th>Regiony</th>
+        <th>Darmowy plan</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Railway</strong></td>
+        <td>Git push / Docker</td>
+        <td>Postgres, MySQL, Redis, MongoDB</td>
+        <td>US, EU (ograniczone)</td>
+        <td>5 USD kredyt/mies.</td>
+      </tr>
+      <tr>
+        <td><strong>Fly.io</strong></td>
+        <td>flyctl deploy (Docker)</td>
+        <td>Postgres (Fly Postgres), Redis (Upstash)</td>
+        <td>30+ (global edge)</td>
+        <td>Ograniczony (3 shared VM)</td>
+      </tr>
+      <tr>
+        <td><strong>Render</strong></td>
+        <td>Git push / Docker</td>
+        <td>Postgres, Redis</td>
+        <td>US, EU, Singapur</td>
+        <td>Tak (sen po 15 min)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <strong>Zero-downtime deployment z PM2</strong>
+    <p style="margin-top:8px;margin-bottom:0">W trybie cluster, komenda <code>pm2 reload app-name</code> (nie <code>restart</code>) wykonuje rolling reload — restartuje instancje jedna po drugiej, zachowujac ciaglosc dzialania serwisu. Nowe zapytania trafiaja do juz zrestartowanych instancji podczas gdy pozostale konczą biezace zapytania.</p>
+  </div>
+
+  <div class="card orange">
+    <strong>node:alpine — potencjalne problemy</strong>
+    <p style="margin-top:8px;margin-bottom:0">Alpine uzywa musl libc zamiast glibc. Niektore natywne moduly npm (np. <code>bcrypt</code>, <code>sharp</code>, <code>canvas</code>) moga nie dzialac lub wymagac kompilacji. Jesli uzywasz natywnych modulow — wybierz <code>node:22-slim</code> (Debian, glibc) lub dodaj do Dockerfile pakiety budujace: <code>apk add --no-cache python3 make g++</code>.</p>
+  </div>
+
+  <div class="card blue">
+    <strong>Walidacja zmiennych srodowiskowych przy starcie</strong>
+    <p style="margin-top:8px;margin-bottom:0">Uzyj Zod lub envalid do walidacji <code>process.env</code> przy starcie aplikacji. Jesli brakuje wymaganej zmiennej — aplikacja powinna natychmiast sie zatrzymac z czytelnym komunikatem bledu, zamiast dzialac z nieprawidlowa konfiguracja i crashowac pozniej.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="09-uwierzytelnianie.html">← 09-uwierzytelnianie.html</a>
+    <a href="../index.html">../index.html →</a>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenAPI z PHP</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">PHP</a><span class="sep">/</span>
+  <span class="title">OpenAPI z PHP</span>
+</div>
+<div class="container">
+  <h1>OpenAPI z PHP</h1>
+  <p class="subtitle">L5-Swagger, NelmioApiDocBundle, zircote/swagger-php, generowanie klientow i Stoplight Studio</p>
+
+  <h2>OpenAPI w ekosystemie PHP</h2>
+  <p>OpenAPI Specification (OAS) to standard opisywania REST API w formacie JSON lub YAML. W PHP dokumentacje OpenAPI mozna generowac na trzy sposoby: przez atrybuty PHP 8 w kodzie (podejscie code-first), przez reczne pliki YAML/JSON (design-first) lub przez automatyczna introspekcje frameworka (jak API Platform). Kazdemu podejsciu odpowiada inny zestaw narzedzi.</p>
+
+  <table>
+    <thead>
+      <tr><th>Narzedzie</th><th>Framework</th><th>Podejscie</th><th>OpenAPI version</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>L5-Swagger</strong></td><td>Laravel</td><td>Code-first (atrybuty)</td><td>OAS 3.0 / 3.1</td></tr>
+      <tr><td><strong>NelmioApiDocBundle</strong></td><td>Symfony</td><td>Code-first + YAML</td><td>OAS 3.0</td></tr>
+      <tr><td><strong>zircote/swagger-php</strong></td><td>Dowolny PHP</td><td>Code-first (atrybuty)</td><td>OAS 3.0 / 3.1</td></tr>
+      <tr><td><strong>API Platform</strong></td><td>Symfony</td><td>Auto (z encji)</td><td>OAS 3.0</td></tr>
+      <tr><td><strong>Stoplight Studio</strong></td><td>Dowolny</td><td>Design-first (GUI)</td><td>OAS 3.0 / 3.1</td></tr>
+    </tbody>
+  </table>
+
+  <h2>L5-Swagger dla Laravel</h2>
+  <p>L5-Swagger to pakiet integrujacy biblioteke <code>zircote/swagger-php</code> z Laravel. Umozliwia opisywanie API przez atrybuty PHP 8 bezposrednio w kontrolerach, modelach i klasach DTO. Generuje specyfikacje OpenAPI i wbudowany Swagger UI dostepny przez przegldarke.</p>
+
+  <div class="card blue">
+    <strong>Instalacja i konfiguracja L5-Swagger</strong>
+    <pre style="margin:8px 0 0"><code># Instalacja
+composer require darkaonline/l5-swagger
+
+# Publikacja konfiguracji
+php artisan vendor:publish --provider="L5Swagger\L5SwaggerServiceProvider"
+
+# Generowanie dokumentacji (uruchom po kazdej zmianie atrybutow)
+php artisan l5-swagger:generate
+
+# Swagger UI dostepny pod: /api/documentation
+# JSON spec pod: /api/documentation.json
+</code></pre>
+  </div>
+
+<pre><code>&lt;?php
+
+namespace App\Http\Controllers\Api;
+
+use OpenApi\Attributes as OA;
+
+// Globalna konfiguracja API (zwykle w osobnym pliku lub w glownym kontrolerze)
+#[OA\Info(
+    title: 'My Product API',
+    version: '1.0.0',
+    description: 'API do zarzadzania produktami',
+    contact: new OA\Contact(email: 'api@example.com'),
+    license: new OA\License(name: 'MIT'),
+)]
+#[OA\Server(url: 'https://api.example.com/v1', description: 'Produkcja')]
+#[OA\Server(url: 'http://localhost:8000/api', description: 'Development')]
+#[OA\SecurityScheme(
+    securityScheme: 'bearerAuth',
+    type: 'http',
+    scheme: 'bearer',
+    bearerFormat: 'JWT',
+)]
+class ApiDocController {}
+
+// Kontroler produktow z atrybutami OpenAPI
+class ProductController extends Controller
+{
+    #[OA\Get(
+        path: '/products',
+        operationId: 'listProducts',
+        summary: 'Lista produktow',
+        description: 'Zwraca paginowana liste produktow z opcjonalnym filtrowaniem.',
+        tags: ['Products'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(
+                name: 'page',
+                in: 'query',
+                description: 'Numer strony',
+                schema: new OA\Schema(type: 'integer', minimum: 1, default: 1)
+            ),
+            new OA\Parameter(
+                name: 'per_page',
+                in: 'query',
+                description: 'Liczba wynikow na strone',
+                schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100, default: 15)
+            ),
+            new OA\Parameter(
+                name: 'status',
+                in: 'query',
+                description: 'Filtr statusu produktu',
+                schema: new OA\Schema(type: 'string', enum: ['draft', 'published', 'archived'])
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Sukces — lista produktow',
+                content: new OA\JsonContent(ref: '#/components/schemas/ProductCollection')
+            ),
+            new OA\Response(response: 401, description: 'Brak uwierzytelnienia'),
+            new OA\Response(response: 429, description: 'Przekroczono limit zapytan'),
+        ]
+    )]
+    public function index(Request $request): JsonResponse
+    {
+        // implementacja...
+    }
+
+    #[OA\Post(
+        path: '/products',
+        operationId: 'createProduct',
+        summary: 'Tworzenie produktu',
+        tags: ['Products'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(ref: '#/components/schemas/StoreProductRequest')
+        ),
+        responses: [
+            new OA\Response(
+                response: 201,
+                description: 'Produkt utworzony',
+                content: new OA\JsonContent(ref: '#/components/schemas/ProductResource')
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Blad walidacji',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string'),
+                        new OA\Property(property: 'errors', type: 'object'),
+                    ]
+                )
+            ),
+        ]
+    )]
+    public function store(StoreProductRequest $request): JsonResponse
+    {
+        // implementacja...
+    }
+}
+
+// Schema DTO opisujaca cialo requestu
+#[OA\Schema(
+    schema: 'StoreProductRequest',
+    required: ['name', 'price', 'category_id'],
+    properties: [
+        new OA\Property(property: 'name', type: 'string', minLength: 2, maxLength: 255, example: 'Laptop Dell XPS 15'),
+        new OA\Property(property: 'price', type: 'number', format: 'float', minimum: 0.01, example: 4999.99),
+        new OA\Property(property: 'category_id', type: 'integer', example: 5),
+        new OA\Property(property: 'description', type: 'string', nullable: true),
+        new OA\Property(property: 'status', type: 'string', enum: ['draft', 'published'], default: 'draft'),
+    ]
+)]
+class StoreProductRequest extends FormRequest {}
+</code></pre>
+
+  <h2>NelmioApiDocBundle dla Symfony</h2>
+  <p>NelmioApiDocBundle integruje dokumentacje OpenAPI z Symfony, automatycznie wykrywajac trasy, kontrolery i typy PHP. Wspolpracuje z symfony/serializer, symfony/validator i API Platform. Dokumentacja generowana jest dynamicznie przy kazdym zadaniu (lub z cache).</p>
+
+  <div class="card green">
+    <strong>Instalacja NelmioApiDocBundle</strong>
+    <pre style="margin:8px 0 0"><code>composer require nelmio/api-doc-bundle
+
+# config/packages/nelmio_api_doc.yaml
+nelmio_api_doc:
+    documentation:
+        info:
+            title: My API
+            version: '1.0'
+        components:
+            securitySchemes:
+                Bearer:
+                    type: http
+                    scheme: bearer
+    areas:
+        path_patterns:
+            - ^/api
+        host_patterns:
+            - ^api\.
+
+# routing.yaml
+app.swagger_ui:
+    path: /api/doc
+    methods: GET
+    defaults: { _controller: nelmio_api_doc.controller.swagger_ui }
+</code></pre>
+  </div>
+
+  <h2>Generowanie klientow z openapi-generator-cli</h2>
+  <p>Posiadajac specyfikacje OpenAPI mozna automatycznie wygenerowac klientow SDK dla roznych jezykow. <code>openapi-generator-cli</code> obsługuje ponad 50 jezykow docelowych i frameworkow.</p>
+
+<pre><code># Instalacja (npm)
+npm install -g @openapitools/openapi-generator-cli
+
+# Generowanie klienta TypeScript dla React SPA
+openapi-generator-cli generate \
+  -i http://localhost:8000/api/documentation.json \
+  -g typescript-axios \
+  -o ./frontend/src/api-client \
+  --additional-properties=supportsES6=true,useSingleRequestParameter=true
+
+# Generowanie klienta Python
+openapi-generator-cli generate \
+  -i ./openapi.yaml \
+  -g python \
+  -o ./sdk/python \
+  --package-name myapi_client
+
+# Generowanie klienta PHP (dla innych serwisow PHP)
+openapi-generator-cli generate \
+  -i ./openapi.yaml \
+  -g php \
+  -o ./sdk/php \
+  --additional-properties=composerVendorName=mycompany,composerProjectName=my-api-client
+
+# Walidacja specyfikacji przed generowaniem
+openapi-generator-cli validate -i ./openapi.yaml
+</code></pre>
+
+  <h2>Stoplight Studio dla PHP teams</h2>
+  <p>Stoplight Studio to wizualny edytor OpenAPI — design-first podejscie, gdzie zespol najpierw projektuje API w GUI, a potem generuje stubs serwera i klientow. Integruje sie z Git i umozliwia wspolprace wielu osob nad specyfikacja.</p>
+
+  <div class="card orange">
+    <strong>Workflow design-first z Stoplight + PHP</strong>
+    <ol style="margin-top:8px;margin-bottom:0">
+      <li>Zaprojektuj API w Stoplight Studio (drag&amp;drop, wizualny edytor schematow)</li>
+      <li>Commituj openapi.yaml do repozytorium Git</li>
+      <li>Wygeneruj kontrolery PHP z openapi-generator lub uzyj gotowych stubs</li>
+      <li>Implementuj logike biznesowa w wygenerowanych handlerach</li>
+      <li>Waliduj odpowiedzi API wzgledem specyfikacji w testach (league/openapi-psr7-validator)</li>
+      <li>Opublikuj dokumentacje z Stoplight Docs (hosted)</li>
+    </ol>
+  </div>
+
+  <h2>Walidacja odpowiedzi API wzgledem specyfikacji</h2>
+  <p>Mozna automatycznie weryfikowac, czy odpowiedzi serwera sa zgodne ze specyfikacja OpenAPI — zarywno w testach automatycznych jak i w trybie debug na srodowisku dev. Biblioteka <code>league/openapi-psr7-validator</code> waliduje obiekty PSR-7 wzgledem pliku OpenAPI.</p>
+
+  <div class="nav-bottom">
+    <a href="08-walidacja-bezpieczenstwo.html">← 08-walidacja-bezpieczenstwo.html</a>
+    <a href="10-deployment.html">10-deployment.html →</a>
+  </div>
+</div>
+</body>
+</html>

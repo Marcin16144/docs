@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy ASP.NET Core 9 — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">Podstawy ASP.NET Core 9</span>
+</div>
+<div class="container">
+  <h1>Podstawy ASP.NET Core 9</h1>
+  <p class="subtitle">Program.cs, middleware pipeline, DI container, konfiguracja, logowanie i health checks</p>
+
+  <h2>Program.cs — top-level statements</h2>
+  <p>Od .NET 6 plik <code>Program.cs</code> uzywa <strong>top-level statements</strong> — nie ma klasy <code>Program</code> ani metody <code>Main</code>. Kompilator generuje je automatycznie. Calkowity kod startowy aplikacji miesci sie w kilku-kilkunastu liniach.</p>
+  <p>Wzorzec <strong>WebApplication builder</strong> dzieli inicjalizacje na dwa etapy: rejestracje uslug (przed <code>builder.Build()</code>) i konfiguracje middleware (po <code>Build()</code>). Dzieki temu struktura jest jednoznaczna i latwiejsza do testowania.</p>
+  <pre><code>// Program.cs — ASP.NET Core 9 minimal
+var builder = WebApplication.CreateBuilder(args);
+
+// --- rejestracja uslug ---
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddOpenApi();
+builder.Services.AddScoped&lt;IOrderService, OrderService&gt;();
+builder.Services.AddSingleton&lt;ICacheService, MemoryCacheService&gt;();
+
+// --- konfiguracja logowania ---
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+
+var app = builder.Build();
+
+// --- pipeline middleware ---
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.UseDeveloperExceptionPage();
+}
+
+app.UseHttpsRedirection();
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+app.MapHealthChecks("/health");
+
+app.Run();</code></pre>
+
+  <h2>Kolejnosc middleware — zasada FIFO</h2>
+  <p>Middleware w ASP.NET Core tworzy potok (pipeline). Kazdy element odbiera zadanie (<em>request</em>), moze je przetworzyc, przekazac dalej i przetworzyc odpowiedz. <strong>Kolejnosc rejestracji ma kluczowe znaczenie</strong> — blad polega na przykladanie <code>UseAuthorization</code> przed <code>UseAuthentication</code>.</p>
+
+  <div class="card blue">
+    <strong>Poprawna kolejnosc middleware:</strong>
+    <ol style="margin-top:10px">
+      <li><code>UseExceptionHandler</code> / <code>UseDeveloperExceptionPage</code></li>
+      <li><code>UseHttpsRedirection</code></li>
+      <li><code>UseStaticFiles</code></li>
+      <li><code>UseRouting</code></li>
+      <li><code>UseCors</code></li>
+      <li><code>UseAuthentication</code></li>
+      <li><code>UseAuthorization</code></li>
+      <li><code>UseOutputCache</code> / <code>UseResponseCaching</code></li>
+      <li><code>MapControllers</code> / <code>MapEndpoints</code></li>
+    </ol>
+  </div>
+
+  <pre><code>// Przyklad niestandardowego middleware
+public class RequestTimingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger&lt;RequestTimingMiddleware&gt; _logger;
+
+    public RequestTimingMiddleware(RequestDelegate next,
+        ILogger&lt;RequestTimingMiddleware&gt; logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var sw = Stopwatch.StartNew();
+        await _next(context);
+        sw.Stop();
+        _logger.LogInformation(
+            "Request {Method} {Path} zakonczony w {Ms}ms",
+            context.Request.Method,
+            context.Request.Path,
+            sw.ElapsedMilliseconds);
+    }
+}
+
+// rejestracja
+app.UseMiddleware&lt;RequestTimingMiddleware&gt;();</code></pre>
+
+  <h2>Dependency Injection — cykl zycia</h2>
+  <p>ASP.NET Core ma wbudowany kontener DI. Kazda usluga rejestrowana jest z jednym z trzech cyklów zycia:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cykl</th>
+        <th>Metoda rejestracji</th>
+        <th>Kiedy uzywac</th>
+        <th>Uwagi</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Singleton</strong></td>
+        <td><code>AddSingleton</code></td>
+        <td>Cache, konfiguracja, polaczenia wspoldzielone</td>
+        <td>Jedna instancja na caly czas zycia aplikacji. Uwazaj na thread-safety.</td>
+      </tr>
+      <tr>
+        <td><strong>Scoped</strong></td>
+        <td><code>AddScoped</code></td>
+        <td>DbContext, jednostki pracy (Unit of Work)</td>
+        <td>Jedna instancja na zadanie HTTP. Domyslny wybor dla wiekszosci serwisow.</td>
+      </tr>
+      <tr>
+        <td><strong>Transient</strong></td>
+        <td><code>AddTransient</code></td>
+        <td>Lekkie, bezstanowe serwisy</td>
+        <td>Nowa instancja przy kazdym pobraniu z kontenera.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <pre><code>// Rejestracja roznych cyklow zycia
+builder.Services.AddSingleton&lt;IConfiguration&gt;(builder.Configuration);
+builder.Services.AddScoped&lt;IUnitOfWork, UnitOfWork&gt;();
+builder.Services.AddScoped&lt;IProductRepository, ProductRepository&gt;();
+builder.Services.AddTransient&lt;IEmailSender, SmtpEmailSender&gt;();
+
+// Rejestracja z fabryke (factory)
+builder.Services.AddScoped&lt;IReportService&gt;(sp =&gt;
+{
+    var config = sp.GetRequiredService&lt;IConfiguration&gt;();
+    var repo = sp.GetRequiredService&lt;IReportRepository&gt;();
+    return new ReportService(repo, config["Reports:OutputPath"]!);
+});
+
+// Wstrzykiwanie przez konstruktor
+public class ProductController : ControllerBase
+{
+    private readonly IProductRepository _repo;
+    private readonly ILogger&lt;ProductController&gt; _logger;
+
+    public ProductController(
+        IProductRepository repo,
+        ILogger&lt;ProductController&gt; logger)
+    {
+        _repo = repo;
+        _logger = logger;
+    }
+}</code></pre>
+
+  <h2>Konfiguracja — appsettings.json i zmienne srodowiskowe</h2>
+  <p>ASP.NET Core laduje konfiguracje z wielu zrodel w ustalonej kolejnosci (pozniejsze nadpisuja wczesniejsze):</p>
+  <ol>
+    <li><code>appsettings.json</code></li>
+    <li><code>appsettings.{Environment}.json</code> (np. <code>appsettings.Development.json</code>)</li>
+    <li>User Secrets (tylko Development)</li>
+    <li>Zmienne srodowiskowe</li>
+    <li>Argumenty wiersza polecen</li>
+  </ol>
+
+  <pre><code>// appsettings.json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=MyDb;Trusted_Connection=True;"
+  },
+  "Jwt": {
+    "Secret": "ZMIEN_MNIE_W_PRODUKCJI",
+    "Issuer": "https://myapi.example.com",
+    "ExpiryMinutes": 60
+  },
+  "FeatureFlags": {
+    "EnableNewCheckout": false
+  }
+}</code></pre>
+
+  <pre><code>// Silnie typowana konfiguracja — Options Pattern
+public class JwtOptions
+{
+    public const string SectionName = "Jwt";
+    public string Secret { get; set; } = string.Empty;
+    public string Issuer { get; set; } = string.Empty;
+    public int ExpiryMinutes { get; set; } = 60;
+}
+
+// rejestracja w Program.cs
+builder.Services.Configure&lt;JwtOptions&gt;(
+    builder.Configuration.GetSection(JwtOptions.SectionName));
+
+// uzycie w serwisie
+public class TokenService
+{
+    private readonly JwtOptions _opts;
+
+    public TokenService(IOptions&lt;JwtOptions&gt; opts)
+    {
+        _opts = opts.Value;
+    }
+}</code></pre>
+
+  <h3>User Secrets (tajne dane w dev)</h3>
+  <pre><code># Inicjalizacja user secrets
+dotnet user-secrets init
+
+# Dodanie sekretu
+dotnet user-secrets set "Jwt:Secret" "super-tajny-klucz-dev"
+
+# Lista sekretow
+dotnet user-secrets list</code></pre>
+
+  <h2>ILogger i structured logging</h2>
+  <p>ASP.NET Core ma wbudowany system logowania przez <code>ILogger&lt;T&gt;</code>. Structured logging pozwala zapisywac dane jako pola, nie ciagi znakow, co ulatwia filtrowanie w Kibana / Seq / Grafana Loki.</p>
+
+  <pre><code>// Logowanie strukturalne — prawidlowo
+_logger.LogInformation(
+    "Zamowienie {OrderId} zlozone przez {UserId} na kwote {Amount:C}",
+    order.Id, order.UserId, order.TotalAmount);
+
+// Logowanie z wyjatkiem
+try { /* ... */ }
+catch (Exception ex)
+{
+    _logger.LogError(ex,
+        "Blad przetwarzania zamowienia {OrderId}", orderId);
+    throw;
+}
+
+// Logowanie warunkowe (unikanie alokacji)
+if (_logger.IsEnabled(LogLevel.Debug))
+{
+    _logger.LogDebug("Szczegoly: {Payload}", JsonSerializer.Serialize(data));
+}</code></pre>
+
+  <h3>Serilog — konfiguracja</h3>
+  <pre><code>// dotnet add package Serilog.AspNetCore
+// dotnet add package Serilog.Sinks.Console
+// dotnet add package Serilog.Sinks.Seq
+
+// Program.cs
+builder.Host.UseSerilog((ctx, lc) =&gt; lc
+    .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .WriteTo.Console(new JsonFormatter())
+    .WriteTo.Seq("http://localhost:5341"));
+
+// appsettings.json (Serilog sekcja)
+{
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft.AspNetCore": "Warning",
+        "System": "Warning"
+      }
+    }
+  }
+}</code></pre>
+
+  <h2>Health Checks</h2>
+  <p>Health checks pozwalaja Kubernetes, load balancerom i narzędziom monitorowania sprawdzac, czy aplikacja dziala prawidlowo. ASP.NET Core ma wbudowane wsparcie przez pakiet <code>Microsoft.AspNetCore.Diagnostics.HealthChecks</code>.</p>
+
+  <pre><code>// rejestracja
+builder.Services.AddHealthChecks()
+    .AddSqlServer(
+        connectionString: builder.Configuration.GetConnectionString("DefaultConnection")!,
+        healthQuery: "SELECT 1",
+        name: "sqlserver",
+        tags: new[] { "database", "sql" })
+    .AddRedis(
+        redisConnectionString: builder.Configuration["Redis:ConnectionString"]!,
+        name: "redis",
+        tags: new[] { "cache" })
+    .AddCheck&lt;CustomDependencyCheck&gt;("external-api");
+
+// mapowanie endpointow
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ =&gt; false  // zawsze zwraca 200 jesli aplikacja chodzi
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = hc =&gt; hc.Tags.Contains("database")
+});</code></pre>
+
+  <pre><code>// Niestandardowy health check
+public class CustomDependencyCheck : IHealthCheck
+{
+    private readonly HttpClient _http;
+
+    public CustomDependencyCheck(HttpClient http)
+    {
+        _http = http;
+    }
+
+    public async Task&lt;HealthCheckResult&gt; CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _http.GetAsync("/ping", cancellationToken);
+            return response.IsSuccessStatusCode
+                ? HealthCheckResult.Healthy("Zewnetrzne API dostepne")
+                : HealthCheckResult.Degraded("Zewnetrzne API odpowiada z bledem");
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("Zewnetrzne API niedostepne", ex);
+        }
+    }
+}</code></pre>
+
+  <div class="card green">
+    <strong>Wskazowka Kubernetes:</strong> Uzyj <code>/health/live</code> jako <em>livenessProbe</em> i <code>/health/ready</code> jako <em>readinessProbe</em>. Kubernetes zatrzyma ruch do poda, gdy readiness zwroci blad, ale nie zrestartuje go, dopoki liveness pozostaje OK.
+  </div>
+
+  <h2>Podsumowanie — dobre praktyki</h2>
+  <ul>
+    <li>Zawsze rejestruj DbContext jako <strong>Scoped</strong> — nigdy Singleton (problemy z wspolbieznoscia).</li>
+    <li>Unikaj <code>ServiceLocator</code> (pobieranie DI z <code>IServiceProvider</code> w logice biznesowej).</li>
+    <li>Separuj konfiguracje srodowisk — sekrety trzymaj w zmiennych srodowiskowych lub Azure Key Vault.</li>
+    <li>Uzywaj <strong>structured logging</strong> z nazwanymi parametrami, nie interpolacji stringow.</li>
+    <li>Rejestruj health checks dla kazdej zaleznosci zewnetrznej (baza, cache, API).</li>
+    <li>Nie ignoruj ostrzezen kompilatora o nullable — wlacz <code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code> w .csproj.</li>
+  </ul>
+
+  <div class="nav-bottom">
+    <a href="index.html">← index.html</a>
+    <a href="02-minimal-apis.html">02-minimal-apis.html →</a>
+  </div>
+</div>
+</body>
+</html>

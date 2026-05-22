@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06-03-obliczanie-mocy - Obliczanie mocy transformatora</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:850px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:24px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:22px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text-muted);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6;white-space:pre}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Strona glowna</a>
+        <span class="sep">/</span>
+        <a href="06-transformatory.html">06 - Transformatory</a>
+        <span class="sep">/</span>
+        <span class="title">06-03-obliczanie-mocy</span>
+    </div>
+    <div class="container">
+        <h1>Obliczanie mocy transformatora</h1>
+<h2>Wstęp</h2>
+<p>Najbardziej praktyczny rozdział tej części. Pokażemy, <strong>jak krok po kroku</strong> zaprojektować transformator sieciowy (50/60 Hz, blacha EI) — od mocy do gotowego rysunku zwojów i drutu.</p>
+<h2>Podstawowe dane wyjściowe</h2>
+<p>Aby zaprojektować transformator, musisz znać:</p>
+<ol>
+<li>Napięcie pierwotne U₁ (zwykle 230 V AC)</li>
+<li>Napięcie wtórne U₂ (np. 12 V)</li>
+<li>Prąd wtórny I₂ (np. 2 A)</li>
+<li>Częstotliwość f (50 Hz w Europie)</li>
+</ul>
+<p>Lub wprost moc P i napięcia.</p>
+<h2>Krok 1: Obliczenie mocy</h2>
+<pre><code>
+P_2 = U_2 · I_2
+
+P_2 — moc wtórna [W lub VA]
+</code></pre>
+<p>Dla transformatora wieloraz wtórnego sumujesz wszystkie wyjścia:</p>
+<pre><code>
+P_2_total = U_2a · I_2a + U_2b · I_2b + ...
+</code></pre>
+<h3>Moc pierwotna</h3>
+<pre><code>
+P_1 = P_2 / η
+
+η — sprawność, dla małych trafo 0,7-0,85
+            dla średnich 0,85-0,92
+            dla dużych 0,93-0,97
+</code></pre>
+<h3>Przykład</h3>
+<p>U_2 = 12 V, I_2 = 2 A → P_2 = 24 W.</p>
+<p>Mały transformator, η ≈ 0,8.</p>
+<p>P_1 = 24 / 0,8 = 30 W.</p>
+<h2>Krok 2: Wybór rdzenia (przekroju)</h2>
+<p>Empiryczny wzór dla blach EI sieciowych:</p>
+<pre><code>
+S [cm²] = k · √P
+
+k = 1,0 - 1,2 (uniwersalny)
+k = 0,8     (jeśli stosujesz B_max bliskie 1,5T, większe straty)
+</code></pre>
+<p>Dla naszego przykładu (P_1 = 30 W):</p>
+<pre><code>
+S = 1,1 · √30 ≈ 6 cm²
+</code></pre>
+<p>W tablicach blach: <strong>EI54 ma S = 5,7 cm²</strong> — wybieramy ten.</p>
+<h3>Dobór rdzenia z dostępnych</h3>
+<table>
+<thead><tr>
+<th>Typ blachy</th>
+<th>S [cm²]</th>
+<th>Max P [W]</th>
+</tr></thead><tbody>
+<tr>
+<td>EI28</td>
+<td>1,4</td>
+<td>5-10</td>
+</tr>
+<tr>
+<td>EI38</td>
+<td>2,8</td>
+<td>15-25</td>
+</tr>
+<tr>
+<td>EI42</td>
+<td>3,5</td>
+<td>20-40</td>
+</tr>
+<tr>
+<td>EI48</td>
+<td>4,5</td>
+<td>40-60</td>
+</tr>
+<tr>
+<td>EI54</td>
+<td>5,7</td>
+<td>60-90</td>
+</tr>
+<tr>
+<td>EI66</td>
+<td>9,0</td>
+<td>100-150</td>
+</tr>
+<tr>
+<td>EI78</td>
+<td>12,8</td>
+<td>200-300</td>
+</tr>
+<tr>
+<td>EI96</td>
+<td>22</td>
+<td>400-600</td>
+</tr>
+<tr>
+<td>EI114</td>
+<td>35</td>
+<td>800-1200</td>
+</tr>
+<tr>
+<td>EI120</td>
+<td>41</td>
+<td>1200-1500</td>
+</tr>
+<tr>
+<td>EI150</td>
+<td>60</td>
+<td>2000-3000</td>
+</tr>
+</tbody></table>
+<p>(Tablica orientacyjna. Konkretne wartości zależą od grubości pakietu i jakości blachy.)</p>
+<h3>Wpływ grubości pakietu</h3>
+<p>Wartość S oznacza <strong>rzeczywisty przekrój</strong>:</p>
+<pre><code>
+S = a · b · k_p
+
+a — szerokość kolumny środkowej
+b — grubość pakietu
+k_p — współczynnik wypełnienia (0,9-0,95 dla dobrej blachy)
+</code></pre>
+<p>Czyli blacha EI66 z kolumną 22 mm i pakietem 40 mm:</p>
+<pre><code>
+S = 2,2 · 4 · 0,93 = 8,2 cm² 
+</code></pre>
+<p>(W katalogach blach często można dopasować grubość pakietu pod konkretną moc.)</p>
+<h2>Krok 3: Obliczenie zwojów na wolt</h2>
+<p>Z prawa Faradaya:</p>
+<pre><code>
+U/N = 4,44 · f · B_max · S
+
+przy f=50 Hz, S w cm² i B_max=1,2 T:
+U/N ≈ 26,6 · 10⁻⁴ · S 
+
+N/U = 1 / (4,44 · 50 · 1,2 · S · 10⁻⁴) = 37,5 / S
+</code></pre>
+<p>Wzór praktyczny:</p>
+<pre><code>
+N/V ≈ 38 / S    (gdy S w cm², B_max ≈ 1,2 T)
+</code></pre>
+<p>Dla S = 5,7 cm²:</p>
+<pre><code>
+N/V = 38 / 5,7 = 6,67 zwojów/V
+</code></pre>
+<p>(W literaturze radioelektronicznej często N/V = 45/S; różnica wynika z innej B_max.)</p>
+<h2>Krok 4: Obliczenie zwojów uzwojeń</h2>
+<pre><code>
+N_1 = (N/V) · U_1 = 6,67 · 230 = 1534 zwoje
+N_2 = (N/V) · U_2 = 6,67 · 12 = 80 zwojów
+</code></pre>
+<h3>Korekta dla wtórnego — kompensacja spadku napięcia</h3>
+<p>Transformator pod obciążeniem ma spadek napięcia 5-15% (regulacja ε). Aby pod obciążeniem dostać dokładnie U_2, dodajemy zwoje:</p>
+<pre><code>
+N_2_pop = N_2 · (1 + ε)
+</code></pre>
+<p>Dla ε = 0,1 (10%):</p>
+<pre><code>
+N_2_pop = 80 · 1,1 = 88 zwojów
+</code></pre>
+<p>W ten sposób transformator daje 13-14 V bez obciążenia, ale dokładnie 12 V przy 2 A.</p>
+<h3>Gdy chcesz precyzyjnego napięcia — wyprowadź odczepy</h3>
+<p>Można zostawić odczepy co kilka zwojów (np. co 2-5 zwojów) na końcu uzwojenia. Po pomiarze i obciążeniu dobierasz najlepszy odczep.</p>
+<h2>Krok 5: Dobór drutu</h2>
+<h3>Gęstość prądu (j)</h3>
+<p>Określa, jaki prąd zniesie drut bez nadmiernego grzania. W praktyce:</p>
+<table>
+<thead><tr>
+<th>Moc transformatora</th>
+<th>j [A/mm²]</th>
+</tr></thead><tbody>
+<tr>
+<td>&lt; 50 VA</td>
+<td>4-5</td>
+</tr>
+<tr>
+<td>50-200 VA</td>
+<td>3-3,5</td>
+</tr>
+<tr>
+<td>200-1000 VA</td>
+<td>2,5-3</td>
+</tr>
+<tr>
+<td>&gt; 1 kVA</td>
+<td>2-2,5</td>
+</tr>
+</tbody></table>
+<p>Wyższe gęstości = większe straty I²R, grzanie. Niższe = grubsze druty, większy koszt.</p>
+<h3>Wzór na przekrój</h3>
+<pre><code>
+S_drut [mm²] = I / j
+</code></pre>
+<h3>Średnica drutu</h3>
+<pre><code>
+d = √(4·S/π) ≈ 1,13 · √S
+</code></pre>
+<h3>Przykład</h3>
+<p>Uzwojenie pierwotne. I_1 = P_1/U_1 = 30/230 ≈ 0,13 A.</p>
+<p>j = 4 A/mm² (mały transformator):</p>
+<pre><code>
+S_drut = 0,13 / 4 = 0,033 mm²
+d = 1,13 · √0,033 = 0,205 mm
+</code></pre>
+<p>→ Najbliższy standard: <strong>drut 0,2 mm</strong> (lub 0,21 mm).</p>
+<p>Uzwojenie wtórne. I_2 = 2 A:</p>
+<pre><code>
+S_drut = 2 / 4 = 0,5 mm²
+d = 1,13 · √0,5 = 0,8 mm
+</code></pre>
+<p>→ Drut <strong>0,8 mm</strong> (lub 0,85 mm).</p>
+<h3>Standardowe średnice drutu (mm)</h3>
+<pre><code>
+0,1  0,12 0,15 0,17 0,2  0,22 0,25 0,28 0,3  0,32
+0,35 0,4  0,45 0,5  0,55 0,6  0,7  0,8  0,9  1,0
+1,1  1,2  1,3  1,4  1,5  1,6  1,8  2,0  2,2  2,5
+</code></pre>
+<h2>Krok 6: Sprawdzenie wypełnienia okna</h2>
+<p><strong>Okno</strong> to wolna przestrzeń w rdzeniu na uzwojenie:</p>
+<pre><code>
+A_okno = c · h
+
+c — szerokość okna
+h — wysokość okna
+</code></pre>
+<p>Powierzchnia drutu (z izolacją):</p>
+<pre><code>
+A_drut = N_1 · A_drut_pierw + N_2 · A_drut_wtór + ...
+</code></pre>
+<p>Współczynnik wypełnienia:</p>
+<pre><code>
+k_w = A_drut / A_okno
+
+k_w typowo: 0,3 - 0,5
+</code></pre>
+<p>Jeśli k_w &gt; 0,55 → nie pomieści się (zostaw zapas na izolację międzywarstwową, karkas).</p>
+<p>Jeśli k_w &lt; 0,2 → możesz użyć grubszego drutu lub mniejszego rdzenia.</p>
+<h3>Powierzchnia drutu z izolacją</h3>
+<p>Drut emaliowany ma izolację dodającą ~0,02-0,04 mm do średnicy:</p>
+<pre><code>
+d_zewn = d_drut + 0,03
+A_zewn = π · d_zewn² / 4
+</code></pre>
+<h2>Pełen przykład projektu — krok po kroku</h2>
+<h3>Zadanie</h3>
+<p>Transformator 230 V → 24 V, 3 A. Moc P_2 = 72 W.</p>
+<h3>Krok 1: moc, sprawność</h3>
+<p>η ≈ 0,87 (dla 70-80 W jest to typowe).</p>
+<p>P_1 = 72 / 0,87 = 82 W.</p>
+<h3>Krok 2: rdzeń</h3>
+<p>S = 1,1 · √82 = 10 cm².</p>
+<p>→ Wybór: <strong>EI66</strong> (S = 9 cm² z pakietem 30 mm) lub <strong>EI78</strong> z mniejszym pakietem.</p>
+<p>Niech to będzie <strong>EI66, pakiet 35 mm</strong> dający S = 10,5 cm² (lekki zapas).</p>
+<h3>Krok 3: zwoje na wolt</h3>
+<pre><code>
+N/V = 38 / 10,5 ≈ 3,6
+</code></pre>
+<h3>Krok 4: zwoje</h3>
+<pre><code>
+N_1 = 3,6 · 230 = 828 zwojów
+N_2 = 3,6 · 24 · 1,1 (z kompensacją 10%) = 95 zwojów
+</code></pre>
+<h3>Krok 5: druty</h3>
+<pre><code>
+I_1 = 82 / 230 = 0,36 A
+S_drut_1 = 0,36 / 3,5 = 0,103 mm² → d = 0,36 mm → drut 0,35-0,4 mm
+I_2 = 3 A
+S_drut_2 = 3 / 3,5 = 0,86 mm² → d = 1,05 mm → drut 1,0 mm
+</code></pre>
+<h3>Krok 6: sprawdzenie</h3>
+<p>Okno EI66 (typowo): 21 mm × 12 mm = 252 mm². Z karkasem efektywnie ~200 mm².</p>
+<p>Powierzchnia drutu:</p>
+<pre><code>
+A_1 = 828 · π · 0,4² / 4 ≈ 104 mm²    (z izolacją)
+A_2 = 95 · π · 1,03² / 4 ≈ 79 mm²
+A_total = 183 mm²
+
+k_w = 183 / 200 = 0,92
+</code></pre>
+<p>UPS — okna prawie 100% pełne. Trzeba:</p>
+<ul>
+<li>Zwiększyć rdzeń (większy EI78 z większym oknem)</li>
+<li>Lub zmniejszyć j (cieńsze druty? niemożliwe, byłyby się grzały)</li>
+<li>Lub zwiększyć B_max (mniejsza ilość zwojów, ale więcej strat rdzenia)</li>
+</ul>
+<p>Wybierz <strong>EI78</strong> z S = 12,8 cm² i większym oknem:</p>
+<pre><code>
+N/V = 38 / 12,8 = 2,97 zwojów/V
+N_1 = 683 zwoje
+N_2 = 78 (z kompensacją)
+</code></pre>
+<p>Powierzchnia:</p>
+<pre><code>
+A_1 = 683 · 0,126 ≈ 86 mm²
+A_2 = 78 · 0,83 ≈ 65 mm²
+A_total = 151 mm²
+</code></pre>
+<p>Okno EI78 ma ok. 280 mm² → k_w = 151/280 = 0,54. Tak, mieści się z zapasem.</p>
+<h3>Krok 7: weryfikacja i dokumentacja</h3>
+<p>Spisz na kartce:</p>
+<ul>
+<li>Rdzeń: blacha EI78, pakiet 40 mm</li>
+<li>Uzwojenie 1: 683 zwoje drut 0,4 mm emaliowany</li>
+<li>Uzwojenie 2: 78 zwojów drut 1,0 mm emaliowany</li>
+<li>Sprawdzić indukcję B = U / (4,44·f·N·S) = 230 / (4,44·50·683·12,8·10⁻⁴) = 1,18 T ✓</li>
+</ul>
+<h2>Tabela szybkich obliczeń (oświęcimska)</h2>
+<p>Dla blach EI sieciowych 50 Hz, typowe wartości:</p>
+<table>
+<thead><tr>
+<th>Moc [W]</th>
+<th>Rdzeń</th>
+<th>S [cm²]</th>
+<th>N/V</th>
+<th>I_1 [A] @ 230V</th>
+</tr></thead><tbody>
+<tr>
+<td>5</td>
+<td>EI28</td>
+<td>1,4</td>
+<td>27</td>
+<td>0,025</td>
+</tr>
+<tr>
+<td>10</td>
+<td>EI30</td>
+<td>2,0</td>
+<td>19</td>
+<td>0,05</td>
+</tr>
+<tr>
+<td>20</td>
+<td>EI38</td>
+<td>2,8</td>
+<td>14</td>
+<td>0,1</td>
+</tr>
+<tr>
+<td>30</td>
+<td>EI42</td>
+<td>3,5</td>
+<td>11</td>
+<td>0,15</td>
+</tr>
+<tr>
+<td>50</td>
+<td>EI54</td>
+<td>5,7</td>
+<td>6,7</td>
+<td>0,25</td>
+</tr>
+<tr>
+<td>80</td>
+<td>EI66</td>
+<td>9</td>
+<td>4,2</td>
+<td>0,4</td>
+</tr>
+<tr>
+<td>120</td>
+<td>EI66x40</td>
+<td>11</td>
+<td>3,5</td>
+<td>0,6</td>
+</tr>
+<tr>
+<td>200</td>
+<td>EI78</td>
+<td>14</td>
+<td>2,7</td>
+<td>1</td>
+</tr>
+<tr>
+<td>300</td>
+<td>EI96</td>
+<td>22</td>
+<td>1,7</td>
+<td>1,5</td>
+</tr>
+<tr>
+<td>500</td>
+<td>EI114</td>
+<td>35</td>
+<td>1,1</td>
+<td>2,5</td>
+</tr>
+<tr>
+<td>1000</td>
+<td>EI120x60</td>
+<td>50</td>
+<td>0,8</td>
+<td>5</td>
+</tr>
+</tbody></table>
+<h2>Toroidalny transformator</h2>
+<p>Dla toroidu zwykle korzysta się z gotowych rdzeni z parametrami:</p>
+<ul>
+<li>A_e — efektywne pole przekroju</li>
+<li>l_e — efektywna droga</li>
+<li>W — moc znamionowa</li>
+</ul>
+<p>Producent podaje <strong>moc nominalną</strong>, co znacznie ułatwia projekt. Typowo wybierasz rdzeń o mocy 1,1-1,3× zaprojektowanej.</p>
+<p>Liczba zwojów na wolt dla toroidu o S [cm²]:</p>
+<pre><code>
+N/V = 35-45 / S
+</code></pre>
+<p>(różni się dla różnych dostawców).</p>
+<h2>Częste pułapki</h2>
+<h3>1. Pomyłka z mocą czynną i pozorną</h3>
+<p>Transformator dobiera się na <strong>moc pozorną S [VA]</strong>, nie czynną P [W]. Dla obciążenia indukcyjnego (silnik z cos φ = 0,8): S = P / cos φ = P · 1,25.</p>
+<h3>2. Trafo zaprojektowany za blisko nasycenia</h3>
+<p>B_max = 1,5 T (blisko granicy) → straty rośną, hałas, niska sprawność. Bezpiecznie 1,1-1,3 T.</p>
+<h3>3. Zbyt cienki drut</h3>
+<p>Przegrzanie, spalenie izolacji, zwarcie. Lepiej dobrać z zapasem.</p>
+<h3>4. Pomyłka w zwojach</h3>
+<p>Zwykle błąd 10-20% napięcia. Lepiej zostawić odczepy do regulacji.</p>
+<h3>5. Pęcherzyki powietrza w pakiecie</h3>
+<p>Trafo "buczy". Trzeba mocno skręcić blachy, nasycić lakierem.</p>
+<h3>6. Niewłaściwa zwykła blacha zamiast trafo</h3>
+<p>"Czarna" blacha = wysokie straty. Trafo wymaga blachy krzemowej.</p>
+<h3>7. Brak izolacji między uzwojeniami</h3>
+<p>Przebicie z 230 V na 12 V → groźne. Zawsze warstwa papieru elektroizolacyjnego (Nomex, Kapton) lub folii Mylar.</p>
+<h2>Wzór końcowy — szybka kalkulacja</h2>
+<p>Dla małego transformatora 50 Hz, blacha EI:</p>
+<pre><code>
+S [cm²]  ≈ √P [W]
+N/V      ≈ 40/S
+I        = P/U
+d_drut   ≈ 0,7 · √I    [mm, dla j=3 A/mm²]
+</code></pre>
+<p>Da rozsądny punkt startu. Doszlifowujesz w trakcie projektowania.</p>
+<h2>Następny krok</h2>
+<p>Mając obliczone parametry, można zacząć <strong>przewijać transformator</strong> — to temat kolejnego rozdziału (06-04).</p>
+
+        <div class="nav-bottom">
+            <a href="06-02-rdzenie-magnetyczne.html">&larr; 06-02 Rdzenie</a>
+            <a href="06-04-przewijanie-transformatora.html">06-04 Przewijanie &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

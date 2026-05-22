@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tRPC</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Node.js</a>
+  <span class="sep">/</span>
+  <span class="title">tRPC</span>
+</div>
+
+<div class="container">
+  <h1>tRPC</h1>
+  <p class="subtitle">End-to-end typesafe API bez generowania kodu — router, procedures, context, middleware i integracje</p>
+
+  <h2>Czym jest tRPC?</h2>
+  <p>tRPC (TypeScript Remote Procedure Call) to biblioteka umozliwiajaca tworzenie w pelni typowanych API bez potrzeby definiowania schematu (jak GraphQL SDL) ani generowania kodu (jak OpenAPI codegen). Typy sa wspoldzielone bezposrednio miedzy serwerem a klientem przez TypeScript — jezeli zmienisz sygnature procedury na serwerze, klient natychmiast zobaczy blad kompilacji.</p>
+  <p>tRPC <strong>nie jest protokolem</strong> — pod spodem uzywa HTTP (GET dla queries, POST dla mutations). Nie jest tez ORM ani frameworkiem — to warstwa transportu typow miedzy frontendem a backendem w monorepo lub fullstack frameworku (Next.js, SvelteKit).</p>
+
+  <div class="card green">
+    <strong>Glowna zaleta tRPC</strong>
+    <p style="margin-top:8px;margin-bottom:0">Refaktoring API jest bezpieczny — TypeScript wylapuje wszystkie niezgodnosci miedzy serwerem a klientem w czasie kompilacji. Zero schema drift, zero runtime surprises. Idealny dla zespolow pracujacych na fullstack TypeScript w monorepo.</p>
+  </div>
+
+  <h2>Podstawowa konfiguracja — router i procedures</h2>
+  <pre><code>// === server/trpc.ts — inicjalizacja tRPC ===
+import { initTRPC, TRPCError } from '@trpc/server';
+import { z } from 'zod';
+import superjson from 'superjson'; // serializacja Date, Map, Set, BigInt
+
+// Typ kontekstu — dostepny we wszystkich procedurach
+export type Context = {
+  user: { id: string; role: 'admin' | 'user' } | null;
+  db: PrismaClient;
+  req: Request;
+};
+
+// Inicjalizacja tRPC
+const t = initTRPC.context&lt;Context&gt;().create({
+  transformer: superjson, // opcjonalnie: lepsza serializacja niz JSON
+  errorFormatter({ shape, error }) {
+    return {
+      ...shape,
+      data: {
+        ...shape.data,
+        zodError: error.cause instanceof ZodError
+          ? error.cause.flatten()
+          : null,
+      },
+    };
+  },
+});
+
+// Eksportowane buildersy — uzyj ich zamiast bezposrednio t.*
+export const router      = t.router;
+export const publicProc  = t.procedure;           // publiczna procedura
+export const middleware  = t.middleware;
+
+// Middleware autentykacji
+const isAuthed = middleware(({ ctx, next }) => {
+  if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+  return next({ ctx: { ...ctx, user: ctx.user } }); // user jest non-null po tej linii
+});
+
+export const protectedProc = t.procedure.use(isAuthed); // chroniona procedura</code></pre>
+
+  <h2>Router i procedury</h2>
+  <pre><code>// === server/routers/users.ts ===
+import { router, publicProc, protectedProc } from '../trpc';
+import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
+
+const CreateUserSchema = z.object({
+  name:     z.string().min(2).max(100),
+  email:    z.string().email(),
+  password: z.string().min(8),
+});
+
+const UpdateUserSchema = z.object({
+  id:   z.string().uuid(),
+  name: z.string().min(2).optional(),
+  email: z.string().email().optional(),
+});
+
+export const usersRouter = router({
+  // QUERY — odpowiednik GET (cacheowalny)
+  list: protectedProc
+    .input(z.object({ page: z.number().int().positive().default(1), limit: z.number().int().min(1).max(100).default(20) }))
+    .query(async ({ ctx, input }) => {
+      const { page, limit } = input;
+      const [users, total] = await Promise.all([
+        ctx.db.user.findMany({ skip: (page - 1) * limit, take: limit }),
+        ctx.db.user.count(),
+      ]);
+      return { users, total, pages: Math.ceil(total / limit) };
+    }),
+
+  byId: protectedProc
+    .input(z.string().uuid())
+    .query(async ({ ctx, input: id }) => {
+      const user = await ctx.db.user.findUnique({ where: { id } });
+      if (!user) throw new TRPCError({ code: 'NOT_FOUND', message: `Uzytkownik ${id} nie istnieje` });
+      return user;
+    }),
+
+  // MUTATION — odpowiednik POST/PUT/DELETE
+  create: publicProc
+    .input(CreateUserSchema)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.user.findUnique({ where: { email: input.email } });
+      if (existing) throw new TRPCError({ code: 'CONFLICT', message: 'Email juz zajety' });
+      return ctx.db.user.create({ data: { ...input, password: await hash(input.password) } });
+    }),
+
+  update: protectedProc
+    .input(UpdateUserSchema)
+    .mutation(async ({ ctx, input: { id, ...data } }) => {
+      const user = await ctx.db.user.update({ where: { id }, data });
+      return user;
+    }),
+
+  delete: protectedProc
+    .input(z.string().uuid())
+    .mutation(async ({ ctx, input: id }) => {
+      if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+      await ctx.db.user.delete({ where: { id } });
+      return { success: true };
+    }),
+});
+
+// === server/routers/index.ts — glowny router ===
+import { router } from '../trpc';
+import { usersRouter } from './users';
+import { postsRouter } from './posts';
+
+export const appRouter = router({
+  users: usersRouter,
+  posts: postsRouter,
+});
+
+export type AppRouter = typeof appRouter; // EKSPORTUJ TEN TYP DO KLIENTA</code></pre>
+
+  <h2>Adapter — Express, Fastify, Next.js</h2>
+  <p>tRPC dostarcza adaptery dla popularnych frameworkow. Adapter montuje router tRPC jako middleware HTTP — procedury query sa dostepne pod <code>GET /trpc/users.list</code>, mutations pod <code>POST /trpc/users.create</code>.</p>
+
+  <h2>Klient — TanStack Query (React Query)</h2>
+  <p>Klient tRPC integruje sie z TanStack Query, dostarczajac typowane hooki. Nie trzeba recznie definiowac typow odpowiedzi — sa inferowane z <code>AppRouter</code>.</p>
+
+  <h2>Setup monorepo — wspoldzielone typy</h2>
+  <p>Typowy setup tRPC w monorepo (np. Turborepo, nx) uzywa paczki <code>packages/api</code> eksportujaccej <code>AppRouter</code>. Frontend importuje ten typ i tworzy klienta — bez generowania kodu, bez REST clienta, bez OpenAPI.</p>
+
+  <h2>tRPC vs REST vs GraphQL</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cecha</th>
+        <th>REST</th>
+        <th>GraphQL</th>
+        <th>tRPC</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Typesafety end-to-end</td>
+        <td>Manualna / codegen</td>
+        <td>Codegen wymagany</td>
+        <td><strong>Automatyczna (TypeScript)</strong></td>
+      </tr>
+      <tr>
+        <td>Schema / kontrakt</td>
+        <td>OpenAPI (opcjonalne)</td>
+        <td>SDL (wymagane)</td>
+        <td><strong>Brak — typy TS sa kontraktem</strong></td>
+      </tr>
+      <tr>
+        <td>Klienci nieTS</td>
+        <td>Dowolny jezyk</td>
+        <td>Dowolny jezyk</td>
+        <td>Tylko TypeScript</td>
+      </tr>
+      <tr>
+        <td>Cacheowanie HTTP</td>
+        <td>Pelne (GET)</td>
+        <td>Ograniczone (POST)</td>
+        <td>Queries cacheowalny (GET)</td>
+      </tr>
+      <tr>
+        <td>Over/under fetching</td>
+        <td>Over-fetching czesty</td>
+        <td>Rozwiazany</td>
+        <td>Nie dotyczy (full response)</td>
+      </tr>
+      <tr>
+        <td>Zlozonosc setup</td>
+        <td>Niska</td>
+        <td>Wysoka</td>
+        <td>Srednia (wymaga monorepo)</td>
+      </tr>
+      <tr>
+        <td>Generowanie kodu</td>
+        <td>Opcjonalne</td>
+        <td>Czesto wymagane</td>
+        <td><strong>Zero codegen</strong></td>
+      </tr>
+      <tr>
+        <td>Subscriptions</td>
+        <td>SSE / WebSocket</td>
+        <td>WebSocket natywnie</td>
+        <td>WebSocket (tRPC subscriptions)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card blue">
+    <strong>Kiedy tRPC jest idealne?</strong>
+    <p style="margin-top:8px;margin-bottom:0">tRPC swieci w fullstack TypeScript monorepo: Next.js, SvelteKit, Remix z wspolnym backendem. Eliminuje caly boilerplate API clienta. Jesli Twoj frontend i backend to osobne repozytoria lub uzywasz roznych jezykow — wybierz REST z OpenAPI lub GraphQL.</p>
+  </div>
+
+  <div class="card orange">
+    <strong>Ograniczenia tRPC</strong>
+    <p style="margin-top:8px;margin-bottom:0">tRPC nie generuje dokumentacji API (brak OpenAPI), nie wspiera klientow nieTypescript, trudniej uzyc z zewnetrznymi konsumentami API. Dla publicznych API lub mikroserwisow z roznym stackiem technologicznym lepiej sprawdza sie REST + OpenAPI.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="07-graphql.html">← 07-graphql.html</a>
+    <a href="09-uwierzytelnianie.html">09-uwierzytelnianie.html →</a>
+  </div>
+</div>
+</body>
+</html>

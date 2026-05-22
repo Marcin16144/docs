@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">SQL i ORM</span>
+</div>
+<div class="container">
+<h1>🗃️ SQL i ORM — działający kod</h1>
+<p class="lead">PostgreSQL 17: CTE, window functions, indeksy. Prisma, SQLAlchemy 2, EF Core 9.</p>
+
+<h2>1. CTE — schemat zapytania krokami</h2>
+<pre data-lang="sql"><code><span class="com">-- Top 3 produkty w każdej kategorii po sprzedaży w 2026 Q1</span>
+<span class="kw">WITH</span> sales_q1 <span class="kw">AS</span> (
+    <span class="kw">SELECT</span>
+        p.id, p.name, p.category_id,
+        <span class="kw">SUM</span>(oi.quantity * oi.unit_price) <span class="kw">AS</span> revenue
+    <span class="kw">FROM</span> order_items oi
+    <span class="kw">JOIN</span> orders o    <span class="kw">ON</span> o.id = oi.order_id
+    <span class="kw">JOIN</span> products p  <span class="kw">ON</span> p.id = oi.product_id
+    <span class="kw">WHERE</span> o.placed_at &gt;= <span class="str">'2026-01-01'</span>
+      <span class="kw">AND</span> o.placed_at &lt; <span class="str">'2026-04-01'</span>
+    <span class="kw">GROUP BY</span> p.id, p.name, p.category_id
+),
+ranked <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> *,
+           <span class="fn">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> category_id <span class="kw">ORDER BY</span> revenue <span class="kw">DESC</span>) <span class="kw">AS</span> rn
+    <span class="kw">FROM</span> sales_q1
+)
+<span class="kw">SELECT</span> c.name <span class="kw">AS</span> category, r.name, r.revenue, r.rn
+<span class="kw">FROM</span> ranked r
+<span class="kw">JOIN</span> categories c <span class="kw">ON</span> c.id = r.category_id
+<span class="kw">WHERE</span> r.rn &lt;= <span class="num">3</span>
+<span class="kw">ORDER BY</span> c.name, r.rn;</code></pre>
+
+<h2>2. Window functions — analytics bez self-join</h2>
+<pre data-lang="sql"><code><span class="com">-- Running total + porównanie z poprzednim dniem</span>
+<span class="kw">SELECT</span>
+    date,
+    revenue,
+    <span class="fn">SUM</span>(revenue) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> date) <span class="kw">AS</span> cumulative,
+    <span class="fn">LAG</span>(revenue, <span class="num">1</span>) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> date) <span class="kw">AS</span> prev_day,
+    revenue - <span class="fn">LAG</span>(revenue, <span class="num">1</span>) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> date) <span class="kw">AS</span> day_change,
+    <span class="fn">AVG</span>(revenue) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> date <span class="kw">ROWS BETWEEN</span> <span class="num">6</span> <span class="kw">PRECEDING AND CURRENT ROW</span>) <span class="kw">AS</span> ma_7d
+<span class="kw">FROM</span> daily_sales
+<span class="kw">ORDER BY</span> date <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> <span class="num">30</span>;
+
+<span class="com">-- Top 5 największych klientów w każdym kraju (DENSE_RANK obsługuje remisy)</span>
+<span class="kw">SELECT</span> country, customer_name, total_spent
+<span class="kw">FROM</span> (
+    <span class="kw">SELECT</span> c.country, c.name <span class="kw">AS</span> customer_name,
+           <span class="fn">SUM</span>(o.total) <span class="kw">AS</span> total_spent,
+           <span class="fn">DENSE_RANK</span>() <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> c.country <span class="kw">ORDER BY</span> <span class="fn">SUM</span>(o.total) <span class="kw">DESC</span>) <span class="kw">AS</span> rk
+    <span class="kw">FROM</span> customers c <span class="kw">JOIN</span> orders o <span class="kw">ON</span> o.customer_id = c.id
+    <span class="kw">GROUP BY</span> c.id
+) t
+<span class="kw">WHERE</span> rk &lt;= <span class="num">5</span>;</code></pre>
+
+<h2>3. Indeksy — kiedy które</h2>
+<pre data-lang="sql"><code><span class="com">-- B-tree: domyślny, dla =, &lt;, &gt;, ORDER BY, range scan</span>
+<span class="kw">CREATE INDEX</span> idx_orders_customer_date <span class="kw">ON</span> orders(customer_id, placed_at <span class="kw">DESC</span>);
+
+<span class="com">-- Hash: tylko równość (rzadko potrzebny, B-tree jest prawie zawsze lepszy)</span>
+<span class="kw">CREATE INDEX</span> idx_sessions_hash <span class="kw">ON</span> sessions <span class="kw">USING HASH</span>(token);
+
+<span class="com">-- Partial: indeksuj tylko podzbiór wierszy — mniejszy, szybszy</span>
+<span class="kw">CREATE INDEX</span> idx_orders_pending <span class="kw">ON</span> orders(placed_at)
+<span class="kw">WHERE</span> status = <span class="str">'pending'</span>;
+
+<span class="com">-- Covering / Include: pokrywający — bez sięgania do tabeli</span>
+<span class="kw">CREATE INDEX</span> idx_users_email_inc <span class="kw">ON</span> users(email) <span class="kw">INCLUDE</span> (id, name, role);
+
+<span class="com">-- GIN dla full-text i jsonb</span>
+<span class="kw">CREATE INDEX</span> idx_products_meta <span class="kw">ON</span> products <span class="kw">USING GIN</span>(metadata jsonb_path_ops);
+<span class="kw">CREATE INDEX</span> idx_products_fts <span class="kw">ON</span> products <span class="kw">USING GIN</span>(to_tsvector(<span class="str">'simple'</span>, name));
+
+<span class="com">-- BRIN dla bardzo dużych tabel time-series (mały rozmiar)</span>
+<span class="kw">CREATE INDEX</span> idx_logs_brin <span class="kw">ON</span> logs <span class="kw">USING BRIN</span>(created_at);
+
+<span class="com">-- Sprawdź czy indeks jest używany</span>
+<span class="kw">EXPLAIN</span> (<span class="kw">ANALYZE</span>, <span class="kw">BUFFERS</span>) <span class="kw">SELECT</span> * <span class="kw">FROM</span> orders <span class="kw">WHERE</span> customer_id = <span class="num">42</span>;
+<span class="com">-- Index Scan = OK. Seq Scan = sprawdź WHERE/JOIN.</span></code></pre>
+
+<h2>4. UPSERT (PostgreSQL)</h2>
+<pre data-lang="sql"><code><span class="com">-- Dodaj lub zaktualizuj</span>
+<span class="kw">INSERT INTO</span> products (sku, name, price, stock)
+<span class="kw">VALUES</span> (<span class="str">'ABC-123'</span>, <span class="str">'Widget'</span>, <span class="num">99.99</span>, <span class="num">10</span>)
+<span class="kw">ON CONFLICT</span> (sku) <span class="kw">DO UPDATE SET</span>
+    name = EXCLUDED.name,
+    price = EXCLUDED.price,
+    stock = products.stock + EXCLUDED.stock,
+    updated_at = <span class="fn">NOW</span>()
+<span class="kw">RETURNING</span> *;</code></pre>
+
+<h2>5. Prisma — TypeScript</h2>
+<pre data-lang="typescript"><code><span class="com">// schema.prisma:
+// model Order {
+//     id          String      @id @default(uuid())
+//     customerId  String
+//     customer    Customer    @relation(fields: [customerId], references: [id])
+//     items       OrderItem[]
+//     total       Decimal     @db.Decimal(12, 2)
+//     placedAt    DateTime    @default(now())
+//     @@index([customerId, placedAt(sort: Desc)])
+// }</span>
+
+<span class="kw">import</span> { PrismaClient } <span class="kw">from</span> <span class="str">'@prisma/client'</span>;
+<span class="kw">const</span> prisma = <span class="kw">new</span> <span class="fn">PrismaClient</span>();
+
+<span class="com">// Eager load — ZAWSZE wybieraj select/include explicit, nie pobieraj * z relacji</span>
+<span class="kw">const</span> orders = <span class="kw">await</span> prisma.order.<span class="fn">findMany</span>({
+    where: { customerId: <span class="str">'abc'</span>, placedAt: { gte: <span class="kw">new</span> Date(<span class="str">'2026-01-01'</span>) } },
+    include: { items: { include: { product: { select: { name: <span class="kw">true</span>, price: <span class="kw">true</span> } } } } },
+    orderBy: { placedAt: <span class="str">'desc'</span> },
+    take: <span class="num">20</span>
+});
+
+<span class="com">// Transakcja</span>
+<span class="kw">await</span> prisma.<span class="fn">$transaction</span>(<span class="kw">async</span> (tx) =&gt; {
+    <span class="kw">const</span> order = <span class="kw">await</span> tx.order.<span class="fn">create</span>({ data: { customerId, total } });
+    <span class="kw">await</span> tx.orderItem.<span class="fn">createMany</span>({ data: items.<span class="fn">map</span>(i =&gt; ({ ...i, orderId: order.id })) });
+    <span class="kw">await</span> tx.customer.<span class="fn">update</span>({ where: { id: customerId },
+        data: { totalSpent: { increment: total } } });
+});
+
+<span class="com">// Raw SQL gdy ORM nie wystarcza</span>
+<span class="kw">const</span> topProducts = <span class="kw">await</span> prisma.<span class="fn">$queryRaw</span>&lt;{ id: <span class="kw">string</span>, name: <span class="kw">string</span>, rev: <span class="kw">number</span> }[]&gt;<span class="str">`
+    SELECT p.id, p.name, SUM(oi.quantity * oi.unit_price) AS rev
+    FROM products p
+    JOIN order_items oi ON oi.product_id = p.id
+    WHERE oi.created_at &gt; NOW() - INTERVAL '30 days'
+    GROUP BY p.id
+    ORDER BY rev DESC LIMIT 10
+`</span>;</code></pre>
+
+<h2>6. SQLAlchemy 2.0 — async + typed</h2>
+<pre data-lang="python"><code><span class="kw">from</span> sqlalchemy <span class="kw">import</span> select, func
+<span class="kw">from</span> sqlalchemy.ext.asyncio <span class="kw">import</span> create_async_engine, AsyncSession
+<span class="kw">from</span> sqlalchemy.orm <span class="kw">import</span> DeclarativeBase, Mapped, mapped_column, selectinload, relationship
+
+<span class="kw">class</span> <span class="fn">Base</span>(DeclarativeBase): <span class="kw">pass</span>
+
+<span class="kw">class</span> <span class="fn">Order</span>(Base):
+    __tablename__ = <span class="str">"orders"</span>
+    id: Mapped[<span class="kw">str</span>] = mapped_column(primary_key=<span class="kw">True</span>)
+    customer_id: Mapped[<span class="kw">str</span>]
+    total: Mapped[<span class="kw">float</span>]
+    items: Mapped[<span class="kw">list</span>[<span class="str">"OrderItem"</span>]] = relationship(back_populates=<span class="str">"order"</span>)
+
+<span class="com"># Async query</span>
+<span class="kw">async with</span> AsyncSession(engine) <span class="kw">as</span> session:
+    stmt = (
+        select(Order)
+        .where(Order.customer_id == customer_id)
+        .options(selectinload(Order.items))  <span class="com"># N+1 fix</span>
+        .order_by(Order.placed_at.desc())
+        .limit(<span class="num">20</span>)
+    )
+    orders = (<span class="kw">await</span> session.execute(stmt)).scalars().all()
+
+<span class="com"># Agregacja</span>
+revenue_per_day = <span class="kw">await</span> session.execute(
+    select(func.date(Order.placed_at).label(<span class="str">"day"</span>),
+           func.sum(Order.total).label(<span class="str">"revenue"</span>))
+    .group_by(<span class="str">"day"</span>)
+    .order_by(<span class="str">"day"</span>)
+)</code></pre>
+
+<h2>7. EF Core 9 — split queries dla wydajności</h2>
+<pre data-lang="csharp"><code><span class="kw">var</span> orders = <span class="kw">await</span> db.Orders
+    .<span class="fn">Where</span>(o =&gt; o.CustomerId == customerId)
+    .<span class="fn">Include</span>(o =&gt; o.Items).<span class="fn">ThenInclude</span>(i =&gt; i.Product)
+    .<span class="fn">AsSplitQuery</span>()  <span class="com">// 2 zapytania zamiast 1 z kartezjańskim joinem!</span>
+    .<span class="fn">OrderByDescending</span>(o =&gt; o.PlacedAt)
+    .<span class="fn">Take</span>(<span class="num">20</span>)
+    .<span class="fn">AsNoTracking</span>()  <span class="com">// szybsze dla read-only</span>
+    .<span class="fn">ToListAsync</span>();
+
+<span class="com">// Compiled query — dla często wywoływanych</span>
+<span class="kw">static readonly</span> Func&lt;AppDbContext, <span class="kw">Guid</span>, Task&lt;Order?&gt;&gt; GetOrderById =
+    EF.<span class="fn">CompileAsyncQuery</span>((AppDbContext db, <span class="kw">Guid</span> id) =&gt;
+        db.Orders.<span class="fn">FirstOrDefault</span>(o =&gt; o.Id == id));
+
+<span class="kw">var</span> order = <span class="kw">await</span> <span class="fn">GetOrderById</span>(db, orderId);</code></pre>
+
+<h2>8. Najczęstsze pomyłki</h2>
+<table>
+<tr><th>Pomyłka</th><th>Konsekwencja</th><th>Fix</th></tr>
+<tr><td><code>WHERE column = NULL</code></td><td>Zawsze false</td><td><code>IS NULL</code> / <code>IS NOT NULL</code></td></tr>
+<tr><td><code>OR</code> w WHERE</td><td>Czasem indeks nieużywany</td><td>UNION lub IN()</td></tr>
+<tr><td>Funkcja na kolumnie</td><td>Indeks pomijany</td><td><code>WHERE date_col &gt;= '2026-01-01'</code> zamiast <code>YEAR(date_col)=2026</code></td></tr>
+<tr><td><code>SELECT *</code></td><td>Niepotrzebne IO, problem przy zmianie schema</td><td>Wybieraj konkretne kolumny</td></tr>
+<tr><td><code>LIKE '%abc%'</code></td><td>Full scan</td><td>FTS (GIN tsvector) lub trigram</td></tr>
+<tr><td>N+1 (ORM)</td><td>Setki zapytań</td><td><code>Include</code>/<code>selectinload</code>/<code>DataLoader</code></td></tr>
+<tr><td>Brak <code>LIMIT</code></td><td>Wysłanie 10M wierszy</td><td>Zawsze paginacja keyset/offset</td></tr>
+</table>
+
+<div class="next-prev">
+    <a href="git.html"><div class="label">← Poprzedni</div><div class="title">Git</div></a>
+    <a href="bezpieczenstwo.html"><div class="label">Następny →</div><div class="title">Bezpieczeństwo</div></a>
+</div>
+</div>
+</body>
+</html>

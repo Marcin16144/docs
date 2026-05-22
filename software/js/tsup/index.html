@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tsup / unbuild — budowanie npm packages</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:36px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);text-align:center}
+.footer a{color:var(--accent);text-decoration:none;font-weight:500}.footer a:hover{color:var(--accent-hover)}
+tr:nth-child(even) td{background:rgba(30,41,59,.5)}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a href="../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../index.html">JS-TS</a>
+  <span class="sep">/</span>
+  <span class="title">tsup / unbuild</span>
+</nav>
+
+<div class="container">
+  <h1>tsup / unbuild</h1>
+  <p class="subtitle">Najprostsze narzedzia do budowania npm packages. Zero config, dual ESM+CJS.</p>
+
+  <!-- 1. Co to tsup -->
+  <h2>1. Co to tsup</h2>
+  <p><strong>tsup</strong> to narzedzie do budowania bibliotek npm oparte na <strong>esbuild</strong>. Zostalo stworzone przez Egois Zhang (tworca Vite plugin ekosystemu) i jest zoptymalizowane pod <em>packages</em>, nie aplikacje.</p>
+  <div class="card blue">
+    <strong>Glowna roznica: library bundler vs app bundler</strong><br>
+    Vite, Next.js, CRA — buduja <em>aplikacje</em>: optymalizuja pod przegladarke, code-splitting, lazy loading.<br>
+    tsup, unbuild, rollup — buduja <em>biblioteki</em>: generuja ESM + CJS + deklaracje typow, nie bundluja dependencies.
+  </div>
+  <ul>
+    <li><strong>Silnik:</strong> esbuild — kompilacja w Rust/Go, ekstremalnie szybka</li>
+    <li><strong>TypeScript:</strong> natywna kompilacja + generowanie <code>.d.ts</code></li>
+    <li><strong>Zero config:</strong> sensowne domyslne ustawienia bez konfiguracji</li>
+    <li><strong>Dual package:</strong> ESM + CJS z jednego polecenia</li>
+    <li><strong>Watch mode:</strong> szybki rebuild w developmencie</li>
+    <li><strong>Nie do aplikacji:</strong> brak HTML entry, code-splitting po stronach, PWA</li>
+  </ul>
+  <p>Uzywany przez: Vite, Vitest, UnoCSS, Nuxt, i setki popularnych npm packages.</p>
+
+  <!-- 2. Instalacja i konfiguracja -->
+  <h2>2. Instalacja i pierwsza konfiguracja</h2>
+  <pre><code># instalacja
+npm install -D tsup
+
+# package.json — skrypty
+{
+  "scripts": {
+    "build": "tsup",
+    "build:watch": "tsup --watch",
+    "dev": "tsup --watch"
+  }
+}</code></pre>
+  <p>Najprostrza konfiguracja w <code>tsup.config.ts</code>:</p>
+  <pre><code>// tsup.config.ts
+import { defineConfig } from 'tsup';
+
+export default defineConfig({
+  // entry — plik(i) wejsciowe
+  entry: ['src/index.ts'],
+
+  // format — jakie formaty generowac
+  format: ['esm', 'cjs'],
+
+  // dts — generuj deklaracje TypeScript (.d.ts)
+  dts: true,
+
+  // sourcemap — mapy zrodel
+  sourcemap: true,
+
+  // clean — czys dist/ przed buildem
+  clean: true,
+
+  // splitting — code-splitting dla ESM (lazy imports)
+  splitting: false,
+
+  // minify — minifikacja (domyslnie false dla libraries)
+  minify: false,
+
+  // target — minimalna wersja JS
+  target: 'es2020',
+});</code></pre>
+  <div class="card green">
+    <strong>Wynik:</strong> tsup generuje <code>dist/index.js</code> (CJS), <code>dist/index.mjs</code> (ESM), <code>dist/index.d.ts</code> (typy).
+  </div>
+
+  <!-- 3. Dual package -->
+  <h2>3. Dual Package — ESM + CJS</h2>
+  <p>Problem dual package: npm package powinien dzialac w srodowiskach CJS (stary Node.js, <code>require()</code>) i ESM (<code>import</code>, nowy Node.js, bundlery). tsup rozwiazuje to automatycznie.</p>
+  <pre><code>// tsup.config.ts — dual package setup
+import { defineConfig } from 'tsup';
+
+export default defineConfig({
+  entry: ['src/index.ts'],
+  format: ['esm', 'cjs'],
+  dts: true,
+  clean: true,
+  // outExtension — kontrola rozszerzen plikow wyjsciowych
+  outExtension({ format }) {
+    return { js: format === 'esm' ? '.mjs' : '.cjs' };
+  },
+});</code></pre>
+  <pre><code>// package.json — exports field (Node.js 12.7+)
+{
+  "name": "moja-biblioteka",
+  "version": "1.0.0",
+  "main": "./dist/index.cjs",       // CJS fallback (stary Node.js)
+  "module": "./dist/index.mjs",     // ESM (bundlery: Vite, webpack)
+  "types": "./dist/index.d.ts",     // TypeScript
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false
+}</code></pre>
+  <div class="card orange">
+    <strong>sideEffects: false</strong> — informuje bundlery (webpack, Rollup, Vite), ze pakiet nie ma efektow ubocznych przy imporcie. Umozliwia skuteczny tree-shaking — nieuzywane eksporty sa eliminowane z finalnego bundla aplikacji.
+  </div>
+
+  <!-- 4. Multiple entry points -->
+  <h2>4. Wiele punktow wejscia</h2>
+  <p>Pakiety czesto eksportuja wiele "subpath imports" — np. osobny entrypoint dla CLI, osobny dla React hooks, osobny dla typow.</p>
+  <pre><code>// tsup.config.ts — multiple entries
+import { defineConfig } from 'tsup';
+
+export default defineConfig({
+  // obiektowa forma — kontrola nazw plikow wyjsciowych
+  entry: {
+    index: 'src/index.ts',          // dist/index.js
+    cli: 'src/cli.ts',              // dist/cli.js
+    'react/index': 'src/react.ts',  // dist/react/index.js
+  },
+  format: ['esm', 'cjs'],
+  dts: true,
+  clean: true,
+});
+
+// package.json — subpath exports dla kazdego entrypoint
+{
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    },
+    "./react": {
+      "import": "./dist/react/index.mjs",
+      "require": "./dist/react/index.cjs",
+      "types": "./dist/react/index.d.ts"
+    },
+    "./cli": "./dist/cli.mjs"
+  },
+  "bin": {
+    "moja-lib": "./dist/cli.mjs"
+  }
+}</code></pre>
+
+  <!-- 5. External dependencies -->
+  <h2>5. External Dependencies</h2>
+  <p>Biblioteka <strong>nie powinna bundlowac</strong> swoich peer dependencies ani dependencies, ktore uzytkownik moze juz miec. Bundlowanie React w pakiecie React-component to klasyczny blad prowadzacy do duplikacji i konfliktow.</p>
+  <pre><code>// tsup.config.ts — externals
+import { defineConfig } from 'tsup';
+
+export default defineConfig({
+  entry: ['src/index.ts'],
+  format: ['esm', 'cjs'],
+  dts: true,
+  // external — nie bundluj tych pakietow
+  external: [
+    'react',
+    'react-dom',
+    'react/jsx-runtime',
+    '@tanstack/react-query',
+  ],
+  // noExternal — force-bundluj nawet jesli sa w node_modules
+  // noExternal: ['lodash-es'],  // uzyteczne dla paczek bez ESM buildu
+});
+
+// package.json — deklaracja peer dependencies
+{
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": false }
+  },
+  "dependencies": {
+    "clsx": "^2.0.0"   // bundlowane — uzytkownik nie musi instalowac
+  }
+}</code></pre>
+
+  <!-- 6. Watch mode -->
+  <h2>6. Watch Mode — development workflow</h2>
+  <pre><code># uruchomienie watch mode
+npx tsup --watch
+# lub z bun
+bun run tsup --watch
+
+# watch z onSuccess — uruchom komende po kazdym rebuildie
+# tsup.config.ts
+export default defineConfig({
+  entry: ['src/index.ts'],
+  format: ['esm', 'cjs'],
+  dts: true,
+  watch: true,               // programatycznie przez config
+  onSuccess: 'node dist/index.js',  // uruchom po rebuildie
+});
+
+# typowy workflow przy developmencie biblioteki:
+# Terminal 1: tsup --watch
+# Terminal 2: w projekcie testowym: npm link ../moja-lib
+# lub uzyj Vite monorepo z workspace dependencies</code></pre>
+  <div class="card blue">
+    <strong>Tip — szybszy feedback:</strong> W monorepo z Turborepo lub pnpm workspaces mozesz uzywac <code>tsup --watch</code> w pakiecie i miec hot-reload w aplikacji testowej bez npm link.
+  </div>
+
+  <!-- 7. unbuild -->
+  <h2>7. Co to unbuild (unjs)</h2>
+  <p><strong>unbuild</strong> to alternatywne narzedzie z ekosystemu <strong>unjs</strong> (UnifiedJS — tworca Nitro, H3, Nuxt 3). Jest uzywane wewnetrznie przez Nuxt i wiele pakietow unjs. Oparte na Rollup z integracja mkdist i jiti.</p>
+  <pre><code># instalacja
+npm install -D unbuild
+
+# build.config.ts — konfiguracja unbuild
+import { defineBuildConfig } from 'unbuild';
+
+export default defineBuildConfig({
+  // entries — pliki wejsciowe
+  entries: [
+    'src/index',           // automatycznie dodaje .ts
+    { input: 'src/cli', name: 'cli' },
+  ],
+
+  // declaration — generuj .d.ts
+  declaration: true,
+
+  // clean — czys przed buildem
+  clean: true,
+
+  // rollup — opcje przekazywane do Rollup
+  rollup: {
+    emitCJS: true,          // generuj CJS (domyslnie tylko ESM)
+    esbuild: {
+      target: 'es2020',
+      minify: false,
+    },
+    resolve: {
+      exportConditions: ['production', 'node'],
+    },
+  },
+
+  // externals — nie bundluj
+  externals: ['react', 'vue'],
+
+  // hooks — przed/po buildzie
+  hooks: {
+    'build:done'(ctx) {
+      console.log('Build ukonczony:', ctx.buildEntries);
+    },
+  },
+});</code></pre>
+  <pre><code># uruchomienie
+npx unbuild
+# lub w package.json
+{
+  "scripts": {
+    "build": "unbuild",
+    "stub": "unbuild --stub"  // stub mode — symlinki zamiast buildu (szybki dev)
+  }
+}</code></pre>
+  <div class="card green">
+    <strong>Stub mode</strong> (<code>unbuild --stub</code>) to unikalna cecha unbuild: zamiast kompilowac, tworzy proxy/stub ktory laduje kod bezposrednio z <code>src/</code> przez jiti (just-in-time TypeScript). Eliminuje koniecznosc watch mode przy developmencie.
+  </div>
+
+  <!-- 8. Porownanie -->
+  <h2>8. tsup vs unbuild vs rollup vs esbuild</h2>
+  <table>
+    <tr>
+      <th>Narzedzie</th>
+      <th>Silnik</th>
+      <th>Kiedy uzywac</th>
+      <th>Zalety</th>
+      <th>Wady</th>
+    </tr>
+    <tr>
+      <td><strong>tsup</strong></td>
+      <td>esbuild</td>
+      <td>Wiekszosc npm packages, TypeScript libraries</td>
+      <td>Szybkosc, zero config, szeroka adopcja</td>
+      <td>Mniej flexibilny niz Rollup</td>
+    </tr>
+    <tr>
+      <td><strong>unbuild</strong></td>
+      <td>Rollup + esbuild</td>
+      <td>Nuxt ekosystem, unjs packages, stub mode dev</td>
+      <td>Stub mode, hooks, Rollup plugins</td>
+      <td>Mniejsza spolecznosc, wolniejszy niz tsup</td>
+    </tr>
+    <tr>
+      <td><strong>Rollup</strong></td>
+      <td>Rollup (JS)</td>
+      <td>Skomplikowane budowania, wlasne plugins</td>
+      <td>Najbardziej elastyczny, dojrzaly</td>
+      <td>Wiecej konfiguracji, wolniejszy niz esbuild</td>
+    </tr>
+    <tr>
+      <td><strong>esbuild (raw)</strong></td>
+      <td>esbuild (Go)</td>
+      <td>Skrypty, CI pipelines, custom tooling</td>
+      <td>Najszybszy, niski level kontroli</td>
+      <td>Brak automatycznego .d.ts, mniej plugins</td>
+    </tr>
+    <tr>
+      <td><strong>pkgroll</strong></td>
+      <td>Rollup</td>
+      <td>Alternatywa dla tsup z Rollup backendem</td>
+      <td>Czyta exports z package.json</td>
+      <td>Mniejsza adopcja</td>
+    </tr>
+    <tr>
+      <td><strong>microbundle</strong></td>
+      <td>Rollup</td>
+      <td>Bardzo male biblioteki, zero config</td>
+      <td>Minimalny setup</td>
+      <td>Mniej aktywny development</td>
+    </tr>
+  </table>
+
+  <!-- 9. Publish na npm -->
+  <h2>9. Publikacja na npm — package.json exports field</h2>
+  <pre><code>// package.json — kompletna konfiguracja dla publikacji
+{
+  "name": "@moja-org/moja-biblioteka",
+  "version": "1.0.0",
+  "description": "Opis biblioteki",
+  "license": "MIT",
+  "author": "Jan Kowalski",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moja-org/moja-biblioteka"
+  },
+
+  // pliki do publikacji (bez tego idzie wszystko!)
+  "files": ["dist", "README.md"],
+
+  // stare bundlery i Node.js bez exports support
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+
+  // nowoczesny exports (Node 12.7+, Webpack 5, Vite, Rollup)
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+
+  "sideEffects": false,
+
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "npm run build"
+  },
+
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0"
+  }
+}
+
+# publikacja
+npm publish --access public      # publiczny pakiet
+npm publish --access restricted  # prywatny (wymaga planu npm)
+npm publish --dry-run            # symulacja bez faktycznej publikacji</code></pre>
+
+  <!-- 10. Monorepo setup -->
+  <h2>10. Monorepo — tsup w workspace packages</h2>
+  <p>W monorepo kazdy pakiet ma wlasny tsup. Turborepo lub nx koordynuja kolejnosc buildow i cachowanie.</p>
+  <pre><code"># struktura monorepo (pnpm workspaces)
+packages/
+  ui/
+    src/index.ts
+    tsup.config.ts
+    package.json
+  utils/
+    src/index.ts
+    tsup.config.ts
+    package.json
+apps/
+  web/
+    package.json  # "dependencies": { "@moja-org/ui": "workspace:*" }
+
+# pnpm-workspace.yaml
+packages:
+  - 'packages/*'
+  - 'apps/*'
+
+# turbo.json — pipeline buildow
+{
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],  // buduj dependencies najpierw
+      "outputs": ["dist/**"]    // cache output
+    }
+  }
+}</code></pre>
+  <pre><code>// packages/ui/tsup.config.ts
+import { defineConfig } from 'tsup';
+
+export default defineConfig({
+  entry: ['src/index.ts'],
+  format: ['esm', 'cjs'],
+  dts: true,
+  clean: true,
+  external: ['react'],  // peer dependency — nie bundluj
+  // treeshake — lepsza eliminacja martwego kodu
+  treeshake: true,
+});
+
+// packages/ui/package.json
+{
+  "name": "@moja-org/ui",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "peerDependencies": { "react": "^18 || ^19" },
+  "devDependencies": { "tsup": "^8.0.0" }
+}</code></pre>
+
+  <div class="footer">
+    <a href="../index.html">← Wroc do JS/TS</a>
+  </div>
+</div>
+</body>
+</html>

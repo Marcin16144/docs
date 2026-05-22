@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FastAPI — podstawy</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--accent-hover:#60a5fa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Python</a>
+  <span class="sep">/</span>
+  <span class="title">FastAPI — podstawy</span>
+</div>
+<div class="container">
+  <h1>FastAPI — podstawy</h1>
+  <p class="subtitle">Path operations, parametry, schematy Pydantic, automatyczna dokumentacja, APIRouter, Depends</p>
+
+  <h2>Tworzenie aplikacji FastAPI</h2>
+  <p><strong>FastAPI</strong> to nowoczesny framework webowy dla Pythona zbudowany na Starlette (ASGI) i Pydantic. Oferuje automatyczna generacje dokumentacji OpenAPI, pelne wsparcie dla async/await oraz najlepsza wydajnosc wsrod frameworkow Python.</p>
+
+  <div class="card green">
+    <h3>Instalacja</h3>
+    <p><code>uv add fastapi uvicorn[standard] pydantic</code><br>
+    Uruchomienie deweloperskie: <code>uvicorn main:app --reload --port 8000</code></p>
+  </div>
+
+<pre><code>from fastapi import FastAPI, status
+from pydantic import BaseModel
+from datetime import datetime
+
+app = FastAPI(
+    title="Moje API",
+    description="Przykladowe API zbudowane z FastAPI",
+    version="1.0.0",
+    docs_url="/docs",       # Swagger UI
+    redoc_url="/redoc",     # ReDoc
+    openapi_url="/openapi.json",
+)
+
+@app.get("/", tags=["root"])
+async def root() -> dict[str, str]:
+    return {"message": "Witaj w API!", "status": "ok"}
+</code></pre>
+
+  <h2>Path operations — dekoratory HTTP</h2>
+  <p>Kazda operacja HTTP jest definiowana przez dekorator na funkcji. FastAPI automatycznie parsuje parametry, waliduje dane i generuje dokumentacje na podstawie sygnatur funkcji i adnotacji typow.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Dekorator</th>
+        <th>Metoda HTTP</th>
+        <th>Typowe zastosowanie</th>
+        <th>Domyslny status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>@app.get()</code></td><td>GET</td><td>Pobieranie zasobow</td><td>200 OK</td></tr>
+      <tr><td><code>@app.post()</code></td><td>POST</td><td>Tworzenie zasobow</td><td>200 (zmien na 201)</td></tr>
+      <tr><td><code>@app.put()</code></td><td>PUT</td><td>Zastapienie zasobu</td><td>200 OK</td></tr>
+      <tr><td><code>@app.patch()</code></td><td>PATCH</td><td>Czesciowa aktualizacja</td><td>200 OK</td></tr>
+      <tr><td><code>@app.delete()</code></td><td>DELETE</td><td>Usuniecie zasobu</td><td>200 (zmien na 204)</td></tr>
+      <tr><td><code>@app.options()</code></td><td>OPTIONS</td><td>CORS preflight</td><td>200 OK</td></tr>
+      <tr><td><code>@app.head()</code></td><td>HEAD</td><td>Sprawdzenie naglowkow</td><td>200 OK</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Parametry: path, query, body</h2>
+  <p>FastAPI rozroznia trzy rodzaje parametrow na podstawie ich umiejscowienia — nie potrzebujesz dodatkowych dekoratorow, framework dedukuje typ automatycznie.</p>
+
+<pre><code>from fastapi import FastAPI, Path, Query, Body, HTTPException, status
+from pydantic import BaseModel, Field
+from typing import Annotated
+
+app = FastAPI()
+
+# ---- Schematy Pydantic ----
+class ProduktTworz(BaseModel):
+    nazwa: str = Field(min_length=1, max_length=200)
+    cena: float = Field(gt=0)
+    kategoria: str
+    dostepny: bool = True
+
+class ProduktOdpowiedz(ProduktTworz):
+    id: int
+    utworzono: str
+
+# ---- PATH parameter ----
+# {produkt_id} w URL staje sie argumentem funkcji
+@app.get("/produkty/{produkt_id}", response_model=ProduktOdpowiedz)
+async def pobierz_produkt(
+    produkt_id: Annotated[int, Path(title="ID produktu", ge=1)]
+) -> ProduktOdpowiedz:
+    # symulacja bazy danych
+    if produkt_id > 1000:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Produkt {produkt_id} nie istnieje",
+        )
+    return ProduktOdpowiedz(
+        id=produkt_id,
+        nazwa="Przykladowy produkt",
+        cena=99.99,
+        kategoria="elektronika",
+        utworzono="2024-01-01",
+    )
+
+# ---- QUERY parameters ----
+# argumenty bez {} w URL to query params (?skip=0&limit=10)
+@app.get("/produkty/", response_model=list[ProduktOdpowiedz])
+async def lista_produktow(
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    kategoria: str | None = None,
+    tylko_dostepne: bool = False,
+) -> list[ProduktOdpowiedz]:
+    # logika filtrowania...
+    return []
+
+# ---- BODY parameter ----
+# Pydantic BaseModel automatycznie staje sie body
+@app.post(
+    "/produkty/",
+    response_model=ProduktOdpowiedz,
+    status_code=status.HTTP_201_CREATED,
+    tags=["produkty"],
+    summary="Utworz nowy produkt",
+)
+async def utworz_produkt(produkt: ProduktTworz) -> ProduktOdpowiedz:
+    # zapis do bazy...
+    return ProduktOdpowiedz(id=1, **produkt.model_dump(), utworzono="2024-01-01")
+
+# ---- PATCH — aktualizacja czesciowa ----
+class ProduktAktualizuj(BaseModel):
+    nazwa: str | None = None
+    cena: float | None = None
+    dostepny: bool | None = None
+
+@app.patch("/produkty/{produkt_id}", response_model=ProduktOdpowiedz)
+async def aktualizuj_produkt(
+    produkt_id: Annotated[int, Path(ge=1)],
+    dane: ProduktAktualizuj,
+) -> ProduktOdpowiedz:
+    # model_dump(exclude_unset=True) zwraca tylko pola ktore uzytkownik podal
+    zmiany = dane.model_dump(exclude_unset=True)
+    # ... aktualizacja tylko zmienionych pol
+    return ProduktOdpowiedz(
+        id=produkt_id, nazwa="Zaktualizowany", cena=50.0,
+        kategoria="elektronika", utworzono="2024-01-01"
+    )
+</code></pre>
+
+  <h2>APIRouter — organizacja kodu</h2>
+  <p>Dla wiekszych aplikacji warto podzielic endpointy na modul przy uzyciu <strong>APIRouter</strong>. Kazdy router moze miec wlasny prefix, tagi i zaleznosci.</p>
+
+  <h2>Zaleznosci — Depends()</h2>
+  <p>System zaleznosci FastAPI pozwala na wstrzykiwanie dowolnych wartosci do endpointow: sesji bazy danych, biezacego uzytkownika, ustawien. Zaleznosci moga byc zagniezdzane i sa automatycznie zarzadzane (takze cleanup po request).</p>
+
+<pre><code>from fastapi import APIRouter, Depends, Security
+from typing import AsyncGenerator
+
+# ---- Router dla uzytkownikow ----
+router_uzytkownicy = APIRouter(
+    prefix="/uzytkownicy",
+    tags=["uzytkownicy"],
+    responses={404: {"description": "Nie znaleziono"}},
+)
+
+# ---- Zaleznosc: sesja bazy danych ----
+async def pobierz_sesje_db() -> AsyncGenerator:
+    """Tworzy sesje DB, zamyka po request."""
+    session = None  # tu: AsyncSession(engine)
+    try:
+        yield session
+    finally:
+        if session:
+            await session.close()
+
+# ---- Zaleznosc: biezacy uzytkownik ----
+class UzytkownikDTO(BaseModel):
+    id: int
+    email: str
+    rola: str
+
+async def biezacy_uzytkownik(
+    # token: str = Security(oauth2_scheme),
+    db=Depends(pobierz_sesje_db),
+) -> UzytkownikDTO:
+    """Dekoduje token JWT i zwraca uzytkownika."""
+    return UzytkownikDTO(id=1, email="jan@example.com", rola="admin")
+
+# ---- Endpoint z wieloma zaleznosci ----
+@router_uzytkownicy.get("/moj-profil")
+async def moj_profil(
+    uzytkownik: UzytkownikDTO = Depends(biezacy_uzytkownik),
+    db=Depends(pobierz_sesje_db),
+) -> UzytkownikDTO:
+    return uzytkownik
+
+@router_uzytkownicy.get("/{user_id}")
+async def profil_uzytkownika(
+    user_id: int,
+    db=Depends(pobierz_sesje_db),
+) -> UzytkownikDTO:
+    return UzytkownikDTO(id=user_id, email="test@example.com", rola="user")
+
+# ---- Rejestracja routera w glownej aplikacji ----
+app.include_router(router_uzytkownicy)
+</code></pre>
+
+  <h2>Automatyczna dokumentacja</h2>
+  <p>FastAPI generuje dokumentacje automatycznie na podstawie kodu. Po uruchomieniu serwera masz dostep do:</p>
+  <ul>
+    <li><strong>/docs</strong> — Swagger UI z mozliwoscia interaktywnego testowania</li>
+    <li><strong>/redoc</strong> — ReDoc — czytelniejszy widok dokumentacji</li>
+    <li><strong>/openapi.json</strong> — surowy schemat OpenAPI 3.0 do importu do Postmana, generowania klientow itd.</li>
+  </ul>
+
+  <div class="card orange">
+    <h3>Status codes</h3>
+    <p>Uzywaj stalych z <code>fastapi.status</code> zamiast liczb. Przyklady: <code>status.HTTP_200_OK</code>, <code>status.HTTP_201_CREATED</code>, <code>status.HTTP_204_NO_CONTENT</code>, <code>status.HTTP_404_NOT_FOUND</code>, <code>status.HTTP_422_UNPROCESSABLE_ENTITY</code>. Poprawia czytelnosc i unika literowek.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="01-podstawy-python-api.html">← 01-podstawy-python-api.html</a>
+    <a href="03-fastapi-zaawansowany.html">03-fastapi-zaawansowany.html →</a>
+  </div>
+</div>
+</body>
+</html>

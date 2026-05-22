@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>05-02-filtry-i-stabilizacja - Filtry i wygladzanie</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:850px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:24px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:22px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text-muted);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6;white-space:pre}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}        .schem{background:#0a0e1a;border:1px solid var(--border);border-radius:12px;padding:20px;margin:18px 0 24px;display:flex;justify-content:center}
+        .schem svg{width:100%;max-width:520px;height:auto}
+        .schem .wire{stroke:#cbd5e1;stroke-width:1.8;fill:none;stroke-linecap:round}
+        .schem .wire-pos{stroke:#f87171;stroke-width:1.8;fill:none}
+        .schem .comp{stroke:#f1f5f9;stroke-width:1.6;fill:none}
+        .schem .comp-fill{fill:#f1f5f9;stroke:#f1f5f9}
+        .schem .node{fill:#38bdf8}
+        .schem .label{fill:#94a3b8;font-family:'Segoe UI',sans-serif;font-size:11px}
+        .schem .label-val{fill:#4ade80;font-family:'Cascadia Code',monospace;font-size:10px}
+        .schem .label-pin{fill:#fbbf24;font-family:'Cascadia Code',monospace;font-size:9px}
+        .schem .label-pos{fill:#f87171;font-family:'Cascadia Code',monospace;font-size:11px;font-weight:600}
+        .schem .gnd{stroke:#94a3b8;stroke-width:1.6;fill:none}
+        .schem .ic-body{fill:#1e293b;stroke:#f1f5f9;stroke-width:1.5}
+        .schem .ic-label{fill:#e2e8f0;font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:600;text-anchor:middle}
+        .schem-ascii{background:#0a0e1a;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:8px 16px;margin:16px 0 24px}
+        .schem-ascii::before{content:'SCHEMAT (ASCII) - wersja SVG: schematy.html';display:block;font-size:.72rem;color:var(--accent);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+        .schem-ascii pre{background:transparent;border:none;padding:6px 0 12px;margin:0}
+        .schem-banner{background:linear-gradient(135deg,rgba(56,189,248,0.12),rgba(167,139,250,0.08));border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:14px 20px;margin:16px 0 24px;font-size:.92rem;display:flex;align-items:center;gap:12px}
+        .schem-banner .icon{font-size:1.5rem}
+        .schem-banner a{color:var(--accent);font-weight:600;text-decoration:none}
+        .schem-banner a:hover{text-decoration:underline}
+
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Strona glowna</a>
+        <span class="sep">/</span>
+        <a href="05-zasilanie.html">05 - Zasilanie</a>
+        <span class="sep">/</span>
+        <span class="title">05-02-filtry-i-stabilizacja</span>
+    </div>
+    <div class="container">
+        <h1>Filtry i wygladzanie</h1>
+        <div class="schem-banner">
+            <span class="icon">[SVG]</span>
+            <span>Wszystkie schematy z tej strony w pelnej wersji SVG (symbole IEC, kolory, etykiety) - zobacz na stronie <a href="schematy.html">Schematy elektroniczne</a>.</span>
+        </div>
+<h2>Po co filtr</h2>
+<p>Po prostowniku napięcie jest pulsujące (półsinusy). Filtr wygładza je do prawie czystego DC. Im lepszy filtr, tym mniejsze tętnienia.</p>
+<h2>Tętnienia (ripple)</h2>
+<p><strong>Tętnienie</strong> to składowa AC nałożona na DC. Mierzymy ją:</p>
+<ul>
+<li>Peak-to-peak (ΔU_pp)</li>
+<li>RMS (U_ripple_rms)</li>
+</ul>
+<p>Wzór RMS dla sinusa: U_RMS = ΔU_pp / (2√2).</p>
+<p>Stosunek tętnień do DC: <strong>współczynnik tętnień (ripple factor)</strong>:</p>
+<pre><code>
+γ = U_ripple_rms / U_DC
+</code></pre>
+<p>Im niższy, tym lepiej. Dla 5% (typowe wymaganie liniowego stabilizatora): γ = 0,05.</p>
+<h2>Filtr C (pojemnościowy)</h2>
+<h3>Schemat</h3>
+<div class="schem-ascii"><pre><code>
+   z mostka ──┬─── + DC
+              │
+              │
+             [C]   filtr (elektrolit)
+              │
+              │
+   GND ───────┴─── − DC
+</code></pre></div>
+<p>Najprostszy i najczęściej spotykany filtr.</p>
+<h3>Działanie</h3>
+<p>Kondensator ładuje się do szczytu prostowanej fali. Gdy fala spada, kondensator zasila obciążenie. W rezultacie napięcie ledwo zauważalnie spada między kolejnymi szczytami.</p>
+<h3>Wzór na pojemność</h3>
+<pre><code>
+C ≥ I_obc / (f · ΔU_pp)
+
+I_obc — prąd obciążenia [A]
+f     — częstotliwość tętnień (100 Hz dla mostka 50 Hz)
+ΔU_pp — dopuszczalne tętnienia [V]
+C     — pojemność [F]
+</code></pre>
+<h3>Przykład</h3>
+<p>I_obc = 2 A, dopuszczalne tętnienia ΔU = 1 V, f = 100 Hz:</p>
+<pre><code>
+C = 2 / (100 · 1) = 0,02 F = 20 000 μF
+</code></pre>
+<p>W praktyce wybieramy 22 000 μF lub 2× 10 000 μF równolegle.</p>
+<h3>Dobór napięcia kondensatora</h3>
+<pre><code>
+U_C ≥ √2 · U_AC + zapas (np. 25-50%)
+</code></pre>
+<p>Dla 12 V AC: szczyt ~17 V → C 25 V, 35 V, lub 50 V.</p>
+<h3>Wady filtra C</h3>
+<ul>
+<li>Duży prąd szczytowy diód (ładowanie kondensatora w krótkim czasie)</li>
+<li>Niska sprawność transformatora (cos φ pogarsza się)</li>
+<li>Duże fizyczne wymiary kondensatora</li>
+</ul>
+<h2>Filtr LC</h2>
+<h3>Schemat</h3>
+<div class="schem-ascii"><pre><code>
+   z mostka ──[L]──┬── + DC
+                   │
+                  [C]
+                   │
+   GND ────────────┴── − DC
+</code></pre></div>
+<p>Cewka indukcyjna L szeregowo, kondensator C równolegle.</p>
+<h3>Działanie</h3>
+<p>Cewka opiera się zmianom prądu → wygładza prąd. Kondensator wygładza napięcie. Razem dają mniejsze tętnienia niż samo C.</p>
+<h3>Częstotliwość odcięcia</h3>
+<pre><code>
+f_c = 1 / (2π · √(L · C))
+</code></pre>
+<p>Tętnienia powyżej f_c są tłumione 40 dB/dekada.</p>
+<p>Przykład: L = 10 mH, C = 1000 μF → f_c = 50 Hz. Dla tętnień 100 Hz (mostek) tłumienie ~12 dB (4×).</p>
+<h3>Zalety</h3>
+<ul>
+<li>Bardzo małe tętnienia</li>
+<li>Lepsza dla transformatora (ciągły prąd)</li>
+<li>Mniejszy prąd szczytowy diód</li>
+</ul>
+<h3>Wady</h3>
+<ul>
+<li>Cewka duża i ciężka (50/100 Hz)</li>
+<li>Droga</li>
+<li>Stosowane głównie w zasilaczach lampowych (audio HF), spawarkach, dużych zasilaczach</li>
+</ul>
+<h2>Filtr π (pi)</h2>
+<h3>Schemat</h3>
+<div class="schem-ascii"><pre><code>
+   z mostka ──┬──[L]──┬── + DC
+              │       │
+             [C1]    [C2]
+              │       │
+   GND ───────┴───────┴── − DC
+</code></pre></div>
+<p>Dwa kondensatory + cewka.</p>
+<h3>Zalety</h3>
+<ul>
+<li>Lepsze niż samo C</li>
+<li>Mniejsza cewka niż LC (C1 odbiera większość tętnień)</li>
+</ul>
+<h2>Filtr RC</h2>
+<p>Stosowany dla małych prądów:</p>
+<div class="schem-ascii"><pre><code>
+   z mostka ──[R]──┬── + DC
+                   │
+                  [C2]
+                   │
+   GND ────────────┴── − DC
+</code></pre></div>
+<p>R rzędu 1-100 Ω. Rezystor ogranicza prąd ładowania C2 i tłumi tętnienia, ale <strong>rozprasza moc</strong> = P = I²·R.</p>
+<p>Stosowane gdy nie ma sensu używać cewki (małe prądy, mała pojemność).</p>
+<h2>Dobór dużego kondensatora — praktyka</h2>
+<h3>Reguły kciuka</h3>
+<ul>
+<li>Małe zasilacze (mA do kilkudziesięciu mA) → 100-1000 μF</li>
+<li>Średnie (do 1 A) → 2200-4700 μF</li>
+<li>Duże (1-5 A) → 4700-10 000 μF</li>
+<li>Bardzo duże (&gt;5 A) → 10 000+ μF (często kilka równolegle)</li>
+</ul>
+<h3>Wartość napięcia kondensatora</h3>
+<p>Zawsze z <strong>zapasem 1,5-2×</strong> względem szczytu napięcia.</p>
+<p>Sieć 230 V po mostku: 325 V szczytu → kondensator 400-450 V.</p>
+<h3>ESR — krytyczny w prostownikach</h3>
+<p>Wysoki ESR daje wyższe tętnienia i grzanie kondensatora. Wybieraj <strong>niskoomowe</strong> (low-ESR), <strong>wysoko-temperaturowe</strong> (105°C).</p>
+<p>Przykład: w zasilaczach komputerowych masowo padają zwykłe elektrolity. Zamień na 105°C low-ESR, mostek wytrzyma dekady.</p>
+<h3>Tętnienie prądowe (ripple current)</h3>
+<p>Datasheet podaje maksymalny prąd AC, który kondensator zniesie bez przegrzania. Przekroczenie → grzanie i krótsza żywotność.</p>
+<p>Dla mostka prostowniczego prąd szczytowy diód:</p>
+<pre><code>
+I_szczyt ≈ I_obc · (5-10)
+I_RMS przez C ≈ I_obc · (1,5-2)
+</code></pre>
+<p>Kondensator musi to wytrzymać.</p>
+<h2>Wpływ filtra na napięcie DC</h2>
+<p>Bez filtra: U_DC = 0,636 · U_m (mostek)</p>
+<p>Z filtrem C: U_DC ≈ U_m − 1,4V (Si diody, lekko mniej z prądem)</p>
+<p><strong>Z filtrem napięcie DC jest WYŻSZE</strong> niż bez filtra. To częste źródło pomyłek:</p>
+<ul>
+<li>Sieć 230 V → trafo 12 V AC → mostek → C 4700 μF</li>
+<li>Spodziewane: 12 V DC</li>
+<li>Faktyczne: ~16 V DC bez obciążenia</li>
+<li>Pod obciążeniem 1 A: ~14 V DC</li>
+</ul>
+<h2>Aktywne tłumienie tętnień</h2>
+<p>Capacitance multiplier — tranzystor + kondensator + R działa jak ogromny kondensator (efektywnie 100-1000×):</p>
+<div class="schem-ascii"><pre><code>
+   in ──[R]──┬──── B─── tranzystor NPN
+             │       │
+            [C]      C ── obciążenie
+             │       │
+            GND     wyjście
+                     E
+                     │
+                     out (z mniejszymi tętnieniami)
+</code></pre></div>
+<p>Tania metoda na "czyste" napięcie przed wzmacniaczem audio bez wielkich kondensatorów.</p>
+<h2>Sprzężenie — czyste vs nieczyste zasilanie</h2>
+<p>W jednym układzie często są obwody "czyste" (analogowe, ADC) i "brudne" (cyfrowe, silniki). Powinny mieć <strong>oddzielne ścieżki zasilania i masy</strong>, łączone w jednym punkcie.</p>
+<h3>Filtr LC dla analogowej części</h3>
+<p>Mały koralik ferrytowy + kondensator między ogólnym +5 V a +5 V analogowym:</p>
+<div class="schem-ascii"><pre><code>
+   +5V ─[koralik]─ +5V_A
+                   │
+                  [C 10μF]
+                   │
+                  GND_A ── tylko w jednym punkcie do GND
+</code></pre></div>
+<h2>Filtr EMI na wejściu sieciowym</h2>
+<p>Klasa C, klasa Y, koraliki — chronią sieć przed zakłóceniami z SMPS i odwrotnie.</p>
+<div class="schem-ascii"><pre><code>
+   L ──[L1 cm choke]──┬── 
+                       ●─[X cap]─ ●  zasilacz
+   N ──[L1 cm choke]──┘
+                       
+   PE ── do obu linii przez Y caps
+</code></pre></div>
+<ul>
+<li><strong>X cap</strong> (klasa X, między L a N) — 100 nF – 470 nF, blokowanie zakłóceń różnicowych</li>
+<li><strong>Y cap</strong> (klasa Y, do PE) — 2,2-4,7 nF, blokowanie wspólnych (common-mode)</li>
+<li><strong>Common-mode choke</strong> (CM choke) — dwie cewki na wspólnym rdzeniu</li>
+</ul>
+<p>Bez tego: SMPS zaśmieca sieć, urządzenie nie przejdzie EMC.</p>
+<h2>Przykład: pełny zasilacz liniowy 12 V / 2 A</h2>
+<h3>Schemat</h3>
+<div class="schem-ascii"><pre><code>
+   sieć 230V ──[F 250mA T]──[CM choke]──[trafo 18V/3A]──
+                                                        │
+                                                  ──[mostek 6A]──
+                                                                 │
+                                            ┌── + ──┬─[7812]──┬── +12V
+                                                    │         │
+                                                 [4700μF]  [100nF]
+                                                    │         │
+                                            └── − ──┴─────────┴── GND
+</code></pre></div>
+<h3>Spadek napięcia</h3>
+<pre><code>
+sieć 230 V → trafo 18 V → mostek (1,4 V drop) → C → 16,9 V DC
+   z trafo (under load 16 V) → mostek → ~21 V szczyt → 18 V DC
+   po 7812: stabilne 12 V
+</code></pre>
+<p>Margines dropout 7812: 21 V − 12 V = 9 V dropout. Większy niż potrzebny, ale ok.</p>
+<h3>Moc strat na 7812</h3>
+<pre><code>
+P = (18 − 12) · 2 = 12 W → wymagany duży radiator
+</code></pre>
+<p>W rzeczywistych zasilaczach z takimi mocami częściej SMPS — patrz następny rozdział.</p>
+<h2>Częste błędy</h2>
+<ol>
+<li><strong>Zbyt mały C</strong> — tętnienia większe niż obliczenia → stabilizator pływa.</li>
+<li><strong>Zbyt mały U_C</strong> — kondensator wybuchowy (literalnie).</li>
+<li><strong>Kondensator wysoko-ESR</strong> — grzanie, krótka żywotność, słaba filtracja.</li>
+<li><strong>Elektrolit "do góry nogami"</strong> — wybuch.</li>
+<li><strong>Brak diody chroniącej</strong> stabilizator przed cofnięciem ładunku z C_out.</li>
+<li><strong>Filtr LC z cewką o zbyt małej indukcyjności</strong> dla 100 Hz → nieefektywny.</li>
+<li><strong>Filtr w niewłaściwym miejscu</strong> — przed mostkiem (po stronie AC) nie pomoże w DC.</li>
+</ul>
+
+        <div class="nav-bottom">
+            <a href="05-01-prostowniki.html">&larr; 05-01 Prostowniki</a>
+            <a href="05-03-zasilacze-impulsowe.html">05-03 SMPS &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

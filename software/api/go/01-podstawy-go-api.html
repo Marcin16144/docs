@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy Go API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Go</a>
+  <span class="sep">/</span>
+  <span class="title">Podstawy Go API</span>
+</div>
+<div class="container">
+  <h1>Podstawy Go API</h1>
+  <p class="subtitle">net/http, goroutines, struktury, JSON — fundament kazdego serwisu w Go</p>
+
+  <h2>Pakiet net/http — standardowa biblioteka</h2>
+  <p>Go dostarcza w standardowej bibliotece pelny stos HTTP. Nie trzeba zewnetrznych pakietow, zeby uruchomic serwer produkcyjny. Pakiet <code>net/http</code> obsluguje routing, parsowanie zadan, kodowanie odpowiedzi i TLS.</p>
+  <p>Minimalny serwer HTTP wyglada nastepujaco — jedna funkcja <code>main</code> i dwa wyrazenia:</p>
+
+<pre><code>package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "log"
+    "net/http"
+)
+
+type Response struct {
+    Message string `json:"message"`
+    Status  int    `json:"status"`
+}
+
+func helloHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+    resp := Response{Message: "Witaj w Go API", Status: 200}
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(resp)
+}
+
+func main() {
+    mux := http.NewServeMux()
+    mux.HandleFunc("/hello", helloHandler)
+    mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+        fmt.Fprintln(w, `{"status":"ok"}`)
+    })
+
+    server := &http.Server{
+        Addr:    ":8080",
+        Handler: mux,
+    }
+    log.Println("Serwer startuje na :8080")
+    log.Fatal(server.ListenAndServe())
+}</code></pre>
+
+  <h2>ServeMux vs gorilla/mux</h2>
+  <p>Wbudowany <code>http.ServeMux</code> jest prosty i wydajny, ale ma ograniczenia: nie obsluguje parametrow sciezki (<code>/user/:id</code>), nie rozroznia metod HTTP na poziomie routera ani nie ma wbudowanego middleware. Do bardziej zlozonych API warto uzyc zewnetrznego routera.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cecha</th>
+        <th>http.ServeMux</th>
+        <th>gorilla/mux</th>
+        <th>chi</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Parametry sciezki</td>
+        <td>Brak</td>
+        <td>Tak (<code>{id}</code>)</td>
+        <td>Tak (<code>{id}</code>)</td>
+      </tr>
+      <tr>
+        <td>Filtrowanie metod HTTP</td>
+        <td>Reczne</td>
+        <td>Wbudowane</td>
+        <td>Wbudowane</td>
+      </tr>
+      <tr>
+        <td>Middleware</td>
+        <td>Reczne owijanie</td>
+        <td>Use() / Subrouter</td>
+        <td>Use() / Group()</td>
+      </tr>
+      <tr>
+        <td>Regex w sciezkach</td>
+        <td>Brak</td>
+        <td>Tak</td>
+        <td>Brak</td>
+      </tr>
+      <tr>
+        <td>Zaleznosci zewnetrzne</td>
+        <td>Brak</td>
+        <td>gorilla/mux</td>
+        <td>go-chi/chi</td>
+      </tr>
+      <tr>
+        <td>Wydajnosc (ns/op)</td>
+        <td>Bardzo wysoka</td>
+        <td>Srednia</td>
+        <td>Wysoka</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Goroutines i channels w kontekscie API</h2>
+  <p>Kazde przychodzace zadanie HTTP jest obslugiwane w osobnej goroutine — Go robi to automatycznie. Goroutines sa lekkie (poczatkowy stos ~2 KB) i skaluja sie do setek tysiecy jednoczesnych polaczyc.</p>
+  <p>Channels sluza do komunikacji miedzy goroutines. W API uzywamy ich np. do ograniczania wspolbieznosci, zbierania wynikow z rownoleglych zapytan do zewnetrznych serwisow lub implementacji timeoutow.</p>
+
+<pre><code>// Rownolegla agregacja danych z kilku zrodel
+func fetchAll(userID int) (map[string]any, error) {
+    type result struct {
+        key string
+        val any
+        err error
+    }
+    ch := make(chan result, 3)
+
+    go func() {
+        data, err := fetchProfile(userID)
+        ch <- result{"profile", data, err}
+    }()
+    go func() {
+        data, err := fetchOrders(userID)
+        ch <- result{"orders", data, err}
+    }()
+    go func() {
+        data, err := fetchPrefs(userID)
+        ch <- result{"prefs", data, err}
+    }()
+
+    out := make(map[string]any)
+    for i := 0; i < 3; i++ {
+        r := <-ch
+        if r.err != nil {
+            return nil, fmt.Errorf("blad w %s: %w", r.key, r.err)
+        }
+        out[r.key] = r.val
+    }
+    return out, nil
+}</code></pre>
+
+  <h2>defer, panic i recover</h2>
+  <p><strong>defer</strong> wykonuje wyrazenie po zakonczeniu funkcji — idealny do zamykania zasobow (polaczen DB, plikow). <strong>panic</strong> przerywa normalny przeplyw wykonania i jest uzywany do bledow krytycznych. <strong>recover</strong> lapie panic i pozwala na graceful recovery — typowo w middleware API.</p>
+
+  <div class="card orange">
+    <h3>Wzorzec middleware recovery</h3>
+    <p>Kazdy serwer HTTP powinien miec middleware, ktory lapie niezaplanowane paniki i zwraca kod 500 zamiast zabijac caly proces. W Gin i Echo jest to wbudowane (<code>Recovery()</code>), w czystym net/http implementujemy recznie.</p>
+  </div>
+
+  <h2>Go modules — go.mod</h2>
+  <p>Od Go 1.11 zarzadzanie zaleznosci odbywa sie przez modul system. Plik <code>go.mod</code> definiuje nazwe modulu i wersje zaleznosci. Nie trzeba ustawiac <code>GOPATH</code> — modul moze znajdowac sie gdziekolwiek.</p>
+
+  <h3>Podstawowe komendy</h3>
+  <ul>
+    <li><code>go mod init github.com/user/projekt</code> — inicjalizuje nowy modul</li>
+    <li><code>go get github.com/gin-gonic/gin@v1.9.1</code> — dodaje zaleznosc</li>
+    <li><code>go mod tidy</code> — usuwa nieuzywane zaleznosci, pobiera brakujace</li>
+    <li><code>go mod vendor</code> — kopiuje zaleznosci do katalogu vendor/</li>
+    <li><code>go list -m all</code> — lista wszystkich zaleznosci z wersjami</li>
+  </ul>
+
+  <h2>Struktury i interfejsy dla API</h2>
+  <p>Go uzywa struktur jako modeli danych. Tagi JSON (<code>`json:"pole"`</code>) kontroluja serializacje. Interfejsy definiuja kontrakty — np. <code>http.Handler</code> jest interfejsem z jedna metoda <code>ServeHTTP</code>.</p>
+
+  <h3>Wzorzec request/response DTO</h3>
+  <p>Typowy projekt Go API rozdziela modele bazy danych od modeli HTTP — dzieki temu nie eksponuje wewnetrznych pol (np. hasla) i latwiej waliduje dane wejsciowe.</p>
+
+  <h2>JSON marshal i unmarshal</h2>
+  <p>Pakiet <code>encoding/json</code> serializuje struktury Go do JSON (<code>Marshal</code>) i deserializuje JSON do struktur (<code>Unmarshal</code>). Dla duzych ciagnosci i streamingu uzywamy <code>json.Encoder</code> / <code>json.Decoder</code> — unikamy buforowania calej odpowiedzi w pamieci.</p>
+
+  <div class="card blue">
+    <h3>Wskazowki dotyczace JSON</h3>
+    <ul>
+      <li>Uzyj <code>omitempty</code>, zeby pominac zerowe pola: <code>`json:"name,omitempty"`</code></li>
+      <li><code>json:"-"</code> wyklucza pole z serializacji (np. hasla, wewnetrzne ID)</li>
+      <li>Dla dynamicznych danych uzyj <code>map[string]any</code> lub <code>json.RawMessage</code></li>
+      <li><code>json.Number</code> zamiast <code>float64</code> gdy potrzebujesz dokladnych liczb</li>
+      <li>Zaimplementuj <code>json.Marshaler</code> / <code>json.Unmarshaler</code> dla niestandardowej logiki</li>
+    </ul>
+  </div>
+
+  <h2>Obsuga bledow — idiomy Go</h2>
+  <p>Go nie ma wyjatkow — bledy sa zwracanymi wartosciami. Funkcje zwracaja <code>(wynik, error)</code>. Bledy nalezy obsluzyc natychmiast po otrzymaniu. Od Go 1.13 mozna owijac bledy przez <code>fmt.Errorf("kontekst: %w", err)</code> i rozwijac przez <code>errors.Is</code> / <code>errors.As</code>.</p>
+
+  <h3>Centralna obsluga bledow HTTP</h3>
+  <p>Wzorzec polega na zdefiniowaniu typu bledu API (<code>APIError</code>) zawierajacego kod statusu i komunikat, a nastepnie obsludze go w jednym miejscu — najczesciej w middleware lub funkcji pomocniczej <code>respond()</code>.</p>
+
+  <div class="nav-bottom">
+    <a href="index.html">&#8592; index.html</a>
+    <a href="02-gin.html">02-gin.html &#8594;</a>
+  </div>
+</div>
+</body>
+</html>

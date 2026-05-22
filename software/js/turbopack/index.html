@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Turbopack / Rspack — Rust-based Bundlers</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f472b6;--accent-hover:#f9a8d4;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:36px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);text-align:center}
+.footer a{color:var(--accent);text-decoration:none;font-weight:500}.footer a:hover{color:var(--accent-hover)}
+tr:nth-child(even) td{background:rgba(30,41,59,.5)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600;margin-left:6px}
+.badge.stable{background:#166534;color:#4ade80}.badge.exp{background:#7c2d12;color:#fb923c}.badge.beta{background:#1e3a5f;color:#60a5fa}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a href="../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../index.html">JS-TS</a>
+  <span class="sep">/</span>
+  <span class="title">Turbopack / Rspack</span>
+</nav>
+
+<div class="container">
+  <h1>Turbopack / Rspack</h1>
+  <p class="subtitle">Rust-based bundlers. Turbopack (Vercel/Next.js), Rspack (ByteDance/webpack-compat).</p>
+
+  <!-- 1. Problem z webpack -->
+  <h2>1. Problem z webpack i dlaczego Rust bundlers</h2>
+  <p>Webpack dominowal ekosystem JS przez dekade, ale jego architektura — napisana w JavaScript — ma fundamentalne ograniczenia wydajnosci przy duzych projektach.</p>
+  <div class="card orange">
+    <strong>Typowe problemy webpack w duzych projektach (2024):</strong>
+    <ul style="margin-top:8px">
+      <li>Cold start (pierwszy dev build): 30–120 sekund dla 5000+ modulow</li>
+      <li>HMR (Hot Module Replacement): 2–10 sekund na zmiane pliku</li>
+      <li>Brak wielowatkowosci (JavaScript jest jednowatkowy)</li>
+      <li>Zlozonosc konfiguracji — setki linii dla sredniego projektu</li>
+    </ul>
+  </div>
+  <p>Rozwiazanie: pisac bundlery w <strong>Rust</strong> — jezyk systemowy oferujacy:</p>
+  <ul>
+    <li>Natywna wielowatkowosc — rownolegle przetwarzanie plikow</li>
+    <li>Zero overhead garbage collection — brak pauz GC</li>
+    <li>SIMD i niskopoziomowe optymalizacje</li>
+    <li>10–100x szybszy niz ekwiwalentny kod JavaScript</li>
+  </ul>
+  <p>Rezultat: cold start skraca sie z minut do sekund. HMR z sekund do milisekund.</p>
+
+  <!-- 2. Turbopack -->
+  <h2>2. Turbopack — Vercel, turbo engine, incremental compute</h2>
+  <p>Turbopack zostal stworzony przez <strong>Vercel</strong> w 2022 r. Jego glownym architektem jest Tobias Koppers — tworca oryginalnego webpacka. Uzywa silnika <strong>Turbo</strong> — systemu incremental computation z agresywnym cachowaniem na poziomie funkcji.</p>
+  <div class="card blue">
+    <strong>Turbo Engine — jak dziala:</strong><br>
+    Kazda operacja (parsowanie pliku, transformacja, bundling fragmentu) jest traktowana jako funkcja z wejsciem i wyjsciem. Wyniki sa cachowane. Przy zmianie pliku przeliczane sa <em>tylko</em> funkcje, ktore zaleza od zmienionych wejsc — reszta pochodzi z cache.
+  </div>
+  <ul>
+    <li><strong>Incremental:</strong> nie przebudowuje tego co sie nie zmienilo</li>
+    <li><strong>Lazy:</strong> przetwarza tylko modul ktory jest aktualnie potrzebny przegladarce</li>
+    <li><strong>Parallel:</strong> wielowatkowe przetwarzanie modulow</li>
+    <li><strong>Persistent cache:</strong> cache przechowywany miedzy sesjami na dysku</li>
+  </ul>
+  <p>Turbopack jest zintegrowany wylacznie z <strong>Next.js</strong> — nie jest standalone bundlerem (w odroznieniu od Rspack). Vercel ma plany na szersze API, ale na razie jest to internal tool dla Next.js.</p>
+
+  <!-- 3. Turbopack w Next.js 15 -->
+  <h2>3. Turbopack w Next.js 15</h2>
+  <p>Next.js 15 (2024) wprowadzil Turbopack jako stabilny backend dla dev servera.</p>
+  <pre><code># Next.js 15 — uruchomienie z Turbopack
+# next dev --turbopack jest STABILNE od Next.js 15
+next dev --turbopack
+# lub w package.json:
+{
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build"  // produkcja nadal uzywa webpack/Turbopack exp.
+  }
+}
+
+# next build --turbopack — EKSPERYMENTALNE (Next.js 15.3+)
+next build --turbopack</code></pre>
+  <pre><code>// next.config.ts — konfiguracja Turbopack
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
+  // Turbopack-specific config (Next.js 15+)
+  turbopack: {
+    // aliasy modulow
+    resolveAlias: {
+      '@components': './src/components',
+      '@lib': './src/lib',
+    },
+    // niestandardowe rozszerzenia plikow
+    resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mdx'],
+    // reguly plikow (jak webpack loaders)
+    rules: {
+      '*.svg': {
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
+      },
+      '*.mdx': {
+        loaders: ['@mdx-js/loader'],
+        as: '*.tsx',
+      },
+    },
+  },
+};
+
+export default nextConfig;</code></pre>
+  <div class="card green">
+    <strong>Wyniki benchmarkow (Next.js blog, 2024):</strong> cold start 53% szybszy, HMR 94% szybszy niz webpack w typowej aplikacji Next.js z 1000 modulami. Dla wiekszych aplikacji roznica jest jeszcze wieksza.
+  </div>
+  <div class="card orange">
+    <strong>Uwaga:</strong> <code>next dev --turbopack</code> jest stabilne. <code>next build --turbopack</code> jest eksperymentalne — nie uzywaj na produkcji bez testow. Niektorze webpack loadery/plugins nie maja jeszcze odpowiednikow w Turbopack.
+  </div>
+
+  <!-- 4. Rspack -->
+  <h2>4. Rspack — webpack-compatible, ByteDance open-source</h2>
+  <p><strong>Rspack</strong> zostal stworzony przez <strong>ByteDance</strong> (TikTok) jako wewnetrzne narzedzie do budowania ogromnych aplikacji. W 2023 zostal udostepniony jako open-source. Jego glowna obietnica: <strong>drop-in replacement dla webpack</strong> z 5–10x szybkoscia.</p>
+  <ul>
+    <li>Napisany w Rust, wielowatkowy</li>
+    <li>Kompatybilny API z webpack 5 — minimalna migracja</li>
+    <li>Wspiera webpack plugins i loaders przez warstwo kompatybilnosci</li>
+    <li>Wbudowany TypeScript, JSX, CSS Modules bez loaderów</li>
+    <li>Uzywany przez: ByteDance, Microsoft, Amazon i inne firmy enterprise</li>
+  </ul>
+  <pre><code># instalacja Rspack
+npm install -D @rspack/core @rspack/cli
+
+# package.json
+{
+  "scripts": {
+    "dev": "rspack dev",
+    "build": "rspack build"
+  }
+}</code></pre>
+
+  <!-- 5. Rspack konfiguracja -->
+  <h2>5. Rspack — konfiguracja (jak webpack)</h2>
+  <pre><code>// rspack.config.mjs — bardzo podobne do webpack.config.js
+import { defineConfig } from '@rspack/cli';
+import { rspack } from '@rspack/core';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export default defineConfig({
+  // entry — punkt wejsciowy
+  entry: { main: './src/index.tsx' },
+
+  // output
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].[contenthash].js',
+    clean: true,
+  },
+
+  // module — reguly transformacji
+  module: {
+    rules: [
+      // TypeScript + React JSX — wbudowane, bez dodatkowych loaderów
+      {
+        test: /\.(ts|tsx)$/,
+        use: { loader: 'builtin:swc-loader', options: { jsc: { parser: { syntax: 'typescript', tsx: true } } } },
+        exclude: /node_modules/,
+      },
+      // CSS Modules
+      {
+        test: /\.module\.css$/,
+        use: [rspack.CssExtractRspackPlugin.loader, 'css-loader'],
+      },
+      // zwykly CSS
+      { test: /\.css$/, type: 'css' },
+      // obrazy
+      { test: /\.(png|jpg|gif|svg)$/, type: 'asset/resource' },
+    ],
+  },
+
+  // resolve — aliasy, rozszerzenia
+  resolve: {
+    alias: { '@': path.resolve(__dirname, 'src') },
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+  },
+
+  // plugins — kompatybilne z webpack
+  plugins: [
+    new rspack.HtmlRspackPlugin({ template: './public/index.html' }),
+    new rspack.CssExtractRspackPlugin(),
+    new rspack.DefinePlugin({ 'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV) }),
+  ],
+
+  // optimization
+  optimization: {
+    splitChunks: { chunks: 'all' },
+    minimizer: [new rspack.SwcJsMinimizerRspackPlugin()],
+  },
+
+  // devServer
+  devServer: {
+    port: 3000,
+    hot: true,
+    historyApiFallback: true,
+  },
+});</code></pre>
+
+  <!-- 6. Farm -->
+  <h2>6. Farm — kolejny Rust bundler</h2>
+  <p><strong>Farm</strong> to bundler Rust stworzony z mysla o ekstremalnej szybkosci. W odroznieniu od Rspack, nie jest ograniczony przez kompatybilnosc z webpack — ma wlasne API zaprojektowane od zera pod Rust.</p>
+  <pre><code># instalacja Farm
+npm create farm@latest moja-aplikacja
+
+# farm.config.ts
+import { defineConfig } from '@farmfe/core';
+
+export default defineConfig({
+  plugins: ['@farmfe/plugin-react'],
+  compilation: {
+    input: { index: './index.html' },
+    output: { path: './dist' },
+    resolve: { alias: { '@': './src' } },
+  },
+  server: { port: 9000, hmr: true },
+});</code></pre>
+  <div class="card blue">
+    <strong>Farm benchmarki (2024):</strong> cold start ~20ms (vs Vite ~300ms, webpack ~3000ms) dla 1000 modulow. Jednak Farm jest jeszcze mniej dojrzaly niz Rspack pod wzgledem ecosystemu i stabilnosci.
+  </div>
+
+  <!-- 7. Rolldown -->
+  <h2>7. Rolldown — Vite's upcoming Rust bundler</h2>
+  <p><strong>Rolldown</strong> to projekt Vite team i Void(0) — Rust-based bundler <em>kompatybilny z Rollup API</em>. Cel: zastapic Rollup (produkcja) i esbuild (dev pre-bundling) w Vite jednym szybkim Rust bundlerem.</p>
+  <ul>
+    <li>Kompatybilne API z Rollup — istniejace Rollup plugins powinny dzialac</li>
+    <li>Planowana integracja z Vite 6/7 jako opcja produkcyjna</li>
+    <li>Oxc (Rust JS parser/transformer) jako silnik parsowania</li>
+    <li>Stan 2026: alpha/beta — nie do produkcji</li>
+  </ul>
+  <pre><code># Rolldown (alpha — tylko do testow)
+npm install -D rolldown
+
+# rolldown.config.mjs
+import { defineConfig } from 'rolldown';
+export default defineConfig({
+  input: 'src/index.ts',
+  output: { dir: 'dist', format: 'esm' },
+});
+
+# Vite z Rolldown (eksperymentalnie, Vite 6.x)
+# vite.config.ts
+import { defineConfig } from 'vite';
+export default defineConfig({
+  experimental: { enableNativePlugin: true }  // Rolldown backend
+});</code></pre>
+
+  <!-- 8. Porownanie -->
+  <h2>8. Porownanie: Webpack vs Vite vs Turbopack vs Rspack vs Farm</h2>
+  <table>
+    <tr>
+      <th>Bundler</th>
+      <th>Cold Start<br>(1000 mod.)</th>
+      <th>HMR</th>
+      <th>Webpack compat.</th>
+      <th>Prod build</th>
+      <th>Ekosystem</th>
+    </tr>
+    <tr>
+      <td><strong>Webpack 5</strong></td>
+      <td>~3000ms</td>
+      <td>~2000ms</td>
+      <td>Natywny</td>
+      <td>Dobry, wolny</td>
+      <td>Ogromny</td>
+    </tr>
+    <tr>
+      <td><strong>Vite 6</strong></td>
+      <td>~300ms</td>
+      <td>~50ms</td>
+      <td>Nie</td>
+      <td>Rollup (dobry)</td>
+      <td>Duzy, rosnacy</td>
+    </tr>
+    <tr>
+      <td><strong>Turbopack</strong> <span class="badge stable">stable dev</span></td>
+      <td>~100ms</td>
+      <td>~10ms</td>
+      <td>Czesciowy</td>
+      <td>Exp. (Next.js only)</td>
+      <td>Tylko Next.js</td>
+    </tr>
+    <tr>
+      <td><strong>Rspack</strong></td>
+      <td>~400ms</td>
+      <td>~30ms</td>
+      <td>Wysoka</td>
+      <td>Dobry, szybki</td>
+      <td>Rosnacy</td>
+    </tr>
+    <tr>
+      <td><strong>Farm</strong> <span class="badge beta">beta</span></td>
+      <td>~20ms</td>
+      <td>~5ms</td>
+      <td>Nie</td>
+      <td>Dobry</td>
+      <td>Maly</td>
+    </tr>
+    <tr>
+      <td><strong>Rolldown</strong> <span class="badge exp">alpha</span></td>
+      <td>TBD</td>
+      <td>TBD</td>
+      <td>Rollup API</td>
+      <td>W developmencie</td>
+      <td>Bardzo maly</td>
+    </tr>
+  </table>
+
+  <!-- 9. Migracja webpack → Rspack -->
+  <h2>9. Migracja Webpack → Rspack</h2>
+  <p>Rspack jest zaprojektowany jako drop-in replacement — migracja zwykle zajmuje kilka godzin, nie tygodni.</p>
+  <pre><code"># krok 1 — zainstaluj Rspack, odinstaluj webpack
+npm uninstall webpack webpack-cli webpack-dev-server
+npm install -D @rspack/core @rspack/cli
+
+# krok 2 — przemianuj plik konfiguracji
+mv webpack.config.js rspack.config.mjs  # lub .cjs
+
+# krok 3 — zaktualizuj importy w konfiguracji
+# PRZED (webpack):
+# const HtmlWebpackPlugin = require('html-webpack-plugin');
+# const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+
+# PO (rspack — wbudowane):
+import { rspack } from '@rspack/core';
+// rspack.HtmlRspackPlugin — wbudowany, nie wymaga instalacji
+// rspack.CssExtractRspackPlugin — wbudowany
+
+# krok 4 — zaktualizuj scripts w package.json
+# "dev": "webpack serve" → "dev": "rspack dev"
+# "build": "webpack build" → "build": "rspack build"</code></pre>
+  <div class="card green">
+    <h3>Checklist migracji Webpack → Rspack</h3>
+    <ul style="margin-top:8px">
+      <li>Zamien <code>webpack</code> na <code>@rspack/core</code> w devDependencies</li>
+      <li>Wbudowane: TypeScript, JSX, CSS, asset modules — usun odpowiednie loadery</li>
+      <li>Zamien <code>html-webpack-plugin</code> na wbudowany <code>HtmlRspackPlugin</code></li>
+      <li>Zamien <code>mini-css-extract-plugin</code> na <code>CssExtractRspackPlugin</code></li>
+      <li>Sprawdz kompatybilnosc uzywanych webpack pluginow (wiekszosc dziala)</li>
+      <li>Przetestuj wszystkie loaders — niektore wymagaja Rspack-specyficznych alternatyw</li>
+      <li>Babel loader czesto mozna zastapic builtin <code>builtin:swc-loader</code></li>
+    </ul>
+  </div>
+
+  <!-- 10. Landscape 2026 -->
+  <h2>10. Landscape 2026 — kto wygra</h2>
+  <div class="card blue">
+    <h3>Prognoza</h3>
+    <p><strong>Nowe projekty:</strong> Vite pozostaje standardem dla SPA/SSR. Nowe projekty Next.js uzywaja Turbopack dev + webpack/Turbopack prod.</p>
+    <p><strong>Enterprise migracje z webpack:</strong> Rspack jest oczywistym wyborem — zerowa zmiana mindset, dramatyczna poprawa szybkosci.</p>
+    <p><strong>Perspektywa dlugodystansowa:</strong> Rolldown moze zjednoczyc Vite dev + prod w jednym Rust bundlerze, eliminujac roznice miedzy devem (esbuild) a prodem (Rollup). To bedzie przelamanie.</p>
+    <p><strong>Farm:</strong> Ciekawy technicznie, zbyt maly ekosystem dla produkcji w 2026.</p>
+  </div>
+  <pre><code>// next.config.ts — rekomendowana konfiguracja 2026
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
+  turbopack: {
+    resolveAlias: {
+      '@': './src',
+    },
+  },
+  // experymentalne features
+  experimental: {
+    turbopackBuild: false,  // zostaw false dopoki nie stable
+  },
+};
+
+export default nextConfig;</code></pre>
+
+  <div class="footer">
+    <a href="../index.html">← Wroc do JS/TS</a>
+  </div>
+</div>
+</body>
+</html>

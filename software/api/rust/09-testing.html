@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testowanie Rust API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f97316;--accent-hover:#fb923c;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Rust</a>
+  <span class="sep">/</span>
+  <span class="title">Testowanie Rust API</span>
+</div>
+<div class="container">
+  <h1>Testowanie Rust API</h1>
+  <p class="subtitle">Testy jednostkowe async, testy integracyjne Axum, testcontainers, wiremock i cargo-nextest — kompletny zestaw narzedzi do testowania API w Rust.</p>
+
+  <h2>#[tokio::test] — asynchroniczne testy jednostkowe</h2>
+  <p>Makro <code>#[tokio::test]</code> dziala analogicznie do <code>#[tokio::main]</code> — uruchamia runtime Tokio dla kazdego testu. Testy async sa pelnoprawnymi testami Rust i dzialaja z <code>cargo test</code>.</p>
+
+  <pre><code>// src/services/user_service.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::test;
+
+    #[tokio::test]
+    async fn test_hash_and_verify_password() {
+        let password = "super_secret_123!";
+        let hash = hash_password(password).await.unwrap();
+
+        assert_ne!(hash, password);
+        assert!(hash.starts_with("$argon2"));
+
+        let is_valid = verify_password(password, &amp;hash).await.unwrap();
+        assert!(is_valid);
+
+        let is_invalid = verify_password("wrong_password", &amp;hash).await.unwrap();
+        assert!(!is_invalid);
+    }
+
+    #[tokio::test]
+    async fn test_jwt_sign_and_verify() {
+        let service = JwtService::new_hs256(b"test_secret_key_minimum_32_bytes!");
+        let token = service.sign("user_42", "test@example.com", "user").unwrap();
+
+        let claims = service.verify(&amp;token).unwrap();
+        assert_eq!(claims.sub, "user_42");
+        assert_eq!(claims.email, "test@example.com");
+        assert_eq!(claims.role, "user");
+    }
+
+    #[tokio::test]
+    async fn test_expired_jwt_is_rejected() {
+        let service = JwtService::new_hs256(b"test_secret_key_minimum_32_bytes!");
+        let expired_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.fake";
+        assert!(service.verify(expired_token).is_err());
+    }
+}</code></pre>
+
+  <h2>axum::test — TestClient dla handlerów</h2>
+  <p>Biblioteka <code>axum-test</code> (lub wbudowany <code>tower::ServiceExt</code>) pozwala testowac handlery Axum bez uruchamiania prawdziwego serwera HTTP. Requesty sa wysylane bezposrednio przez trait <code>Service</code>.</p>
+
+  <pre><code>// Cargo.toml [dev-dependencies]
+// axum-test = "15"
+
+use axum_test::TestServer;
+
+async fn build_test_app() -> TestServer {
+    let db = create_test_db().await;
+    let state = Arc::new(AppState { db });
+    let app = build_router(state);
+    TestServer::new(app).unwrap()
+}
+
+#[tokio::test]
+async fn test_create_user_returns_201() {
+    let server = build_test_app().await;
+
+    let response = server
+        .post("/api/v1/users")
+        .json(&amp;serde_json::json!({
+            "name": "Jan Kowalski",
+            "email": "jan@example.com"
+        }))
+        .await;
+
+    response.assert_status_created();
+    let body: serde_json::Value = response.json();
+    assert_eq!(body["name"], "Jan Kowalski");
+    assert!(body["id"].is_number());
+}
+
+#[tokio::test]
+async fn test_get_user_not_found_returns_404() {
+    let server = build_test_app().await;
+    let response = server.get("/api/v1/users/99999").await;
+    response.assert_status_not_found();
+}
+
+#[tokio::test]
+async fn test_protected_endpoint_requires_auth() {
+    let server = build_test_app().await;
+    let response = server.get("/api/v1/profile").await;
+    response.assert_status_unauthorized();
+}
+
+#[tokio::test]
+async fn test_protected_endpoint_with_valid_token() {
+    let server = build_test_app().await;
+    let token = generate_test_token("user_1");
+
+    let response = server
+        .get("/api/v1/profile")
+        .authorization_bearer(token)
+        .await;
+
+    response.assert_status_ok();
+}</code></pre>
+
+  <h2>reqwest — HTTP client w testach integracyjnych</h2>
+  <p>Do testow integracyjnych uruchamiajacych prawdziwy serwer uzyj <strong>reqwest</strong> jako client HTTP. Serwer startuje na losowym porcie (<code>:0</code>), klient odpytuje go przez <code>http://127.0.0.1:PORT</code>.</p>
+
+  <pre><code>// tests/integration_test.rs
+use tokio::net::TcpListener;
+
+async fn spawn_test_server() -> (String, tokio::task::JoinHandle&lt;()&gt;) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let app = build_app_for_tests().await;
+
+    let handle = tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    (format!("http://{addr}"), handle)
+}
+
+#[tokio::test]
+async fn integration_test_full_user_lifecycle() {
+    let (base_url, _server) = spawn_test_server().await;
+    let client = reqwest::Client::new();
+
+    // Tworzenie uzytkownika
+    let create_resp = client
+        .post(format!("{base_url}/api/v1/users"))
+        .json(&amp;serde_json::json!({"name": "Anna", "email": "anna@test.com"}))
+        .send().await.unwrap();
+    assert_eq!(create_resp.status(), 201);
+    let user: serde_json::Value = create_resp.json().await.unwrap();
+    let user_id = user["id"].as_i64().unwrap();
+
+    // Pobieranie uzytkownika
+    let get_resp = client
+        .get(format!("{base_url}/api/v1/users/{user_id}"))
+        .send().await.unwrap();
+    assert_eq!(get_resp.status(), 200);
+}</code></pre>
+
+  <h2>testcontainers-rs — PostgreSQL w Docker</h2>
+  <p>Crate <strong>testcontainers</strong> uruchamia kontenery Docker na czas testu i automatycznie je zatrzymuje po zakonczeniu. Idealny do testow z prawdziwa baza danych.</p>
+
+  <pre><code>// [dev-dependencies]
+// testcontainers = "0.21"
+// testcontainers-modules = { version = "0.10", features = ["postgres"] }
+
+use testcontainers::{runners::AsyncRunner, ImageExt};
+use testcontainers_modules::postgres::Postgres;
+
+#[tokio::test]
+async fn test_with_real_postgres() {
+    let container = Postgres::default()
+        .with_db_name("testdb")
+        .with_user("test")
+        .with_password("test")
+        .start()
+        .await
+        .unwrap();
+
+    let port = container.get_host_port_ipv4(5432).await.unwrap();
+    let db_url = format!("postgres://test:test@127.0.0.1:{port}/testdb");
+
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&amp;db_url).await.unwrap();
+
+    // Uruchomienie migracji
+    sqlx::migrate!("./migrations").run(&amp;pool).await.unwrap();
+
+    // Testy z prawdziwa baza
+    let user_id = create_user(&amp;pool, "Test User", "test@db.com").await.unwrap();
+    let user = find_user_by_id(&amp;pool, user_id).await.unwrap();
+    assert!(user.is_some());
+    assert_eq!(user.unwrap().email, "test@db.com");
+    // kontener zatrzymuje sie automatycznie po wyjsciu ze scope
+}</code></pre>
+
+  <h2>wiremock-rs — mockowanie zewnetrznych HTTP</h2>
+  <p>Gdy twoje API wywoluje zewnetrzne serwisy (payment gateway, SMS, email), uzyj <strong>wiremock</strong> do mockowania tych polaczen w testach.</p>
+
+  <pre><code>use wiremock::{MockServer, Mock, ResponseTemplate};
+use wiremock::matchers::{method, path, header};
+
+#[tokio::test]
+async fn test_send_notification_calls_external_api() {
+    let mock_server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/v1/messages"))
+        .and(header("Authorization", "Bearer test_key"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({"id": "msg_123", "status": "sent"}))
+        )
+        .expect(1)  // oczekujemy dokladnie 1 wywolania
+        .mount(&amp;mock_server)
+        .await;
+
+    let service = NotificationService::new(mock_server.uri(), "test_key");
+    let result = service.send_notification("user@example.com", "Witaj!").await;
+
+    assert!(result.is_ok());
+    mock_server.verify().await;  // sprawdza czy expect(1) zostal spelniony
+}</code></pre>
+
+  <h2>cargo-nextest i struktura testow</h2>
+
+  <table>
+    <thead>
+      <tr><th>Narzedzie</th><th>Przeznaczenie</th><th>Komenda</th><th>Przewaga</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>cargo test</td><td>standardowe testy</td><td><code>cargo test</code></td><td>wbudowany, bez instalacji</td></tr>
+      <tr><td>cargo-nextest</td><td>szybszy runner</td><td><code>cargo nextest run</code></td><td>2-3x szybszy, lepszy output</td></tr>
+      <tr><td>cargo-llvm-cov</td><td>pokrycie kodu</td><td><code>cargo llvm-cov</code></td><td>raport HTML/LCOV</td></tr>
+      <tr><td>cargo-mutants</td><td>mutation testing</td><td><code>cargo mutants</code></td><td>jakosc asercji</td></tr>
+    </tbody>
+  </table>
+
+  <pre><code># Instalacja nextest
+cargo install cargo-nextest
+
+# Uruchomienie testow (rownoleglosc domyslnie lepsza niz cargo test)
+cargo nextest run
+
+# Tylko testy integracyjne
+cargo nextest run --test '*'
+
+# Filtrowanie po nazwie
+cargo nextest run test_create_user
+
+# Struktura projektu z testami integracyjnymi:
+# my-api/
+# ├── src/
+# │   ├── main.rs
+# │   ├── lib.rs          &lt;-- eksportuj pub fn build_app()
+# │   ├── handlers/
+# │   └── services/
+# │       └── user.rs     &lt;-- #[cfg(test)] mod tests { ... }
+# └── tests/
+#     ├── common/
+#     │   └── mod.rs      &lt;-- wspolne helpery testowe
+#     ├── users_test.rs
+#     └── auth_test.rs</code></pre>
+
+  <div class="card green">
+    <strong>Dobra praktyka:</strong> Testy jednostkowe (<code>#[cfg(test)]</code> w module) testuja logike funkcji izolowanie. Testy w folderze <code>tests/</code> sa testami integracyjnymi — testuja aplikacje jako calosc przez HTTP. Unikaj mockowania w testach integracyjnych; zamiast tego uzyj testcontainers z prawdziwa baza danych.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="08-uwierzytelnianie.html">← 08-uwierzytelnianie.html</a>
+    <a href="10-deployment.html">10-deployment.html →</a>
+  </div>
+</div>
+</body>
+</html>

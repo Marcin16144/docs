@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Versioning</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../index.html">API</a><span class="sep">/</span>
+  <span class="title">API Versioning</span>
+</div>
+<div class="container">
+  <h1>API Versioning</h1>
+  <p class="subtitle">Strategie wersjonowania, polityka deprecacji, backward compatibility i naglowki Sunset.</p>
+
+  <h2>Dlaczego wersjonowanie jest niezbedne</h2>
+  <p>API jest kontraktem z klientami. Bez wersjonowania kazda zmiana lamia istniejace integracje. Wersjonowanie pozwala wprowadzac nowe funkcje i naprawiac bledy bez zrywania kompatybilnosci — klienci moga migrować we wlasnym tempie.</p>
+
+  <div class="card orange">
+    <h3>Breaking change vs Non-breaking change</h3>
+    <p><strong>Breaking:</strong> usuniecie pola, zmiana typu, usuniecie endpointu, zmiana semantyki, nowe wymagane pole w request. <strong>Non-breaking:</strong> dodanie opcjonalnego pola, nowy endpoint, nowy opcjonalny parametr, rozszerzenie enuma o nowe wartosci.</p>
+  </div>
+
+  <h2>URL Versioning</h2>
+  <p>Wersja jest czescia sciezki URL. Najpopularniejsza i najprostrza strategia. Jednoznaczna, latwa do routowania, dziala z cacheowaniem HTTP.</p>
+
+  <pre><code># Wersja jako segment sciezki
+GET https://api.example.com/v1/users
+GET https://api.example.com/v2/users
+
+# Alternatywnie jako subdomena
+GET https://v1.api.example.com/users
+GET https://v2.api.example.com/users
+
+# Routing w Express.js
+import express from 'express';
+import { v1Router } from './routes/v1';
+import { v2Router } from './routes/v2';
+
+const app = express();
+
+app.use('/v1', v1Router);
+app.use('/v2', v2Router);
+
+// Przekierowanie bez wersji na aktualna
+app.use('/api', (req, res) => {
+  res.redirect(301, `/v2${req.path}`);
+});
+
+// Struktura katalogow
+// src/routes/
+//   v1/
+//     users.ts      <- stara implementacja
+//     orders.ts
+//   v2/
+//     users.ts      <- nowa implementacja
+//     orders.ts
+//     products.ts   <- nowy w v2
+</code></pre>
+
+  <h2>Header Versioning</h2>
+  <p>Wersja jest przekazywana przez naglowek HTTP. URL pozostaje czysty. Stosowany przez GitHub API (<code>X-GitHub-Api-Version</code>).</p>
+
+  <pre><code># Custom header
+GET /users
+X-API-Version: 2
+Accept: application/json
+
+# Accept header z vendor media type (GitHub style)
+GET /users
+Accept: application/vnd.example.api+json;version=2
+
+# Middleware Node.js — rozpoznawanie wersji
+function versionMiddleware(req: any, res: any, next: any) {
+  const version =
+    req.headers['x-api-version'] ||
+    parseAcceptVersion(req.headers['accept']) ||
+    '1';   // domyslna wersja
+
+  req.apiVersion = parseInt(version, 10);
+
+  if (req.apiVersion > CURRENT_VERSION) {
+    return res.status(400).json({
+      error: `API version ${version} not supported. Latest: ${CURRENT_VERSION}`
+    });
+  }
+
+  next();
+}
+
+function parseAcceptVersion(accept?: string): string | null {
+  if (!accept) return null;
+  const match = accept.match(/version=(\d+)/);
+  return match ? match[1] : null;
+}
+</code></pre>
+
+  <h2>Content-Type Negotiation</h2>
+  <p>Wersja jest zakodowana w media type. Uzywany przez GitHub v3 API i niektore enterprise API. Najtrudniejszy w debugowaniu — wymaga znajomosci vendor media types.</p>
+
+  <pre><code># Request z wersjonowanym Content-Type
+GET /users
+Accept: application/vnd.example.v2+json
+
+# Response
+HTTP/1.1 200 OK
+Content-Type: application/vnd.example.v2+json
+
+# Routing na podstawie Accept header
+app.get('/users', (req, res) => {
+  const accept = req.headers.accept ?? '';
+
+  if (accept.includes('vnd.example.v2')) {
+    return usersV2Handler(req, res);
+  }
+  // domyslnie v1
+  return usersV1Handler(req, res);
+});
+</code></pre>
+
+  <h2>Semantic Versioning dla API</h2>
+  <p>Semver (MAJOR.MINOR.PATCH) stosowany do API: <strong>MAJOR</strong> — breaking change (nowa wersja URL), <strong>MINOR</strong> — nowa funkcja wstecznie kompatybilna (nie wymaga nowej wersji URL), <strong>PATCH</strong> — poprawka bledu, zmiana dokumentacji.</p>
+
+  <pre><code># Przykladowy changelog z semver
+## v2.3.1 (patch) — 2025-05-08
+- Poprawka: GET /users zwracal bledny licznik totalCount przy filtrowaniu
+
+## v2.3.0 (minor) — 2025-04-15
+- Dodano: endpoint GET /users/{id}/activity
+- Dodano: opcjonalny parametr `include` dla GET /orders
+- Deprecacja: pole `phone` w User (uzyj `phoneNumber`)
+
+## v2.0.0 (major) — 2025-01-01  — BREAKING
+- Zmiana: paginacja przez `page`+`limit` zamiast `offset`+`count`
+- Usunieto: endpoint POST /auth/login (zastapiony /auth/token)
+- Zmiana: wszystkie ID sa teraz ULID zamiast auto-increment int
+
+# Naglowek API-Version w odpowiedzi
+HTTP/1.1 200 OK
+API-Version: 2.3.1
+</code></pre>
+
+  <h2>Deprecation Policy i naglowek Sunset</h2>
+  <p>RFC 8594 definiuje naglowek <code>Sunset</code> — date, po ktorej zasob przestanie byc dostepny. Naglowek <code>Deprecation</code> (RFC draft) informuje, kiedy zasob zostal uznany za przestarzaly. Klienci powinni monitorowac te naglowki.</p>
+
+  <pre><code># Naglowki deprecacji dla endpointu v1
+HTTP/1.1 200 OK
+Deprecation: Mon, 01 Jan 2025 00:00:00 GMT
+Sunset: Wed, 01 Jan 2026 00:00:00 GMT
+Link: &lt;https://docs.example.com/migration/v1-to-v2&gt;; rel="deprecation",
+      &lt;https://api.example.com/v2/users&gt;; rel="successor-version"
+Warning: 299 - "This endpoint is deprecated and will be removed 2026-01-01"
+
+# Middleware dodajacy naglowki do przestarzalych endpointow
+const deprecatedEndpoints: Record<string, { sunset: string; migration: string }> = {
+  '/v1/users':  {
+    sunset: 'Wed, 01 Jan 2026 00:00:00 GMT',
+    migration: 'https://docs.example.com/migration/v1-to-v2#users',
+  },
+  '/v1/orders': {
+    sunset: 'Wed, 01 Jan 2026 00:00:00 GMT',
+    migration: 'https://docs.example.com/migration/v1-to-v2#orders',
+  },
+};
+
+function deprecationMiddleware(req: any, res: any, next: any) {
+  const info = deprecatedEndpoints[req.path];
+  if (info) {
+    res.set({
+      'Deprecation': 'Mon, 01 Jan 2025 00:00:00 GMT',
+      'Sunset':      info.sunset,
+      'Link':        `&lt;${info.migration}&gt;; rel="deprecation"`,
+    });
+  }
+  next();
+}
+</code></pre>
+
+  <h2>Backward Compatibility — zasady</h2>
+  <ul>
+    <li><strong>Dodawanie pol jest bezpieczne</strong> — klienci powinni ignorowac nieznane pola (Postel's Law)</li>
+    <li><strong>Nie zmieniaj typow istniejacych pol</strong> — string na int to breaking change</li>
+    <li><strong>Nie usuwaj pol bez deprecacji</strong> — minimum 6 miesiecy okresu ostrzegawczego</li>
+    <li><strong>Nowe wymagane pola w request = breaking change</strong> — dodawaj z wartoscia domyslna</li>
+    <li><strong>Rozszerzanie enum jest ryzykowne</strong> — klienci moga nie obslugiwac nowej wartosci</li>
+    <li><strong>Nie zmieniaj semantyki bez zmiany wersji</strong> — zmiana zachowania to breaking change nawet bez zmiany kontraktu</li>
+  </ul>
+
+  <h2>Strategie wersjonowania — porownanie</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Strategia</th>
+        <th>Przyklad</th>
+        <th>Zalety</th>
+        <th>Wady</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>URL versioning</strong></td>
+        <td><code>/v1/users</code></td>
+        <td>Oczywisty, latwy routing, dziala z CDN i cache, latwy do testowania w przegladarce</td>
+        <td>URL nie jest "czysty" REST (wersja to nie zasob), trzeba utrzymywac wiele sciezek</td>
+      </tr>
+      <tr>
+        <td><strong>Header versioning</strong></td>
+        <td><code>X-API-Version: 2</code></td>
+        <td>Czysty URL, jeden endpoint dla wszystkich wersji</td>
+        <td>Niewidoczny w przegladarce, trudniejszy caching (Vary header), mniej oczywisty dla poczatkujacych</td>
+      </tr>
+      <tr>
+        <td><strong>Content-Type negot.</strong></td>
+        <td><code>Accept: vnd.api.v2+json</code></td>
+        <td>Zgodny z RFC HTTP content negotiation, czysty URL</td>
+        <td>Najtrudniejszy w debugowaniu i dokumentowaniu, wymaga znajomosci vendor media types</td>
+      </tr>
+      <tr>
+        <td><strong>Query param</strong></td>
+        <td><code>/users?version=2</code></td>
+        <td>Prosty, nie wymaga zmiany nagłowkow</td>
+        <td>Anty-wzorzec — wersja w query params myli sie z filtrami, zly caching</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <h3>Rekomendacja praktyczna</h3>
+    <p>Dla wiekszosci API publicznych i wewnetrznych: <strong>URL versioning</strong> (<code>/v1/</code>, <code>/v2/</code>) to najlepszy wybor. Jest oczywisty, prosty w debugowaniu i dobrze wspolpracuje z narzędziami HTTP. Header versioning stosuj jesli masz specyficzne wymagania dotyczace "czystosci" URL lub wzorujac sie na GitHub API.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="06-rate-limiting-i-quota.html">← Rate Limiting</a>
+    <a href="08-testing-api.html">Testing API →</a>
+  </div>
+</div>
+</body>
+</html>

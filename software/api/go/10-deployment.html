@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment Go API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Go</a>
+  <span class="sep">/</span>
+  <span class="title">Deployment Go API</span>
+</div>
+<div class="container">
+  <h1>Deployment Go API</h1>
+  <p class="subtitle">Statyczny binary, multi-stage Docker, Kubernetes, graceful shutdown i konfiguracja srodowiskowa</p>
+
+  <h2>go build — statyczny binary</h2>
+  <p>Jednym z najwiekszych atutow Go jest kompilacja do pojedynczego statycznego pliku wykonywalnego bez zewnetrznych zaleznosci. Binary zawiera wszystko — runtime, biblioteki standardowe i zaleznosci. To idealne dla kontenerow i deploymentu na serwery bez koniecznosci instalacji Go.</p>
+
+<pre><code># Podstawowy build
+go build -o bin/api ./cmd/api
+
+# Produkcyjny build — mniejszy binary, wersja w metadanych
+go build \
+  -ldflags="-s -w \
+    -X main.Version=1.2.3 \
+    -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+    -X main.GitCommit=$(git rev-parse --short HEAD)" \
+  -o bin/api \
+  ./cmd/api
+
+# -s  usuwa symbol table (mniejszy rozmiar)
+# -w  usuwa DWARF debug info (mniejszy rozmiar)
+# -X  wstrzykuje wartosci zmiennych w czasie kompilacji
+
+# Cross-compilation — build dla Linuksa na Windows/Mac
+GOOS=linux GOARCH=amd64 go build -o bin/api-linux ./cmd/api
+GOOS=linux GOARCH=arm64 go build -o bin/api-arm64 ./cmd/api
+
+# Weryfikacja: binary nie ma zewnetrznych zaleznosci
+ldd bin/api-linux  # powinno zwrocic: not a dynamic executable</code></pre>
+
+  <h2>Multi-stage Dockerfile z obrazem scratch</h2>
+  <p>Multi-stage build kompiluje aplikacje w obrazie z pelnym Go toolchainem, a nastepnie kopiuje tylko binary do minimalnego obrazu bazowego. Obraz <code>scratch</code> jest calkowicie pusty — zero OS, zero shellowych narzedzi, zero podatnosci systemowych. Wynikowy obraz ma typowo 10-20 MB.</p>
+
+<pre><code># Dockerfile
+# ---- Stage 1: budowanie ----
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /app
+
+# Cache zaleznosci (warstwa Cache Dockera)
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Kopiowanie kodu i build
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build \
+    -ldflags="-s -w -X main.Version=${VERSION:-dev}" \
+    -o /api \
+    ./cmd/api
+
+# ---- Stage 2: obraz produkcyjny ----
+FROM scratch
+
+# Certyfikaty TLS (konieczne dla HTTPS/OAuth2 wywolan wychodzacych)
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Strefa czasowa (opcjonalnie)
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+
+# Binary
+COPY --from=builder /api /api
+
+# Uzytkownik niepriwilegowany (UID 65532 = nonroot w distroless)
+USER 65532:65532
+
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["/api", "healthcheck"]
+
+ENTRYPOINT ["/api"]</code></pre>
+
+  <h2>docker-compose.yml</h2>
+  <p>Docker Compose sluzy do lokalnego developmentu i testow integracyjnych — uruchamia API razem z PostgreSQL, Redis i innymi zaleznosci.</p>
+
+<pre><code># docker-compose.yml
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://dev:dev@postgres:5432/myapp?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=local-dev-secret-not-for-production
+      - LOG_LEVEL=debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: myapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev -d myapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:</code></pre>
+
+  <h2>Kubernetes — Deployment i Service</h2>
+  <p>Deployment Kubernetes zarzadza zestawem replik Pod. Service eksponuje Deployment wewnatrz klastra lub na zewnatrz. HorizontalPodAutoscaler skaluje liczbe replik na podstawie zuzycia CPU lub wlasnych metryk.</p>
+
+  <table>
+    <thead>
+      <tr><th>Zasob K8s</th><th>Przeznaczenie</th><th>Kluczowe pola</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Deployment</td><td>Zarzadzanie replikami Poda</td><td>replicas, image, resources, probes</td></tr>
+      <tr><td>Service (ClusterIP)</td><td>Wewnetrzna komunikacja w klastrze</td><td>selector, port, targetPort</td></tr>
+      <tr><td>Service (LoadBalancer)</td><td>Eksponowanie na zewnatrz</td><td>type: LoadBalancer</td></tr>
+      <tr><td>Ingress</td><td>Routing HTTP/S, TLS termination</td><td>rules, tls, annotations</td></tr>
+      <tr><td>ConfigMap</td><td>Konfiguracja niepoufna</td><td>data: key: value</td></tr>
+      <tr><td>Secret</td><td>Hasla, tokeny, certyfikaty</td><td>data: base64-encoded</td></tr>
+      <tr><td>HPA</td><td>Autoskalowanie poziome</td><td>minReplicas, maxReplicas, metrics</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Health endpoints — /healthz i /readyz</h2>
+  <p>Kubernetes sprawdza stan aplikacji przez dwa typy prob: <strong>liveness</strong> (czy app nie zawisnela — restart jesli nie odpowiada) i <strong>readiness</strong> (czy app jest gotowa na ruch — wylaczenie z load balancera jesli nie jest gotowa).</p>
+
+  <div class="card green">
+    <h3>Konwencja endpointow zdrowia</h3>
+    <ul>
+      <li><code>/healthz</code> (liveness) — zawsze odpowiada 200 jesli proces zyje. Nie sprawdza DB.</li>
+      <li><code>/readyz</code> (readiness) — sprawdza wszystkie zaleznosci: DB, Redis, zewnetrzne API. Zwraca 503 jesli cos nie dziala.</li>
+      <li><code>/metrics</code> — eksport metryk Prometheus (opcjonalnie)</li>
+    </ul>
+  </div>
+
+  <h2>Graceful shutdown</h2>
+  <p>Graceful shutdown to poprawne zakonczenie pracy serwera: zatrzymanie przyjmowania nowych polaczyc, dokonczenie aktywnych zadan i zwolnienie zasobow (polaczenia DB, kolejki). Bez tego przy deployu mozna utracic aktywne zadania HTTP.</p>
+
+<pre><code>func main() {
+    // Kontekst reagujacy na SIGINT i SIGTERM
+    ctx, stop := signal.NotifyContext(context.Background(),
+        syscall.SIGINT, syscall.SIGTERM)
+    defer stop()
+
+    srv := &http.Server{
+        Addr:    ":8080",
+        Handler: router,
+    }
+
+    // Uruchomienie serwera w tle
+    go func() {
+        log.Println("Serwer startuje na :8080")
+        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            log.Fatalf("ListenAndServe: %v", err)
+        }
+    }()
+
+    // Czekaj na sygnal zakonczenia
+    <-ctx.Done()
+    stop()
+    log.Println("Otrzymano sygnal zakonczenia, graceful shutdown...")
+
+    // Daj aktywnym zadaniom max 30 sekund na zakonczenie
+    shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+
+    if err := srv.Shutdown(shutdownCtx); err != nil {
+        log.Fatalf("Shutdown wymuszony: %v", err)
+    }
+
+    // Zamknij polaczenia z baza danych
+    db.Close()
+    log.Println("Serwer zatrzymany poprawnie")
+}</code></pre>
+
+  <h2>Konfiguracja srodowiskowa</h2>
+  <p>Aplikacje Go czytaja konfiguracje ze zmiennych srodowiskowych (<code>os.Getenv</code>) lub przez biblioteke <code>github.com/spf13/viper</code> obslugujaca pliki YAML/TOML, flagi CLI i env jednoczesnie z priorytetami.</p>
+
+  <h2>Deployment na Fly.io i Railway</h2>
+  <p>Fly.io i Railway to platformy PaaS idealne dla projektow Go bez koniecznosci zarzadzania Kubernetesem.</p>
+  <ul>
+    <li><strong>Fly.io:</strong> <code>fly launch</code> automatycznie wykrywa Dockerfile, <code>fly deploy</code> deployuje, <code>fly secrets set KEY=val</code> zarzadza sekretami. Wspiera wiele regionow i volumes dla danych trwalych.</li>
+    <li><strong>Railway:</strong> automatyczny build z Dockerfile lub Nixpacks, wbudowany PostgreSQL i Redis jako uslugi, zmienne srodowiskowe przez GUI lub CLI.</li>
+  </ul>
+
+  <div class="card orange">
+    <h3>Checklista przed deploymentem produkcyjnym</h3>
+    <ul>
+      <li>Skonfiguruj limity zasobow (CPU/memory requests i limits w K8s)</li>
+      <li>Wlacz graceful shutdown z timeoutem min. 30 sekund</li>
+      <li>Dodaj health endpointy /healthz i /readyz</li>
+      <li>Ustaw connection pool DB — MaxOpenConns odpowiedni do liczby replik</li>
+      <li>Skonfiguruj structured logging (slog lub zap) z poziomem INFO w prod</li>
+      <li>Eksportuj metryki Prometheus (goroutines, heap, request duration, error rate)</li>
+      <li>Ustaw PodDisruptionBudget w K8s aby nie zatrzymac wszystkich replik naraz</li>
+      <li>Uzyj Secrets managera (Vault, AWS SSM, K8s Secrets) — nie hardkoduj sekretow</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="09-testing.html">&#8592; 09-testing.html</a>
+    <a href="../index.html">../index.html &#8594;</a>
+  </div>
+</div>
+</body>
+</html>

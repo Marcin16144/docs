@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vite — Lightning-fast Dev Server</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:36px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);text-align:center}
+.footer a{color:var(--accent);text-decoration:none;font-weight:500}.footer a:hover{color:var(--accent-hover)}
+tr:nth-child(even) td{background:rgba(30,41,59,.5)}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a href="../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../index.html">JS-TS</a>
+  <span class="sep">/</span>
+  <span class="title">Vite</span>
+</nav>
+
+<div class="container">
+  <h1>Vite</h1>
+  <p class="subtitle">Lightning-fast dev server. ESM-native. Standard 2026 dla wiekszosci frameworkow.</p>
+
+  <!-- 1. Co to Vite -->
+  <h2>1. Co to Vite</h2>
+  <p>Vite (fr. "szybko") to narzedzie build stworzone przez <strong>Evana You</strong> (tworca Vue.js). Zostalo zaprojektowane od zera pod natywne ESM przegladarki, dzieki czemu dev server startuje niemal natychmiast niezaleznie od rozmiaru projektu.</p>
+  <div class="card blue">
+    <strong>Dwie warstwy Vite:</strong>
+    <ul style="margin-top:8px">
+      <li><strong>Dev server</strong> — natywne ESM + esbuild do pre-bundlingu node_modules. Pliki sa serwowane bezposrednio do przegladarki bez bundlowania.</li>
+      <li><strong>Production build</strong> — Rollup. Dojrzaly bundler z doskonalym tree-shakingiem i code-splittingiem. (Przyszlosc: Rolldown)</li>
+    </ul>
+  </div>
+  <h3>Dlaczego Vite jest szybki w dev</h3>
+  <ul>
+    <li><strong>No bundling in dev:</strong> kazdy plik jest osobnym ESM modulem. Przeglądarka robi import na zadanie.</li>
+    <li><strong>esbuild pre-bundling:</strong> node_modules (CommonJS) sa pre-bundlowane raz przez esbuild (Go) — 10–100x szybciej niz webpack/Rollup.</li>
+    <li><strong>On-demand transforms:</strong> plik jest transformowany (TypeScript, JSX) dopiero gdy przeglądarka o niego poprosi.</li>
+    <li><strong>Instant HMR:</strong> HMR propaguje tylko zmieniony modul — czas niezalezny od rozmiaru aplikacji.</li>
+  </ul>
+  <p>Uzywany przez: Vue 3, SvelteKit (opcja), Astro, Remix, QwikCity, SolidStart, Nuxt 3 (dev), Vitest i setki innych narzedzi.</p>
+
+  <!-- 2. Instalacja -->
+  <h2>2. Instalacja — wszystkie templates</h2>
+  <pre><code># npm create vite@latest — interaktywny kreator
+npm create vite@latest moja-aplikacja
+# lub z bezposrednim wyborem template:
+npm create vite@latest moja-app -- --template react-ts
+
+# dostepne oficjalne templates:
+# vanilla        vanilla-ts
+# vue            vue-ts
+# react          react-ts     react-swc    react-swc-ts
+# preact         preact-ts
+# lit            lit-ts
+# svelte         svelte-ts
+# solid          solid-ts
+# qwik           qwik-ts
+
+# Bun (szybszy install)
+bun create vite moja-app --template react-ts
+
+# po instalacji
+cd moja-aplikacja
+npm install
+npm run dev     # dev server na http://localhost:5173
+npm run build   # produkcja do dist/
+npm run preview # podglad produkcji lokalnie</code></pre>
+  <div class="card green">
+    <strong>react-swc vs react:</strong> Template <code>react-swc-ts</code> uzywa SWC (Rust-based compiler) zamiast Babel do transformacji JSX — szybszy cold start i HMR. Zalecany dla nowych projektow React.
+  </div>
+
+  <!-- 3. Dev server -->
+  <h2>3. Dev server — ESM, HMR, Pre-bundling</h2>
+  <p>Dev server Vite dziala fundamentalnie inaczej niz webpack-dev-server czy CRA. Nie tworzy bundla przy starcie — serwuje pliki jako native ESM.</p>
+  <pre><code">// Jak to dziala pod spodem:
+// 1. Przeglądarka robi: import App from '/src/App.tsx'
+// 2. Vite otrzymuje zadanie, transformuje App.tsx → JS
+// 3. Zwraca transformowany modul
+// 4. App.tsx importuje './components/Button.tsx' — ten sam proces
+// 5. node_modules? Pobrane z pre-bundlowanego cache
+
+// Pre-bundling — jednorazowe przy pierwszym uruchomieniu
+// Vite skanuje importy, pre-bundluje node_modules przez esbuild
+// Wynik cachowany w node_modules/.vite/deps/
+// Reinicjowany gdy zmieni sie package.json lub lockfile
+
+// HMR — Hot Module Replacement
+// Zmiana pliku → Vite wysyla update przez WebSocket
+// Przeglądarka pobiera TYLKO zmieniony modul
+// Framework (React/Vue) podmienia go bez przeladowania strony
+
+// Zmienne srodowiskowe w dev
+// .env
+VITE_API_URL=http://localhost:3000
+VITE_DEBUG=true
+
+// dostep w kodzie (tylko VITE_ prefix jest eksponowany)
+console.log(import.meta.env.VITE_API_URL);
+console.log(import.meta.env.MODE);      // "development"
+console.log(import.meta.env.DEV);       // true
+console.log(import.meta.env.PROD);      // false</code></pre>
+
+  <!-- 4. vite.config.ts -->
+  <h2>4. vite.config.ts — kluczowe opcje</h2>
+  <pre><code>// vite.config.ts — kompletna konfiguracja z aliasami i proxy
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import { resolve } from 'path';
+
+export default defineConfig(({ command, mode }) => {
+  // ladowanie .env dla aktualnego mode
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
+    // plugins
+    plugins: [react()],
+
+    // resolve — aliasy sciezek
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, 'src'),
+        '@components': resolve(__dirname, 'src/components'),
+        '@lib': resolve(__dirname, 'src/lib'),
+        '@types': resolve(__dirname, 'src/types'),
+      },
+      // rozszerzenia plikow (kolejnosc ma znaczenie)
+      extensions: ['.tsx', '.ts', '.jsx', '.js', '.json'],
+    },
+
+    // dev server
+    server: {
+      port: 3000,
+      strictPort: true,         // blad jesli port zajety
+      open: true,               // otworz przeglądarka przy starcie
+      cors: true,
+
+      // proxy — przekierowanie API calls (omija CORS w dev)
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8080',
+          changeOrigin: true,
+          rewrite: path => path.replace(/^\/api/, ''),
+        },
+        '/ws': {
+          target: 'ws://localhost:8080',
+          ws: true,             // WebSocket proxy
+        },
+      },
+    },
+
+    // preview server (npm run preview)
+    preview: {
+      port: 4173,
+      proxy: {
+        '/api': { target: env.API_URL, changeOrigin: true },
+      },
+    },
+
+    // optimizeDeps — kontrola pre-bundlingu
+    optimizeDeps: {
+      include: ['lodash-es', 'date-fns'], // force pre-bundle (nawet jesli ESM)
+      exclude: ['@moja-org/ui'],           // wylacz pre-bundle (np. workspace pkg)
+    },
+
+    // definiowanie globalnych stalych
+    define: {
+      __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
+    },
+  };
+});</code></pre>
+
+  <!-- 5. Plugins -->
+  <h2>5. Plugin Ecosystem</h2>
+  <p>Vite ma bogaty ekosystem pluginow. Wiele jest kompatybilnych rowniez z Rollup.</p>
+  <table>
+    <tr>
+      <th>Plugin</th>
+      <th>Zastosowanie</th>
+      <th>Instalacja</th>
+    </tr>
+    <tr>
+      <td><code>@vitejs/plugin-react-swc</code></td>
+      <td>React + Fast Refresh (SWC)</td>
+      <td>npm i -D @vitejs/plugin-react-swc</td>
+    </tr>
+    <tr>
+      <td><code>@vitejs/plugin-vue</code></td>
+      <td>Vue 3 SFC support</td>
+      <td>npm i -D @vitejs/plugin-vue</td>
+    </tr>
+    <tr>
+      <td><code>vite-plugin-pwa</code></td>
+      <td>Progressive Web App (service worker, manifest)</td>
+      <td>npm i -D vite-plugin-pwa</td>
+    </tr>
+    <tr>
+      <td><code>unplugin-auto-import</code></td>
+      <td>Auto-import API (ref, computed bez importow)</td>
+      <td>npm i -D unplugin-auto-import</td>
+    </tr>
+    <tr>
+      <td><code>unplugin-vue-components</code></td>
+      <td>Auto-import komponentow Vue</td>
+      <td>npm i -D unplugin-vue-components</td>
+    </tr>
+    <tr>
+      <td><code>vite-plugin-checker</code></td>
+      <td>TypeScript/ESLint sprawdzanie w tle</td>
+      <td>npm i -D vite-plugin-checker</td>
+    </tr>
+    <tr>
+      <td><code>@unocss/vite</code></td>
+      <td>UnoCSS (atomic CSS, jak Tailwind)</td>
+      <td>npm i -D unocss</td>
+    </tr>
+    <tr>
+      <td><code>vite-plugin-svgr</code></td>
+      <td>Import SVG jako React komponenty</td>
+      <td>npm i -D vite-plugin-svgr</td>
+    </tr>
+    <tr>
+      <td><code>vite-tsconfig-paths</code></td>
+      <td>Wsparcie dla paths z tsconfig.json</td>
+      <td>npm i -D vite-tsconfig-paths</td>
+    </tr>
+    <tr>
+      <td><code>@vitejs/plugin-legacy</code></td>
+      <td>Wsparcie dla starszych przegladarek (Babel)</td>
+      <td>npm i -D @vitejs/plugin-legacy</td>
+    </tr>
+  </table>
+  <pre><code>// przyklad konfiguracji kilku pluginow razem
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import { VitePWA } from 'vite-plugin-pwa';
+import checker from 'vite-plugin-checker';
+import svgr from 'vite-plugin-svgr';
+import tsconfigPaths from 'vite-tsconfig-paths';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    tsconfigPaths(),  // aliasy z tsconfig
+    svgr(),           // import Logo from './logo.svg'
+    checker({
+      typescript: true,    // sprawdzaj typy w tle
+      eslint: { lintCommand: 'eslint ./src' },
+    }),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: {
+        name: 'Moja Aplikacja',
+        short_name: 'MojaApp',
+        theme_color: '#0f172a',
+      },
+    }),
+  ],
+});</code></pre>
+
+  <!-- 6. Build -->
+  <h2>6. Production Build — Rollup, code splitting, chunks</h2>
+  <pre><code">// vite.config.ts — zaawansowane opcje build
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+
+export default defineConfig({
+  plugins: [react()],
+
+  build: {
+    // cel output
+    outDir: 'dist',
+    assetsDir: 'assets',
+
+    // minifikacja (domyslnie esbuild — szybki)
+    // 'terser' daje mniejszy output, ale wolniejszy build
+    minify: 'esbuild',
+
+    // sourcemaps w produkcji (uwaga: duze pliki)
+    sourcemap: false,
+
+    // ostrzegaj przy chunk wiekszym niz X KB
+    chunkSizeWarningLimit: 500,
+
+    // CSS code splitting (domyslnie true)
+    cssCodeSplit: true,
+
+    rollupOptions: {
+      // multiple entry points
+      input: {
+        main: 'index.html',
+        admin: 'admin.html',
+      },
+
+      output: {
+        // strategia nazewnictwa chunkow
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+
+        // reczny podzial na chunki — vendor splitting
+        manualChunks(id) {
+          // react + react-dom w osobnym chunку
+          if (id.includes('node_modules/react') ||
+              id.includes('node_modules/react-dom')) {
+            return 'react-vendor';
+          }
+          // router w osobnym chunku
+          if (id.includes('node_modules/react-router')) {
+            return 'router';
+          }
+          // reszta node_modules → vendor
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+        },
+      },
+
+      // external — nie bundluj (np. dla library mode)
+      // external: ['react', 'react-dom'],
+    },
+
+    // library mode — budowanie npm package przez Vite
+    lib: {
+      entry: 'src/index.ts',
+      name: 'MojaLib',
+      formats: ['es', 'cjs'],
+      fileName: format => `moja-lib.${format}.js`,
+    },
+  },
+});</code></pre>
+
+  <!-- 7. Monorepo -->
+  <h2>7. Vite w monorepo</h2>
+  <pre><code">// monorepo z pnpm workspaces — typowa struktura
+packages/
+  ui/              # biblioteka komponentow (tsup/vite lib mode)
+  utils/           # helper functions (tsup)
+apps/
+  web/             # aplikacja Vite + React
+  admin/           # aplikacja Vite + React
+
+// apps/web/vite.config.ts — konfiguracja ze wskazaniem na workspace packages
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import { resolve } from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  optimizeDeps: {
+    // workspace packages w stub/watch mode — wylacz pre-bundling
+    exclude: ['@moja-org/ui', '@moja-org/utils'],
+  },
+  resolve: {
+    // opcjonalnie: wskazanie bezposrednio na src zamiast dist
+    alias: {
+      '@moja-org/ui': resolve(__dirname, '../../packages/ui/src'),
+    },
+  },
+});
+
+// turbo.json — Turborepo pipeline
+{
+  "pipeline": {
+    "dev": {
+      "dependsOn": [],       // dev rownolegle
+      "cache": false,
+      "persistent": true     // long-running process
+    },
+    "build": {
+      "dependsOn": ["^build"],  // najpierw packages, potem apps
+      "outputs": ["dist/**"]
+    }
+  }
+}</code></pre>
+
+  <!-- 8. Vite + TypeScript -->
+  <h2>8. Vite + TypeScript</h2>
+  <p>Vite uzywa esbuild do transpilacji TypeScript — jest to szybkie, ale <strong>nie sprawdza typow</strong>. Do sprawdzania typow potrzebny jest osobny krok lub plugin.</p>
+  <pre><code">// Vite transpiluje TS przez esbuild — szybko, ale bez type checking
+// Aby miec type checking, dodaj:
+
+// 1. Reczny krok w CI/CD:
+// "build": "tsc --noEmit && vite build"
+
+// 2. vite-plugin-checker — sprawdzanie w tle podczas dev
+import checker from 'vite-plugin-checker';
+
+export default defineConfig({
+  plugins: [
+    checker({
+      typescript: true,  // bledy TS w overlay przegladarki + terminal
+    }),
+  ],
+});
+
+// 3. vite-tsconfig-paths — aliasy z tsconfig.paths
+import tsconfigPaths from 'vite-tsconfig-paths';
+// po dodaniu pluginu, aliasy z tsconfig.json dzialaja w Vite automatycznie
+
+// tsconfig.json dla projektu Vite + React
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",  // Vite-specific (bundler resolution)
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,                 // Vite produkuje output, nie tsc
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+
+// tsconfig.node.json — dla vite.config.ts samego w sobie
+{
+  "compilerOptions": {
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["vite.config.ts"]
+}</code></pre>
+
+  <!-- 9. Vite 6 -->
+  <h2>9. Vite 6 — Environment API i Rolldown</h2>
+  <p>Vite 6 (2024) wprowadzil <strong>Environment API</strong> — fundamentalna zmiana architektury pozwalajaca na precyzyjna kontrole nad roznym srodowiskami (client, SSR, edge).</p>
+  <div class="card orange">
+    <h3>Environment API — co to znaczy w praktyce</h3>
+    <ul style="margin-top:8px">
+      <li>Kazde srodowisko (browser, SSR Node.js, SSR Edge) moze miec inne ustawienia modulu</li>
+      <li>Meta-frameworki (Nuxt, SvelteKit, Remix) moga precyzyjniej kontrolowac bundle</li>
+      <li>Plugin API rozszerzone o informacje o aktualnym srodowisku</li>
+      <li>Lepsza izolacja miedzy client a server code podczas budowania</li>
+    </ul>
+  </div>
+  <pre><code">// vite.config.ts — Vite 6 Environment API (preview)
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  environments: {
+    client: {
+      build: {
+        outDir: 'dist/client',
+        rollupOptions: { /* ... */ },
+      },
+    },
+    ssr: {
+      build: {
+        outDir: 'dist/server',
+        ssr: true,
+      },
+    },
+    edge: {
+      webCompatible: true,  // Edge runtime (Cloudflare Workers)
+      build: {
+        outDir: 'dist/edge',
+      },
+    },
+  },
+});
+
+// Rolldown integracja — Vite 6.x experimental
+// Rolldown (Rust, Rollup-compatible) ma zastapic:
+// - esbuild (dev pre-bundling)
+// - Rollup (production build)
+// w jednym szybkim narzedziu
+
+// Cel: jednolity bundler dla dev i prod, wyeliminowanie
+// roznic miedzy nimi (czesty zrodlo hard-to-reproduce bugs)</code></pre>
+
+  <!-- 10. Porownanie -->
+  <h2>10. Vite vs CRA vs Webpack DevServer vs Turbopack</h2>
+  <table>
+    <tr>
+      <th>Narzedzie</th>
+      <th>Cold Start</th>
+      <th>HMR</th>
+      <th>Prod Build</th>
+      <th>Konfiguracja</th>
+      <th>Ecosystem / Status</th>
+    </tr>
+    <tr>
+      <td><strong>Vite 6</strong></td>
+      <td>~200-500ms</td>
+      <td>~10-50ms</td>
+      <td>Rollup (dobry)</td>
+      <td>Minimalna</td>
+      <td>Ogromny, aktywny. Standard 2026.</td>
+    </tr>
+    <tr>
+      <td><strong>CRA</strong> (Create React App)</td>
+      <td>~15-30s</td>
+      <td>~1-3s</td>
+      <td>webpack (wolny)</td>
+      <td>Ukryta (eject)</td>
+      <td>Przestarzaly. Oficjalnie porzucony 2023.</td>
+    </tr>
+    <tr>
+      <td><strong>webpack DevServer</strong></td>
+      <td>~5-60s</td>
+      <td>~0.5-3s</td>
+      <td>webpack (dojrzaly)</td>
+      <td>Rozbudowana</td>
+      <td>Ogromny ekosystem. Stary standard. Dla legacy.</td>
+    </tr>
+    <tr>
+      <td><strong>Turbopack</strong></td>
+      <td>~100-200ms</td>
+      <td>~5-15ms</td>
+      <td>Eksperymentalny</td>
+      <td>Minimalna (Next.js only)</td>
+      <td>Tylko Next.js. Dev stable, build exp.</td>
+    </tr>
+    <tr>
+      <td><strong>Rspack</strong></td>
+      <td>~300-600ms</td>
+      <td>~20-50ms</td>
+      <td>Rspack (szybki)</td>
+      <td>Jak webpack</td>
+      <td>Rosnacy. Idealne dla migracji z webpack.</td>
+    </tr>
+    <tr>
+      <td><strong>Parcel 2</strong></td>
+      <td>~2-5s</td>
+      <td>~100ms</td>
+      <td>Parcel (dobry)</td>
+      <td>Zero config</td>
+      <td>Maly. Dobry dla prototypow.</td>
+    </tr>
+  </table>
+
+  <h2>Kompletna konfiguracja: Vite + React + TypeScript + Alias + Proxy</h2>
+  <pre><code">// vite.config.ts — produkcyjna konfiguracja starter
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import checker from 'vite-plugin-checker';
+import tsconfigPaths from 'vite-tsconfig-paths';
+import { resolve } from 'path';
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const isProd = mode === 'production';
+
+  return {
+    plugins: [
+      react(),
+      tsconfigPaths(),
+      !isProd && checker({ typescript: true }),
+    ].filter(Boolean),
+
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, 'src'),
+        '@components': resolve(__dirname, 'src/components'),
+        '@hooks': resolve(__dirname, 'src/hooks'),
+        '@stores': resolve(__dirname, 'src/stores'),
+      },
+    },
+
+    server: {
+      port: 3000,
+      proxy: {
+        '/api': {
+          target: env.VITE_API_URL || 'http://localhost:8080',
+          changeOrigin: true,
+        },
+      },
+    },
+
+    build: {
+      outDir: 'dist',
+      sourcemap: !isProd,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom'],
+            'router': ['react-router-dom'],
+            'query': ['@tanstack/react-query'],
+          },
+        },
+      },
+    },
+
+    test: {
+      // Vitest — testowanie zintegrowane z Vite
+      environment: 'jsdom',
+      globals: true,
+      setupFiles: ['./src/test/setup.ts'],
+    },
+  };
+});</code></pre>
+
+  <div class="footer">
+    <a href="../index.html">← Wroc do JS/TS</a>
+  </div>
+</div>
+</body>
+</html>

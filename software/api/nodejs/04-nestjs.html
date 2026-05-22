@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NestJS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Node.js</a>
+  <span class="sep">/</span>
+  <span class="title">NestJS</span>
+</div>
+
+<div class="container">
+  <h1>NestJS</h1>
+  <p class="subtitle">Framework enterprise-grade dla Node.js — modularna architektura, DI, dekoratory i pelna skalowalnosc</p>
+
+  <h2>Filozofia NestJS</h2>
+  <p>NestJS to framework zbudowany na Express (lub opcjonalnie Fastify), inspirowany Angularem. Wprowadza scisla strukture architektoniczna opartą na <strong>modulach</strong>, <strong>kontrolerach</strong> i <strong>serwisach</strong> — tzw. tryade MCS. Uzywa dekoratorow TypeScript intensywnie, a wbudowany kontener Dependency Injection (DI) zarzadza cyklem zycia zaleznosci.</p>
+  <p>NestJS jest szczegolnie polecany dla duzych zespolow i projektow enterprise, gdzie spójnosc kodu i testowalnosc sa priorytetem. Dla malych projektów moze byc nadmiarowy — wtedy lepszy bedzie Express lub Fastify.</p>
+
+  <h2>Tryada Module / Controller / Service</h2>
+  <pre><code>// === users.module.ts ===
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UsersController } from './users.controller';
+import { UsersService } from './users.service';
+import { User } from './entities/user.entity';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([User])], // rejestracja encji w module
+  controllers: [UsersController],
+  providers: [UsersService],
+  exports: [UsersService], // udostepnij innym modulom
+})
+export class UsersModule {}
+
+// === users.controller.ts ===
+import {
+  Controller, Get, Post, Put, Delete,
+  Param, Body, Query, HttpCode, HttpStatus,
+  UseGuards, ParseUUIDPipe,
+} from '@nestjs/common';
+import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
+@Controller('users')          // prefix trasy: /users
+@UseGuards(JwtAuthGuard)      // guard dla calego kontrolera
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get()
+  findAll(@Query('page') page = 1, @Query('limit') limit = 20) {
+    return this.usersService.findAll({ page: +page, limit: +limit });
+  }
+
+  @Get(':id')
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.findOne(id);
+  }
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
+  }
+
+  @Put(':id')
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUserDto) {
+    return this.usersService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.remove(id);
+  }
+}</code></pre>
+
+  <h2>DTO z class-validator i class-transformer</h2>
+  <p>DTO (Data Transfer Object) definiuje ksztalt danych wejsciowych. <code>class-validator</code> dostarcza dekoratory walidacyjne, a <code>class-transformer</code> przeksztalca plain objects na instancje klas. NestJS laczy je przez globalny <code>ValidationPipe</code>.</p>
+
+  <pre><code>// === dto/create-user.dto.ts ===
+import {
+  IsString, IsEmail, IsEnum, IsOptional,
+  MinLength, MaxLength, IsInt, Min, Max,
+  IsStrongPassword,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+
+export enum UserRole { ADMIN = 'admin', USER = 'user', MODERATOR = 'moderator' }
+
+export class CreateUserDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  @Transform(({ value }) => value.trim()) // usun biale znaki
+  name: string;
+
+  @IsEmail()
+  @Transform(({ value }) => value.toLowerCase())
+  email: string;
+
+  @IsStrongPassword({ minLength: 8, minNumbers: 1, minSymbols: 1 })
+  password: string;
+
+  @IsEnum(UserRole)
+  @IsOptional()
+  role?: UserRole = UserRole.USER;
+
+  @IsInt()
+  @Min(0)
+  @Max(120)
+  @IsOptional()
+  @Type(() => Number) // konwersja stringa na liczbe (z query params)
+  age?: number;
+}
+
+// Rejestracja globalnego ValidationPipe w main.ts:
+// app.useGlobalPipes(new ValidationPipe({
+//   whitelist: true,        // odrzuc nieznane pola
+//   forbidNonWhitelisted: true, // blad gdy nieznane pole
+//   transform: true,        // uruchom class-transformer
+//   transformOptions: { enableImplicitConversion: true },
+// }));</code></pre>
+
+  <h2>Dependency Injection w NestJS</h2>
+  <p>Kontener DI NestJS zarzadza cyklem zycia dostawcow (providers). Domyslny zakres to <strong>Singleton</strong> — jedna instancja serwisu na caly modul. Dostepne sa tez zakresy REQUEST (nowa instancja na zapytanie) i TRANSIENT (nowa instancja przy kazdym wstrzyknieciu).</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Dekorator</th>
+        <th>Cel</th>
+        <th>Zakres</th>
+        <th>Przyklad uzycia</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>@Injectable()</code></td>
+        <td>Oznacza klase jako dostawce DI</td>
+        <td>Singleton (domyslnie)</td>
+        <td>Serwisy, repozytoria, strategie</td>
+      </tr>
+      <tr>
+        <td><code>@Inject(TOKEN)</code></td>
+        <td>Wstrzykuje przez token (nie klase)</td>
+        <td>Dowolny</td>
+        <td>Konfiguracja, wartosci prymitywne</td>
+      </tr>
+      <tr>
+        <td><code>@Optional()</code></td>
+        <td>Zaleznosc opcjonalna (moze byc undefined)</td>
+        <td>Dowolny</td>
+        <td>Feature flags, opcjonalne integracje</td>
+      </tr>
+      <tr>
+        <td><code>@Global()</code></td>
+        <td>Modul dostepny wszedie bez importu</td>
+        <td>Singleton</td>
+        <td>DatabaseModule, ConfigModule</td>
+      </tr>
+      <tr>
+        <td><code>useFactory</code></td>
+        <td>Fabryczna inicjalizacja dostawcy</td>
+        <td>Singleton / async</td>
+        <td>Polaczenie z baza danych</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>ConfigModule i zmienne srodowiskowe</h2>
+  <p><code>@nestjs/config</code> integruje <code>dotenv</code> z systemem DI NestJS. <code>ConfigService</code> jest wstrzykiwany do serwisow i zapewnia typowane pobieranie zmiennych. Walidacje zmiennych srodowiskowych mozna zdefiniowac przy uzyciu Joi lub class-validator.</p>
+
+  <h2>Guards, Interceptors, Pipes, Filters</h2>
+
+  <h3>Guards (CanActivate)</h3>
+  <p>Guard decyduje, czy zapytanie moze dotrzec do handlera. Implementuje interfejs <code>CanActivate</code> z metoda <code>canActivate(context): boolean | Promise | Observable</code>. Uzywany do autentykacji i autoryzacji (RBAC).</p>
+
+  <h3>Interceptors</h3>
+  <p>Interceptor otacza handler — moze modyfikowac zapytanie PRZED i odpowiedz PO wykonaniu. Implementuje <code>NestInterceptor</code>. Uzywany do logowania czasu odpowiedzi, transformacji danych wyjsciowych, cache'owania.</p>
+
+  <h3>Pipes</h3>
+  <p>Pipe transformuje lub waliduje dane wejsciowe przed dotarciem do handlera. Wbudowane: <code>ValidationPipe</code>, <code>ParseIntPipe</code>, <code>ParseUUIDPipe</code>, <code>DefaultValuePipe</code>.</p>
+
+  <h3>Exception Filters</h3>
+  <p>Filter przechwytuje wyjatki i formatuje odpowiedz bledu. Wbudowany <code>HttpExceptionFilter</code> obsluguje <code>HttpException</code>. Mozna tworzyc wlasne filtry dla specyficznych typow bledow.</p>
+
+  <pre><code>// === jwt-auth.guard.ts ===
+import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { Reflector } from '@nestjs/core';
+import { IS_PUBLIC_KEY } from './decorators/public.decorator';
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard('jwt') {
+  constructor(private reflector: Reflector) { super(); }
+
+  canActivate(context: ExecutionContext) {
+    // Sprawdz metadane @Public() — jesli publiczny, pomijamy guard
+    const isPublic = this.reflector.getAllAndOverride&lt;boolean&gt;(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) return true;
+    return super.canActivate(context);
+  }
+}
+
+// === Globalny filter wyjatkow ===
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException } from '@nestjs/common';
+
+@Catch(HttpException)
+export class HttpExceptionFilter implements ExceptionFilter {
+  catch(exception: HttpException, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse();
+    const status = exception.getStatus();
+    const exceptionResponse = exception.getResponse();
+
+    response.status(status).json({
+      statusCode: status,
+      timestamp: new Date().toISOString(),
+      error: typeof exceptionResponse === 'string'
+        ? exceptionResponse
+        : (exceptionResponse as any).message,
+    });
+  }
+}</code></pre>
+
+  <h2>CQRS Module</h2>
+  <p>Modul <code>@nestjs/cqrs</code> implementuje wzorzec Command Query Responsibility Segregation. Rozdziela operacje zapisu (Commands) od odczytu (Queries) i wprowadza Event Sourcing. Idealny dla zlozonych domen biznesowych.</p>
+
+  <div class="card blue">
+    <strong>NestJS + Prisma vs TypeORM</strong>
+    <p style="margin-top:8px;margin-bottom:0">W 2025/2026 Prisma jest popularniejszym wyborem niz TypeORM dla nowych projektow NestJS. Prisma oferuje lepsze typowanie, migracje i Prisma Studio. TypeORM nadal dominuje w starszych projektach i gdy potrzebne sa zaawansowane relacje ORM (lazy loading, inheritance).</p>
+  </div>
+
+  <div class="card orange">
+    <strong>Pulapki DI — scope REQUEST</strong>
+    <p style="margin-top:8px;margin-bottom:0">Uzycie <code>Scope.REQUEST</code> w serwisie powoduje, ze wszystkie serwisy wyzej w lancuchu DI TEZ staja sie REQUEST-scoped. Moze to znaczaco obnizyc wydajnosc. Uzywaj REQUEST scope tylko gdy naprawde potrzebujesz dostepu do obiektu request w serwisie.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="03-fastify.html">← 03-fastify.html</a>
+    <a href="05-hono.html">05-hono.html →</a>
+  </div>
+</div>
+</body>
+</html>

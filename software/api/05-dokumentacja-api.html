@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dokumentacja API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../index.html">API</a><span class="sep">/</span>
+  <span class="title">Dokumentacja API</span>
+</div>
+<div class="container">
+  <h1>Dokumentacja API</h1>
+  <p class="subtitle">OpenAPI 3.1, narzedzia dokumentacji, contract-first vs code-first i zarzadzanie changelogiem.</p>
+
+  <h2>OpenAPI 3.1 — co nowego vs 3.0</h2>
+  <p>OpenAPI 3.1 (wydana w 2021) to pelna zgodnosc z JSON Schema Draft 2020-12, co rozwiazuje dlugotrwale niespojnosci miedzy OpenAPI a JSON Schema.</p>
+
+  <ul>
+    <li><strong>Pelna zgodnosc z JSON Schema</strong> — mozna uzyc dowolnego keywordu JSON Schema (np. <code>unevaluatedProperties</code>, <code>prefixItems</code>)</li>
+    <li><strong>Webhooks</strong> — nowa sekcja <code>webhooks</code> obok <code>paths</code> do opisywania zdarzen wychodzacych</li>
+    <li><strong>Deprecacja <code>nullable</code></strong> — zamiast <code>nullable: true</code> uzywa sie <code>type: [string, null]</code></li>
+    <li><strong>Licencja SPDX</strong> — pole <code>license.identifier</code> przyjmuje identyfikatory SPDX</li>
+    <li><strong>Shared Path Items</strong> — mozna referencjonowac Path Items z <code>components</code></li>
+  </ul>
+
+  <h2>Przyklad openapi.yaml</h2>
+  <pre><code>openapi: "3.1.0"
+
+info:
+  title: Example API
+  version: "2.1.0"
+  description: |
+    REST API dla platformy e-commerce.
+    Autentykacja: Bearer JWT w naglowku Authorization.
+  contact:
+    name: API Support
+    email: api@example.com
+    url: https://developers.example.com
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+
+servers:
+  - url: https://api.example.com/v2
+    description: Production
+  - url: https://api.staging.example.com/v2
+    description: Staging
+  - url: http://localhost:3000/v2
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: users
+    description: Zarzadzanie uzytkownikami
+  - name: orders
+    description: Zamowienia i platnosci
+
+paths:
+  /users:
+    get:
+      tags: [users]
+      operationId: listUsers
+      summary: Pobierz liste uzytkownikow
+      description: Zwraca stronicowana liste uzytkownikow. Wymaga roli admin.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: search
+          in: query
+          description: Filtruj po imieniu lub emailu
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lista uzytkownikow
+          headers:
+            X-Total-Count:
+              schema: { type: integer }
+              description: Laczna liczba uzytkownikow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+              examples:
+                default:
+                  $ref: '#/components/examples/UserListExample'
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+
+    post:
+      tags: [users]
+      operationId: createUser
+      summary: Utworz uzytkownika
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        "201":
+          description: Uzytkownik utworzony
+          headers:
+            Location:
+              schema: { type: string, format: uri }
+              description: URL nowo utworzonego zasobu
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        "400": { $ref: '#/components/responses/BadRequest' }
+        "409": { $ref: '#/components/responses/Conflict' }
+
+  /users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Unikalny identyfikator uzytkownika
+
+    get:
+      tags: [users]
+      operationId: getUser
+      summary: Pobierz uzytkownika
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        "404": { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      required: [id, name, email, role, createdAt]
+      properties:
+        id:
+          type: string
+          description: Unikalny ID uzytkownika
+          example: usr_01HXYZ123
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Jan Kowalski
+        email:
+          type: string
+          format: email
+          example: jan@example.com
+        role:
+          type: string
+          enum: [user, admin, moderator]
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateUserRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:    { type: string, minLength: 1, maxLength: 100 }
+        email:   { type: string, format: email }
+        password:
+          type: string
+          minLength: 8
+          writeOnly: true   # nie zwracaj w odpowiedzi
+          description: Min. 8 znakow, co najmniej jedna cyfra
+
+  responses:
+    Unauthorized:
+      description: Brak lub nieprawidlowy token uwierzytelniania
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Zasob nie istnieje
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+webhooks:
+  userCreated:
+    post:
+      summary: Zdarzenie tworzenia uzytkownika
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event: { type: string, example: user.created }
+                data:  { $ref: '#/components/schemas/User' }
+</code></pre>
+
+  <h2>Contract-first vs Code-first</h2>
+
+  <div class="card blue">
+    <h3>Contract-first (Design-first)</h3>
+    <p>Najpierw piszesz specyfikacje OpenAPI, nastepnie generujesz szkielet kodu serwera i klienta. Wymusza przemyslenie API przed implementacja. Lepszy dla zespolow, gdzie frontend i backend pracuja rownolegle. Narzedzia: Stoplight Studio, openapi-generator, oapi-codegen.</p>
+  </div>
+
+  <div class="card green">
+    <h3>Code-first</h3>
+    <p>Piszesz kod serwera z adnotacjami/dekoratorami, a specyfikacja OpenAPI jest generowana automatycznie. Szybszy start dla malych projektow i prototypow. Ryzyko: generowana spec czesto gorszej jakosci — brak opisow, przykladow, zbyt ogolne typy. Narzedzia: tsoa, FastAPI, Springdoc.</p>
+  </div>
+
+  <h2>Narzedzia dokumentacji</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Narzedzie</th>
+        <th>Typ</th>
+        <th>Zalety</th>
+        <th>Wady</th>
+        <th>Cena</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Swagger UI</strong></td>
+        <td>Renderer</td>
+        <td>Wszechobecny standard, try-it-out, duza spolecznosc</td>
+        <td>Przestarzaly wyglad, wolny na duzych specach</td>
+        <td>Free / OSS</td>
+      </tr>
+      <tr>
+        <td><strong>Redoc</strong></td>
+        <td>Renderer</td>
+        <td>Elegancki wyglad, 3-kolumnowy layout, responsywny</td>
+        <td>Brak try-it-out w darmowej wersji, komercyjna Redocly</td>
+        <td>Free / OSS + Pro</td>
+      </tr>
+      <tr>
+        <td><strong>Scalar</strong></td>
+        <td>Renderer + klient</td>
+        <td>Nowoczesny UI, try-it-out, dark mode, szybki, OSS</td>
+        <td>Mlodszy projekt, mniejsza spolecznosc</td>
+        <td>Free / OSS</td>
+      </tr>
+      <tr>
+        <td><strong>Stoplight Studio</strong></td>
+        <td>Design IDE</td>
+        <td>Visual editor, mock server, walidacja, team collaboration</td>
+        <td>Platny dla zespolow, vendor lock-in</td>
+        <td>Free tier + Plany</td>
+      </tr>
+      <tr>
+        <td><strong>Postman</strong></td>
+        <td>Klient + docs</td>
+        <td>Testowanie, collections, mock servers, monitoring</td>
+        <td>Przeladowany funkcjami, wolny desktop app</td>
+        <td>Free + Enterprise</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Postman Collections</h2>
+  <p>Kolekcje Postman to plik JSON grupujacy endpointy, zmienne srodowiskowe i testy. Mozna je eksportowac i importowac, uzyc w CI/CD (Newman CLI) i opublikowac jako dokumentacje publiczna.</p>
+
+  <pre><code># Uruchomienie kolekcji Postman w CLI (Newman)
+npm install -g newman newman-reporter-htmlextra
+
+# Uruchom testy z kolekcji
+newman run my-api.postman_collection.json \
+  --environment production.postman_environment.json \
+  --reporters cli,htmlextra \
+  --reporter-htmlextra-export reports/test-results.html \
+  --bail  # zatrzymaj przy pierwszym bledzie
+
+# W CI/CD (GitHub Actions)
+# - name: Run API tests
+#   run: newman run collection.json -e staging.env.json
+</code></pre>
+
+  <h2>Changelog management</h2>
+  <p>Dobry changelog API dokumentuje zmiany w sposob zrozumialy dla uzytkownikow API — nie dla dewelopera. Rozrozniaj: breaking changes, new features, deprecations, bug fixes.</p>
+
+  <pre><code># CHANGELOG.md — format Keep a Changelog
+
+## [2.1.0] - 2025-05-08
+
+### Dodano
+- Endpoint GET /users/{id}/activity-log — historia aktywnosci uzytkownika
+- Parametr `include` dla GET /orders — mozliwosc pobrania powiazanych zasobow
+- Webhook `order.shipped` — powiadomienie o wysylce zamowienia
+
+### Zmieniono
+- GET /products zwraca teraz pole `stock` (poprzednio: `inventory_count`)
+  DEPRECATION: `inventory_count` bedzie usuniety w v3.0 (2026-01-01)
+
+### Naprawiono
+- GET /users zwracal niepoprawne pole `lastLogin` przy braku aktywnosci
+
+## [2.0.0] - 2025-02-01 — BREAKING CHANGES
+
+### Usunieto (breaking)
+- Usunieto parametr `api_key` z query string — uzywaj naglowka Authorization
+- Usunieto endpoint POST /auth/login (zastapiony przez /auth/token)
+
+### Zmieniono (breaking)
+- Paginacja: parametr `offset`+`count` zastapiony przez `page`+`limit`
+- Pole `user_id` przemianowane na `userId` (camelCase)
+
+### Sunset header dla przestarzalych endpointow
+# Sunset: Sat, 01 Jan 2026 00:00:00 GMT
+# Deprecation: Mon, 01 Feb 2025 00:00:00 GMT
+# Link: &lt;https://docs.example.com/migration/v2&gt;; rel="deprecation"
+</code></pre>
+
+  <div class="card orange">
+    <h3>Zasady dobrego changelogu API</h3>
+    <ul>
+      <li>Pisz z perspektywy konsumenta API, nie implementacji</li>
+      <li>Wyraznie oznaczaj breaking changes — osobna sekcja, ostrzezenia</li>
+      <li>Zawsze podaj date i wersje semver</li>
+      <li>Dla deprecacji podaj date usuniecia i sciezke migracji</li>
+      <li>Dodaj naglowek <code>Sunset</code> do deprecowanych endpointow</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="04-uwierzytelnianie.html">← Uwierzytelnianie</a>
+    <a href="06-rate-limiting-i-quota.html">Rate Limiting →</a>
+  </div>
+</div>
+</body>
+</html>

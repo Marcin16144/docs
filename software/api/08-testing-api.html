@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testing API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../index.html">API</a><span class="sep">/</span>
+  <span class="title">Testing API</span>
+</div>
+<div class="container">
+  <h1>Testing API</h1>
+  <p class="subtitle">Typy testow, Testcontainers, contract testing z Pact, load testing i mockowanie.</p>
+
+  <h2>Typy testow API</h2>
+  <p>Efektywna strategia testowania API opiera sie na kilku warstwach — kazda ma inny cel, koszt i szybkosc wykonania.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Typ testu</th>
+        <th>Co sprawdza</th>
+        <th>Szybkosc</th>
+        <th>Koszt utrzymania</th>
+        <th>Narzedzia</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Unit</strong></td>
+        <td>Logika biznesowa, validatory, transformacje danych</td>
+        <td>Bardzo szybkie (&lt;1ms)</td>
+        <td>Niski</td>
+        <td>Jest, Vitest, pytest</td>
+      </tr>
+      <tr>
+        <td><strong>Integration</strong></td>
+        <td>Endpointy z prawdziwa baza, cache, zewnetrznymi serwisami</td>
+        <td>Srednie (sekundy)</td>
+        <td>Sredni</td>
+        <td>Testcontainers, Supertest</td>
+      </tr>
+      <tr>
+        <td><strong>Contract</strong></td>
+        <td>Zgodnosc kontraktu miedzy producentem a konsumentem</td>
+        <td>Szybkie</td>
+        <td>Sredni</td>
+        <td>Pact, Spring Cloud Contract</td>
+      </tr>
+      <tr>
+        <td><strong>E2E</strong></td>
+        <td>Pelny flow uzytkownika przez wiele serwisow</td>
+        <td>Wolne (minuty)</td>
+        <td>Wysoki</td>
+        <td>Playwright, Cypress, k6</td>
+      </tr>
+      <tr>
+        <td><strong>Load / Performance</strong></td>
+        <td>Wydajnosc, latencja, throughput pod obciazeniem</td>
+        <td>Wolne (minuty)</td>
+        <td>Sredni</td>
+        <td>k6, Gatling, Artillery</td>
+      </tr>
+      <tr>
+        <td><strong>Security</strong></td>
+        <td>OWASP Top 10, podatnosci, nieautoryzowany dostep</td>
+        <td>Zmienne</td>
+        <td>Wysoki</td>
+        <td>OWASP ZAP, Burp Suite</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Integration Tests z Testcontainers</h2>
+  <p>Testcontainers uruchamia prawdziwe kontenery Docker (PostgreSQL, Redis, Kafka) na czas testow. Eliminuje problem "works on my machine" i roznice miedzy mockiem a prawdziwym serwisem.</p>
+
+  <pre><code>// api.integration.test.ts (Node.js + Testcontainers + Supertest)
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { RedisContainer }      from '@testcontainers/redis';
+import request                  from 'supertest';
+import { createApp }            from '../src/app';
+import { runMigrations }        from '../src/db/migrations';
+
+describe('Users API — integration tests', () => {
+  let pgContainer:    Awaited&lt;ReturnType&lt;typeof PostgreSqlContainer.prototype.start&gt;&gt;;
+  let redisContainer: Awaited&lt;ReturnType&lt;typeof RedisContainer.prototype.start&gt;&gt;;
+  let app:            ReturnType&lt;typeof createApp&gt;;
+
+  // Uruchom kontenery raz dla calego suite
+  beforeAll(async () => {
+    pgContainer = await new PostgreSqlContainer('postgres:16-alpine')
+      .withDatabase('testdb')
+      .withUsername('test')
+      .withPassword('test')
+      .start();
+
+    redisContainer = await new RedisContainer('redis:7-alpine').start();
+
+    app = createApp({
+      databaseUrl: pgContainer.getConnectionUri(),
+      redisUrl:    redisContainer.getConnectionUrl(),
+    });
+
+    await runMigrations(pgContainer.getConnectionUri());
+  }, 60_000);  // timeout 60s na start kontenerow
+
+  afterAll(async () => {
+    await pgContainer.stop();
+    await redisContainer.stop();
+  });
+
+  beforeEach(async () => {
+    // Czysc dane miedzy testami
+    await app.db.user.deleteMany();
+  });
+
+  describe('POST /v1/users', () => {
+    it('tworzy uzytkownika i zwraca 201', async () => {
+      const res = await request(app)
+        .post('/v1/users')
+        .send({ name: 'Jan Kowalski', email: 'jan@test.com', password: 'secret123' })
+        .expect(201);
+
+      expect(res.body).toMatchObject({
+        id:    expect.any(String),
+        name:  'Jan Kowalski',
+        email: 'jan@test.com',
+        role:  'user',
+      });
+      expect(res.headers.location).toMatch(/\/v1\/users\//);
+      expect(res.body).not.toHaveProperty('password');  // nigdy nie zwracaj hasla
+    });
+
+    it('zwraca 409 przy duplikacie emaila', async () => {
+      await request(app)
+        .post('/v1/users')
+        .send({ name: 'Jan', email: 'dup@test.com', password: 'pass123' });
+
+      const res = await request(app)
+        .post('/v1/users')
+        .send({ name: 'Jan2', email: 'dup@test.com', password: 'pass456' })
+        .expect(409);
+
+      expect(res.body.error.code).toBe('EMAIL_ALREADY_EXISTS');
+    });
+
+    it('zwraca 422 przy niepoprawnym emailu', async () => {
+      const res = await request(app)
+        .post('/v1/users')
+        .send({ name: 'Jan', email: 'not-an-email', password: 'pass123' })
+        .expect(422);
+
+      expect(res.body.error.details).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: 'email' })
+        ])
+      );
+    });
+  });
+
+  describe('GET /v1/users/:id', () => {
+    it('zwraca uzytkownika po ID', async () => {
+      const created = await request(app)
+        .post('/v1/users')
+        .send({ name: 'Anna', email: 'anna@test.com', password: 'pass123' })
+        .expect(201);
+
+      await request(app)
+        .get(`/v1/users/${created.body.id}`)
+        .set('Authorization', `Bearer ${await getTestToken('admin')}`)
+        .expect(200)
+        .expect(res => {
+          expect(res.body.email).toBe('anna@test.com');
+        });
+    });
+
+    it('zwraca 404 dla nieistniejacego ID', async () => {
+      await request(app)
+        .get('/v1/users/nonexistent-id')
+        .set('Authorization', `Bearer ${await getTestToken('admin')}`)
+        .expect(404);
+    });
+  });
+});
+</code></pre>
+
+  <h2>Contract Testing z Pact</h2>
+  <p>Pact pozwala testowac zgodnosc kontraktu miedzy konsumentem (klient API) a producentem (serwer API). Konsument definiuje oczekiwania (interactions), Pact generuje pact file, ktory producent weryfikuje w swoich testach. Eliminuje potrzebe wspoldzielonego srodowiska testowego.</p>
+
+  <div class="card blue">
+    <h3>Consumer-Driven Contract Testing</h3>
+    <p>W odroznieniu od testow producenta (gdzie producent definiuje kontrakt), Consumer-Driven Contract Testing pozwala konsumentom wyrazic swoje oczekiwania. Producent musi spelniac oczekiwania wszystkich konsumentow — zapobiega regression breaking changes.</p>
+  </div>
+
+  <pre><code>// consumer.pact.test.ts — test po stronie konsumenta
+import { PactV3, MatchersV3 } from '@pact-foundation/pact';
+import { UserApiClient }      from '../src/user-api-client';
+import path                    from 'path';
+
+const { like, string, integer, datetime } = MatchersV3;
+
+const provider = new PactV3({
+  consumer: 'OrderService',
+  provider: 'UserService',
+  dir:      path.resolve(__dirname, '../pacts'),
+  port:     8080,
+});
+
+describe('UserService contract', () => {
+  it('GET /users/:id — pobiera uzytkownika', async () => {
+    await provider
+      .given('user with id usr_123 exists')
+      .uponReceiving('a request for user usr_123')
+      .withRequest({
+        method:  'GET',
+        path:    '/v1/users/usr_123',
+        headers: { Authorization: like('Bearer token') },
+      })
+      .willRespondWith({
+        status:  200,
+        headers: { 'Content-Type': 'application/json' },
+        body: {
+          id:        string('usr_123'),
+          name:      string('Jan Kowalski'),
+          email:     string('jan@example.com'),
+          role:      string('user'),
+          createdAt: datetime("yyyy-MM-dd'T'HH:mm:ssXXX"),
+        },
+      })
+      .executeTest(async (mockServer) => {
+        const client = new UserApiClient(mockServer.url);
+        const user   = await client.getUser('usr_123');
+
+        expect(user.id).toBe('usr_123');
+        expect(user.name).toBeTruthy();
+      });
+  });
+});
+
+// producer.pact.test.ts — weryfikacja po stronie producenta
+import { Verifier } from '@pact-foundation/pact';
+
+describe('Pact verification — UserService', () => {
+  it('verifies consumer contracts', async () => {
+    const verifier = new Verifier({
+      provider:              'UserService',
+      providerBaseUrl:       'http://localhost:3000',
+      pactBrokerUrl:         process.env.PACT_BROKER_URL,
+      pactBrokerToken:       process.env.PACT_BROKER_TOKEN,
+      publishVerificationResult: true,
+      providerVersion:       process.env.GIT_SHA,
+      stateHandlers: {
+        'user with id usr_123 exists': async () => {
+          await testDb.user.upsert({
+            where:  { id: 'usr_123' },
+            create: { id: 'usr_123', name: 'Jan Kowalski', email: 'jan@example.com', role: 'user' },
+            update: {},
+          });
+        },
+      },
+    });
+
+    await verifier.verifyProvider();
+  });
+});
+</code></pre>
+
+  <h2>Load Testing — k6</h2>
+
+  <pre><code>// load-test.js (k6)
+import http    from 'k6/http';
+import { check, sleep } from 'k6';
+import { Rate, Trend } from 'k6/metrics';
+
+// Metryki customowe
+const errorRate      = new Rate('error_rate');
+const createUserTime = new Trend('create_user_duration', true);
+
+export const options = {
+  stages: [
+    { duration: '1m',  target: 50   },   // ramp-up do 50 VU
+    { duration: '3m',  target: 50   },   // utrzymaj 50 VU
+    { duration: '2m',  target: 200  },   // spike do 200 VU
+    { duration: '2m',  target: 200  },   // utrzymaj spike
+    { duration: '1m',  target: 0    },   // ramp-down
+  ],
+  thresholds: {
+    http_req_duration:    ['p(95)<500', 'p(99)<1000'],  // 95% &lt; 500ms
+    http_req_failed:      ['rate&lt;0.01'],                // &lt;1% bledow
+    error_rate:           ['rate&lt;0.02'],
+    create_user_duration: ['p(95)&lt;800'],
+  },
+};
+
+const BASE_URL = __ENV.BASE_URL || 'https://api.staging.example.com';
+
+export default function () {
+  // Test 1 — GET lista uzytkownikow
+  const listRes = http.get(`${BASE_URL}/v1/users?limit=20`, {
+    headers: { Authorization: `Bearer ${__ENV.API_TOKEN}` },
+  });
+
+  check(listRes, {
+    'list: status 200':       (r) => r.status === 200,
+    'list: has data array':   (r) => Array.isArray(JSON.parse(r.body).data),
+    'list: response time ok': (r) => r.timings.duration &lt; 500,
+  });
+
+  errorRate.add(listRes.status !== 200);
+
+  sleep(0.5);
+
+  // Test 2 — POST nowy uzytkownik
+  const payload = JSON.stringify({
+    name:     `User ${Math.random()}`,
+    email:    `test${Date.now()}@example.com`,
+    password: 'TestPass123!',
+  });
+
+  const startCreate = Date.now();
+  const createRes = http.post(`${BASE_URL}/v1/users`, payload, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization:  `Bearer ${__ENV.API_TOKEN}`,
+    },
+  });
+
+  createUserTime.add(Date.now() - startCreate);
+
+  check(createRes, {
+    'create: status 201':       (r) => r.status === 201,
+    'create: has id':           (r) => JSON.parse(r.body).id !== undefined,
+    'create: location header':  (r) => r.headers['Location'] !== undefined,
+  });
+
+  errorRate.add(createRes.status !== 201);
+
+  sleep(1);
+}
+
+// Uruchomienie:
+// k6 run --env BASE_URL=https://api.staging.example.com \
+//         --env API_TOKEN=sk_test_... \
+//         load-test.js
+</code></pre>
+
+  <h2>Load testing — porownanie narzedzi</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Narzedzie</th>
+        <th>Jezyk skryptow</th>
+        <th>Protokoly</th>
+        <th>Raporty</th>
+        <th>CI/CD</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>k6</strong></td>
+        <td>JavaScript / TypeScript</td>
+        <td>HTTP, WebSocket, gRPC</td>
+        <td>CLI, JSON, k6 Cloud, Grafana</td>
+        <td>Natywny Docker image, GitHub Action</td>
+      </tr>
+      <tr>
+        <td><strong>Gatling</strong></td>
+        <td>Scala DSL</td>
+        <td>HTTP, WebSocket, JMS</td>
+        <td>Bogaty HTML report</td>
+        <td>Maven/Gradle plugin</td>
+      </tr>
+      <tr>
+        <td><strong>Artillery</strong></td>
+        <td>YAML + JS hooks</td>
+        <td>HTTP, WebSocket, Socket.IO</td>
+        <td>JSON, HTML, Artillery Cloud</td>
+        <td>NPM package, latwy w CI</td>
+      </tr>
+      <tr>
+        <td><strong>Locust</strong></td>
+        <td>Python</td>
+        <td>HTTP (+ custom)</td>
+        <td>Web UI, CSV</td>
+        <td>Docker image</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>API Mocking</h2>
+  <p>Mockowanie pozwala testowac klientow API bez uruchamiania prawdziwego serwera. Przydatne do testow frontend, testow izolowanych i development bez backendu.</p>
+  <ul>
+    <li><strong>WireMock</strong> — Java, standalone server lub JUnit rule, bogaty DSL, record &amp; replay</li>
+    <li><strong>Mockoon</strong> — desktop app i CLI, drag&amp;drop interface, latwy start</li>
+    <li><strong>MSW (Mock Service Worker)</strong> — interceptuje fetch/XHR w przegladarce i Node.js, idealny dla React/Next.js</li>
+    <li><strong>Prism</strong> — generuje mock serwer automatycznie z OpenAPI spec</li>
+  </ul>
+
+  <pre><code>// MSW — setupowanie handlerow w testach
+import { http, HttpResponse } from 'msw';
+import { setupServer }         from 'msw/node';
+
+const server = setupServer(
+  http.get('https://api.example.com/v1/users/:id', ({ params }) => {
+    if (params.id === 'not-found') {
+      return HttpResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'User not found' } },
+        { status: 404 }
+      );
+    }
+    return HttpResponse.json({
+      id:    params.id,
+      name:  'Jan Kowalski',
+      email: 'jan@example.com',
+      role:  'user',
+    });
+  }),
+
+  http.post('https://api.example.com/v1/users', async ({ request }) => {
+    const body = await request.json() as any;
+    return HttpResponse.json(
+      { id: 'new-id', ...body },
+      { status: 201, headers: { Location: '/v1/users/new-id' } }
+    );
+  }),
+);
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+// Nadpisanie handlera dla konkretnego testu
+it('obsluguje blad serwera', async () => {
+  server.use(
+    http.get('https://api.example.com/v1/users/:id', () => {
+      return HttpResponse.json(null, { status: 500 });
+    })
+  );
+  // ... test
+});
+</code></pre>
+
+  <h2>Chaos Engineering i fault injection</h2>
+  <p>Chaos engineering to celowe wprowadzanie awarii do systemu w kontrolowanych warunkach, aby odkryc slabe punkty zanim zrobi to produkcja. Dla API testujemy: opoznienia, bledy HTTP, timeouty, utrate polaczen.</p>
+
+  <div class="card green">
+    <h3>Test data management</h3>
+    <p>Izoluj dane testowe od produkcyjnych. Uzyj dedykowanej bazy per test suite (Testcontainers). Stosuj factory functions lub biblioteki (fishery, faker) do generowania danych testowych. Nigdy nie uzywaj produkcyjnych danych osobowych w testach — RODO/GDPR.</p>
+  </div>
+
+  <div class="card orange">
+    <h3>Checklist — testy przed deploymentem</h3>
+    <ul>
+      <li>Testy jednostkowe: 100% przejscie, coverage &gt;80% dla logiki biznesowej</li>
+      <li>Testy integracyjne: wszystkie endpointy pokryte happy path i error cases</li>
+      <li>Testy kontraktu: Pact broker zielony dla wszystkich konsumentow</li>
+      <li>Load test na staging: p95 latency &lt; SLA, error rate &lt; 1%</li>
+      <li>Security scan: OWASP ZAP baseline scan, brak krytycznych podatnosci</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="07-versioning.html">← API Versioning</a>
+    <a href="index.html">← API Index</a>
+  </div>
+</div>
+</body>
+</html>

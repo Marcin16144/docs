@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">Git</span>
+</div>
+<div class="container">
+<h1>📦 Git — workflow i ratunki</h1>
+<p class="lead">Konkretne komendy do codziennej pracy + jak wyjść z opresji.</p>
+
+<h2>1. Codzienne komendy</h2>
+<pre data-lang="bash"><code><span class="com"># Stan repo</span>
+git status -sb                          <span class="com"># krótki przegląd</span>
+git log --oneline --graph --all -<span class="num">20</span>     <span class="com"># wizualny log</span>
+git diff                                <span class="com"># niezacommitowane</span>
+git diff --staged                       <span class="com"># zacommitowane do staging</span>
+
+<span class="com"># Commit z poprawnym formatem (Conventional Commits)</span>
+git add -p                              <span class="com"># interaktywnie wybierz hunks</span>
+git commit -m <span class="str">"feat(auth): add refresh token rotation"</span>
+git commit -m <span class="str">"fix(api): handle null email in signup"</span>
+git commit -m <span class="str">"refactor(db): extract repository pattern"</span>
+
+<span class="com"># Push z trackingiem nowego brancha</span>
+git push -u origin feature/refresh-tokens
+
+<span class="com"># Synchronizacja z main</span>
+git fetch origin
+git rebase origin/main                  <span class="com"># preferuj rebase dla feature branch</span>
+<span class="com"># lub: git merge origin/main</span></code></pre>
+
+<h2>2. Interactive rebase — czyszczenie historii</h2>
+<pre data-lang="bash"><code><span class="com"># Złącz/zmień ostatnie 5 commitów</span>
+git rebase -i HEAD~<span class="num">5</span>
+
+<span class="com"># W edytorze pojawi się:</span>
+<span class="com"># pick a1b2c3 WIP first commit</span>
+<span class="com"># pick d4e5f6 WIP add validation</span>
+<span class="com"># pick g7h8i9 WIP fix typo</span>
+<span class="com">#</span>
+<span class="com"># Zmień na:</span>
+<span class="com"># pick a1b2c3 feat: add signup endpoint</span>
+<span class="com"># squash d4e5f6 WIP add validation</span>
+<span class="com"># fixup g7h8i9 WIP fix typo</span></code></pre>
+<div class="warn">⚠️ Nie rebasuj branchy, na których pracują inni — przepisuje historię. Wyjątek: <code>--force-with-lease</code> po koordynacji.</div>
+
+<h2>3. Cherry-pick — wybiórczy commit</h2>
+<pre data-lang="bash"><code><span class="com"># Skopiuj jeden commit z innego brancha</span>
+git cherry-pick a1b2c3d
+
+<span class="com"># Kilka pod rząd</span>
+git cherry-pick a1b2c3d..f7e8d9c
+
+<span class="com"># Bez auto-commit (tylko stage)</span>
+git cherry-pick -n a1b2c3d</code></pre>
+
+<h2>4. Ratunki — kiedy coś się popsuło</h2>
+<pre data-lang="bash"><code><span class="com"># ❌ "Zrobiłem commit nie na tej gałęzi"</span>
+git log --oneline -<span class="num">1</span>                  <span class="com"># zapamiętaj hash</span>
+git reset --hard HEAD~<span class="num">1</span>              <span class="com"># cofnij commit (TYLKO LOKALNIE)</span>
+git checkout poprawny-branch
+git cherry-pick &lt;hash&gt;
+
+<span class="com"># ❌ "Usunąłem branch z niezmergowaną pracą"</span>
+git reflog                              <span class="com"># znajdź ostatni HEAD na tym branchu</span>
+git checkout -b ratunek &lt;hash z reflog&gt;
+
+<span class="com"># ❌ "git push --force usunął moje zmiany!" (z remote)</span>
+git fetch origin
+git reflog show origin/main             <span class="com"># lokalny ślad poprzedniej HEAD</span>
+git reset --hard &lt;poprzedni hash&gt;
+git push --force-with-lease origin main
+
+<span class="com"># ❌ "Zacommituj zmiany do złego brancha (lokalnie)"</span>
+git reset --soft HEAD~<span class="num">1</span>              <span class="com"># wraca pliki do staging</span>
+git stash
+git checkout poprawny-branch
+git stash pop
+git commit -m <span class="str">"..."</span>
+
+<span class="com"># ❌ "Niechcąco git add &amp; commit poufnego pliku"</span>
+git rm --cached secrets.env
+echo <span class="str">"secrets.env"</span> &gt;&gt; .gitignore
+git commit -m <span class="str">"chore: remove secrets from repo"</span>
+<span class="com"># Jeśli już pushnięte: użyj git-filter-repo i obróć klucze!</span></code></pre>
+
+<h2>5. Bisect — binary search w historii</h2>
+<pre data-lang="bash"><code><span class="com"># Znajdź który commit popsuł testy</span>
+git bisect start
+git bisect bad HEAD                     <span class="com"># tu jest błąd</span>
+git bisect good v<span class="num">1.0</span>.<span class="num">0</span>                 <span class="com"># wcześniej działało</span>
+
+<span class="com"># Git wybiera środkowy commit. Testujesz, oznaczasz:</span>
+npm test &amp;&amp; git bisect good <span class="kw">||</span> git bisect bad
+
+<span class="com"># Albo zautomatyzuj:</span>
+git bisect run npm test
+
+<span class="com"># Gdy znaleziono:</span>
+git bisect reset</code></pre>
+
+<h2>6. Worktree — równoległa praca</h2>
+<pre data-lang="bash"><code><span class="com"># Drugi katalog z innym branchem (bez clonowania!)</span>
+git worktree add ../app-hotfix hotfix/critical-bug
+cd ../app-hotfix
+<span class="com"># pracujesz, commitujesz, pushujesz</span>
+
+<span class="com"># Lista worktrees</span>
+git worktree list
+
+<span class="com"># Sprzątanie</span>
+git worktree remove ../app-hotfix</code></pre>
+<div class="tip">💡 Idealne gdy: review PR-a kolegi gdy sam piszesz feature, hotfix bez stashowania pracy.</div>
+
+<h2>7. Hooks — automatyzacja</h2>
+<pre data-lang="bash"><code><span class="com"># .git/hooks/pre-commit (po chmod +x)</span>
+<span class="com">#!/usr/bin/env bash</span>
+<span class="kw">set</span> -e
+npm run lint
+npm run typecheck
+npm test -- --bail
+
+<span class="com"># Lepsza opcja — husky (dystrybuujesz hooki przez repo)</span>
+npm i -D husky lint-staged
+npx husky init
+echo <span class="str">"npx lint-staged"</span> &gt; .husky/pre-commit
+
+<span class="com"># package.json:</span>
+<span class="str">"lint-staged"</span>: {
+    <span class="str">"*.{ts,tsx}"</span>: [<span class="str">"eslint --fix"</span>, <span class="str">"prettier --write"</span>],
+    <span class="str">"*.md"</span>: [<span class="str">"prettier --write"</span>]
+}</code></pre>
+
+<h2>8. Workflow comparison</h2>
+<table>
+<tr><th>Strategia</th><th>Kiedy używać</th><th>Charakterystyka</th></tr>
+<tr><td><strong>GitHub Flow</strong></td><td>SaaS, CD do prod</td><td><code>main</code> + feature branches, PR review, deploy z main</td></tr>
+<tr><td><strong>GitFlow</strong></td><td>Wersjonowane releases</td><td><code>main</code>, <code>develop</code>, <code>feature/*</code>, <code>release/*</code>, <code>hotfix/*</code></td></tr>
+<tr><td><strong>Trunk-based</strong></td><td>Duże zespoły, feature flags</td><td>Wszyscy commitują do <code>main</code>, krótkie branche &lt;1 dzień</td></tr>
+<tr><td><strong>GitLab Flow</strong></td><td>Multi-environment</td><td><code>main</code> + branches per environment (<code>pre-production</code>, <code>production</code>)</td></tr>
+</table>
+
+<h2>9. Komendy, które warto znać</h2>
+<pre data-lang="bash"><code><span class="com"># Kto napisał daną linię i kiedy</span>
+git blame -L <span class="num">42</span>,<span class="num">50</span> src/api.ts
+
+<span class="com"># Wszystkie commity dotykające pliku</span>
+git log --follow -p src/auth.ts
+
+<span class="com"># Szukaj tekstu w historii</span>
+git log -S <span class="str">"deprecatedFunction"</span> --oneline
+
+<span class="com"># Statystyki commitów</span>
+git shortlog -sn --since=<span class="str">"1 month ago"</span>
+
+<span class="com"># Rozmiar repozytorium</span>
+git count-objects -vH
+git gc --aggressive --prune=now</code></pre>
+
+<div class="next-prev">
+    <a href="kubernetes.html"><div class="label">← Poprzedni</div><div class="title">Kubernetes</div></a>
+    <a href="sql.html"><div class="label">Następny →</div><div class="title">SQL i ORM</div></a>
+</div>
+</div>
+</body>
+</html>

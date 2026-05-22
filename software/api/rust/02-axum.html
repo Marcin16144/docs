@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axum — podstawy</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f97316;--accent-hover:#fb923c;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Rust</a>
+  <span class="sep">/</span>
+  <span class="title">Axum — podstawy</span>
+</div>
+<div class="container">
+  <h1>Axum — podstawy</h1>
+  <p class="subtitle">Framework webowy rozwijany przez zespol Tokio. Integruje sie bezposrednio z ekosystemem tower i hyper, oferujac ergonomiczne API oparte na extractorach.</p>
+
+  <h2>Router i rejestracja tras</h2>
+  <p>Centralnym elementem aplikacji Axum jest <strong>Router</strong>. Trasy laczymy metoda <code>.route()</code>, przekazujac sciezke i handler. Axum rozroznia metody HTTP przez <code>get()</code>, <code>post()</code>, <code>put()</code>, <code>delete()</code> itd.</p>
+
+  <pre><code>use axum::{Router, routing::{get, post, put, delete}};
+
+async fn main() {
+    let app = Router::new()
+        .route("/",                   get(root_handler))
+        .route("/users",              get(list_users).post(create_user))
+        .route("/users/:id",          get(get_user).put(update_user).delete(delete_user))
+        .route("/users/:id/profile",  get(get_profile))
+        .fallback(handler_404);
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}</code></pre>
+
+  <p>Metoda <code>axum::serve()</code> jest dostepna od Axum 0.7 i zastepuje przestarzale <code>Server::bind()</code> z hyper. Wymaga <code>tokio::net::TcpListener</code>.</p>
+
+  <h2>Handlery — async fn</h2>
+  <p>Handler w Axum to dowolna asynchroniczna funkcja, ktorej argumenty implementuja trait <code>FromRequestParts</code> lub <code>FromRequest</code>, a typ zwracany implementuje <code>IntoResponse</code>. Axum sam wyciaga argumenty z requestu — to sa <strong>extractory</strong>.</p>
+
+  <pre><code>use axum::{
+    extract::{Path, Query, State, Json},
+    response::{IntoResponse, Json as JsonResponse},
+    http::StatusCode,
+};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
+#[derive(Deserialize)]
+struct ListParams {
+    page: Option&lt;u32&gt;,
+    limit: Option&lt;u32&gt;,
+}
+
+#[derive(Serialize)]
+struct User {
+    id: i64,
+    name: String,
+    email: String,
+}
+
+// GET /users?page=1&amp;limit=20
+async fn list_users(
+    State(state): State&lt;Arc&lt;AppState&gt;&gt;,
+    Query(params): Query&lt;ListParams&gt;,
+) -> impl IntoResponse {
+    let page = params.page.unwrap_or(1);
+    let limit = params.limit.unwrap_or(20);
+    // ... logika pobierania
+    JsonResponse(vec![/* users */])
+}
+
+// GET /users/:id
+async fn get_user(
+    State(state): State&lt;Arc&lt;AppState&gt;&gt;,
+    Path(id): Path&lt;i64&gt;,
+) -> Result&lt;JsonResponse&lt;User&gt;, StatusCode&gt; {
+    // ...
+    Err(StatusCode::NOT_FOUND)
+}
+
+// POST /users
+async fn create_user(
+    State(state): State&lt;Arc&lt;AppState&gt;&gt;,
+    Json(payload): Json&lt;CreateUserRequest&gt;,
+) -> impl IntoResponse {
+    (StatusCode::CREATED, JsonResponse(/* nowy user */))
+}</code></pre>
+
+  <h2>Extractory — tabela najwazniejszych</h2>
+  <p>Extractory sa zadeklarowane jako argumenty handlerów. Axum wywoluje je w kolejnosci i zwraca <code>400 Bad Request</code> jesli ktorys zawiedzie (chyba ze uzyjesz <code>Option&lt;T&gt;</code> lub <code>Result&lt;T, E&gt;</code>).</p>
+
+  <table>
+    <thead>
+      <tr><th>Extractor</th><th>Zrodlo</th><th>Uwagi</th><th>Musi byc ostatni?</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>Path&lt;T&gt;</code></td><td>segmenty URL (:id)</td><td>T: Deserialize</td><td>nie</td></tr>
+      <tr><td><code>Query&lt;T&gt;</code></td><td>query string</td><td>T: Deserialize, opcjonalne pola = Option</td><td>nie</td></tr>
+      <tr><td><code>Json&lt;T&gt;</code></td><td>body (application/json)</td><td>T: Deserialize, konsumuje body</td><td>tak</td></tr>
+      <tr><td><code>State&lt;T&gt;</code></td><td>stan aplikacji</td><td>T: Clone, ustawiony przez with_state()</td><td>nie</td></tr>
+      <tr><td><code>Extension&lt;T&gt;</code></td><td>request extensions</td><td>T: Clone + Send + Sync</td><td>nie</td></tr>
+      <tr><td><code>TypedHeader&lt;T&gt;</code></td><td>naglowki HTTP</td><td>T: Header (crate headers)</td><td>nie</td></tr>
+      <tr><td><code>Request</code></td><td>caly request</td><td>dostep do body jako stream</td><td>tak</td></tr>
+      <tr><td><code>axum::body::Bytes</code></td><td>raw body</td><td>do niestandardowych formatow</td><td>tak</td></tr>
+    </tbody>
+  </table>
+
+  <h2>IntoResponse — typy odpowiedzi</h2>
+  <p>Handlery moga zwracac dowolny typ implementujacy <code>IntoResponse</code>. Axum dostarcza implementacje dla krotek <code>(StatusCode, T)</code>, <code>(StatusCode, HeaderMap, T)</code>, <code>Json&lt;T&gt;</code>, <code>Html&lt;T&gt;</code>, <code>Redirect</code>, a takze prostych typow jak <code>String</code>, <code>&amp;str</code>, <code>StatusCode</code>.</p>
+
+  <pre><code>use axum::response::{Html, Redirect, Response};
+use axum::http::{HeaderMap, header};
+
+// Tuple response: status + body
+async fn created() -> impl IntoResponse {
+    (StatusCode::CREATED, Json(serde_json::json!({"ok": true})))
+}
+
+// Odpowiedz z naglowkami
+async fn with_headers() -> impl IntoResponse {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CACHE_CONTROL, "max-age=3600".parse().unwrap());
+    (StatusCode::OK, headers, "Hello!")
+}
+
+// Przekierowanie
+async fn old_endpoint() -> impl IntoResponse {
+    Redirect::permanent("/new-endpoint")
+}
+
+// HTML
+async fn home() -> impl IntoResponse {
+    Html("&lt;h1&gt;Witaj&lt;/h1&gt;")
+}
+
+// 404 fallback
+async fn handler_404() -> impl IntoResponse {
+    (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "nie znaleziono"})))
+}</code></pre>
+
+  <h2>Router::with_state i zagniezdzanie</h2>
+  <p>Stan aplikacji przekazujemy przez <code>Router::with_state()</code>. Zagniezdzanie routerow pozwala grupowac trasy i nadawac im wspolny prefiks przez <code>.nest()</code>.</p>
+
+  <pre><code>use std::sync::Arc;
+
+#[derive(Clone)]
+struct AppState {
+    db: sqlx::PgPool,
+}
+
+let user_router = Router::new()
+    .route("/",    get(list_users).post(create_user))
+    .route("/:id", get(get_user).put(update_user));
+
+let api_router = Router::new()
+    .nest("/users",    user_router)
+    .nest("/products", product_router);
+
+let app = Router::new()
+    .nest("/api/v1", api_router)
+    .route("/health", get(health_check))
+    .with_state(Arc::new(AppState { db }));</code></pre>
+
+  <div class="card green">
+    <strong>Wskazowka:</strong> Jesli uzywasz <code>.with_state()</code>, stan musi byc ustawiony na glownym routerze (lub na kazdym sub-routerze osobno). Stan nie jest automatycznie propagowany do zagniezdzonych routerow budowanych osobno.
+  </div>
+
+  <h2>TypedHeader — niestandardowe naglowki</h2>
+  <p>Extractor <code>TypedHeader</code> z crate <code>axum-extra</code> pozwala odczytywac naglowki HTTP w sposob typowany. Wymaga dodania zaleznosci: <code>axum-extra = &#123; version = "0.9", features = ["typed-header"] &#125;</code>.</p>
+
+  <pre><code>use axum_extra::TypedHeader;
+use axum_extra::headers::{Authorization, authorization::Bearer};
+
+async fn protected(
+    TypedHeader(auth): TypedHeader&lt;Authorization&lt;Bearer&gt;&gt;,
+) -> impl IntoResponse {
+    let token = auth.token();
+    // walidacja tokena...
+    Json(serde_json::json!({"token_len": token.len()}))
+}</code></pre>
+
+  <h2>Fallback handler</h2>
+  <p>Handler fallback jest wywolywany gdy zadna trasa nie pasuje do requestu. Rejestrujemy go przez <code>.fallback()</code> na routerze. Moze byc zwykla async fn lub pelnym handlerem z extractorami.</p>
+
+  <div class="card orange">
+    <strong>axum::serve() vs hyper Server:</strong> Od Axum 0.7 zalecane jest uzycie <code>axum::serve(listener, app).await</code>. Aby dodac graceful shutdown, uzyj <code>axum::serve(...).with_graceful_shutdown(shutdown_signal())</code>, gdzie <code>shutdown_signal()</code> to future czekajace na SIGTERM/SIGINT.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="01-podstawy-rust-api.html">← 01-podstawy-rust-api.html</a>
+    <a href="03-axum-zaawansowany.html">03-axum-zaawansowany.html →</a>
+  </div>
+</div>
+</body>
+</html>

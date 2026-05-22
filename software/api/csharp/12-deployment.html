@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment .NET API — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">Deployment .NET API</span>
+</div>
+<div class="container">
+  <h1>Deployment .NET API</h1>
+  <p class="subtitle">Publikacja, AOT, Dockerfile, Docker Compose, IIS, Nginx, Azure App Service, Kubernetes i konfiguracja srodowiskowa</p>
+
+  <h2>Typy publikacji</h2>
+  <table>
+    <thead>
+      <tr><th>Typ</th><th>Komenda</th><th>Rozmiar</th><th>Wymaga runtime</th><th>Kiedy</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Framework-dependent</strong></td>
+        <td><code>dotnet publish -c Release</code></td>
+        <td>Maly (~1 MB)</td>
+        <td>Tak (.NET zainstalowany)</td>
+        <td>Serwery z zainstalowanym .NET, Docker</td>
+      </tr>
+      <tr>
+        <td><strong>Self-contained</strong></td>
+        <td><code>dotnet publish -c Release -r linux-x64 --self-contained</code></td>
+        <td>Duzy (~70 MB)</td>
+        <td>Nie</td>
+        <td>Srodowiska bez .NET, edge deployment</td>
+      </tr>
+      <tr>
+        <td><strong>Single file</strong></td>
+        <td><code>--self-contained -p:PublishSingleFile=true</code></td>
+        <td>Jeden plik</td>
+        <td>Nie</td>
+        <td>Prostota dystrybucji, CLI tools</td>
+      </tr>
+      <tr>
+        <td><strong>Native AOT</strong></td>
+        <td><code>-p:PublishAot=true</code></td>
+        <td>Bardzo maly (~10 MB)</td>
+        <td>Nie</td>
+        <td>Mikrouslugi, minimalny cold start, serverless</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Native AOT — .NET 8+</h2>
+  <p>Native AOT kompiluje aplikacje do natywnego kodu maszynowego bez potrzeby JIT. Efekty: bardzo krotki czas startu (&lt;50ms), mniejsze zuzycie pamieci i brak zaleznosci od runtime .NET.</p>
+
+  <pre><code>&lt;!-- .csproj — wlaczenie Native AOT --&gt;
+&lt;PropertyGroup&gt;
+  &lt;PublishAot&gt;true&lt;/PublishAot&gt;
+  &lt;InvariantGlobalization&gt;true&lt;/InvariantGlobalization&gt;  &lt;!-- mniejszy rozmiar --&gt;
+&lt;/PropertyGroup&gt;
+
+&lt;!-- AOT wymaga JSON source generation zamiast refleksji --&gt;
+&lt;ItemGroup&gt;
+  &lt;PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.*" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+
+  <pre><code>// Program.cs — Minimal API kompatybilne z AOT
+var builder = WebApplication.CreateSlimBuilder(args);  // Slim = AOT-friendly
+
+builder.Services.ConfigureHttpJsonOptions(options =&gt;
+{
+    options.SerializerOptions.TypeInfoResolverChain.Insert(0,
+        AppJsonSerializerContext.Default);
+});
+
+var app = builder.Build();
+app.MapGet("/products", () =&gt; new[] { new Product(1, "Laptop", 3999m) });
+app.Run();
+
+// Source generation dla JSON (wymagane przez AOT)
+[JsonSerializable(typeof(Product[]))]
+[JsonSerializable(typeof(Product))]
+[JsonSerializable(typeof(ProblemDetails))]
+internal partial class AppJsonSerializerContext : JsonSerializerContext { }
+
+record Product(int Id, string Name, decimal Price);
+
+// Kompilacja AOT
+// dotnet publish -c Release -r linux-x64 -p:PublishAot=true</code></pre>
+
+  <h2>Dockerfile — multi-stage build</h2>
+  <pre><code># Dockerfile — optimized multi-stage dla .NET 9
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Kopiuj pliki projektow i przywroc zaleznosci (cache layer)
+COPY ["src/MyApi/MyApi.csproj", "src/MyApi/"]
+COPY ["src/MyApi.Infrastructure/MyApi.Infrastructure.csproj", "src/MyApi.Infrastructure/"]
+RUN dotnet restore "src/MyApi/MyApi.csproj"
+
+# Kopiuj caly kod i zbuduj
+COPY . .
+WORKDIR "/src/src/MyApi"
+RUN dotnet build "MyApi.csproj" -c Release -o /app/build
+
+# Publikacja
+FROM build AS publish
+RUN dotnet publish "MyApi.csproj" \
+    -c Release \
+    -r linux-x64 \
+    --self-contained false \
+    -o /app/publish \
+    /p:UseAppHost=false
+
+# Obraz finalny — minimalny runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS final
+WORKDIR /app
+
+# Bezpieczenstwo — nie uruchamiaj jako root
+RUN addgroup -S appgroup &amp;&amp; adduser -S appuser -G appgroup
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget -qO- http://localhost:8080/health/live || exit 1
+
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "MyApi.dll"]</code></pre>
+
+  <h2>Docker Compose</h2>
+  <pre><code># docker-compose.yml
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=mydb;Username=myuser;Password=mypass
+      - Redis__ConnectionString=redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge</code></pre>
+
+  <h2>Nginx — reverse proxy</h2>
+  <pre><code># nginx/nginx.conf
+events {
+    worker_connections 1024;
+}
+
+http {
+    upstream api {
+        server api:8080;
+        keepalive 32;
+    }
+
+    # Rate limiting
+    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=100r/m;
+
+    server {
+        listen 80;
+        server_name myapi.example.com;
+        return 301 https://$server_name$request_uri;
+    }
+
+    server {
+        listen 443 ssl http2;
+        server_name myapi.example.com;
+
+        ssl_certificate /etc/nginx/ssl/cert.pem;
+        ssl_certificate_key /etc/nginx/ssl/key.pem;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+
+        # Naglowki bezpieczenstwa
+        add_header X-Content-Type-Options nosniff;
+        add_header X-Frame-Options DENY;
+        add_header Strict-Transport-Security
+            "max-age=31536000; includeSubDomains" always;
+
+        location / {
+            limit_req zone=api_limit burst=20 nodelay;
+            proxy_pass http://api;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection keep-alive;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_cache_bypass $http_upgrade;
+            proxy_read_timeout 90s;
+        }
+
+        location /health {
+            proxy_pass http://api;
+            access_log off;
+        }
+    }
+}</code></pre>
+
+  <h2>Kubernetes z Helm</h2>
+  <pre><code># helm/values.yaml
+replicaCount: 3
+
+image:
+  repository: myregistry.azurecr.io/myapi
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: myapi.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: myapi-tls
+      hosts:
+        - myapi.example.com
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+env:
+  - name: ASPNETCORE_ENVIRONMENT
+    value: Production
+  - name: ConnectionStrings__DefaultConnection
+    valueFrom:
+      secretKeyRef:
+        name: myapi-secrets
+        key: db-connection-string</code></pre>
+
+  <h2>IIS — web.config</h2>
+  <pre><code>&lt;!-- web.config dla IIS --&gt;
+&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;configuration&gt;
+  &lt;location path="." inheritInChildApplications="false"&gt;
+    &lt;system.webServer&gt;
+      &lt;handlers&gt;
+        &lt;add name="aspNetCore" path="*" verb="*"
+             modules="AspNetCoreModuleV2"
+             resourceType="Unspecified" /&gt;
+      &lt;/handlers&gt;
+      &lt;aspNetCore processPath="dotnet"
+                  arguments=".\MyApi.dll"
+                  stdoutLogEnabled="false"
+                  stdoutLogFile=".\logs\stdout"
+                  hostingModel="inprocess"&gt;  &lt;!-- inprocess = szybszy --&gt;
+        &lt;environmentVariables&gt;
+          &lt;environmentVariable name="ASPNETCORE_ENVIRONMENT"
+                               value="Production" /&gt;
+        &lt;/environmentVariables&gt;
+      &lt;/aspNetCore&gt;
+    &lt;/system.webServer&gt;
+  &lt;/location&gt;
+&lt;/configuration&gt;</code></pre>
+
+  <h2>Konfiguracja per srodowisko</h2>
+  <pre><code>// Program.cs — ladowanie konfiguracji srodowiskowej
+var builder = WebApplication.CreateBuilder(args);
+
+// Kolejnosc ladowania (pozniejsze nadpisuja wczesniejsze):
+// 1. appsettings.json
+// 2. appsettings.{Environment}.json
+// 3. User Secrets (Development)
+// 4. Zmienne srodowiskowe
+// 5. Argumenty wiersza polecen
+
+// Azure Key Vault (produkcja)
+if (builder.Environment.IsProduction())
+{
+    var keyVaultUri = builder.Configuration["KeyVault:Uri"];
+    if (!string.IsNullOrEmpty(keyVaultUri))
+    {
+        builder.Configuration.AddAzureKeyVault(
+            new Uri(keyVaultUri),
+            new DefaultAzureCredential());
+    }
+}
+
+// Mapowanie zmiennych srodowiskowych z prefixem
+builder.Configuration.AddEnvironmentVariables(prefix: "MYAPI_");</code></pre>
+
+  <h2>Opcje deploymentu — kiedy co wybrac</h2>
+  <table>
+    <thead>
+      <tr><th>Opcja</th><th>Kiedy uzywac</th><th>Zalety</th><th>Wady</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>IIS (Windows)</strong></td>
+        <td>Istniejaca infrastruktura Windows, integracja z AD</td>
+        <td>Znany adminom Windows, integracja z WAS</td>
+        <td>Tylko Windows, wymaga licencji serwera</td>
+      </tr>
+      <tr>
+        <td><strong>Kestrel + Nginx</strong></td>
+        <td>Linux VPS, wlasna infrastruktura, microservices</td>
+        <td>Wydajny, wieloplatformowy, latwy w konfiguracji</td>
+        <td>Recznie zarzadzasz infrastruktura</td>
+      </tr>
+      <tr>
+        <td><strong>Docker / Compose</strong></td>
+        <td>Lokalne testy produkcyjne, mala skala, CI/CD</td>
+        <td>Reprodukowalnosc, izolacja, latwy rollback</td>
+        <td>Naglowek zasobow, wymaga Docker runtime</td>
+      </tr>
+      <tr>
+        <td><strong>Kubernetes (K8s)</strong></td>
+        <td>Duza skala, wiele usług, auto-scaling</td>
+        <td>Auto-scaling, self-healing, rolling updates</td>
+        <td>Wysoka zlozonosc operacyjna, koszty</td>
+      </tr>
+      <tr>
+        <td><strong>Azure App Service</strong></td>
+        <td>Szybki deployment, brak ops, male/srednie projekty</td>
+        <td>Managed, slots (blue/green), easy scaling</td>
+        <td>Wyzsze koszty przy duzej skali, lock-in</td>
+      </tr>
+      <tr>
+        <td><strong>Azure Container Apps</strong></td>
+        <td>Mikrouslugi, serverless containers, K8s bez ops</td>
+        <td>Managed K8s, KEDA scaling, DAPR integration</td>
+        <td>Mniejsza kontrola niz czysty K8s</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <strong>Rekomendacja 2026 — nowe projekty:</strong>
+    <ul style="margin-top:8px">
+      <li><strong>Mikrouslugi / duza skala:</strong> Docker + Kubernetes (AKS/EKS/GKE) lub Azure Container Apps</li>
+      <li><strong>Standardowe API / startup:</strong> Azure App Service z deployment slots (blue/green)</li>
+      <li><strong>Edge / serverless z minimalnym startem:</strong> Native AOT + Azure Container Apps</li>
+      <li><strong>On-premise Windows:</strong> IIS in-process lub Windows Service z Kestrel</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="11-testowanie.html">← 11-testowanie.html</a>
+    <a href="../index.html">← Powrot do C#/.NET →</a>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy PHP API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">PHP</a><span class="sep">/</span>
+  <span class="title">Podstawy PHP API</span>
+</div>
+<div class="container">
+  <h1>Podstawy PHP API</h1>
+  <p class="subtitle">PSR-7, PSR-15, Composer, PHP 8.3, JSON handling i standardy PHP-FIG</p>
+
+  <h2>PHP-FIG i standardy PSR</h2>
+  <p>PHP-FIG (PHP Framework Interoperability Group) to organizacja odpowiedzialna za tworzenie standardow PSR (PHP Standards Recommendations). Standardy te umozliwiaja interoperacyjnosc miedzy roznymy frameworkami i bibliotekami PHP. Dla budowniczych API najwazniejsze sa PSR-7 (interfejsy HTTP) i PSR-15 (middleware).</p>
+  <p>Stosowanie standardow PSR sprawia, ze kod jest bardziej przenosny — biblioteka napisana z uzyciem interfejsow PSR-7 dziala z dowolnym frameworkiem implementujacym ten standard, niezaleznie od tego czy to Slim, Laravel, Symfony czy inny.</p>
+
+  <h2>PSR-7: HTTP Message Interfaces</h2>
+  <p>PSR-7 definiuje interfejsy dla wiadomosci HTTP: <strong>RequestInterface</strong>, <strong>ResponseInterface</strong>, <strong>ServerRequestInterface</strong> i <strong>StreamInterface</strong>. Wszystkie obiekty PSR-7 sa <em>immutable</em> — kazda modyfikacja zwraca nowy obiekt zamiast mutowac istniejacy.</p>
+
+  <div class="card blue">
+    <strong>Dlaczego immutability ma znaczenie?</strong>
+    <p style="margin-top:8px;margin-bottom:0">Immutable HTTP messages eliminuja subtelne bledy wynikajace z przypadkowej mutacji obiektow w lancuchu middleware. Kazdy handler dostaje gwarancje, ze obiekt Request, ktory otrzymal, nie zostal zmodyfikowany przez poprzedni handler.</p>
+  </div>
+
+  <p>Najpopularniejsze implementacje PSR-7 to <strong>Guzzle/psr7</strong> oraz <strong>Nyholm/psr7</strong> (lekka, wysoka wydajnosc). Nyholm jest rekomendowana dla nowych projektow ze wzgledu na minimalistyczna implementacje i brak dodatkowych zaleznosci.</p>
+
+<pre><code>&lt;?php
+// Instalacja przez Composer
+// composer require nyholm/psr7 nyholm/psr7-server
+
+use Nyholm\Psr7\Factory\Psr17Factory;
+use Nyholm\Psr7Server\ServerRequestCreator;
+
+$factory = new Psr17Factory();
+
+$creator = new ServerRequestCreator(
+    $factory, // ServerRequestFactory
+    $factory, // UriFactory
+    $factory, // UploadedFileFactory
+    $factory  // StreamFactory
+);
+
+// Tworzenie ServerRequest z superglobals
+$request = $creator->fromGlobals();
+
+// Odczyt danych z requestu (PSR-7 API)
+$method  = $request->getMethod();          // GET, POST, PUT ...
+$uri     = $request->getUri();             // UriInterface
+$path    = $uri->getPath();                // /api/users
+$headers = $request->getHeaders();        // ['Content-Type' => ['application/json']]
+$body    = (string) $request->getBody(); // raw body string
+
+// Tworzenie Response (immutable — kazda zmiana = nowy obiekt)
+$response = $factory->createResponse(200)
+    ->withHeader('Content-Type', 'application/json')
+    ->withBody($factory->createStream(json_encode(['status' => 'ok'])));
+
+echo $response->getStatusCode(); // 200
+</code></pre>
+
+  <h2>PSR-15: HTTP Server Request Handlers i Middleware</h2>
+  <p>PSR-15 definiuje dwa interfejsy: <strong>RequestHandlerInterface</strong> (obsluguje request i zwraca response) oraz <strong>MiddlewareInterface</strong> (przetwarza request i przekazuje go dalej lub zwraca response bezposrednio). Middleware tworzy lancuch — kazdy element moze modyfikowac request przed przekazaniem go dalej lub response przed zwroceniem go klientowi.</p>
+
+  <h3>Przyklad middleware PSR-15</h3>
+<pre><code>&lt;?php
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+// Middleware logujace czas wykonania requestu
+class TimingMiddleware implements MiddlewareInterface
+{
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        $start = microtime(true);
+
+        // Przekazanie requestu do kolejnego handlera
+        $response = $handler->handle($request);
+
+        $elapsed = round((microtime(true) - $start) * 1000, 2);
+
+        // Dodanie headera X-Response-Time do odpowiedzi
+        return $response->withHeader('X-Response-Time', $elapsed . 'ms');
+    }
+}
+
+// Middleware weryfikujace token Bearer
+class AuthMiddleware implements MiddlewareInterface
+{
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        $authHeader = $request->getHeaderLine('Authorization');
+
+        if (!str_starts_with($authHeader, 'Bearer ')) {
+            // Przerwanie lancucha — zwrocenie 401 bez wywolania handlera
+            return (new Psr17Factory())->createResponse(401)
+                ->withHeader('Content-Type', 'application/json')
+                ->withBody((new Psr17Factory())->createStream(
+                    json_encode(['error' => 'Unauthorized'])
+                ));
+        }
+
+        $token = substr($authHeader, 7);
+        // Dodanie tokenu do atrybutow requestu (immutable)
+        $request = $request->withAttribute('token', $token);
+
+        return $handler->handle($request);
+    }
+}
+</code></pre>
+
+  <h2>Composer i PSR-4 Autoloading</h2>
+  <p>Composer to menedzer zaleznosci PHP, ktory obsluguje rowniez autoloading klas. PSR-4 to standard mapowania namespace'ow na struktury katalogow. Prawidlowo skonfigurowane autoloading eliminuje potrzebe recznego <code>require</code> kazdego pliku.</p>
+
+  <div class="card green">
+    <strong>Konfiguracja PSR-4 w composer.json</strong>
+    <pre style="margin:8px 0 0"><code>{
+  "name": "myapp/api",
+  "require": {
+    "php": "^8.3",
+    "nyholm/psr7": "^1.8",
+    "nyholm/psr7-server": "^1.1",
+    "psr/http-message": "^2.0",
+    "psr/http-server-middleware": "^1.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  }
+}</code></pre>
+  </div>
+
+  <h2>PHP 8.3 — nowosci istotne dla API</h2>
+  <p>PHP 8.3 wprowadzil kilka ulepszonych funkcji, ktore bezposrednio przydaja sie przy budowie API.</p>
+
+  <h3>Typed Class Constants</h3>
+  <p>Stale klasowe moga teraz miec zadeklarowany typ, co zwieksza bezpieczenstwo typow i eliminuje przypadkowe nadpisania z blednym typem.</p>
+
+  <h3>Readonly Properties i Readonly Classes</h3>
+  <p>Wlasciwosci <code>readonly</code> mozna ustawic tylko raz (w konstruktorze). PHP 8.2 wprowadzil readonly classes — wszystkie promowane wlasciwosci sa automatycznie readonly. PHP 8.3 udoskonalil klonowanie readonly obiektow.</p>
+
+  <h3>Named Arguments</h3>
+  <p>Named arguments pozwalaja przekazywac argumenty do funkcji po nazwie, co zwieksza czytelnosc kodu i umozliwia pominiecie opcjonalnych parametrow posrednich.</p>
+
+  <h2>JSON Handling w PHP</h2>
+  <p>PHP oferuje <code>json_encode()</code> i <code>json_decode()</code> do serializacji i deserializacji JSON. Krytyczne znaczenie ma flaga <strong>JSON_THROW_ON_ERROR</strong> — bez niej bledy JSON sa cicho ignorowane, co moze prowadzic do trudnych do debugowania bledow w produkcji.</p>
+
+  <h2>Tabela standardow PSR dla API</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Standard</th>
+        <th>Nazwa</th>
+        <th>Zastosowanie w API</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>PSR-3</strong></td>
+        <td>Logger Interface</td>
+        <td>Logowanie requestow, bledow, eventow</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td><strong>PSR-4</strong></td>
+        <td>Autoloading Standard</td>
+        <td>Autoloading klas na podstawie namespace</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td><strong>PSR-6</strong></td>
+        <td>Caching Interface</td>
+        <td>Cache tokenow, odpowiedzi, metadanych</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td><strong>PSR-7</strong></td>
+        <td>HTTP Message Interfaces</td>
+        <td>Request/Response obiekty w API</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td><strong>PSR-11</strong></td>
+        <td>Container Interface</td>
+        <td>Dependency Injection w handlerach</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td><strong>PSR-12</strong></td>
+        <td>Extended Coding Style</td>
+        <td>Jednorodny styl kodu w teamie</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td><strong>PSR-14</strong></td>
+        <td>Event Dispatcher</td>
+        <td>Eventy domenowe, webhooks</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td><strong>PSR-15</strong></td>
+        <td>HTTP Handlers / Middleware</td>
+        <td>Lancuch middleware dla API</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td><strong>PSR-17</strong></td>
+        <td>HTTP Factories</td>
+        <td>Tworzenie obiektow PSR-7</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td><strong>PSR-18</strong></td>
+        <td>HTTP Client</td>
+        <td>Wywolania zewnetrznych API</td>
+        <td>Accepted</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>OPcache — optymalizacja wydajnosci</h2>
+  <p>OPcache kompiluje skrypty PHP do bytecode i przechowuje je w pamieci wspoldzielonej. Przy kazdym kolejnym zadaniu PHP nie musi parsowac i kompilowac plikow — bezposrednio wykonuje bytecode. Dla API z wieloma requestami na sekunde OPcache jest absolutnie konieczny.</p>
+
+  <div class="card orange">
+    <strong>Rekomendowana konfiguracja OPcache dla produkcji (php.ini)</strong>
+    <pre style="margin:8px 0 0"><code>opcache.enable=1
+opcache.memory_consumption=256
+opcache.interned_strings_buffer=16
+opcache.max_accelerated_files=20000
+opcache.validate_timestamps=0   ; wylacz na produkcji!
+opcache.save_comments=1
+opcache.enable_cli=0
+; PHP 8.x — preloading (ladowanie klas przy starcie FPM)
+opcache.preload=/var/www/app/preload.php
+opcache.preload_user=www-data</code></pre>
+  </div>
+
+  <p>Ustawienie <code>validate_timestamps=0</code> na produkcji eliminuje sprawdzanie, czy pliki na dysku zostaly zmodyfikowane — cache jest zawsze wazny i OPcache nie musi wykonywasc operacji I/O. Przy deploymencie nalezy zresetowac OPcache (<code>opcache_reset()</code> lub restart PHP-FPM).</p>
+
+  <h3>Preloading (PHP 7.4+)</h3>
+  <p>Preloading to funkcja, ktora laduje klasy do OPcache przy starcie PHP-FPM, zanim zostanie obsluzony jakikolwiek request. Klasy zaladowane przez preloading sa dostepne dla wszystkich requestow bez potrzeby ponownego ladowania. Idealnie nadaje sie dla frameworkow takich jak Laravel czy Symfony.</p>
+
+  <h2>Podsumowanie dobrych praktyk</h2>
+  <ul>
+    <li>Zawsze uzywaj <code>JSON_THROW_ON_ERROR</code> przy pracy z JSON</li>
+    <li>Implementuj interfejsy PSR-7 i PSR-15 dla interoperacyjnosci</li>
+    <li>Uzywaj <code>readonly</code> dla Data Transfer Objects (DTO)</li>
+    <li>Wlacz OPcache na kazdym srodowisku (w tym staging)</li>
+    <li>Konfiguruj <code>validate_timestamps=0</code> tylko na produkcji</li>
+    <li>Uzywaj PSR-4 autoloading — zero recznych <code>require</code></li>
+    <li>Typuj wszystko: parametry, zwracane wartosci, stale, wlasciwosci</li>
+  </ul>
+
+  <div class="nav-bottom">
+    <a href="index.html">← index.html</a>
+    <a href="02-laravel-api-resources.html">02-laravel-api-resources.html →</a>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>React 19 — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">React 19</span>
+</div>
+<div class="container">
+<h1>⚛️ React 19 — działające przykłady</h1>
+<p class="lead">Server Components, useOptimistic, Zustand, formularz z walidacją, TanStack Query, Suspense. Wszystko TypeScript.</p>
+
+<h2>1. Server Component + Server Action (Next.js 15)</h2>
+<pre data-lang="typescript"><code><span class="com">// app/products/page.tsx — Server Component (domyślnie)</span>
+<span class="kw">import</span> { db } <span class="kw">from</span> <span class="str">'@/lib/db'</span>;
+<span class="kw">import</span> { revalidatePath } <span class="kw">from</span> <span class="str">'next/cache'</span>;
+
+<span class="kw">async function</span> <span class="fn">createProduct</span>(formData: FormData) {
+    <span class="str">'use server'</span>;
+    <span class="kw">const</span> name = formData.<span class="fn">get</span>(<span class="str">'name'</span>) <span class="kw">as</span> <span class="kw">string</span>;
+    <span class="kw">const</span> price = +formData.<span class="fn">get</span>(<span class="str">'price'</span>)!;
+    <span class="kw">await</span> db.product.<span class="fn">create</span>({ data: { name, price } });
+    <span class="fn">revalidatePath</span>(<span class="str">'/products'</span>);
+}
+
+<span class="kw">export default async function</span> <span class="fn">Page</span>() {
+    <span class="kw">const</span> products = <span class="kw">await</span> db.product.<span class="fn">findMany</span>();  <span class="com">// fetch w komponencie!</span>
+    <span class="kw">return</span> (
+        &lt;<span class="kw">div</span>&gt;
+            &lt;<span class="kw">form</span> <span class="fn">action</span>={createProduct}&gt;
+                &lt;<span class="kw">input</span> <span class="fn">name</span>=<span class="str">"name"</span> required /&gt;
+                &lt;<span class="kw">input</span> <span class="fn">name</span>=<span class="str">"price"</span> <span class="fn">type</span>=<span class="str">"number"</span> required /&gt;
+                &lt;<span class="kw">button</span>&gt;Dodaj&lt;/<span class="kw">button</span>&gt;
+            &lt;/<span class="kw">form</span>&gt;
+            &lt;<span class="kw">ul</span>&gt;{products.<span class="fn">map</span>(p =&gt; &lt;<span class="kw">li</span> <span class="fn">key</span>={p.id}&gt;{p.name} — {p.price}zł&lt;/<span class="kw">li</span>&gt;)}&lt;/<span class="kw">ul</span>&gt;
+        &lt;/<span class="kw">div</span>&gt;
+    );
+}</code></pre>
+<div class="note">📝 Brak <code>'use client'</code> = Server Component. Renderuje się na serwerze, zero JS w bundlu.</div>
+
+<h2>2. useOptimistic — natychmiastowy UI</h2>
+<pre data-lang="typescript"><code><span class="str">'use client'</span>;
+<span class="kw">import</span> { useOptimistic, useTransition } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">type</span> Todo = { id: <span class="kw">string</span>; text: <span class="kw">string</span>; done: <span class="kw">boolean</span> };
+
+<span class="kw">export function</span> <span class="fn">TodoList</span>({ todos, onToggle }: {
+    todos: Todo[];
+    onToggle: (id: <span class="kw">string</span>) =&gt; Promise&lt;<span class="kw">void</span>&gt;;
+}) {
+    <span class="kw">const</span> [isPending, startTransition] = <span class="fn">useTransition</span>();
+    <span class="kw">const</span> [optimisticTodos, addOptimistic] = <span class="fn">useOptimistic</span>(
+        todos,
+        (state: Todo[], toggledId: <span class="kw">string</span>) =&gt;
+            state.<span class="fn">map</span>(t =&gt; t.id === toggledId ? { ...t, done: !t.done } : t)
+    );
+
+    <span class="kw">return</span> (
+        &lt;<span class="kw">ul</span>&gt;
+            {optimisticTodos.<span class="fn">map</span>(t =&gt; (
+                &lt;<span class="kw">li</span> <span class="fn">key</span>={t.id} <span class="fn">style</span>={{ opacity: isPending ? <span class="num">0.6</span> : <span class="num">1</span> }}&gt;
+                    &lt;<span class="kw">button</span> <span class="fn">onClick</span>={() =&gt; {
+                        <span class="fn">startTransition</span>(<span class="kw">async</span> () =&gt; {
+                            <span class="fn">addOptimistic</span>(t.id);   <span class="com">// UI od razu</span>
+                            <span class="kw">await</span> <span class="fn">onToggle</span>(t.id);   <span class="com">// faktyczne API</span>
+                        });
+                    }}&gt;
+                        {t.done ? <span class="str">'✅'</span> : <span class="str">'⬜'</span>} {t.text}
+                    &lt;/<span class="kw">button</span>&gt;
+                &lt;/<span class="kw">li</span>&gt;
+            ))}
+        &lt;/<span class="kw">ul</span>&gt;
+    );
+}</code></pre>
+
+<h2>3. Zustand — globalny state (najprostszy w 2026)</h2>
+<pre data-lang="typescript"><code><span class="com">// npm i zustand</span>
+<span class="kw">import</span> { create } <span class="kw">from</span> <span class="str">'zustand'</span>;
+<span class="kw">import</span> { persist } <span class="kw">from</span> <span class="str">'zustand/middleware'</span>;
+
+<span class="kw">type</span> CartStore = {
+    items: { id: <span class="kw">string</span>; qty: <span class="kw">number</span>; price: <span class="kw">number</span> }[];
+    addItem: (id: <span class="kw">string</span>, price: <span class="kw">number</span>) =&gt; <span class="kw">void</span>;
+    removeItem: (id: <span class="kw">string</span>) =&gt; <span class="kw">void</span>;
+    total: () =&gt; <span class="kw">number</span>;
+};
+
+<span class="kw">export const</span> useCart = create&lt;CartStore&gt;()(
+    <span class="fn">persist</span>(
+        (set, get) =&gt; ({
+            items: [],
+            addItem: (id, price) =&gt; <span class="fn">set</span>(state =&gt; {
+                <span class="kw">const</span> existing = state.items.<span class="fn">find</span>(i =&gt; i.id === id);
+                <span class="kw">return</span> {
+                    items: existing
+                        ? state.items.<span class="fn">map</span>(i =&gt; i.id === id ? { ...i, qty: i.qty + <span class="num">1</span> } : i)
+                        : [...state.items, { id, qty: <span class="num">1</span>, price }]
+                };
+            }),
+            removeItem: (id) =&gt; <span class="fn">set</span>(state =&gt; ({
+                items: state.items.<span class="fn">filter</span>(i =&gt; i.id !== id)
+            })),
+            total: () =&gt; <span class="fn">get</span>().items.<span class="fn">reduce</span>((sum, i) =&gt; sum + i.price * i.qty, <span class="num">0</span>)
+        }),
+        { name: <span class="str">'cart-storage'</span> }  <span class="com">// localStorage</span>
+    )
+);
+
+<span class="com">// Użycie</span>
+<span class="kw">function</span> <span class="fn">CartBadge</span>() {
+    <span class="kw">const</span> count = <span class="fn">useCart</span>(s =&gt; s.items.<span class="fn">length</span>);  <span class="com">// selector → rerender tylko gdy się zmieni</span>
+    <span class="kw">return</span> &lt;<span class="kw">span</span>&gt;Koszyk ({count})&lt;/<span class="kw">span</span>&gt;;
+}</code></pre>
+
+<h2>4. Formularz z walidacją — react-hook-form + Zod</h2>
+<pre data-lang="typescript"><code><span class="com">// npm i react-hook-form @hookform/resolvers zod</span>
+<span class="str">'use client'</span>;
+<span class="kw">import</span> { useForm } <span class="kw">from</span> <span class="str">'react-hook-form'</span>;
+<span class="kw">import</span> { zodResolver } <span class="kw">from</span> <span class="str">'@hookform/resolvers/zod'</span>;
+<span class="kw">import</span> { z } <span class="kw">from</span> <span class="str">'zod'</span>;
+
+<span class="kw">const</span> Schema = z.<span class="fn">object</span>({
+    email: z.<span class="fn">string</span>().<span class="fn">email</span>(<span class="str">'Niepoprawny email'</span>),
+    password: z.<span class="fn">string</span>().<span class="fn">min</span>(<span class="num">8</span>, <span class="str">'Min 8 znaków'</span>)
+        .<span class="fn">regex</span>(/[A-Z]/, <span class="str">'Wielka litera'</span>)
+        .<span class="fn">regex</span>(/[<span class="num">0</span>-<span class="num">9</span>]/, <span class="str">'Cyfra'</span>),
+    age: z.<span class="fn">coerce</span>.<span class="fn">number</span>().<span class="fn">int</span>().<span class="fn">min</span>(<span class="num">18</span>)
+});
+<span class="kw">type</span> FormData = z.infer&lt;<span class="kw">typeof</span> Schema&gt;;
+
+<span class="kw">export function</span> <span class="fn">SignupForm</span>() {
+    <span class="kw">const</span> { register, handleSubmit, formState: { errors, isSubmitting } } =
+        <span class="fn">useForm</span>&lt;FormData&gt;({ resolver: <span class="fn">zodResolver</span>(Schema) });
+
+    <span class="kw">const</span> onSubmit = <span class="kw">async</span> (data: FormData) =&gt; {
+        <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/signup'</span>, { method: <span class="str">'POST'</span>, body: JSON.<span class="fn">stringify</span>(data) });
+    };
+
+    <span class="kw">return</span> (
+        &lt;<span class="kw">form</span> <span class="fn">onSubmit</span>={<span class="fn">handleSubmit</span>(onSubmit)}&gt;
+            &lt;<span class="kw">input</span> {...<span class="fn">register</span>(<span class="str">'email'</span>)} <span class="fn">placeholder</span>=<span class="str">"Email"</span> /&gt;
+            {errors.email &amp;&amp; &lt;<span class="kw">p</span>&gt;{errors.email.message}&lt;/<span class="kw">p</span>&gt;}
+
+            &lt;<span class="kw">input</span> {...<span class="fn">register</span>(<span class="str">'password'</span>)} <span class="fn">type</span>=<span class="str">"password"</span> /&gt;
+            {errors.password &amp;&amp; &lt;<span class="kw">p</span>&gt;{errors.password.message}&lt;/<span class="kw">p</span>&gt;}
+
+            &lt;<span class="kw">input</span> {...<span class="fn">register</span>(<span class="str">'age'</span>)} <span class="fn">type</span>=<span class="str">"number"</span> /&gt;
+            {errors.age &amp;&amp; &lt;<span class="kw">p</span>&gt;{errors.age.message}&lt;/<span class="kw">p</span>&gt;}
+
+            &lt;<span class="kw">button</span> <span class="fn">disabled</span>={isSubmitting}&gt;
+                {isSubmitting ? <span class="str">'Rejestruję...'</span> : <span class="str">'Zarejestruj'</span>}
+            &lt;/<span class="kw">button</span>&gt;
+        &lt;/<span class="kw">form</span>&gt;
+    );
+}</code></pre>
+
+<h2>5. TanStack Query — data fetching z cache</h2>
+<pre data-lang="typescript"><code><span class="com">// npm i @tanstack/react-query</span>
+<span class="kw">import</span> { useQuery, useMutation, useQueryClient } <span class="kw">from</span> <span class="str">'@tanstack/react-query'</span>;
+
+<span class="kw">type</span> Product = { id: <span class="kw">string</span>; name: <span class="kw">string</span>; price: <span class="kw">number</span> };
+
+<span class="kw">function</span> <span class="fn">ProductsList</span>() {
+    <span class="kw">const</span> { data, isLoading, error } = <span class="fn">useQuery</span>&lt;Product[]&gt;({
+        queryKey: [<span class="str">'products'</span>],
+        queryFn: () =&gt; <span class="fn">fetch</span>(<span class="str">'/api/products'</span>).<span class="fn">then</span>(r =&gt; r.<span class="fn">json</span>()),
+        staleTime: <span class="num">60_000</span>,        <span class="com">// 1 min "świeże"</span>
+        gcTime: <span class="num">5</span> * <span class="num">60_000</span>          <span class="com">// 5 min w cache</span>
+    });
+
+    <span class="kw">const</span> qc = <span class="fn">useQueryClient</span>();
+    <span class="kw">const</span> deleteMutation = <span class="fn">useMutation</span>({
+        mutationFn: (id: <span class="kw">string</span>) =&gt; <span class="fn">fetch</span>(<span class="str">`/api/products/${id}`</span>, { method: <span class="str">'DELETE'</span> }),
+        onSuccess: () =&gt; qc.<span class="fn">invalidateQueries</span>({ queryKey: [<span class="str">'products'</span>] })
+    });
+
+    <span class="kw">if</span> (isLoading) <span class="kw">return</span> &lt;<span class="kw">p</span>&gt;Ładowanie...&lt;/<span class="kw">p</span>&gt;;
+    <span class="kw">if</span> (error) <span class="kw">return</span> &lt;<span class="kw">p</span>&gt;Błąd: {(error <span class="kw">as</span> Error).message}&lt;/<span class="kw">p</span>&gt;;
+
+    <span class="kw">return</span> (
+        &lt;<span class="kw">ul</span>&gt;
+            {data!.<span class="fn">map</span>(p =&gt; (
+                &lt;<span class="kw">li</span> <span class="fn">key</span>={p.id}&gt;
+                    {p.name}
+                    &lt;<span class="kw">button</span> <span class="fn">onClick</span>={() =&gt; deleteMutation.<span class="fn">mutate</span>(p.id)}&gt;Usuń&lt;/<span class="kw">button</span>&gt;
+                &lt;/<span class="kw">li</span>&gt;
+            ))}
+        &lt;/<span class="kw">ul</span>&gt;
+    );
+}</code></pre>
+
+<h2>6. Custom Hook — useDebounce</h2>
+<pre data-lang="typescript"><code><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">export function</span> <span class="fn">useDebounce</span>&lt;T&gt;(value: T, delay = <span class="num">300</span>): T {
+    <span class="kw">const</span> [debounced, setDebounced] = <span class="fn">useState</span>(value);
+    <span class="fn">useEffect</span>(() =&gt; {
+        <span class="kw">const</span> timer = <span class="fn">setTimeout</span>(() =&gt; <span class="fn">setDebounced</span>(value), delay);
+        <span class="kw">return</span> () =&gt; <span class="fn">clearTimeout</span>(timer);
+    }, [value, delay]);
+    <span class="kw">return</span> debounced;
+}
+
+<span class="com">// Użycie</span>
+<span class="kw">function</span> <span class="fn">Search</span>() {
+    <span class="kw">const</span> [query, setQuery] = <span class="fn">useState</span>(<span class="str">''</span>);
+    <span class="kw">const</span> debouncedQuery = <span class="fn">useDebounce</span>(query, <span class="num">500</span>);
+
+    <span class="kw">const</span> { data } = <span class="fn">useQuery</span>({
+        queryKey: [<span class="str">'search'</span>, debouncedQuery],
+        queryFn: () =&gt; <span class="fn">fetch</span>(<span class="str">`/api/search?q=${debouncedQuery}`</span>).<span class="fn">then</span>(r =&gt; r.<span class="fn">json</span>()),
+        enabled: debouncedQuery.length &gt; <span class="num">2</span>  <span class="com">// nie strzelaj zanim user nie skończy pisać</span>
+    });
+
+    <span class="kw">return</span> &lt;<span class="kw">input</span> <span class="fn">value</span>={query} <span class="fn">onChange</span>={e =&gt; <span class="fn">setQuery</span>(e.target.value)} /&gt;;
+}</code></pre>
+
+<div class="next-prev">
+    <a href="api-graphql.html"><div class="label">← Poprzedni</div><div class="title">GraphQL</div></a>
+    <a href="docker.html"><div class="label">Następny →</div><div class="title">Docker</div></a>
+</div>
+</div>
+</body>
+</html>

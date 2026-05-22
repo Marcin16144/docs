@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>13-04 — Scenariusze i automatyzacje</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">13 Smart home</a><span class="sep">/</span><span class="title">13-04 Scenariusze</span>
+</div>
+<div class="container">
+<h1>Scenariusze i automatyzacje smart home</h1>
+<p class="subtitle">12 codziennych, użytecznych scenariuszy — od „wszystko wyłącz" po automatyczne ładowanie EV nadwyżką PV.</p>
+
+<h2>Reguła 90/10</h2>
+<div class="tip">Doświadczenie pokazuje: <strong>90 % praktycznych scenariuszy zajmuje 10 % czasu programisty</strong>. Najpiękniejsze i najbardziej skomplikowane automatyzacje przeważnie są używane rzadko — najprostsze codziennie.</div>
+<p>Skup się na codziennych, użytecznych scenariuszach. Dopiero potem dodawaj egzotykę.</p>
+
+<h2>1. „Wszystko wyłącz" przy wyjściu</h2>
+<p>Jeden przycisk przy drzwiach wejściowych:</p>
+<ul>
+<li>gasi wszystkie światła w domu</li>
+<li>wyłącza nieesencjalne gniazda (TV, audio, ładowarki w salonie/pokojach)</li>
+<li>pozostawia: lodówkę, router, alarm, oświetlenie zewnętrzne</li>
+<li>opcjonalnie: ustawia ogrzewanie na tryb nieobecności (-2 °C)</li>
+</ul>
+<p><strong>Hardware:</strong> przycisk Zigbee Aqara / IKEA / Shelly na ścianie + skrypt w HA.</p>
+
+<h2>2. Symulacja obecności</h2>
+<p>Tryb urlop / podczas pracy późno:</p>
+<ul>
+<li>losowe włączanie świateł w godzinach 18-23 (różne pomieszczenia, różne minuty)</li>
+<li>losowe TV (jeśli WiFi włącznik) na 30-90 min</li>
+<li>aktywacja tylko gdy: jesteś poza domem (geolokalizacja) + zapada zmrok</li>
+</ul>
+<p>Skuteczna prewencja włamań — opinie potwierdzają.</p>
+
+<h2>3. Czujnik ruchu + zmierzch</h2>
+<p>Najprostsza, najbardziej satysfakcjonująca automatyzacja:</p>
+<pre><code>Trigger: czujnik ruchu w korytarzu = wykryty
+Condition:
+  - słońce poniżej horyzontu (po zmierzchu)
+  - obecność: ktoś w domu
+Action:
+  - włącz światło 30 %
+  - po 3 minutach bez ruchu → wyłącz</code></pre>
+<p>W łazience: pełna jasność po 22:00 = nieprzyjemnie. <strong>Adaptive Lighting</strong> lub niższy procent + ciepła barwa.</p>
+
+<h2>4. Garaż — światło po otwarciu bramy</h2>
+<pre><code>Trigger: brama garażu = otwarta
+Condition: po zachodzie
+Action:
+  - włącz światło garażu na 100 %
+  - delay 5 minut
+  - wyłącz światło</code></pre>
+<p>Czujnik kontaktronowy + przekaźnik Shelly to wystarczy.</p>
+
+<h2>5. Termostat + okno otwarte</h2>
+<pre><code>Trigger: czujnik kontaktronowy okna = otwarte
+Action:
+  - zapamiętaj poprzedni setpoint termostatu
+  - ustaw termostat na 5 °C (off)
+Po zamknięciu:
+  - przywróć setpoint</code></pre>
+<p>Realne oszczędności w zimie — bez tego termostat grzeje na okno otwarte.</p>
+
+<h2>6. Pralka — powiadomienie po zakończeniu</h2>
+<p>Czujnik mocy (Shelly Plug / gniazdko Zigbee) na linii pralki:</p>
+<pre><code>Trigger: moc pralki była &gt; 5 W w ciągu ostatnich 30 min
+        → potem spadła &lt; 2 W przez 5 min
+Action:
+  - push do telefonu: "Pralka skończyła pranie"
+  - opcjonalnie: TTS do głośnika w salonie</code></pre>
+<p>Bardzo doceniana automatyzacja — pranie nie zostaje w bębnie.</p>
+
+<h2>7. Smoke detector → tryb alarmowy</h2>
+<pre><code>Trigger: jakikolwiek czujnik dymu = ALARM
+Action:
+  - wszystkie światła = 100 %, biały zimny
+  - odblokuj zamki (jeśli smart locks)
+  - powiadomienie push, SMS, telefon
+  - opcjonalnie: zapis 60 s z wszystkich kamer
+  - syrena (jeśli zintegrowana)</code></pre>
+<div class="warning">Wszystkie światła na 100 % białe = łatwiej znaleźć drogę w dymie, dzieci się budzą.</div>
+
+<h2>8. Tryb urlop</h2>
+<p>Po aktywacji (np. z aplikacji HA / NFC tag przy wyjściu):</p>
+<ul>
+<li>ogrzewanie -2 °C</li>
+<li>bojler off</li>
+<li>symulacja obecności włączona</li>
+<li>powiadomienia o ruchu w domu → push</li>
+<li>wszystkie nieesencjalne gniazda off</li>
+<li>monitoring kamer aktywny</li>
+</ul>
+<p>Przy powrocie (geofence ~2 km): rozgrzej dom, włącz bojler.</p>
+
+<h2>9. Pora snu</h2>
+<p>Przycisk lub komenda głosowa „dobranoc":</p>
+<ul>
+<li>wszystkie światła off (oprócz nocnego światła w korytarzu / WC, 5 %)</li>
+<li>TV off</li>
+<li>termostat: temperatura nocna -1 °C</li>
+<li>alarm uzbrojony w trybie „dom"</li>
+<li>powiadomienie: czy okno na parterze otwarte? czy garaż zamknięty?</li>
+</ul>
+
+<h2>10. Adaptive Lighting</h2>
+<p>Add-on <code>basnijholt/adaptive-lighting</code> w HA:</p>
+<ul>
+<li>rano: jasne, zimne (5500 K)</li>
+<li>po południu: neutralne (4000 K)</li>
+<li>wieczór: ciepłe (2700 K)</li>
+<li>noc: bardzo ciepłe + bardzo ciemne (2000 K, 10 %)</li>
+</ul>
+<p>Działa automatycznie na wszystkich światłach RGB/CCT. Lepsze samopoczucie, lepszy sen.</p>
+
+<h2>11. EV — ładowanie z nadwyżki PV</h2>
+<p>Wallbox z Modbus/API + integracja w HA:</p>
+<pre><code>Trigger: nadwyżka PV &gt; 3 kW przez 5 min
+Action: rozpocznij ładowanie EV mocą = nadwyżka
+Trigger: nadwyżka PV &lt; 1 kW przez 5 min
+Action: zatrzymaj ładowanie</code></pre>
+<p>W praktyce wykorzystuje się gotowca <strong>EVCC</strong> (open-source).</p>
+
+<h2>12. Powiadomienia warto-uważne</h2>
+<ul>
+<li>temperatura w garażu &lt; 0 °C (zmarznięte rury?)</li>
+<li>wilgotność w łazience &gt; 80 % przez 2 h (problem z wentylacją)</li>
+<li>czujnik zalania w pralce / pod zmywarką = ALARM (zawór dopływu wody)</li>
+<li>napięcie sieci poza 207-253 V (potencjalna awaria)</li>
+<li>bateria czujnika &lt; 20 %</li>
+</ul>
+
+<h2>Strategie organizacji konfiguracji</h2>
+<p>W miarę dorastania instalacji warto:</p>
+<ul>
+<li><strong>Podzielić <code>automations.yaml</code> na pliki</strong> per kategorii (lights, climate, security)</li>
+<li><strong>Używać <code>script</code> jako bloków</strong> wielokrotnego użytku</li>
+<li><strong><code>input_boolean</code></strong> dla trybów (tryb_urlop, tryb_noc, tryb_party)</li>
+<li><strong>Etykiety i tagi encji</strong></li>
+<li><strong>Wersjonowanie konfiguracji w Git</strong> (HA ma Add-on z GitHub)</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="13-03-home-assistant.html">⟵ Home Assistant</a>
+<a href="../14-normy/index.html">Normy i przepisy →</a>
+</div>
+</div>
+</body>
+</html>

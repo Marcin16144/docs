@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SeaORM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f97316;--accent-hover:#fb923c;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Rust</a>
+  <span class="sep">/</span>
+  <span class="title">SeaORM</span>
+</div>
+<div class="container">
+  <h1>SeaORM</h1>
+  <p class="subtitle">Asynchroniczny ORM dla Rust oparty na SQLx. Oferuje model Entity, ActiveModel, relacje i wbudowany query builder — SeaQuery.</p>
+
+  <h2>Entity — model danych</h2>
+  <p>W SeaORM kazda tabela reprezentowana jest przez modul z kilkoma strukturami. Makro <code>DeriveEntityModel</code> generuje implementacje dla <code>Model</code>, <code>ActiveModel</code>, <code>Entity</code> i <code>Column</code> na podstawie jednej anotowanej struktury.</p>
+
+  <pre><code>use sea_orm::entity::prelude::*;
+
+// src/entities/user.rs
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
+#[sea_orm(table_name = "users")]
+pub struct Model {
+    #[sea_orm(primary_key)]
+    pub id: i64,
+    pub name: String,
+    #[sea_orm(unique)]
+    pub email: String,
+    pub is_active: bool,
+    pub role: UserRole,
+    pub created_at: DateTimeUtc,
+}
+
+// Enum mapowany na kolumne
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(rs_type = "String", db_type = "Text")]
+pub enum UserRole {
+    #[sea_orm(string_value = "admin")]
+    Admin,
+    #[sea_orm(string_value = "user")]
+    User,
+    #[sea_orm(string_value = "moderator")]
+    Moderator,
+}
+
+// Relacje
+#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+pub enum Relation {
+    #[sea_orm(has_many = "super::post::Entity")]
+    Posts,
+    #[sea_orm(has_one = "super::profile::Entity")]
+    Profile,
+}
+
+impl Related&lt;super::post::Entity&gt; for Entity {
+    fn to() -> RelationDef { Relation::Posts.def() }
+}
+
+impl ActiveModelBehavior for ActiveModel {}</code></pre>
+
+  <h2>ActiveModel — zapis i aktualizacja</h2>
+  <p><code>ActiveModel</code> to wersja modelu do zapisu — kazde pole opakowan jest w <code>ActiveValue</code>: <code>Set(value)</code> (zostanie zapisane), <code>NotSet</code> (pomijane w UPDATE), <code>Unchanged(value)</code> (bez zmian). Dzieki temu UPDATE zmienia tylko wskazane pola.</p>
+
+  <pre><code>use sea_orm::{ActiveModelTrait, ActiveValue::Set, TryIntoModel};
+use crate::entities::user::{self, ActiveModel};
+
+// INSERT — nowy rekord
+pub async fn create_user(
+    db: &amp;DatabaseConnection,
+    name: String,
+    email: String,
+) -> anyhow::Result&lt;user::Model&gt; {
+    let new_user = ActiveModel {
+        name: Set(name),
+        email: Set(email),
+        is_active: Set(true),
+        role: Set(user::UserRole::User),
+        ..Default::default()  // id i created_at generowane przez DB
+    };
+
+    let user = new_user.insert(db).await?;
+    Ok(user)
+}
+
+// UPDATE — tylko zmienione pola
+pub async fn update_user_name(
+    db: &amp;DatabaseConnection,
+    id: i64,
+    new_name: String,
+) -> anyhow::Result&lt;user::Model&gt; {
+    let user = user::ActiveModel {
+        id: Set(id),
+        name: Set(new_name),
+        ..Default::default()
+    };
+    let updated = user.update(db).await?;
+    Ok(updated)
+}
+
+// UPDATE z istniejacego modelu
+pub async fn deactivate_user(db: &amp;DatabaseConnection, id: i64) -> anyhow::Result&lt;()&gt; {
+    let user = user::Entity::find_by_id(id)
+        .one(db).await?
+        .ok_or(anyhow::anyhow!("Nie znaleziono uzytkownika"))?;
+
+    let mut active: user::ActiveModel = user.into();
+    active.is_active = Set(false);
+    active.update(db).await?;
+    Ok(())
+}</code></pre>
+
+  <h2>Zapytania — find, find_by_id, find_related</h2>
+  <p>SeaORM oferuje bogaty API do budowania zapytan. Metody mozna laczyc w lancuch przed finalnym <code>.all()</code>, <code>.one()</code> lub <code>.count()</code>.</p>
+
+  <pre><code>use sea_orm::{EntityTrait, QueryFilter, QueryOrder, QuerySelect, ColumnTrait};
+use crate::entities::user;
+
+// Pobierz wszystkich aktywnych uzytkownikow
+let users = user::Entity::find()
+    .filter(user::Column::IsActive.eq(true))
+    .filter(user::Column::Role.eq(user::UserRole::Admin))
+    .order_by_desc(user::Column::CreatedAt)
+    .limit(20)
+    .offset(0)
+    .all(db)
+    .await?;
+
+// Pobierz przez primary key
+let user = user::Entity::find_by_id(42).one(db).await?;
+
+// Relacje — posty uzytkownika
+let user_with_posts = user::Entity::find_by_id(1)
+    .find_with_related(post::Entity)
+    .all(db)
+    .await?;
+
+// Wynik: Vec&lt;(user::Model, Vec&lt;post::Model&gt;)&gt;
+for (user, posts) in user_with_posts {
+    println!("{}: {} postow", user.name, posts.len());
+}</code></pre>
+
+  <h2>Condition — zlozony filtrowanie</h2>
+  <p><code>Condition::all()</code> tworzy AND, <code>Condition::any()</code> tworzy OR. Mozna je zagniezdac dowolnie.</p>
+
+  <pre><code>use sea_orm::Condition;
+
+let condition = Condition::all()
+    .add(user::Column::IsActive.eq(true))
+    .add(
+        Condition::any()
+            .add(user::Column::Role.eq(user::UserRole::Admin))
+            .add(user::Column::Role.eq(user::UserRole::Moderator))
+    );
+
+let users = user::Entity::find()
+    .filter(condition)
+    .all(db)
+    .await?;</code></pre>
+
+  <h2>Paginacja</h2>
+
+  <table>
+    <thead>
+      <tr><th>Metoda</th><th>Opis</th><th>Zwraca</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>.paginate(db, page_size)</code></td><td>cursor-based paginator</td><td><code>Paginator</code></td></tr>
+      <tr><td><code>paginator.fetch_page(page)</code></td><td>pobiera strone (0-indexed)</td><td><code>Vec&lt;Model&gt;</code></td></tr>
+      <tr><td><code>paginator.num_pages()</code></td><td>liczba stron</td><td><code>u64</code></td></tr>
+      <tr><td><code>paginator.num_items()</code></td><td>laczna liczba rekordow</td><td><code>u64</code></td></tr>
+      <tr><td><code>.limit(n).offset(m)</code></td><td>klasyczna paginacja SQL</td><td>modyfikuje zapytanie</td></tr>
+    </tbody>
+  </table>
+
+  <pre><code>pub async fn list_users_paginated(
+    db: &amp;DatabaseConnection,
+    page: u64,
+    page_size: u64,
+) -> anyhow::Result&lt;(Vec&lt;user::Model&gt;, u64)&gt; {
+    let paginator = user::Entity::find()
+        .filter(user::Column::IsActive.eq(true))
+        .order_by_asc(user::Column::Name)
+        .paginate(db, page_size);
+
+    let total_pages = paginator.num_pages().await?;
+    let users = paginator.fetch_page(page - 1).await?;  // 0-indexed!
+
+    Ok((users, total_pages))
+}</code></pre>
+
+  <h2>INSERT, UPDATE, DELETE</h2>
+
+  <pre><code>// Bulk INSERT
+let new_users: Vec&lt;user::ActiveModel&gt; = data.into_iter()
+    .map(|d| user::ActiveModel {
+        name: Set(d.name),
+        email: Set(d.email),
+        ..Default::default()
+    })
+    .collect();
+
+user::Entity::insert_many(new_users).exec(db).await?;
+
+// DELETE przez filtr
+user::Entity::delete_many()
+    .filter(user::Column::IsActive.eq(false))
+    .filter(user::Column::CreatedAt.lt(cutoff_date))
+    .exec(db)
+    .await?;
+
+// DELETE przez primary key
+user::Entity::delete_by_id(42).exec(db).await?;</code></pre>
+
+  <h2>Migracje — MigrationTrait i SchemaManager</h2>
+  <p>SeaORM dostarcza wlasny system migracji oparty na Rust (nie SQL). Migracje to struktury implementujace <code>MigrationTrait</code> z metodami <code>up()</code> i <code>down()</code>.</p>
+
+  <pre><code>use sea_orm_migration::prelude::*;
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&amp;self, manager: &amp;SchemaManager) -&gt; Result&lt;(), DbErr&gt; {
+        manager.create_table(
+            Table::create()
+                .table(Users::Table)
+                .if_not_exists()
+                .col(ColumnDef::new(Users::Id).big_integer().primary_key().auto_increment())
+                .col(ColumnDef::new(Users::Name).text().not_null())
+                .col(ColumnDef::new(Users::Email).text().not_null().unique_key())
+                .col(ColumnDef::new(Users::IsActive).boolean().not_null().default(true))
+                .col(ColumnDef::new(Users::CreatedAt).timestamp_with_time_zone().not_null())
+                .to_owned()
+        ).await
+    }
+
+    async fn down(&amp;self, manager: &amp;SchemaManager) -&gt; Result&lt;(), DbErr&gt; {
+        manager.drop_table(Table::drop().table(Users::Table).to_owned()).await
+    }
+}
+
+#[derive(Iden)]
+enum Users { Table, Id, Name, Email, IsActive, CreatedAt }</code></pre>
+
+  <div class="card blue">
+    <strong>sea-orm-cli:</strong> Uzyj <code>sea-orm-cli generate entity</code> do automatycznego wygenerowania encji z istniejacego schematu bazy danych. Instalacja: <code>cargo install sea-orm-cli</code>.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="06-sqlx.html">← 06-sqlx.html</a>
+    <a href="08-uwierzytelnianie.html">08-uwierzytelnianie.html →</a>
+  </div>
+</div>
+</body>
+</html>

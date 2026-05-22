@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hono</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Node.js</a>
+  <span class="sep">/</span>
+  <span class="title">Hono</span>
+</div>
+
+<div class="container">
+  <h1>Hono</h1>
+  <p class="subtitle">Ultra-lekki framework edge-first (~12 KB) dzialajacy na Cloudflare Workers, Deno, Bun i Node.js</p>
+
+  <h2>Czym jest Hono?</h2>
+  <p>Hono (po japonsku "plomien") to minimalistyczny framework HTTP zaprojektowany z mysla o <strong>edge computing</strong>. W odroznieniu od Express czy Fastify, Hono nie jest zwiazany z Node.js — dziala wszedie gdzie dostepny jest Web Standard API (Request/Response). Dzieki temu ten sam kod mozna uruchomic na Cloudflare Workers, Deno Deploy, Bun, AWS Lambda i Node.js bez zadnych zmian.</p>
+
+  <div class="card green">
+    <strong>Dlaczego Hono zyskuje popularnosc?</strong>
+    <p style="margin-top:8px;margin-bottom:0">W 2025/2026 edge computing staje sie standardem. Cloudflare Workers, Vercel Edge Functions, Deno Deploy oferuja niska latencje, globalna dystrybucje i model platnosci per-request. Hono to framework, który natywnie wspiera ten paradygmat — zero cold start na Workers, bundle size ponizej 15 KB.</p>
+  </div>
+
+  <h2>Podstawowa konfiguracja i routing</h2>
+  <pre><code>import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { logger } from 'hono/logger';
+import { prettyJSON } from 'hono/pretty-json';
+import { secureHeaders } from 'hono/secure-headers';
+import { compress } from 'hono/compress';
+
+// Typowanie zmiennych srodowiskowych i zmiennych kontekstu
+type Env = {
+  Bindings: {
+    DATABASE_URL: string;    // Cloudflare Workers env bindings
+    JWT_SECRET: string;
+  };
+  Variables: {
+    userId: string;          // zmienne ustawione przez middleware
+    userRole: 'admin' | 'user';
+  };
+};
+
+const app = new Hono&lt;Env&gt;();
+
+// Middleware globalne
+app.use('*', logger());
+app.use('*', secureHeaders());
+app.use('*', cors({
+  origin: ['https://myapp.com', 'http://localhost:3000'],
+  credentials: true,
+}));
+app.use('*', compress());
+
+// Trasy podstawowe
+app.get('/', (c) => c.json({ status: 'ok', version: '1.0.0' }));
+app.get('/health', (c) => c.text('OK', 200));
+
+// Parametry i query
+app.get('/users/:id', async (c) => {
+  const id = c.req.param('id');
+  const include = c.req.query('include'); // ?include=posts
+  const user = await getUserById(id, include);
+  if (!user) return c.json({ error: 'Nie znaleziono' }, 404);
+  return c.json(user);
+});
+
+// Grupowanie tras
+const api = new Hono&lt;Env&gt;().basePath('/api/v1');
+api.route('/users', usersRouter);
+api.route('/posts', postsRouter);
+app.route('/', api);
+
+export default app; // Cloudflare Workers export</code></pre>
+
+  <h2>Middleware i walidacja Zod</h2>
+  <p>Hono dostarcza middleware walidacyjne <code>@hono/zod-validator</code>, które integruje Zod ze schematem zapytania. Bledy walidacji sa automatycznie formatowane i zwracane jako 400. Typy sa inferences do handlera — pelen end-to-end typesafety.</p>
+
+  <pre><code>import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
+
+// Schemat Zod
+const CreateUserSchema = z.object({
+  name:  z.string().min(2).max(100).trim(),
+  email: z.string().email().toLowerCase(),
+  role:  z.enum(['admin', 'user']).default('user'),
+  age:   z.number().int().min(0).max(120).optional(),
+});
+
+const QuerySchema = z.object({
+  page:  z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const usersRouter = new Hono&lt;Env&gt;()
+
+  .get('/', zValidator('query', QuerySchema), async (c) => {
+    const { page, limit } = c.req.valid('query'); // w pelni typowane
+    const users = await userService.findAll({ page, limit });
+    return c.json({ data: users, meta: { page, limit } });
+  })
+
+  .post('/', zValidator('json', CreateUserSchema), async (c) => {
+    const body = c.req.valid('json'); // typ: z.infer&lt;typeof CreateUserSchema&gt;
+    const user = await userService.create(body);
+    return c.json(user, 201);
+  })
+
+  .get('/:id', async (c) => {
+    const user = await userService.findById(c.req.param('id'));
+    return user ? c.json(user) : c.json({ error: 'Nie znaleziono' }, 404);
+  })
+
+  .delete('/:id', async (c) => {
+    await userService.remove(c.req.param('id'));
+    return c.body(null, 204);
+  });
+
+// Middleware autentykacji — ustawia zmienne w kontekscie
+const authMiddleware = createMiddleware&lt;Env&gt;(async (c, next) => {
+  const token = c.req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) return c.json({ error: 'Brak tokena' }, 401);
+
+  try {
+    const payload = await verifyJWT(token, c.env.JWT_SECRET);
+    c.set('userId', payload.sub);
+    c.set('userRole', payload.role);
+    await next();
+  } catch {
+    return c.json({ error: 'Nieprawidlowy token' }, 401);
+  }
+});</code></pre>
+
+  <h2>Metody odpowiedzi — c.json, c.text, c.html</h2>
+  <p>Kontekst Hono (<code>c</code>) dostarcza wygodne metody do tworzenia odpowiedzi zgodnych z Web Standard API. Kazda metoda ustawia odpowiedni naglowek <code>Content-Type</code> automatycznie.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Metoda</th>
+        <th>Content-Type</th>
+        <th>Zastosowanie</th>
+        <th>Przyklad</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>c.json(data, status?)</code></td>
+        <td>application/json</td>
+        <td>Odpowiedzi API JSON</td>
+        <td><code>c.json({ id: 1 }, 201)</code></td>
+      </tr>
+      <tr>
+        <td><code>c.text(text, status?)</code></td>
+        <td>text/plain</td>
+        <td>Proste odpowiedzi tekstowe</td>
+        <td><code>c.text('OK')</code></td>
+      </tr>
+      <tr>
+        <td><code>c.html(html, status?)</code></td>
+        <td>text/html</td>
+        <td>Renderowanie HTML (SSR)</td>
+        <td><code>c.html('&lt;h1&gt;Hello&lt;/h1&gt;')</code></td>
+      </tr>
+      <tr>
+        <td><code>c.redirect(url)</code></td>
+        <td>—</td>
+        <td>Przekierowania HTTP</td>
+        <td><code>c.redirect('/login', 302)</code></td>
+      </tr>
+      <tr>
+        <td><code>c.body(null, 204)</code></td>
+        <td>—</td>
+        <td>Odpowiedzi bez tresci</td>
+        <td>DELETE, akcje bez body</td>
+      </tr>
+      <tr>
+        <td><code>c.stream(fn)</code></td>
+        <td>Dowolny</td>
+        <td>Streaming odpowiedzi (SSE, AI)</td>
+        <td>OpenAI streaming, duze pliki</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>RPC Mode — hono/client</h2>
+  <p>Tryb RPC Hono to jedna z najbardziej innowacyjnych funkcji. Klient (<code>hono/client</code>) generuje typowany klient API na podstawie definicji routera serwerowego — bez generowania kodu, bez OpenAPI, zero konfiguracji. Dziala jak tRPC, ale zachowuje standard HTTP.</p>
+
+  <pre><code>// === server/routes/users.ts — definicja z typami ===
+import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
+
+const usersRoute = new Hono()
+  .get('/', async (c) => {
+    return c.json({ users: await getUsers() });
+  })
+  .post('/', zValidator('json', z.object({ name: z.string(), email: z.string().email() })),
+    async (c) => {
+      const body = c.req.valid('json');
+      const user = await createUser(body);
+      return c.json(user, 201);
+    }
+  );
+
+export type UsersRouteType = typeof usersRoute;
+export default usersRoute;
+
+// === client/api.ts — typowany klient bez generowania kodu ===
+import { hc } from 'hono/client';
+import type { UsersRouteType } from '../server/routes/users';
+
+const client = hc&lt;UsersRouteType&gt;('https://api.myapp.com');
+
+// Pelne typowanie — IntelliSense dziala automatycznie!
+const res = await client.users.$get();
+const { users } = await res.json(); // typ: { users: User[] }
+
+const newUser = await client.users.$post({
+  json: { name: 'Jan Kowalski', email: 'jan@example.com' }
+});
+const created = await newUser.json();</code></pre>
+
+  <h2>Hono vs Express vs Fastify — porownanie</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cecha</th>
+        <th>Express 4</th>
+        <th>Fastify 4</th>
+        <th>Hono 4</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Rozmiar bundle</td>
+        <td>~200 KB</td>
+        <td>~400 KB</td>
+        <td><strong>~12 KB</strong></td>
+      </tr>
+      <tr>
+        <td>Wydajnosc (Node.js req/s)</td>
+        <td>~14 000</td>
+        <td>~30 000</td>
+        <td>~40 000+</td>
+      </tr>
+      <tr>
+        <td>Wsparcie runtime</td>
+        <td>Node.js only</td>
+        <td>Node.js only</td>
+        <td><strong>CF Workers, Deno, Bun, Node</strong></td>
+      </tr>
+      <tr>
+        <td>Web Standard API</td>
+        <td>Nie</td>
+        <td>Nie</td>
+        <td><strong>Tak (Request/Response)</strong></td>
+      </tr>
+      <tr>
+        <td>TypeScript DX</td>
+        <td>Srednia</td>
+        <td>Dobra</td>
+        <td><strong>Doskonala</strong></td>
+      </tr>
+      <tr>
+        <td>RPC client</td>
+        <td>Nie</td>
+        <td>Nie</td>
+        <td><strong>Tak (hono/client)</strong></td>
+      </tr>
+      <tr>
+        <td>Cold start</td>
+        <td>Wolny</td>
+        <td>Sredni</td>
+        <td><strong>Brak (Workers)</strong></td>
+      </tr>
+      <tr>
+        <td>Ekosystem</td>
+        <td>Ogromny</td>
+        <td>Duzy</td>
+        <td>Rosnacy szybko</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card blue">
+    <strong>Kiedy wybrac Hono?</strong>
+    <p style="margin-top:8px;margin-bottom:0">Hono to idealny wybor dla: API na Cloudflare Workers / Deno Deploy, projektow gdzie rozmiar bundle ma znaczenie, aplikacji wymagajacych dzialania na wielu runtime'ach, oraz gdy chcesz RPC client bez zlozonosci tRPC. Dla duzych monolitow enterprise lepiej sprawdzi sie NestJS lub Fastify.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="04-nestjs.html">← 04-nestjs.html</a>
+    <a href="06-rest-typescript.html">06-rest-typescript.html →</a>
+  </div>
+</div>
+</body>
+</html>

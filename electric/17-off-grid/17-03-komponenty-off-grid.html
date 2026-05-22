@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>17-03 — Dobór komponentów off-grid</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">17 Off-grid i hybryda</a><span class="sep">/</span><span class="title">17-03 Dobór komponentów off-grid</span>
+</div>
+<div class="container">
+<h1>Dobór komponentów off-grid</h1>
+<p class="subtitle">Mając gotowy bilans energetyczny, dobieramy urządzenia łańcucha: panele → regulator → magazyn → inwerter → odbiorniki, plus agregat jako rezerwa.</p>
+
+<h2>Panele PV</h2>
+<p>W off-grid panele projektuje się <strong>z przewymiarowaniem</strong> względem zapotrzebowania letniego — ma zostać zapas na ładowanie magazynu i straty. Liczy się też orientacja: dla pracy całorocznej korzystne jest stromsze ustawienie (60–70°), które poprawia uzysk zimowy kosztem letniego.</p>
+
+<h2>Regulator ładowania — PWM kontra MPPT</h2>
+<p>Regulator pośredniczy między panelami a magazynem, sterując ładowaniem. Dwie technologie:</p>
+<table>
+<thead><tr><th>Cecha</th><th>PWM</th><th>MPPT</th></tr></thead>
+<tbody>
+<tr><td>Zasada działania</td><td>łączy panel z magazynem, „obcina" napięcie</td><td>śledzi punkt mocy maksymalnej, przetwarza napięcie</td></tr>
+<tr><td>Sprawność wykorzystania PV</td><td>niższa</td><td>wyższa o <strong>20–30 %</strong></td></tr>
+<tr><td>Napięcie paneli vs magazyn</td><td>musi być zbliżone</td><td>panele mogą mieć wyższe napięcie</td></tr>
+<tr><td>Cena</td><td>tani, prosty</td><td>droższy</td></tr>
+<tr><td>Zastosowanie</td><td>małe systemy, identyczne napięcie</td><td>każdy poważniejszy system</td></tr>
+</tbody>
+</table>
+<p><strong>PWM</strong> (Pulse Width Modulation) sprawdza się w bardzo małych instalacjach, gdzie napięcie panelu jest dopasowane do napięcia magazynu. <strong>MPPT</strong> (Maximum Power Point Tracking) wyciąga z paneli maksymalną moc niezależnie od warunków — szczególnie zyskuje przy słabym świetle i niskich temperaturach, dlatego w off-grid PL jest praktycznie standardem.</p>
+
+<h2>Magazyn energii</h2>
+<p>Współczesne systemy off-grid budowane są na ogniwach <strong>LiFePO4</strong> (litowo-żelazowo-fosforanowych): wysoka liczba cykli, duże DoD (0,8–0,9), stabilność termiczna. Szczegóły technologii magazynów — sekcja 18.</p>
+
+<h2>Inwerter off-grid (wyspowy)</h2>
+<p>Inwerter wyspowy zamienia napięcie stałe magazynu na 230 V AC dla odbiorników. Wymagania:</p>
+<ul>
+<li><strong>czysta sinusoida</strong> (pure sine wave) — konieczna dla silników, lodówek, zasilaczy impulsowych; tańsza sinusoida modyfikowana psuje pracę wielu urządzeń,</li>
+<li><strong>moc szczytowa ok. 2× moc ciągła</strong> — silniki (pompy, sprężarki lodówek) przy rozruchu pobierają wielokrotność mocy nominalnej; inwerter musi udźwignąć ten chwilowy skok.</li>
+</ul>
+<p>Moc ciągłą dobiera się do sumy mocy odbiorników mogących pracować jednocześnie, a moc szczytową — do prądu rozruchowego najtrudniejszego odbiornika.</p>
+
+<h2>Inwerter ładujący (inverter-charger)</h2>
+<p>Rozszerzona wersja inwertera wyspowego z wbudowaną <strong>funkcją ładowania magazynu z zewnętrznego źródła AC</strong> — najczęściej z agregatu. Pozwala:</p>
+<ul>
+<li>automatycznie uruchomić ładowanie magazynu, gdy stan naładowania spadnie,</li>
+<li>przełączać zasilanie odbiorników między magazynem a agregatem,</li>
+<li>traktować agregat jako pełnoprawne źródło rezerwowe bez ręcznych przepięć.</li>
+</ul>
+<p>To rozwiązanie zalecane wszędzie tam, gdzie w systemie przewidziano agregat.</p>
+
+<h2>Agregat wspomagający</h2>
+<p>Agregat domyka bilans zimą i podczas długich okresów bez słońca. Dobór mocy — patrz sekcja 17-02. Ważne, by jego moc i jakość napięcia pozwalały na stabilne ładowanie magazynu przez inwerter-charger.</p>
+
+<h2>Napięcie systemu DC</h2>
+<p>Strona stałoprądowa (panele, magazyn, regulator, wejście inwertera) pracuje przy jednym z napięć nominalnych: 12 V, 24 V lub 48 V. Im wyższe napięcie, tym mniejszy prąd przy tej samej mocy, a więc mniejsze straty i cieńsze przewody (P = U · I).</p>
+<table>
+<thead><tr><th>Napięcie systemu DC</th><th>Zalecany zakres mocy</th><th>Uwagi</th></tr></thead>
+<tbody>
+<tr><td><strong>12 V</strong></td><td>do ~1 kW</td><td>małe systemy, kempingi, prądy duże nawet przy małej mocy</td></tr>
+<tr><td><strong>24 V</strong></td><td>~1–3 kW</td><td>średnie domki, kompromis cena/straty</td></tr>
+<tr><td><strong>48 V</strong></td><td>powyżej 3 kW</td><td><strong>zalecane</strong> dla domów — najmniejsze prądy i straty, najszerszy wybór sprzętu</td></tr>
+</tbody>
+</table>
+<div class="tip"><strong>Wskazówka.</strong> Przy 12 V system 2 kW oznacza prąd ponad 160 A — wymaga grubych przewodów i generuje duże straty. Ten sam system na 48 V to ok. 40 A. Dlatego dla każdej poważniejszej instalacji wybiera się 48 V.</div>
+<div class="warning"><strong>Uwaga.</strong> Napięcie DC trzeba ustalić na początku projektu — determinuje ono dobór magazynu, regulatora i inwertera. Zmiana napięcia później oznacza wymianę większości komponentów.</div>
+
+<div class="nav-bottom">
+<a href="17-02-bilans-energetyczny.html">⟵ Bilans energetyczny off-grid</a>
+<a href="17-04-system-hybrydowy.html">System hybrydowy →</a>
+</div>
+</div>
+</body>
+</html>

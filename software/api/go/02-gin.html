@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gin Framework</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Go</a>
+  <span class="sep">/</span>
+  <span class="title">Gin Framework</span>
+</div>
+<div class="container">
+  <h1>Gin Framework</h1>
+  <p class="subtitle">Najszybszy full-featured router HTTP dla Go — wydajnosc, binding i middleware w jednym pakiecie</p>
+
+  <h2>gin.Default() vs gin.New()</h2>
+  <p><strong>gin.Default()</strong> tworzy silnik z domyslnymi middleware: <code>Logger</code> (loguje kazde zadanie) i <code>Recovery</code> (lapie paniki i zwraca 500). To punkt startowy dla wiekszosci projektow.</p>
+  <p><strong>gin.New()</strong> tworzy silnik bez zadnych middleware — maksymalna kontrola. Uzywamy go gdy chcemy sami wybrac middleware lub w benchmarkach gdzie logowanie znieksztalca wyniki.</p>
+
+<pre><code>package main
+
+import (
+    "net/http"
+    "github.com/gin-gonic/gin"
+)
+
+func main() {
+    // Wariant z domyslnymi middleware
+    r := gin.Default()
+
+    // Trasy globalne
+    r.GET("/ping", func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{"message": "pong"})
+    })
+
+    // Grupa tras z prefiksem /api/v1
+    v1 := r.Group("/api/v1")
+    {
+        v1.GET("/users", listUsers)
+        v1.POST("/users", createUser)
+        v1.GET("/users/:id", getUser)
+        v1.PUT("/users/:id", updateUser)
+        v1.DELETE("/users/:id", deleteUser)
+    }
+
+    // Uruchomienie na porcie 8080
+    r.Run(":8080")
+}</code></pre>
+
+  <h2>Parametry sciezki i query</h2>
+  <p>Gin obsluguje dwa rodzaje parametrow URL: <strong>parametry sciezki</strong> (<code>:name</code> — wymagane) i <strong>query params</strong> (<code>?key=val</code> — opcjonalne). Dostep przez metody <code>gin.Context</code>.</p>
+
+  <h3>Path params</h3>
+  <ul>
+    <li><code>c.Param("id")</code> — zwraca wartosc parametru sciezki jako string</li>
+    <li><code>c.FullPath()</code> — zwraca wzorzec sciezki (np. <code>/users/:id</code>)</li>
+  </ul>
+
+  <h3>Query params</h3>
+  <ul>
+    <li><code>c.Query("page")</code> — zwraca wartosc lub pusty string</li>
+    <li><code>c.DefaultQuery("limit", "20")</code> — zwraca wartosc lub domyslna</li>
+    <li><code>c.QueryMap("filter")</code> — parsuje <code>filter[key]=val</code></li>
+  </ul>
+
+  <h2>Binding — ShouldBindJSON i ShouldBindQuery</h2>
+  <p>Binding to automatyczne parsowanie i walidacja danych wejsciowych. <code>ShouldBind*</code> zwraca blad zamiast przerywac zadanie. <code>MustBind*</code> ustawia status 400 i przerywa przy bledzie.</p>
+
+<pre><code>type CreateUserRequest struct {
+    Name     string `json:"name"     binding:"required,min=2,max=100"`
+    Email    string `json:"email"    binding:"required,email"`
+    Age      int    `json:"age"      binding:"gte=18,lte=120"`
+    Role     string `json:"role"     binding:"oneof=admin user guest"`
+}
+
+type ListUsersQuery struct {
+    Page   int    `form:"page"   binding:"min=1"`
+    Limit  int    `form:"limit"  binding:"min=1,max=100"`
+    Search string `form:"search"`
+    Sort   string `form:"sort"   binding:"oneof=asc desc"`
+}
+
+func createUser(c *gin.Context) {
+    var req CreateUserRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    // req jest wypelniony i zwalidowany
+    c.JSON(http.StatusCreated, gin.H{"id": 42, "name": req.Name})
+}
+
+func listUsers(c *gin.Context) {
+    var q ListUsersQuery
+    q.Page = 1   // wartosci domyslne przed bindingiem
+    q.Limit = 20
+    if err := c.ShouldBindQuery(&q); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"page": q.Page, "limit": q.Limit})
+}</code></pre>
+
+  <h2>Walidacja z go-playground/validator</h2>
+  <p>Gin uzywa pakietu <code>go-playground/validator/v10</code> do walidacji. Tagi <code>binding</code> w strukturach mapuja sie bezposrednio na reguly walidatora. Mozna rejestrowac wlasne reguly przez <code>gin.Validator</code>.</p>
+
+  <table>
+    <thead>
+      <tr><th>Tag</th><th>Opis</th><th>Przyklad</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>required</code></td><td>Pole wymagane, nie moze byc zero-value</td><td><code>binding:"required"</code></td></tr>
+      <tr><td><code>min/max</code></td><td>Min/maks wartosc (liczba) lub dlugosc (string)</td><td><code>binding:"min=1,max=100"</code></td></tr>
+      <tr><td><code>email</code></td><td>Poprawny adres email</td><td><code>binding:"email"</code></td></tr>
+      <tr><td><code>url</code></td><td>Poprawny URL</td><td><code>binding:"url"</code></td></tr>
+      <tr><td><code>oneof</code></td><td>Jedna z podanych wartosci</td><td><code>binding:"oneof=a b c"</code></td></tr>
+      <tr><td><code>gte/lte</code></td><td>Wieksze/mniejsze lub rowne</td><td><code>binding:"gte=0"</code></td></tr>
+      <tr><td><code>len</code></td><td>Dokladna dlugosc stringa/slice</td><td><code>binding:"len=10"</code></td></tr>
+      <tr><td><code>uuid4</code></td><td>UUID w wersji 4</td><td><code>binding:"uuid4"</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Middleware</h2>
+  <p>Middleware w Gin to funkcje przyjmujace <code>*gin.Context</code> i wywolujace <code>c.Next()</code> aby przekazac sterowanie dalej. Mozna je rejestrowac globalnie (<code>r.Use()</code>), na grupie lub na pojedynczej trasie.</p>
+
+  <h3>Logger i Recovery</h3>
+  <p><code>gin.Logger()</code> loguje metode, sciezke, czas odpowiedzi i kod statusu. <code>gin.Recovery()</code> lapie panic, loguje stack trace i zwraca 500. Oba sa dolaczone przez <code>gin.Default()</code>.</p>
+
+  <h3>CORS</h3>
+  <p>Pakiet <code>github.com/gin-contrib/cors</code> dostarcza konfigurowalny middleware CORS. Alternatywnie mozna uzyc <code>github.com/rs/cors</code> agnostycznie wobec frameworka.</p>
+
+  <div class="card green">
+    <h3>Wlasny middleware — przyklad autoryzacji JWT</h3>
+    <p>Middleware pobiera token z naglowka <code>Authorization: Bearer &lt;token&gt;</code>, weryfikuje podpis, a nastepnie ustawia <code>c.Set("userID", claims.Subject)</code> do uzycia w handlerach. Przy bledzie wywoluje <code>c.AbortWithStatusJSON(401, ...)</code>.</p>
+  </div>
+
+  <h2>gin.Context — najwazniejsze metody</h2>
+  <p><code>gin.Context</code> to serce kazdego handlera — zawiera zadanie, odpowiedz, parametry i dane przekazane przez middleware.</p>
+  <ul>
+    <li><code>c.Request</code> — oryginalny <code>*http.Request</code></li>
+    <li><code>c.Writer</code> — rozszerzony <code>http.ResponseWriter</code></li>
+    <li><code>c.Set(key, val)</code> / <code>c.Get(key)</code> — przekazywanie danych miedzy middleware</li>
+    <li><code>c.Abort()</code> — przerywa lancuch middleware bez wysylania odpowiedzi</li>
+    <li><code>c.ClientIP()</code> — adres IP klienta (uwzglednia X-Forwarded-For)</li>
+    <li><code>c.GetHeader("name")</code> — odczyt naglowka zadania</li>
+  </ul>
+
+  <h2>Response helpers</h2>
+  <ul>
+    <li><code>c.JSON(status, obj)</code> — serializuje obj do JSON</li>
+    <li><code>c.XML(status, obj)</code> — serializuje do XML</li>
+    <li><code>c.String(status, format, vals...)</code> — plain text</li>
+    <li><code>c.File(filepath)</code> — wysyla plik</li>
+    <li><code>c.FileAttachment(filepath, name)</code> — wymusza pobranie</li>
+    <li><code>c.Stream(step, reader)</code> — strumieniowanie SSE / chunked</li>
+    <li><code>c.Redirect(status, url)</code> — przekierowanie HTTP</li>
+  </ul>
+
+  <div class="nav-bottom">
+    <a href="01-podstawy-go-api.html">&#8592; 01-podstawy-go-api.html</a>
+    <a href="03-echo.html">03-echo.html &#8594;</a>
+  </div>
+</div>
+</body>
+</html>

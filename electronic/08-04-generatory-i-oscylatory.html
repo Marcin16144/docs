@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>08-04-generatory-i-oscylatory - Generatory i oscylatory</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--red:#f87171;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:850px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:24px;background:linear-gradient(135deg,var(--red),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:22px 0 10px}
+        h4{font-size:1rem;font-weight:600;color:var(--text-muted);margin:18px 0 8px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        a{color:var(--accent);text-decoration:none}
+        a:hover{color:var(--accent-hover);text-decoration:underline}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6;white-space:pre}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        /* Schematic SVG figures */
+        .schem{background:#0a0e1a;border:1px solid var(--border);border-radius:12px;padding:20px;margin:18px 0 24px;display:flex;justify-content:center}
+        .schem svg{width:100%;max-width:520px;height:auto}
+        .schem .wire{stroke:#cbd5e1;stroke-width:1.8;fill:none;stroke-linecap:round}
+        .schem .wire-pos{stroke:#f87171;stroke-width:1.8;fill:none}
+        .schem .comp{stroke:#f1f5f9;stroke-width:1.6;fill:none}
+        .schem .comp-fill{fill:#f1f5f9;stroke:#f1f5f9}
+        .schem .node{fill:#38bdf8}
+        .schem .label{fill:#94a3b8;font-family:'Segoe UI',sans-serif;font-size:11px}
+        .schem .label-val{fill:#4ade80;font-family:'Cascadia Code',monospace;font-size:10px}
+        .schem .label-pin{fill:#fbbf24;font-family:'Cascadia Code',monospace;font-size:9px}
+        .schem .label-pos{fill:#f87171;font-family:'Cascadia Code',monospace;font-size:11px;font-weight:600}
+        .schem .gnd{stroke:#94a3b8;stroke-width:1.6;fill:none}
+        .schem .ic-body{fill:#1e293b;stroke:#f1f5f9;stroke-width:1.5}
+        .schem .ic-label{fill:#e2e8f0;font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:600;text-anchor:middle}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Strona glowna</a>
+        <span class="sep">/</span>
+        <a href="08-uklady-elektroniczne.html">08 - Uklady elektroniczne</a>
+        <span class="sep">/</span>
+        <span class="title">08-04 Generatory i oscylatory</span>
+    </div>
+    <div class="container">
+        <h1>Generatory i oscylatory</h1>
+<h2>Po co generator</h2>
+<p>Generator wytwarza okresowy sygnał (sinus, prostokąt, trójkąt) o znanej częstotliwości i kształcie. Zastosowania:</p>
+<ul>
+<li>Sygnały testowe (audio, RF)</li>
+<li>Zegary (clock) dla układów cyfrowych</li>
+<li>Nośne radia (mod. AM/FM)</li>
+<li>Konwersja częstotliwości (mieszacze)</li>
+<li>Buzzery, alarmy</li>
+<li>Stroboskopy, generatory PWM</li>
+</ul>
+<h2>NE555 — astabilny multivibrator (omówiony szczegółowo)</h2>
+<p>Patrz <a href="04-03-timer-ne555.md">04-03-timer-ne555.md</a>. Krótko:</p>
+<pre><code>
+f = 1,44 / ((Ra + 2·Rb) · C)
+</code></pre>
+<p>Idealny do 1 Hz – 100 kHz. Łatwy, tani, niezawodny.</p>
+<h2>Oscylator Wien (sinus z op-ampem)</h2>
+<p>Generator sinusoidalny dla audio. Op-amp + sieć RC tworzy sinus o niskim THD (&lt; 0,1%).</p>
+<div class="schem">
+<svg viewBox="0 0 520 340">
+  <!-- Op-amp -->
+  <polygon class="ic-body" points="280,130 280,210 360,170"/>
+  <text class="label-pin" x="288" y="150">+</text>
+  <text class="label-pin" x="288" y="190">−</text>
+  <text class="ic-label" x="315" y="175" style="font-size:9px">TL072</text>
+  <line class="comp" x1="275" y1="150" x2="285" y2="150"/>
+  <line class="comp" x1="275" y1="190" x2="285" y2="190"/>
+  <!-- Output -->
+  <line class="wire" x1="360" y1="170" x2="490" y2="170"/>
+  <circle class="node" cx="440" cy="170" r="4"/>
+  <text class="label" x="495" y="166">Vout</text>
+  <text class="label-val" x="495" y="180">sinus ~1 kHz</text>
+  <!-- Wien bridge: series R-C from output to + input -->
+  <line class="wire" x1="440" y1="170" x2="440" y2="100"/>
+  <line class="wire" x1="440" y1="100" x2="200" y2="100"/>
+  <!-- Series R -->
+  <rect class="comp" x="200" y="89" width="40" height="22" rx="3"/>
+  <text class="label" x="208" y="84">R</text>
+  <text class="label-val" x="208" y="125">10 kΩ</text>
+  <line class="wire" x1="200" y1="100" x2="170" y2="100"/>
+  <!-- Series C -->
+  <line class="comp" x1="170" y1="90" x2="170" y2="110" stroke-width="2.5"/>
+  <line class="comp" x1="162" y1="90" x2="162" y2="110" stroke-width="2.5"/>
+  <text class="label-val" x="125" y="86">C 16n</text>
+  <line class="wire" x1="162" y1="100" x2="115" y2="100"/>
+  <line class="wire" x1="115" y1="100" x2="115" y2="150"/>
+  <circle class="node" cx="115" cy="150" r="4"/>
+  <line class="wire" x1="115" y1="150" x2="275" y2="150"/>
+  <!-- Parallel R to GND -->
+  <line class="wire" x1="115" y1="150" x2="115" y2="190"/>
+  <rect class="comp" x="95" y="190" width="40" height="22" rx="3"/>
+  <text class="label-val" x="50" y="205">R 10k</text>
+  <line class="wire" x1="115" y1="212" x2="115" y2="250"/>
+  <!-- Parallel C to GND -->
+  <line class="wire" x1="115" y1="220" x2="170" y2="220"/>
+  <circle class="node" cx="115" cy="220" r="4"/>
+  <line class="comp" x1="170" y1="208" x2="170" y2="232" stroke-width="2.5"/>
+  <line class="comp" x1="178" y1="208" x2="178" y2="232" stroke-width="2.5"/>
+  <line class="wire" x1="178" y1="220" x2="200" y2="220"/>
+  <line class="wire" x1="200" y1="220" x2="200" y2="250"/>
+  <text class="label-val" x="140" y="245">C 16n</text>
+  <!-- GND for both -->
+  <line class="wire" x1="115" y1="250" x2="200" y2="250"/>
+  <line class="wire" x1="157" y1="250" x2="157" y2="270"/>
+  <line class="gnd" x1="142" y1="275" x2="172" y2="275"/>
+  <line class="gnd" x1="147" y1="280" x2="167" y2="280"/>
+  <line class="gnd" x1="152" y1="285" x2="162" y2="285"/>
+  <!-- Negative feedback: output → R4 (with lamp/NTC) → − input -->
+  <line class="wire" x1="440" y1="170" x2="440" y2="240"/>
+  <line class="wire" x1="440" y1="240" x2="240" y2="240"/>
+  <line class="wire" x1="240" y1="240" x2="240" y2="190"/>
+  <line class="wire" x1="240" y1="190" x2="275" y2="190"/>
+  <circle class="node" cx="240" cy="190" r="4"/>
+  <!-- R4 (with lamp - shown as bulb circle) -->
+  <rect class="comp" x="305" y="229" width="40" height="22" rx="3"/>
+  <circle class="comp" cx="370" cy="240" r="9"/>
+  <line class="comp" x1="365" y1="235" x2="375" y2="245" stroke-width="1"/>
+  <line class="comp" x1="365" y1="245" x2="375" y2="235" stroke-width="1"/>
+  <text class="label-val" x="290" y="270">R4 22k + lampka (NTC)</text>
+  <!-- R3 from − to GND -->
+  <line class="wire" x1="240" y1="190" x2="240" y2="260"/>
+  <rect class="comp" x="220" y="260" width="40" height="22" rx="3"/>
+  <text class="label-val" x="195" y="275">R3 10k</text>
+  <line class="wire" x1="240" y1="282" x2="240" y2="300"/>
+  <line class="gnd" x1="225" y1="305" x2="255" y2="305"/>
+  <line class="gnd" x1="230" y1="310" x2="250" y2="310"/>
+  <line class="gnd" x1="235" y1="315" x2="245" y2="315"/>
+  <!-- Labels -->
+  <text class="label" x="400" y="232">R4 + NTC</text>
+  <text class="label" x="20" y="100">Wien</text>
+  <text class="label" x="20" y="115">bridge</text>
+</svg>
+</div>
+<h3>Częstotliwość</h3>
+<pre><code>
+f = 1 / (2π·R·C)
+</code></pre>
+<p>Dla R = 10 kΩ, C = 16 nF → f ≈ 1 kHz.</p>
+<h3>Wzmocnienie</h3>
+<p>Wzmocnienie op-ampa musi być <strong>dokładnie 3</strong> — większe powoduje saturację, mniejsze — wygaszenie. Stąd element regulujący (lampka, JFET, dioda + R).</p>
+<h3>Generator funkcyjny</h3>
+<p>Klasyczny układ daje <strong>3 przebiegi jednocześnie</strong>:</p>
+<ul>
+<li>Trójkątny (z integratora op-ampa)</li>
+<li>Prostokątny (z komparatora Schmitta)</li>
+<li>Sinusoidalny (z trójkątnego przez kształtownik nieliniowy z 2 diodami)</li>
+</ul>
+<p>Gotowe ICs: <strong>ICL8038</strong>, <strong>XR2206</strong> (klasyczne, dziś trudno dostać).</p>
+<h2>Oscylator Colpittsa (LC)</h2>
+<p>Generator RF, częstotliwości od kHz do GHz. Cewka + dwa kondensatory + tranzystor.</p>
+<div class="schem">
+<svg viewBox="0 0 520 360">
+  <!-- +Vcc rail -->
+  <line class="wire-pos" x1="20" y1="30" x2="500" y2="30"/>
+  <text class="label-pos" x="20" y="22">+Vcc</text>
+  <!-- Rc -->
+  <line class="wire-pos" x1="280" y1="30" x2="280" y2="60"/>
+  <rect class="comp" x="260" y="60" width="40" height="22" rx="3"/>
+  <text class="label-val" x="305" y="76">Rc 4,7k</text>
+  <line class="wire" x1="280" y1="82" x2="280" y2="130"/>
+  <!-- Collector node -->
+  <circle class="node" cx="280" cy="130" r="4"/>
+  <!-- Output cap to right -->
+  <line class="wire" x1="280" y1="130" x2="340" y2="130"/>
+  <line class="comp" x1="340" y1="120" x2="340" y2="140" stroke-width="2.5"/>
+  <line class="comp" x1="348" y1="120" x2="348" y2="140" stroke-width="2.5"/>
+  <line class="wire" x1="348" y1="130" x2="490" y2="130"/>
+  <text class="label" x="495" y="126">Vout RF</text>
+  <text class="label-val" x="495" y="142">~2 MHz</text>
+  <!-- Transistor -->
+  <line class="wire" x1="280" y1="130" x2="280" y2="155"/>
+  <circle class="comp" cx="280" cy="175" r="20"/>
+  <text class="ic-label" x="315" y="178" style="font-size:9px">BJT</text>
+  <line class="comp" x1="280" y1="155" x2="280" y2="163"/>
+  <line class="comp" x1="272" y1="163" x2="280" y2="163"/>
+  <line class="comp" x1="272" y1="163" x2="272" y2="187"/>
+  <line class="comp" x1="272" y1="187" x2="280" y2="187"/>
+  <line class="comp" x1="280" y1="187" x2="280" y2="200"/>
+  <polygon class="comp-fill" points="278,197 282,192 282,200"/>
+  <line class="comp" x1="272" y1="175" x2="258" y2="175"/>
+  <text class="label-pin" x="305" y="160">C</text>
+  <text class="label-pin" x="305" y="200">E</text>
+  <text class="label-pin" x="244" y="170">B</text>
+  <!-- Rb to +Vcc -->
+  <line class="wire" x1="258" y1="175" x2="180" y2="175"/>
+  <line class="wire-pos" x1="180" y1="175" x2="180" y2="60"/>
+  <rect class="comp" x="160" y="60" width="40" height="22" rx="3"/>
+  <text class="label-val" x="110" y="76">Rb 100k</text>
+  <line class="wire-pos" x1="180" y1="60" x2="180" y2="30"/>
+  <!-- Emitter to Re -->
+  <line class="wire" x1="280" y1="200" x2="280" y2="220"/>
+  <!-- LC tank: L from collector, C1+C2 series from collector to GND with center to emitter -->
+  <!-- Tank inductor parallel path -->
+  <line class="wire" x1="280" y1="130" x2="430" y2="130"/>
+  <line class="wire" x1="430" y1="130" x2="430" y2="150"/>
+  <!-- L (inductor coils) -->
+  <path class="comp" d="M 425,150 q 5,-7 10,0 t 10,0" stroke-width="2"/>
+  <path class="comp" d="M 425,160 q 5,-7 10,0 t 10,0" stroke-width="2"/>
+  <path class="comp" d="M 425,170 q 5,-7 10,0 t 10,0" stroke-width="2"/>
+  <text class="label" x="455" y="160">L</text>
+  <text class="label-val" x="455" y="174">100 μH</text>
+  <line class="wire" x1="430" y1="175" x2="430" y2="220"/>
+  <!-- C1 (upper) -->
+  <line class="wire" x1="430" y1="220" x2="280" y2="220"/>
+  <circle class="node" cx="280" cy="220" r="4"/>
+  <line class="wire" x1="280" y1="220" x2="380" y2="220"/>
+  <line class="comp" x1="378" y1="210" x2="378" y2="230" stroke-width="2.5"/>
+  <line class="comp" x1="386" y1="210" x2="386" y2="230" stroke-width="2.5"/>
+  <text class="label-val" x="370" y="205">C1 100p</text>
+  <!-- Emitter tied to center of C1/C2 -->
+  <line class="wire" x1="386" y1="220" x2="430" y2="220"/>
+  <line class="wire" x1="430" y1="220" x2="430" y2="260"/>
+  <!-- C2 (lower) -->
+  <line class="comp" x1="378" y1="270" x2="378" y2="290" stroke-width="2.5"/>
+  <line class="comp" x1="386" y1="270" x2="386" y2="290" stroke-width="2.5"/>
+  <text class="label-val" x="395" y="285">C2 100p</text>
+  <line class="wire" x1="382" y1="260" x2="382" y2="270"/>
+  <line class="wire" x1="430" y1="260" x2="386" y2="260"/>
+  <line class="wire" x1="378" y1="260" x2="382" y2="260"/>
+  <line class="wire" x1="382" y1="290" x2="382" y2="320"/>
+  <!-- Re -->
+  <rect class="comp" x="260" y="240" width="40" height="22" rx="3"/>
+  <text class="label-val" x="305" y="256">Re 470Ω</text>
+  <line class="wire" x1="280" y1="262" x2="280" y2="320"/>
+  <!-- GND rail -->
+  <line class="wire" x1="20" y1="320" x2="500" y2="320"/>
+  <line class="wire" x1="260" y1="320" x2="260" y2="335"/>
+  <line class="gnd" x1="245" y1="338" x2="275" y2="338"/>
+  <line class="gnd" x1="250" y1="343" x2="270" y2="343"/>
+  <line class="gnd" x1="255" y1="348" x2="265" y2="348"/>
+</svg>
+</div>
+<h3>Częstotliwość</h3>
+<pre><code>
+C = C1 · C2 / (C1 + C2)
+f = 1 / (2π · √(L · C))
+</code></pre>
+<p>Przykład: L = 100 μH, C1 = C2 = 100 pF → C = 50 pF, f = 2,25 MHz.</p>
+<h3>Zastosowania Colpittsa</h3>
+<ul>
+<li>Lokalne oscylatory (LO) w radioodbiornikach</li>
+<li>Generatory CW</li>
+<li>Stroje wzmacniaczy RF</li>
+</ul>
+<h2>Oscylator Hartley'a</h2>
+<p>Podobny do Colpittsa, ale <strong>cewka z odczepem</strong> zamiast dwóch kondensatorów.</p>
+<div class="schem">
+<svg viewBox="0 0 480 220">
+  <!-- Tank: L1+L2 with center tap + C parallel -->
+  <line class="wire" x1="100" y1="60" x2="380" y2="60"/>
+  <text class="label" x="20" y="64">Tank LC</text>
+  <!-- L1 coils -->
+  <path class="comp" d="M 120,55 q 7,-12 14,0 t 14,0 t 14,0 t 14,0" stroke-width="2"/>
+  <text class="label" x="135" y="40">L1</text>
+  <!-- Center tap (odczep) -->
+  <line class="wire" x1="190" y1="60" x2="190" y2="110"/>
+  <circle class="node" cx="190" cy="60" r="4"/>
+  <text class="label" x="200" y="80">odczep</text>
+  <text class="label-val" x="200" y="94">→ emiter</text>
+  <line class="wire" x1="190" y1="110" x2="240" y2="110"/>
+  <text class="label" x="245" y="114">do tranzystora (E)</text>
+  <!-- L2 coils -->
+  <path class="comp" d="M 200,55 q 7,-12 14,0 t 14,0 t 14,0 t 14,0" stroke-width="2"/>
+  <text class="label" x="220" y="40">L2</text>
+  <!-- C parallel (below the inductor) -->
+  <line class="wire" x1="120" y1="60" x2="120" y2="150"/>
+  <line class="wire" x1="280" y1="60" x2="280" y2="150"/>
+  <line class="comp" x1="180" y1="148" x2="220" y2="148" stroke-width="2.5"/>
+  <line class="comp" x1="180" y1="156" x2="220" y2="156" stroke-width="2.5"/>
+  <line class="wire" x1="120" y1="152" x2="180" y2="152"/>
+  <line class="wire" x1="220" y1="152" x2="280" y2="152"/>
+  <text class="label" x="195" y="180">C</text>
+  <text class="label-val" x="225" y="180">200p</text>
+  <!-- To +V (top) -->
+  <line class="wire-pos" x1="120" y1="60" x2="120" y2="30"/>
+  <text class="label-pos" x="105" y="22">+V</text>
+  <!-- To collector -->
+  <line class="wire" x1="280" y1="60" x2="280" y2="30"/>
+  <text class="label" x="290" y="34">→ kolektor</text>
+  <!-- Formula -->
+  <text class="label-val" x="20" y="200">f = 1 / (2π · √((L1+L2) · C))</text>
+</svg>
+</div>
+<p>Częstotliwość:</p>
+<pre><code>
+f = 1 / (2π · √((L1+L2) · C))
+</code></pre>
+<h2>Oscylator kwarcowy</h2>
+<p><strong>Najdokładniejszy</strong> typ oscylatora — kwarc rezonansowy zamiast LC.</p>
+<p>Stabilność: 10-100 ppm (część na milion). Cyfrowe zegary, BIOS, komunikacja.</p>
+<h3>Schemat Pierce (z bramką NOT)</h3>
+<div class="schem">
+<svg viewBox="0 0 500 280">
+  <!-- NOT gate (inverter triangle) -->
+  <polygon class="ic-body" points="280,75 280,145 350,110"/>
+  <circle class="comp" cx="356" cy="110" r="5" fill="none"/>
+  <text class="ic-label" x="305" y="115" style="font-size:9px">NOT</text>
+  <!-- Input wire (left of NOT) -->
+  <line class="wire" x1="140" y1="110" x2="280" y2="110"/>
+  <circle class="node" cx="200" cy="110" r="4"/>
+  <!-- Output (right of NOT) -->
+  <line class="wire" x1="361" y1="110" x2="460" y2="110"/>
+  <circle class="node" cx="420" cy="110" r="4"/>
+  <text class="label" x="465" y="106">CLK</text>
+  <text class="label-val" x="465" y="120">→ MCU</text>
+  <!-- Crystal (X1) - rectangle with two leads -->
+  <line class="wire" x1="200" y1="110" x2="200" y2="80"/>
+  <rect class="comp" x="180" y="50" width="40" height="30" rx="2" fill="#1e293b"/>
+  <line class="comp" x1="190" y1="58" x2="190" y2="72" stroke-width="2"/>
+  <line class="comp" x1="210" y1="58" x2="210" y2="72" stroke-width="2"/>
+  <line class="comp" x1="185" y1="65" x2="215" y2="65" stroke-width="2"/>
+  <text class="label" x="225" y="58">X1</text>
+  <text class="label-val" x="225" y="72">16 MHz</text>
+  <line class="wire" x1="200" y1="50" x2="200" y2="30"/>
+  <line class="wire" x1="200" y1="30" x2="420" y2="30"/>
+  <line class="wire" x1="420" y1="30" x2="420" y2="110"/>
+  <!-- C1 (input side to GND) -->
+  <line class="wire" x1="200" y1="110" x2="200" y2="170"/>
+  <line class="comp" x1="180" y1="170" x2="220" y2="170" stroke-width="2.5"/>
+  <line class="comp" x1="180" y1="178" x2="220" y2="178" stroke-width="2.5"/>
+  <text class="label" x="160" y="175">C1</text>
+  <text class="label-val" x="225" y="178">22 pF</text>
+  <line class="wire" x1="200" y1="178" x2="200" y2="220"/>
+  <!-- C2 (output side to GND) -->
+  <line class="wire" x1="420" y1="110" x2="420" y2="170"/>
+  <line class="comp" x1="400" y1="170" x2="440" y2="170" stroke-width="2.5"/>
+  <line class="comp" x1="400" y1="178" x2="440" y2="178" stroke-width="2.5"/>
+  <text class="label" x="380" y="175">C2</text>
+  <text class="label-val" x="445" y="178">22 pF</text>
+  <line class="wire" x1="420" y1="178" x2="420" y2="220"/>
+  <!-- Bias resistor (between input and output of NOT) -->
+  <line class="wire" x1="280" y1="155" x2="280" y2="180"/>
+  <line class="wire" x1="280" y1="180" x2="240" y2="180"/>
+  <line class="wire" x1="240" y1="180" x2="240" y2="110"/>
+  <circle class="node" cx="240" cy="110" r="4"/>
+  <rect class="comp" x="270" y="155" width="40" height="22" rx="3"/>
+  <text class="label-val" x="320" y="170">R 1 MΩ (bias)</text>
+  <line class="wire" x1="360" y1="155" x2="360" y2="180"/>
+  <line class="wire" x1="360" y1="180" x2="310" y2="180"/>
+  <line class="wire" x1="360" y1="180" x2="380" y2="180"/>
+  <line class="wire" x1="380" y1="180" x2="380" y2="110"/>
+  <circle class="node" cx="380" cy="110" r="4"/>
+  <!-- GND rail -->
+  <line class="wire" x1="100" y1="220" x2="460" y2="220"/>
+  <line class="wire" x1="310" y1="220" x2="310" y2="235"/>
+  <line class="gnd" x1="295" y1="240" x2="325" y2="240"/>
+  <line class="gnd" x1="300" y1="245" x2="320" y2="245"/>
+  <line class="gnd" x1="305" y1="250" x2="315" y2="250"/>
+  <!-- Title -->
+  <text class="label" x="20" y="30">Pierce oscillator</text>
+  <text class="label" x="20" y="46">(z bramką NOT)</text>
+</svg>
+</div>
+<h3>Standardowe kwarce</h3>
+<table>
+<thead><tr>
+<th>Częstotliwość</th>
+<th>Zastosowanie</th>
+</tr></thead><tbody>
+<tr>
+<td>32,768 kHz</td>
+<td>RTC (zegary 1 Hz przez podział)</td>
+</tr>
+<tr>
+<td>4 MHz</td>
+<td>starsze MCU</td>
+</tr>
+<tr>
+<td>8 MHz</td>
+<td>popularny dla AVR, PIC</td>
+</tr>
+<tr>
+<td>16 MHz</td>
+<td>Arduino UNO</td>
+</tr>
+<tr>
+<td>20 MHz</td>
+<td>szybsze MCU</td>
+</tr>
+<tr>
+<td>25 MHz</td>
+<td>Ethernet (PHY)</td>
+</tr>
+<tr>
+<td>27 MHz</td>
+<td>NTSC TV, RC</td>
+</tr>
+<tr>
+<td>32 MHz</td>
+<td>Bluetooth</td>
+</tr>
+</tbody></table>
+<h3>TCXO / OCXO</h3>
+<ul>
+<li><strong>TCXO</strong> — kwarc kompensowany temperaturowo, ±0,5 ppm</li>
+<li><strong>OCXO</strong> — kwarc w piecyku 60°C, ±0,01 ppm (drogi, do precyzji)</li>
+</ul>
+<h3>Wymiar zegara z 32 kHz</h3>
+<pre><code>
+32 768 = 2^15
+</code></pre>
+<p>Dzielnik 15 stopni daje 1 Hz. Stąd 32768 Hz dla zegarów (klasyczne, do RTC).</p>
+<h2>Oscylator OCO (One-shot)</h2>
+<p>Patrz NE555 monostabilny. Pojedynczy impuls T = 1,1 · R · C po wyzwoleniu.</p>
+<h2>Generator funkcyjny — gotowy projekt</h2>
+<h3>DDS (Direct Digital Synthesis)</h3>
+<p>Mikrokontroler + DAC + filtr generuje <strong>dowolne kształty</strong>. Tanie moduły z AD9833 (sinus, trójkąt, prostokąt, 0-12,5 MHz) za ~30 zł.</p>
+<h3>Generator XR2206</h3>
+<p>Stary IC, ale wciąż dostępny:</p>
+<ul>
+<li>Sinus + trójkąt + prostokąt</li>
+<li>0,01 Hz – 1 MHz</li>
+<li>THD &lt; 0,5%</li>
+<li>AM i FM modulacja</li>
+</ul>
+<p>Moduły z AliExpress od ~30 zł.</p>
+<h3>MAX038</h3>
+<p>Następca XR2206, lepszy. Trudniej dostać, droższy.</p>
+<h2>Generator zegarowy z 555</h2>
+<p>NE555 jako zegar dla MCU? <strong>Niezalecane</strong> — niska dokładność (5-10%). Lepiej kwarc.</p>
+<p>Wyjątek: bardzo proste układy gdzie precyzja nieistotna (np. 4017 sterujący choinką).</p>
+<h2>Oscylator audio testowy — 1 kHz</h2>
+<p>Najprostszy: 555 astabilny.</p>
+<div class="schem">
+<svg viewBox="0 0 520 260">
+  <line class="wire-pos" x1="20" y1="30" x2="500" y2="30"/>
+  <text class="label-pos" x="20" y="22">+9V</text>
+  <!-- 555 block -->
+  <rect class="ic-body" x="320" y="60" width="120" height="100" rx="4"/>
+  <text class="ic-label" x="380" y="115">NE555</text>
+  <text class="label-pin" x="290" y="80">8 VCC</text>
+  <text class="label-pin" x="290" y="105">7 DISCH</text>
+  <text class="label-pin" x="290" y="130">6 THRES</text>
+  <text class="label-pin" x="290" y="155">2 TRIG</text>
+  <text class="label-pin" x="450" y="105">3 OUT</text>
+  <text class="label-pin" x="450" y="130">1 GND</text>
+  <!-- Vcc -->
+  <line class="wire-pos" x1="320" y1="75" x2="280" y2="75"/>
+  <line class="wire-pos" x1="280" y1="75" x2="280" y2="30"/>
+  <!-- Output -->
+  <line class="wire" x1="440" y1="100" x2="490" y2="100"/>
+  <text class="label" x="495" y="96">OUT</text>
+  <text class="label-val" x="495" y="110">~1 kHz</text>
+  <!-- GND pin -->
+  <line class="wire" x1="440" y1="125" x2="490" y2="125"/>
+  <line class="wire" x1="490" y1="125" x2="490" y2="220"/>
+  <!-- Ra: VCC → DISCH (pin 7) -->
+  <line class="wire-pos" x1="100" y1="30" x2="100" y2="55"/>
+  <rect class="comp" x="80" y="55" width="40" height="22" rx="3"/>
+  <text class="label-val" x="125" y="71">Ra 10k</text>
+  <line class="wire" x1="100" y1="77" x2="100" y2="100"/>
+  <line class="wire" x1="100" y1="100" x2="320" y2="100"/>
+  <!-- Rb: DISCH (pin 7) → THRES/TRIG -->
+  <circle class="node" cx="200" cy="100" r="4"/>
+  <line class="wire" x1="200" y1="100" x2="200" y2="115"/>
+  <rect class="comp" x="180" y="115" width="40" height="22" rx="3"/>
+  <text class="label-val" x="125" y="130">Rb 10k</text>
+  <line class="wire" x1="200" y1="137" x2="200" y2="160"/>
+  <!-- THRES (pin 6) and TRIG (pin 2) connected -->
+  <line class="wire" x1="200" y1="160" x2="320" y2="160"/>
+  <circle class="node" cx="200" cy="160" r="4"/>
+  <line class="wire" x1="320" y1="125" x2="240" y2="125"/>
+  <line class="wire" x1="240" y1="125" x2="240" y2="160"/>
+  <line class="wire" x1="320" y1="150" x2="240" y2="150"/>
+  <circle class="node" cx="240" cy="160" r="4"/>
+  <!-- C to GND -->
+  <line class="wire" x1="200" y1="160" x2="200" y2="180"/>
+  <line class="comp" x1="180" y1="180" x2="220" y2="180" stroke-width="2.5"/>
+  <line class="comp" x1="180" y1="188" x2="220" y2="188" stroke-width="2.5"/>
+  <text class="label-val" x="125" y="190">C 10n</text>
+  <line class="wire" x1="200" y1="188" x2="200" y2="220"/>
+  <!-- GND rail -->
+  <line class="wire" x1="20" y1="220" x2="500" y2="220"/>
+  <line class="wire" x1="260" y1="220" x2="260" y2="235"/>
+  <line class="gnd" x1="245" y1="240" x2="275" y2="240"/>
+  <line class="gnd" x1="250" y1="245" x2="270" y2="245"/>
+</svg>
+</div>
+<p>Wzór: f = 1,44 / (3 · 10k · 10n) = 4,8 kHz. Dla 1 kHz daj C = 47 nF.</p>
+<p>Wyjście prostokątne. Filtr RC (LP, ~3 kHz odcięcia) zaokrągli do "sinusoidalnego" kształtu.</p>
+<h2>Generator białego szumu</h2>
+<p>Złącze BE tranzystora w polaryzacji zaporowej. Pełen zakres szumu (DC do GHz).</p>
+<div class="schem">
+<svg viewBox="0 0 500 260">
+  <line class="wire-pos" x1="20" y1="30" x2="480" y2="30"/>
+  <text class="label-pos" x="20" y="22">+12V</text>
+  <!-- R from +V to Base -->
+  <line class="wire-pos" x1="200" y1="30" x2="200" y2="60"/>
+  <rect class="comp" x="180" y="60" width="40" height="22" rx="3"/>
+  <text class="label-val" x="225" y="76">R 100k</text>
+  <line class="wire" x1="200" y1="82" x2="200" y2="130"/>
+  <!-- Transistor (zaporowo BE) -->
+  <circle class="comp" cx="200" cy="150" r="20"/>
+  <text class="ic-label" x="240" y="153" style="font-size:9px">BC547</text>
+  <line class="comp" x1="200" y1="130" x2="200" y2="138"/>
+  <line class="comp" x1="192" y1="138" x2="208" y2="138"/>
+  <line class="comp" x1="192" y1="138" x2="192" y2="162"/>
+  <line class="comp" x1="192" y1="162" x2="200" y2="162"/>
+  <line class="comp" x1="200" y1="162" x2="200" y2="175"/>
+  <polygon class="comp-fill" points="198,172 202,167 202,175"/>
+  <line class="comp" x1="192" y1="150" x2="178" y2="150"/>
+  <text class="label-pin" x="225" y="135">C (open)</text>
+  <text class="label-pin" x="225" y="178">E</text>
+  <text class="label-pin" x="155" y="155">B</text>
+  <!-- B → noise signal (left) -->
+  <line class="wire" x1="178" y1="150" x2="100" y2="150"/>
+  <circle class="node" cx="100" cy="150" r="4"/>
+  <!-- Coupling capacitor -->
+  <line class="comp" x1="80" y1="140" x2="80" y2="160" stroke-width="2.5"/>
+  <line class="comp" x1="72" y1="140" x2="72" y2="160" stroke-width="2.5"/>
+  <line class="wire" x1="100" y1="150" x2="80" y2="150"/>
+  <line class="wire" x1="72" y1="150" x2="40" y2="150"/>
+  <text class="label-val" x="55" y="135">C 1μF</text>
+  <text class="label" x="20" y="146">→ amp</text>
+  <text class="label" x="20" y="160">×100</text>
+  <!-- E → GND -->
+  <line class="wire" x1="200" y1="175" x2="200" y2="220"/>
+  <!-- Note about C open -->
+  <text class="label" x="280" y="130">C — niepodłączony</text>
+  <text class="label" x="280" y="144">(open)</text>
+  <text class="label-val" x="280" y="170">BE pracuje w zaporowym</text>
+  <text class="label-val" x="280" y="184">≈ "dioda Zenera"</text>
+  <text class="label-val" x="280" y="200">→ szum lawinowy</text>
+  <!-- GND rail -->
+  <line class="wire" x1="20" y1="220" x2="480" y2="220"/>
+  <line class="wire" x1="240" y1="220" x2="240" y2="235"/>
+  <line class="gnd" x1="225" y1="240" x2="255" y2="240"/>
+  <line class="gnd" x1="230" y1="245" x2="250" y2="245"/>
+</svg>
+</div>
+<p>Wzmacniacz x100 → biały szum audio. Stosowane do testowania filtrów, EMC.</p>
+<h2>Generator różowego szumu</h2>
+<p>Biały szum przez filtr LP 3 dB/oktawę. Brzmi "miękko", używany w audio testach.</p>
+<h2>Sprawdzenie oscylatora</h2>
+<h3>Brak oscylacji</h3>
+<p>Najczęstsze przyczyny:</p>
+<ul>
+<li>Brak zasilania (sprawdź multimetrem)</li>
+<li>Brak sprzężenia zwrotnego (oscylator nie ma "pomocy" do startu)</li>
+<li>Zbyt mały zysk pętli</li>
+<li>Złe wartości R/C/L</li>
+<li>Zła polaryzacja kondensatorów (jeśli elektrolity)</li>
+</ul>
+<h3>Drift częstotliwości</h3>
+<p>Powody:</p>
+<ul>
+<li>Wpływ temperatury (TCR rezystorów, kondensatorów)</li>
+<li>Stary kondensator (zmiana pojemności)</li>
+<li>Niedostateczne zasilanie</li>
+</ul>
+<h3>Nieczystość sygnału (THD)</h3>
+<p>Powody:</p>
+<ul>
+<li>Zbyt duża amplituda → saturacja</li>
+<li>Brak filtru wyjścia</li>
+<li>Złe zasilanie (brum 50 Hz)</li>
+</ul>
+<h2>Wybór oscylatora — checklist</h2>
+<ol>
+<li><strong>Częstotliwość</strong> — w Hz? kHz? MHz? GHz?</li>
+<li><strong>Stabilność</strong> — czy 1% wystarczy, czy potrzebny kwarc (0,01%)?</li>
+<li><strong>Kształt</strong> — sinus, prostokąt, trójkąt, dowolny?</li>
+<li><strong>Amplituda</strong> — kilka V czy mV?</li>
+<li><strong>Zasilanie</strong> — single czy dual?</li>
+<li><strong>Cena/komplikacja</strong></li>
+</ol>
+<table>
+<thead><tr>
+<th>Aplikacja</th>
+<th>Wybór</th>
+</tr></thead><tbody>
+<tr>
+<td>Migający LED</td>
+<td>NE555</td>
+</tr>
+<tr>
+<td>Sygnał testowy audio</td>
+<td>NE555 + filtr lub funkc. gen.</td>
+</tr>
+<tr>
+<td>Sygnał audio sinusoidalny</td>
+<td>Wien op-amp</td>
+</tr>
+<tr>
+<td>Zegar MCU</td>
+<td>kwarc Pierce</td>
+</tr>
+<tr>
+<td>Lokal RF</td>
+<td>Colpitts / Hartley</td>
+</tr>
+<tr>
+<td>Generator dowolny</td>
+<td>DDS (AD9833) lub XR2206</td>
+</tr>
+<tr>
+<td>Precyzyjny laboratoryjny</td>
+<td>komercyjny gen. funkc. (Rigol, Siglent)</td>
+</tr>
+</tbody></table>
+<h2>Częste błędy</h2>
+<ol>
+<li><strong>NE555 do precyzyjnego zegara</strong> — niska dokładność.</li>
+<li><strong>Kwarc bez kondensatorów obciążenia</strong> — brak oscylacji.</li>
+<li><strong>Oscylator audio z brumem</strong> — masa, zasilanie.</li>
+<li><strong>RF oscylator bez ekranowania</strong> — zakłóca radia, sąsiadów.</li>
+<li><strong>DDS bez filtra Nyquista</strong> — alias częstotliwości.</li>
+<li><strong>Generator szumu z brakem wzmacniacza</strong> — sygnał ledwo zauważalny.</li>
+</ol>
+
+        <div class="nav-bottom">
+            <a href="08-03-wzmacniacz-audio.html">&larr; 08-03 Wzmacniacz</a>
+            <a href="08-05-filtry-aktywne.html">08-05 Filtry &rarr;</a>
+        </div>
+    </div>
+</body>
+</html>

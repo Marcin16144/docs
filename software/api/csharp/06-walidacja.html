@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Walidacja danych — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">Walidacja danych</span>
+</div>
+<div class="container">
+  <h1>Walidacja danych</h1>
+  <p class="subtitle">Data Annotations, FluentValidation v11, walidacja zagniezdzona, async, integracja z Minimal APIs i ProblemDetails</p>
+
+  <h2>Data Annotations</h2>
+  <p>Data Annotations to atrybuty z przestrzeni <code>System.ComponentModel.DataAnnotations</code>. Sa proste w uzyciu, ale maja ograniczenia przy zlozonych regułach i warunkowej walidacji.</p>
+
+  <pre><code>public class CreateOrderRequest
+{
+    [Required(ErrorMessage = "Identyfikator klienta jest wymagany")]
+    public int CustomerId { get; set; }
+
+    [Required]
+    [MinLength(1, ErrorMessage = "Zamowienie musi zawierac co najmniej jeden produkt")]
+    public List&lt;OrderItemRequest&gt; Items { get; set; } = [];
+
+    [StringLength(500, ErrorMessage = "Notatka moze miec max 500 znakow")]
+    public string? Note { get; set; }
+
+    [Required]
+    public AddressRequest ShippingAddress { get; set; } = null!;
+}
+
+public class OrderItemRequest
+{
+    [Required]
+    [Range(1, int.MaxValue, ErrorMessage = "Id produktu musi byc > 0")]
+    public int ProductId { get; set; }
+
+    [Range(1, 1000, ErrorMessage = "Ilosc musi byc od 1 do 1000")]
+    public int Quantity { get; set; }
+}
+
+public class AddressRequest
+{
+    [Required]
+    [StringLength(200)]
+    public string Street { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(100)]
+    public string City { get; set; } = string.Empty;
+
+    [Required]
+    [RegularExpression(@"^\d{2}-\d{3}$", ErrorMessage = "Nieprawidlowy format kodu pocztowego (XX-XXX)")]
+    public string PostalCode { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(2, MinimumLength = 2, ErrorMessage = "Kod kraju musi miec 2 znaki (ISO 3166)")]
+    public string CountryCode { get; set; } = string.Empty;
+}
+
+// Niestandardowy atrybut walidacji
+public class FutureDateAttribute : ValidationAttribute
+{
+    protected override ValidationResult? IsValid(
+        object? value, ValidationContext ctx)
+    {
+        if (value is DateTime date &amp;&amp; date &lt;= DateTime.UtcNow)
+            return new ValidationResult(
+                $"{ctx.DisplayName} musi byc data przyszla");
+        return ValidationResult.Success;
+    }
+}
+
+public class ScheduleRequest
+{
+    [Required]
+    [FutureDate]
+    public DateTime ScheduledAt { get; set; }
+}</code></pre>
+
+  <h2>FluentValidation v11</h2>
+  <p>FluentValidation to biblioteka oferujaca plynne API do definiowania regul walidacji. Jest bardziej ekspresywna niz Data Annotations i lepiej radzi sobie z walidacja warunkowa, zagniezdzona i asynchroniczna.</p>
+
+  <pre><code>// dotnet add package FluentValidation.AspNetCore
+
+// Validator dla zamowienia
+public class CreateOrderValidator : AbstractValidator&lt;CreateOrderRequest&gt;
+{
+    private readonly ICustomerRepository _customers;
+    private readonly IProductRepository _products;
+
+    public CreateOrderValidator(
+        ICustomerRepository customers,
+        IProductRepository products)
+    {
+        _customers = customers;
+        _products = products;
+
+        RuleFor(x =&gt; x.CustomerId)
+            .GreaterThan(0).WithMessage("Id klienta musi byc > 0")
+            .MustAsync(CustomerExistsAsync)
+                .WithMessage("Klient o podanym Id nie istnieje");
+
+        RuleFor(x =&gt; x.Items)
+            .NotEmpty().WithMessage("Zamowienie musi zawierac produkty")
+            .Must(items =&gt; items.Count &lt;= 50)
+                .WithMessage("Zamowienie moze miec max 50 pozycji");
+
+        RuleForEach(x =&gt; x.Items)
+            .SetValidator(new OrderItemValidator(_products));
+
+        RuleFor(x =&gt; x.ShippingAddress)
+            .NotNull()
+            .SetValidator(new AddressValidator());
+
+        RuleFor(x =&gt; x.Note)
+            .MaximumLength(500)
+            .When(x =&gt; x.Note is not null);
+    }
+
+    private async Task&lt;bool&gt; CustomerExistsAsync(
+        int id, CancellationToken ct)
+        =&gt; await _customers.ExistsAsync(id, ct);
+}
+
+// Validator pozycji zamowienia
+public class OrderItemValidator : AbstractValidator&lt;OrderItemRequest&gt;
+{
+    private readonly IProductRepository _products;
+
+    public OrderItemValidator(IProductRepository products)
+    {
+        _products = products;
+
+        RuleFor(x =&gt; x.ProductId)
+            .GreaterThan(0)
+            .MustAsync(ProductExistsAsync)
+                .WithMessage("Produkt {PropertyValue} nie istnieje");
+
+        RuleFor(x =&gt; x.Quantity)
+            .InclusiveBetween(1, 1000)
+            .WithMessage("Ilosc musi byc od 1 do 1000");
+    }
+
+    private async Task&lt;bool&gt; ProductExistsAsync(
+        int id, CancellationToken ct)
+        =&gt; await _products.ExistsAsync(id, ct);
+}
+
+// Validator adresu
+public class AddressValidator : AbstractValidator&lt;AddressRequest&gt;
+{
+    public AddressValidator()
+    {
+        RuleFor(x =&gt; x.Street).NotEmpty().MaximumLength(200);
+        RuleFor(x =&gt; x.City).NotEmpty().MaximumLength(100);
+        RuleFor(x =&gt; x.PostalCode)
+            .NotEmpty()
+            .Matches(@"^\d{2}-\d{3}$")
+                .WithMessage("Format kodu pocztowego: XX-XXX");
+        RuleFor(x =&gt; x.CountryCode)
+            .NotEmpty()
+            .Length(2)
+            .Must(c =&gt; c.All(char.IsLetter))
+                .WithMessage("Kod kraju musi skladac sie z liter");
+    }
+}</code></pre>
+
+  <h2>Rejestracja FluentValidation w DI</h2>
+  <pre><code>// Program.cs — rejestracja wszystkich validatorow z assembly
+builder.Services.AddValidatorsFromAssemblyContaining&lt;CreateOrderValidator&gt;();
+
+// Lub recznie
+builder.Services.AddScoped&lt;IValidator&lt;CreateOrderRequest&gt;,
+    CreateOrderValidator&gt;();
+
+// Integracja z [ApiController] (automatyczna walidacja)
+builder.Services.AddFluentValidationAutoValidation();</code></pre>
+
+  <h2>Integracja z Minimal APIs</h2>
+  <pre><code>// Reczne wywolanie walidatora w Minimal API
+app.MapPost("/orders", async Task&lt;Results&lt;Created&lt;Order&gt;, ValidationProblem&gt;&gt;(
+    CreateOrderRequest request,
+    IValidator&lt;CreateOrderRequest&gt; validator,
+    IOrderService orderService,
+    CancellationToken ct) =&gt;
+{
+    var result = await validator.ValidateAsync(request, ct);
+    if (!result.IsValid)
+        return TypedResults.ValidationProblem(result.ToDictionary());
+
+    var order = await orderService.CreateAsync(request, ct);
+    return TypedResults.Created($"/orders/{order.Id}", order);
+});
+
+// Filtr walidacji do wielokrotnego uzycia
+public class FluentValidationFilter&lt;TRequest&gt; : IEndpointFilter
+{
+    public async ValueTask&lt;object?&gt; InvokeAsync(
+        EndpointFilterInvocationContext ctx,
+        EndpointFilterDelegate next)
+    {
+        var validator = ctx.HttpContext.RequestServices
+            .GetService&lt;IValidator&lt;TRequest&gt;&gt;();
+
+        if (validator is not null)
+        {
+            var model = ctx.Arguments.OfType&lt;TRequest&gt;().FirstOrDefault();
+            if (model is not null)
+            {
+                var result = await validator.ValidateAsync(model,
+                    ctx.HttpContext.RequestAborted);
+                if (!result.IsValid)
+                    return Results.ValidationProblem(result.ToDictionary());
+            }
+        }
+        return await next(ctx);
+    }
+}
+
+// Metoda rozszerzenia dla czytelnosci
+public static RouteHandlerBuilder WithValidation&lt;TRequest&gt;(
+    this RouteHandlerBuilder builder)
+    =&gt; builder.AddEndpointFilter&lt;FluentValidationFilter&lt;TRequest&gt;&gt;();
+
+// Uzycie
+app.MapPost("/orders", CreateOrderHandler)
+   .WithValidation&lt;CreateOrderRequest&gt;();</code></pre>
+
+  <h2>Walidacja asynchroniczna</h2>
+  <pre><code>// Async rule — sprawdzenie unikalnosci w bazie
+public class CreateProductValidator : AbstractValidator&lt;CreateProductRequest&gt;
+{
+    public CreateProductValidator(IProductRepository repo)
+    {
+        RuleFor(x =&gt; x.Name)
+            .NotEmpty()
+            .MaximumLength(200)
+            .MustAsync(async (name, ct) =&gt;
+                !await repo.ExistsByNameAsync(name, ct))
+                .WithMessage("Produkt o tej nazwie juz istnieje");
+
+        RuleFor(x =&gt; x.Sku)
+            .NotEmpty()
+            .MustAsync(async (sku, ct) =&gt;
+                !await repo.ExistsBySkuAsync(sku, ct))
+                .WithMessage("SKU '{PropertyValue}' jest juz zajety");
+
+        RuleFor(x =&gt; x.Price)
+            .GreaterThan(0)
+            .LessThanOrEqualTo(999_999.99m);
+
+        RuleFor(x =&gt; x.CategoryId)
+            .MustAsync(async (id, ct) =&gt;
+                await repo.CategoryExistsAsync(id, ct))
+                .WithMessage("Kategoria nie istnieje");
+    }
+}</code></pre>
+
+  <h2>ProblemDetails dla bledow walidacji</h2>
+  <pre><code>// Standardowa odpowiedz walidacji (422 Unprocessable Entity)
+// Generowana automatycznie przez [ApiController] lub TypedResults.ValidationProblem()
+{
+  "type": "https://tools.ietf.org/html/rfc4918#section-11.2",
+  "title": "One or more validation errors occurred.",
+  "status": 422,
+  "errors": {
+    "CustomerId": ["Klient o podanym Id nie istnieje"],
+    "Items[0].ProductId": ["Produkt 999 nie istnieje"],
+    "ShippingAddress.PostalCode": ["Format kodu pocztowego: XX-XXX"]
+  }
+}
+
+// Dostosowanie odpowiedzi walidacji w [ApiController]
+builder.Services.Configure&lt;ApiBehaviorOptions&gt;(options =&gt;
+{
+    options.InvalidModelStateResponseFactory = ctx =&gt;
+    {
+        var problem = new ValidationProblemDetails(ctx.ModelState)
+        {
+            Type = "https://myapi.example.com/errors/validation",
+            Title = "Blad walidacji danych",
+            Status = StatusCodes.Status422UnprocessableEntity,
+            Instance = ctx.HttpContext.Request.Path,
+        };
+        problem.Extensions["traceId"] =
+            ctx.HttpContext.TraceIdentifier;
+        return new UnprocessableEntityObjectResult(problem);
+    };
+});</code></pre>
+
+  <h2>Data Annotations vs FluentValidation</h2>
+  <table>
+    <thead>
+      <tr><th>Aspekt</th><th>Data Annotations</th><th>FluentValidation v11</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Prostota uzycia</strong></td><td>Atrybuty inline na modelu</td><td>Osobna klasa validatora</td></tr>
+      <tr><td><strong>Testowanie</strong></td><td>Trudne — wymaga refleksji</td><td>Latwe — bezposrednie wywolanie</td></tr>
+      <tr><td><strong>Walidacja warunkowa</strong></td><td>Ograniczona (<code>IValidatableObject</code>)</td><td>Pelna (<code>When</code>, <code>Unless</code>)</td></tr>
+      <tr><td><strong>Walidacja async</strong></td><td>Brak</td><td>Pelna (<code>MustAsync</code>)</td></tr>
+      <tr><td><strong>Walidacja zagniezdzona</strong></td><td>Ograniczona</td><td>Pelna (<code>SetValidator</code>, <code>RuleForEach</code>)</td></tr>
+      <tr><td><strong>Komunikaty bledow</strong></td><td>Atrybut przy polu</td><td>Fluent chain, placeholdery, i18n</td></tr>
+      <tr><td><strong>DI w validatorze</strong></td><td>Brak</td><td>Pelna (konstruktor)</td></tr>
+      <tr><td><strong>Kiedy wybrac</strong></td><td>Proste DTO, szybkie projekty</td><td>Zlozono logika, async, testowanie</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <strong>Rekomendacja 2026:</strong> Uzyj FluentValidation dla logiki biznesowej i zlozonych modeli. Data Annotations pozostaw dla prostych DTO lub gdy zalezy Ci na kompatybilnosci z EF Core (mapowanie dlugosci kolumn).
+  </div>
+
+  <div class="nav-bottom">
+    <a href="05-uwierzytelnianie.html">← 05-uwierzytelnianie.html</a>
+    <a href="07-grpc-services.html">07-grpc-services.html →</a>
+  </div>
+</div>
+</body>
+</html>

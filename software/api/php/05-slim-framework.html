@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slim Framework</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">PHP</a><span class="sep">/</span>
+  <span class="title">Slim Framework</span>
+</div>
+<div class="container">
+  <h1>Slim Framework</h1>
+  <p class="subtitle">Mikro-framework PHP oparty na PSR-7 i PSR-15 — routing, middleware, DI i obsluga bledow</p>
+
+  <h2>Czym jest Slim?</h2>
+  <p>Slim to mikro-framework PHP zaprojektowany specjalnie do budowania API i mikroserwisow. W odroznieniu od pelnych frameworkow jak Laravel czy Symfony, Slim nie narzuca struktury projektu — dostarcza jedynie routing, middleware pipeline i obserwacje PSR-7/PSR-15. Dzieki temu jest ekstremalnie lekki i szybki, a programista sam decyduje, jakich bibliotek uzywa.</p>
+  <p>Slim 4.x (aktualna wersja) jest w pelni zgodny ze standardami PSR-7, PSR-11 (Container) i PSR-15 (Middleware), co umozliwia wymiane komponentow bez zmiany kodu aplikacji.</p>
+
+  <div class="card green">
+    <strong>Instalacja Slim 4</strong>
+    <pre style="margin:8px 0 0"><code># Core frameworka
+composer require slim/slim:"4.*"
+
+# Implementacja PSR-7 (wymagana — Slim nie ma wlasnej)
+composer require slim/psr7
+# Alternatywa: nyholm/psr7 + nyholm/psr7-server
+
+# PHP-DI jako kontener PSR-11
+composer require php-di/php-di
+
+# Opcjonalnie — do logowania
+composer require monolog/monolog
+</code></pre>
+  </div>
+
+  <h2>Podstawowa aplikacja Slim</h2>
+  <p>Aplikacja Slim tworzona jest przez <code>AppFactory</code>. Jesli kontener PSR-11 jest ustawiony przed utworzeniem aplikacji, Slim automatycznie uzywa go do rozwiazywania zaleznosci w handlerach tras.</p>
+
+<pre><code>&lt;?php
+
+use DI\ContainerBuilder;
+use Slim\Factory\AppFactory;
+use Slim\Middleware\ErrorMiddleware;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+// 1. Budowanie kontenera PHP-DI
+$containerBuilder = new ContainerBuilder();
+
+// Rejestracja zaleznosci w kontenerze
+$containerBuilder->addDefinitions([
+    // PDO — polaczenie z baza danych
+    PDO::class => function () {
+        return new PDO(
+            dsn: 'mysql:host=127.0.0.1;dbname=myapp;charset=utf8mb4',
+            username: $_ENV['DB_USER'],
+            password: $_ENV['DB_PASS'],
+            options: [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+    },
+
+    // Monolog logger
+    \Psr\Log\LoggerInterface::class => function () {
+        $logger = new \Monolog\Logger('api');
+        $logger->pushHandler(new \Monolog\Handler\StreamHandler(
+            'php://stdout',
+            \Monolog\Level::Info
+        ));
+        return $logger;
+    },
+]);
+
+$container = $containerBuilder->build();
+
+// 2. Tworzenie aplikacji Slim z kontenerem
+AppFactory::setContainer($container);
+$app = AppFactory::create();
+
+// 3. Routing — podstawowe metody HTTP
+$app->get('/api/health', function (Request $request, Response $response): Response {
+    $payload = json_encode(['status' => 'ok', 'timestamp' => time()]);
+    $response->getBody()->write($payload);
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
+$app->get('/api/users/{id}', function (Request $request, Response $response, array $args): Response {
+    $id = (int) $args['id'];
+    // $this->get(PDO::class) dziala dzieki kontenerowi
+    $stmt = $this->get(PDO::class)->prepare('SELECT id, name, email FROM users WHERE id = ?');
+    $stmt->execute([$id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user) {
+        $response->getBody()->write(json_encode(['error' => 'Not found']));
+        return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
+    }
+
+    $response->getBody()->write(json_encode($user));
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
+$app->post('/api/users', function (Request $request, Response $response): Response {
+    $data = (array) $request->getParsedBody();
+    // ... walidacja i zapis
+    $response->getBody()->write(json_encode(['id' => 42, ...$data]));
+    return $response->withStatus(201)->withHeader('Content-Type', 'application/json');
+});
+
+$app->put('/api/users/{id}', function (Request $request, Response $response, array $args): Response {
+    $id   = (int) $args['id'];
+    $data = (array) $request->getParsedBody();
+    // ... aktualizacja
+    $response->getBody()->write(json_encode(['id' => $id, ...$data]));
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
+$app->delete('/api/users/{id}', function (Request $request, Response $response, array $args): Response {
+    $id = (int) $args['id'];
+    // ... usuniecie
+    return $response->withStatus(204);
+});
+
+// 4. Middleware — dodawane przez add()
+$app->add(new ErrorMiddleware(
+    callableResolver:  $app->getCallableResolver(),
+    responseFactory:   $app->getResponseFactory(),
+    displayErrorDetails: ($_ENV['APP_ENV'] ?? 'prod') === 'dev',
+    logErrors:         true,
+    logErrorDetails:   true,
+));
+
+$app->run();
+</code></pre>
+
+  <h2>PSR-15 Middleware w Slim</h2>
+  <p>Middleware dodaje sie metoda <code>$app->add()</code> lub <code>$route->add()</code> dla konkretnej trasy. Slim przetwarza middleware w kolejnosci LIFO (last in, first out) — ostatnio dodane middleware jest wykonywane jako pierwsze dla requestu.</p>
+
+<pre><code>&lt;?php
+
+namespace App\Middleware;
+
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
+
+// Middleware do logowania requestow
+class RequestLoggerMiddleware implements MiddlewareInterface
+{
+    public function __construct(
+        private readonly LoggerInterface $logger
+    ) {}
+
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        $start = microtime(true);
+
+        $response = $handler->handle($request);
+
+        $elapsed = round((microtime(true) - $start) * 1000, 2);
+
+        $this->logger->info('HTTP Request', [
+            'method'   => $request->getMethod(),
+            'path'     => $request->getUri()->getPath(),
+            'status'   => $response->getStatusCode(),
+            'duration' => $elapsed . 'ms',
+            'ip'       => $request->getServerParams()['REMOTE_ADDR'] ?? 'unknown',
+        ]);
+
+        return $response;
+    }
+}
+
+// Middleware uwierzytelniania JWT (uproszczone)
+class JwtAuthMiddleware implements MiddlewareInterface
+{
+    public function __construct(
+        private readonly string $secretKey
+    ) {}
+
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler
+    ): ResponseInterface {
+        $header = $request->getHeaderLine('Authorization');
+
+        if (!preg_match('/^Bearer\s+(.+)$/', $header, $matches)) {
+            // Zwrocenie 401 bez wywolania kolejnego handlera
+            $factory = new \Slim\Psr7\Factory\ResponseFactory();
+            $response = $factory->createResponse(401);
+            $response->getBody()->write(json_encode(['error' => 'Unauthorized']));
+            return $response->withHeader('Content-Type', 'application/json');
+        }
+
+        // Weryfikacja JWT i dolaczenie payload do atrybutow requestu
+        $token   = $matches[1];
+        $payload = $this->verifyJwt($token);
+        $request = $request->withAttribute('user', $payload);
+
+        return $handler->handle($request);
+    }
+
+    private function verifyJwt(string $token): array
+    {
+        // Uproszczona weryfikacja — w produkcji uzyj firebase/php-jwt
+        [$header, $payload, $signature] = explode('.', $token);
+        return json_decode(base64_decode($payload), true) ?? [];
+    }
+}
+
+// Rejestracja middleware na konkretnej grupie tras
+$app->group('/api/admin', function (\Slim\Routing\RouteCollectorProxy $group) {
+    $group->get('/stats', AdminController::class . ':stats');
+    $group->get('/users', AdminController::class . ':users');
+})->add(new JwtAuthMiddleware($_ENV['JWT_SECRET']))
+  ->add(new RequestLoggerMiddleware($container->get(LoggerInterface::class)));
+</code></pre>
+
+  <h2>PHP-DI — Dependency Injection</h2>
+  <p>PHP-DI to zaawansowany kontener DI dla PHP z obsluga autowiring — automatycznego rozwiazywania zaleznosci na podstawie type hints w konstruktorach. Dzieki temu mozna wstrzykiwac zaleznosci do kontrolerow i serwisow bez recznej konfiguracji.</p>
+
+  <h2>Obsluga bledow — ErrorMiddleware</h2>
+  <p>Slim 4 obsluguje bledy przez <code>ErrorMiddleware</code>, ktory przechwytuje wyjatek i konwertuje go na odpowiednia odpowiedz HTTP. Mozna rejestrownac wlasne handlery dla konkretnych typow wyjatkow.</p>
+
+  <div class="card orange">
+    <strong>Customowy handler bledow</strong>
+    <pre style="margin:8px 0 0"><code>$errorMiddleware = $app->addErrorMiddleware(true, true, true);
+
+// Handler dla konkretnego wyjatku
+$errorMiddleware->setErrorHandler(
+    \App\Exception\ValidationException::class,
+    function (Request $request, \Throwable $exception, bool $displayErrorDetails) use ($app): Response {
+        $response = $app->getResponseFactory()->createResponse(422);
+        $payload  = json_encode([
+            'error'   => 'Validation failed',
+            'details' => $exception->getErrors(), // metoda z wlasnego wyjatku
+        ]);
+        $response->getBody()->write($payload);
+        return $response->withHeader('Content-Type', 'application/json');
+    }
+);
+</code></pre>
+  </div>
+
+  <h2>Tabela: Slim vs Lumen vs Silex</h2>
+  <table>
+    <thead>
+      <tr><th>Kryterium</th><th>Slim 4</th><th>Lumen (Laravel)</th><th>Silex (Symfony)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Status</td><td>Aktywny rozwoj</td><td>Maintenance mode</td><td>EOL (2018)</td></tr>
+      <tr><td>Standard HTTP</td><td>PSR-7 / PSR-15</td><td>Wlasna implementacja</td><td>HttpFoundation</td></tr>
+      <tr><td>DI Container</td><td>PSR-11 (dowolny)</td><td>Laravel IoC</td><td>Pimple</td></tr>
+      <tr><td>ORM</td><td>Brak (dowolny)</td><td>Eloquent (opcja)</td><td>Brak</td></tr>
+      <tr><td>Routing</td><td>FastRoute</td><td>Laravel Router</td><td>Symfony Routing</td></tr>
+      <tr><td>Middleware</td><td>PSR-15</td><td>Laravel Middleware</td><td>Wlasna implementacja</td></tr>
+      <tr><td>Zuzycie pamieci</td><td>Bardzo niskie (~2 MB)</td><td>Srednie (~8 MB)</td><td>N/A (EOL)</td></tr>
+      <tr><td>Zalecane dla</td><td>Mikroserwisy, API</td><td>Laravel-like API</td><td>Projekty historyczne</td></tr>
+    </tbody>
+  </table>
+
+  <div class="nav-bottom">
+    <a href="04-symfony-api-platform.html">← 04-symfony-api-platform.html</a>
+    <a href="06-eloquent-orm.html">06-eloquent-orm.html →</a>
+  </div>
+</div>
+</body>
+</html>

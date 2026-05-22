@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testowanie Go API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#06b6d4;--accent-hover:#22d3ee;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Go</a>
+  <span class="sep">/</span>
+  <span class="title">Testowanie Go API</span>
+</div>
+<div class="container">
+  <h1>Testowanie Go API</h1>
+  <p class="subtitle">testing, httptest, testify, gomock, testcontainers — pełna strategia testow od jednostkowych do integracyjnych</p>
+
+  <h2>Pakiet testing — podstawy</h2>
+  <p>Go ma wbudowany framework testowy w standardowej bibliotece. Pliki testowe maja sufiks <code>_test.go</code> i sa kompilowane tylko przy <code>go test</code>. Funkcje testowe musza miec prefiks <code>Test</code> i przyjmowac <code>*testing.T</code>.</p>
+
+<pre><code>package handlers_test
+
+import (
+    "testing"
+    "time"
+)
+
+// Test jednostkowy — konwencja nazewnictwa: TestNazwaFunkcji_Scenariusz
+func TestParseToken_ValidToken(t *testing.T) {
+    token, err := GenerateToken(42, "admin")
+    if err != nil {
+        t.Fatalf("GenerateToken zwrocil blad: %v", err)
+    }
+
+    claims, err := ParseToken(token)
+    if err != nil {
+        t.Fatalf("ParseToken zwrocil blad: %v", err)
+    }
+
+    if claims.UserID != 42 {
+        t.Errorf("oczekiwano UserID=42, got=%d", claims.UserID)
+    }
+    if claims.Role != "admin" {
+        t.Errorf("oczekiwano role=admin, got=%s", claims.Role)
+    }
+}
+
+// t.Run — podtesty (table-driven tests)
+func TestCalculateDiscount(t *testing.T) {
+    cases := []struct {
+        name     string
+        price    float64
+        discount float64
+        want     float64
+    }{
+        {"bez rabatu", 100, 0, 100},
+        {"10 procent", 100, 0.10, 90},
+        {"pelny rabat", 100, 1.0, 0},
+        {"ujemna cena", -50, 0.10, 0}, // przypadek brzegowy
+    }
+
+    for _, tc := range cases {
+        t.Run(tc.name, func(t *testing.T) {
+            t.Parallel() // rownolegly test podrzedny
+            got := CalculateDiscount(tc.price, tc.discount)
+            if got != tc.want {
+                t.Errorf("CalculateDiscount(%v, %v) = %v, want %v",
+                    tc.price, tc.discount, got, tc.want)
+            }
+        })
+    }
+}
+
+// TestMain — setup i teardown dla calego pakietu testowego
+func TestMain(m *testing.M) {
+    // Setup przed testami
+    setupTestDB()
+    code := m.Run()
+    // Teardown po testach
+    teardownTestDB()
+    os.Exit(code)
+}</code></pre>
+
+  <h2>httptest — testowanie handlerow HTTP</h2>
+  <p>Pakiet <code>net/http/httptest</code> pozwala testowac handlery HTTP bez uruchamiania prawdziwego serwera. <code>httptest.NewRecorder()</code> to implementacja <code>http.ResponseWriter</code> zapisujaca odpowiedz w pamieci. <code>httptest.NewRequest()</code> tworzy syntetyczne zadanie.</p>
+
+<pre><code>import (
+    "bytes"
+    "encoding/json"
+    "net/http"
+    "net/http/httptest"
+    "testing"
+
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+func TestCreateUserHandler(t *testing.T) {
+    // Przygotowanie — mock repozytorium
+    mockRepo := &MockUserRepository{}
+    mockRepo.On("Create", mock.Anything, "Jan Kowalski", "jan@example.com").
+        Return(&User{ID: 1, Name: "Jan Kowalski"}, nil)
+
+    handler := NewUserHandler(mockRepo)
+    router := setupRouter(handler) // gin.Default() z zarejestrowanymi trasami
+
+    tests := []struct {
+        name       string
+        body       any
+        wantStatus int
+        wantID     int
+    }{
+        {
+            name:       "poprawne dane",
+            body:       map[string]string{"name": "Jan Kowalski", "email": "jan@example.com"},
+            wantStatus: http.StatusCreated,
+            wantID:     1,
+        },
+        {
+            name:       "brak email",
+            body:       map[string]string{"name": "Jan"},
+            wantStatus: http.StatusBadRequest,
+        },
+        {
+            name:       "puste body",
+            body:       nil,
+            wantStatus: http.StatusBadRequest,
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            var bodyBytes []byte
+            if tt.body != nil {
+                bodyBytes, _ = json.Marshal(tt.body)
+            }
+
+            req := httptest.NewRequest(http.MethodPost, "/api/v1/users",
+                bytes.NewReader(bodyBytes))
+            req.Header.Set("Content-Type", "application/json")
+            req.Header.Set("Authorization", "Bearer "+validToken)
+
+            w := httptest.NewRecorder()
+            router.ServeHTTP(w, req)
+
+            assert.Equal(t, tt.wantStatus, w.Code)
+
+            if tt.wantID > 0 {
+                var resp map[string]any
+                require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+                assert.Equal(t, float64(tt.wantID), resp["id"])
+            }
+        })
+    }
+}</code></pre>
+
+  <h2>testify — asercje i mocki</h2>
+  <p>Pakiet <code>github.com/stretchr/testify</code> to de facto standard biblioteki testowej w Go. Dostarcza czytelne asercje, wymagania i framework do mockowania.</p>
+
+  <table>
+    <thead>
+      <tr><th>Pakiet</th><th>Przeznaczenie</th><th>Przyklad</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>assert</code></td><td>Asercje — test trwa po bledzie</td><td><code>assert.Equal(t, 200, code)</code></td></tr>
+      <tr><td><code>require</code></td><td>Wymagania — test zatrzymuje sie po bledzie</td><td><code>require.NoError(t, err)</code></td></tr>
+      <tr><td><code>mock</code></td><td>Mockowanie zaleznosci</td><td><code>mockRepo.On("Find", 1).Return(user, nil)</code></td></tr>
+      <tr><td><code>suite</code></td><td>Klasy testowe z setup/teardown</td><td><code>suite.Run(t, new(MySuite))</code></td></tr>
+      <tr><td><code>assert.HTTPSuccess</code></td><td>Testowanie handlerow HTTP</td><td><code>assert.HTTPStatusCode(t, h, "GET", "/", 200)</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>gomock — generowanie mockow</h2>
+  <p>Pakiet <code>go.uber.org/mock/gomock</code> (fork oryginalnego golang/mock) generuje mocki na podstawie interfejsow. Narzedzie <code>mockgen</code> tworzy kod automatycznie — nie trzeba pisac mockow recznie.</p>
+
+  <h2>Testy integracyjne z testcontainers-go</h2>
+  <p>Pakiet <code>github.com/testcontainers/testcontainers-go</code> uruchamia prawdziwe kontenery Docker w testach. Dzieki temu testy integracyjne uzywaja prawdziwej bazy PostgreSQL zamiast in-memory stub — co eliminuje cala klase fałszywych pozytywow.</p>
+
+  <div class="card blue">
+    <h3>Wzorzec testow integracyjnych z PostgreSQL</h3>
+    <p>W <code>TestMain</code> uruchamiasz kontener PostgreSQL, stosujesz migracje, a po testach kontener jest automatycznie usuwany. Kazdy test dostaje czysta baze przez transakcje z rollbackiem po tescie — <code>t.Cleanup(func() { tx.Rollback() })</code>.</p>
+  </div>
+
+  <h2>Benchmarki</h2>
+  <p>Funkcje benchmarkow maja prefiks <code>Benchmark</code> i przyjmuja <code>*testing.B</code>. Uruchamiasz je przez <code>go test -bench=. -benchmem</code>. Go automatycznie dostosowuje liczbe iteracji (<code>b.N</code>) do uzyskania wiarygodnych wynikow.</p>
+
+<pre><code>func BenchmarkParseToken(b *testing.B) {
+    token, _ := GenerateToken(1, "user")
+    b.ResetTimer() // reset po kosztownym setup
+
+    b.RunParallel(func(pb *testing.PB) {
+        for pb.Next() {
+            _, err := ParseToken(token)
+            if err != nil {
+                b.Fatal(err)
+            }
+        }
+    })
+}
+
+// Wynik: BenchmarkParseToken-8   523048   2284 ns/op   1024 B/op   12 allocs/op
+// -8 = liczba CPU, ns/op = czas na operacje, B/op = alokacje pamieci</code></pre>
+
+  <h2>Race detector</h2>
+  <p>Go ma wbudowany detektor wyścigów danych (race conditions). Uruchom testy z flagą <code>-race</code> aby znalezc niepoprawny dostep wspolbiezny do pamieci. Race detector spowalnia program ok. 5-10x, ale jest niezbedny w testach CI.</p>
+
+  <div class="card green">
+    <h3>Komendy testowe — sciagawka</h3>
+    <ul>
+      <li><code>go test ./...</code> — wszystkie testy w projekcie</li>
+      <li><code>go test -v ./handlers/...</code> — verbose, tylko pakiet handlers</li>
+      <li><code>go test -run TestCreate ./...</code> — tylko testy pasujace do wzorca</li>
+      <li><code>go test -race ./...</code> — z detektorem wyscigów danych</li>
+      <li><code>go test -cover ./...</code> — pokrycie kodu</li>
+      <li><code>go test -coverprofile=cover.out ./... &amp;&amp; go tool cover -html=cover.out</code> — raport HTML</li>
+      <li><code>go test -bench=. -benchmem -benchtime=5s ./...</code> — benchmarki 5 sekund</li>
+      <li><code>go test -count=3 ./...</code> — powtorz 3 razy (eliminuje flaky tests)</td></li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="08-uwierzytelnianie.html">&#8592; 08-uwierzytelnianie.html</a>
+    <a href="10-deployment.html">10-deployment.html &#8594;</a>
+  </div>
+</div>
+</body>
+</html>

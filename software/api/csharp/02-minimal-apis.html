@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minimal APIs (.NET 6+) — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">Minimal APIs (.NET 6+)</span>
+</div>
+<div class="container">
+  <h1>Minimal APIs (.NET 6+)</h1>
+  <p class="subtitle">Route handlers, parameter binding, TypedResults, filtry, grupy i integracja z OpenAPI</p>
+
+  <h2>Czym sa Minimal APIs?</h2>
+  <p>Minimal APIs to podejscie wprowadzone w .NET 6, ktore pozwala definiowac endpointy HTTP bezposrednio w <code>Program.cs</code> bez klas kontrolerow. Cel to redukcja plytki i szybsze pisanie prostych API. W .NET 9 Minimal APIs sa w pelni dojrzale i wspieraja wszystkie funkcje MVC.</p>
+
+  <div class="card blue">
+    <strong>Kiedy wybrac Minimal API zamiast kontrolerow?</strong>
+    <ul style="margin-top:8px">
+      <li>Mikrouslugi z malym zestawem endpointow</li>
+      <li>Projekty gdzie prostota i szybkosc startu sa priorytetem</li>
+      <li>Serwisy lambda / Azure Functions (podobny model programowania)</li>
+      <li>Prototypowanie i POC</li>
+    </ul>
+  </div>
+
+  <h2>Route handlers — MapGet/MapPost/MapPut/MapDelete/MapPatch</h2>
+  <pre><code>var app = builder.Build();
+
+// GET — pobierz liste
+app.MapGet("/products", async (IProductRepository repo) =&gt;
+{
+    var products = await repo.GetAllAsync();
+    return Results.Ok(products);
+});
+
+// GET — pobierz pojedynczy rekord
+app.MapGet("/products/{id:int}", async (int id, IProductRepository repo) =&gt;
+{
+    var product = await repo.GetByIdAsync(id);
+    return product is null
+        ? Results.NotFound(new { message = $"Produkt {id} nie istnieje" })
+        : Results.Ok(product);
+});
+
+// POST — utworz
+app.MapPost("/products", async (
+    CreateProductRequest request,
+    IProductRepository repo,
+    LinkGenerator links,
+    HttpContext ctx) =&gt;
+{
+    var product = await repo.CreateAsync(request);
+    var uri = links.GetPathByName(ctx, "GetProductById", new { id = product.Id });
+    return Results.Created(uri, product);
+})
+.WithName("CreateProduct")
+.RequireAuthorization();
+
+// PUT — aktualizuj
+app.MapPut("/products/{id:int}", async (
+    int id,
+    UpdateProductRequest request,
+    IProductRepository repo) =&gt;
+{
+    var updated = await repo.UpdateAsync(id, request);
+    return updated is null ? Results.NotFound() : Results.Ok(updated);
+});
+
+// PATCH — czesciowa aktualizacja
+app.MapPatch("/products/{id:int}/price", async (
+    int id,
+    [FromBody] decimal newPrice,
+    IProductRepository repo) =&gt;
+{
+    await repo.UpdatePriceAsync(id, newPrice);
+    return Results.NoContent();
+});
+
+// DELETE
+app.MapDelete("/products/{id:int}", async (int id, IProductRepository repo) =&gt;
+{
+    var deleted = await repo.DeleteAsync(id);
+    return deleted ? Results.NoContent() : Results.NotFound();
+})
+.RequireAuthorization("AdminOnly");</code></pre>
+
+  <h2>Parameter binding</h2>
+  <p>Minimal APIs automatycznie rozpoznaja zrodlo parametru na podstawie jego nazwy i atrybutow. Mozna to nadpisac jawnie:</p>
+
+  <table>
+    <thead>
+      <tr><th>Atrybut</th><th>Zrodlo</th><th>Przyklad</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>[FromQuery]</code></td><td>Query string</td><td><code>?page=2&amp;size=10</code></td></tr>
+      <tr><td><code>[FromRoute]</code></td><td>Segment URL</td><td><code>/products/{id}</code></td></tr>
+      <tr><td><code>[FromBody]</code></td><td>Cialo zadania (JSON)</td><td>POST body</td></tr>
+      <tr><td><code>[FromHeader]</code></td><td>Naglowek HTTP</td><td><code>X-Api-Key: abc</code></td></tr>
+      <tr><td><code>[FromServices]</code></td><td>Kontener DI</td><td>Wstrzykniecie serwisu</td></tr>
+      <tr><td><code>[AsParameters]</code></td><td>Obiekt zbiorczy</td><td>Grupowanie parametrow</td></tr>
+    </tbody>
+  </table>
+
+  <pre><code>// Automatyczne bindowanie
+app.MapGet("/search", (
+    [FromQuery] string? query,
+    [FromQuery] int page = 1,
+    [FromQuery] int size = 20,
+    [FromHeader(Name = "X-Api-Version")] string? apiVersion,
+    ISearchService searchService) =&gt;
+{
+    return searchService.Search(query, page, size);
+});
+
+// AsParameters — grupowanie w rekord
+record ProductSearchParams(
+    [FromQuery] string? Name,
+    [FromQuery] decimal? MinPrice,
+    [FromQuery] decimal? MaxPrice,
+    [FromQuery] int Page = 1,
+    [FromQuery] int PageSize = 20);
+
+app.MapGet("/products/search", ([AsParameters] ProductSearchParams p,
+    IProductRepository repo) =&gt;
+    repo.SearchAsync(p.Name, p.MinPrice, p.MaxPrice, p.Page, p.PageSize));</code></pre>
+
+  <h2>TypedResults — silnie typowane odpowiedzi</h2>
+  <p><code>TypedResults</code> (dostepne od .NET 7) jest preferowana alternatywa dla <code>Results</code>. Zwracane typy sa statycznie znane, co umozliwia automatyczne generowanie OpenAPI bez dodatkowych adnotacji.</p>
+
+  <pre><code>// TypedResults zamiast Results
+app.MapGet("/products/{id:int}", async Task&lt;Results&lt;Ok&lt;Product&gt;, NotFound&gt;&gt;(
+    int id, IProductRepository repo) =&gt;
+{
+    var product = await repo.GetByIdAsync(id);
+    return product is null
+        ? TypedResults.NotFound()
+        : TypedResults.Ok(product);
+})
+.WithName("GetProductById");
+
+app.MapPost("/products", async Task&lt;Results&lt;Created&lt;Product&gt;, ValidationProblem&gt;&gt;(
+    CreateProductRequest request,
+    IValidator&lt;CreateProductRequest&gt; validator,
+    IProductRepository repo) =&gt;
+{
+    var validation = await validator.ValidateAsync(request);
+    if (!validation.IsValid)
+        return TypedResults.ValidationProblem(validation.ToDictionary());
+
+    var product = await repo.CreateAsync(request);
+    return TypedResults.Created($"/products/{product.Id}", product);
+});</code></pre>
+
+  <h2>Endpoint Filters — IEndpointFilter</h2>
+  <p>Filtry pozwalaja na przekrojowe przetwarzanie zadan — walidacje, logowanie, rate limiting — bez powielania kodu w kazdym handlerze.</p>
+
+  <pre><code>// Definicja filtra
+public class ValidationFilter&lt;TRequest&gt; : IEndpointFilter
+{
+    private readonly IValidator&lt;TRequest&gt; _validator;
+
+    public ValidationFilter(IValidator&lt;TRequest&gt; validator)
+    {
+        _validator = validator;
+    }
+
+    public async ValueTask&lt;object?&gt; InvokeAsync(
+        EndpointFilterInvocationContext context,
+        EndpointFilterDelegate next)
+    {
+        var request = context.Arguments
+            .OfType&lt;TRequest&gt;()
+            .FirstOrDefault();
+
+        if (request is not null)
+        {
+            var result = await _validator.ValidateAsync(request);
+            if (!result.IsValid)
+                return Results.ValidationProblem(result.ToDictionary());
+        }
+
+        return await next(context);
+    }
+}
+
+// Uzywanie filtra
+app.MapPost("/products", CreateProductHandler)
+   .AddEndpointFilter&lt;ValidationFilter&lt;CreateProductRequest&gt;&gt;();
+
+// Inline filter (krotki)
+app.MapDelete("/products/{id:int}", DeleteProductHandler)
+   .AddEndpointFilter(async (ctx, next) =&gt;
+   {
+       var id = ctx.GetArgument&lt;int&gt;(0);
+       if (id &lt;= 0) return Results.BadRequest("Id musi byc > 0");
+       return await next(ctx);
+   });</code></pre>
+
+  <h2>Route Groups — organizacja endpointow</h2>
+  <p>Grupy pozwalaja wspoldzielic prefix, middleware, filtry i metadane miedzy wieloma endpointami bez powtarzania kodu.</p>
+
+  <pre><code>// Grupowanie z wspolnym prefixem i autoryzacja
+var productsGroup = app.MapGroup("/api/v1/products")
+    .RequireAuthorization()
+    .WithTags("Products")
+    .WithOpenApi();
+
+productsGroup.MapGet("/", GetAllProducts);
+productsGroup.MapGet("/{id:int}", GetProductById).WithName("GetProductById");
+productsGroup.MapPost("/", CreateProduct)
+    .AddEndpointFilter&lt;ValidationFilter&lt;CreateProductRequest&gt;&gt;();
+productsGroup.MapPut("/{id:int}", UpdateProduct);
+productsGroup.MapDelete("/{id:int}", DeleteProduct);
+
+// Grupy zagniezdzane
+var adminGroup = app.MapGroup("/api/admin")
+    .RequireAuthorization("AdminPolicy");
+
+var adminProducts = adminGroup.MapGroup("/products");
+adminProducts.MapPost("/bulk-delete", BulkDeleteProducts);
+adminProducts.MapPost("/reindex", ReindexProducts);</code></pre>
+
+  <h2>Kompletne CRUD Minimal API — przyklad</h2>
+  <pre><code>// --- Models ---
+public record Product(int Id, string Name, decimal Price, int Stock);
+public record CreateProductRequest(string Name, decimal Price, int Stock);
+public record UpdateProductRequest(string Name, decimal Price, int Stock);
+
+// --- Program.cs ---
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddScoped&lt;IProductRepository, ProductRepository&gt;();
+builder.Services.AddScoped&lt;IValidator&lt;CreateProductRequest&gt;,
+    CreateProductValidator&gt;();
+builder.Services.AddOpenApi();
+builder.Services.AddAuthentication().AddJwtBearer();
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+app.MapOpenApi();
+
+var api = app.MapGroup("/api/products")
+    .WithTags("Products");
+
+api.MapGet("/", async (
+    [FromQuery] int page,
+    [FromQuery] int size,
+    IProductRepository repo,
+    CancellationToken ct) =&gt;
+{
+    var result = await repo.GetPagedAsync(page, size, ct);
+    return TypedResults.Ok(result);
+});
+
+api.MapGet("/{id:int}", async Task&lt;Results&lt;Ok&lt;Product&gt;, NotFound&gt;&gt;(
+    int id, IProductRepository repo, CancellationToken ct) =&gt;
+{
+    var p = await repo.GetByIdAsync(id, ct);
+    return p is null ? TypedResults.NotFound() : TypedResults.Ok(p);
+}).WithName("GetById");
+
+api.MapPost("/", async Task&lt;Results&lt;Created&lt;Product&gt;, ValidationProblem&gt;&gt;(
+    CreateProductRequest req,
+    IValidator&lt;CreateProductRequest&gt; validator,
+    IProductRepository repo,
+    CancellationToken ct) =&gt;
+{
+    var v = await validator.ValidateAsync(req, ct);
+    if (!v.IsValid) return TypedResults.ValidationProblem(v.ToDictionary());
+    var p = await repo.CreateAsync(req, ct);
+    return TypedResults.Created($"/api/products/{p.Id}", p);
+}).RequireAuthorization();
+
+api.MapPut("/{id:int}", async Task&lt;Results&lt;Ok&lt;Product&gt;, NotFound, ValidationProblem&gt;&gt;(
+    int id, UpdateProductRequest req,
+    IValidator&lt;UpdateProductRequest&gt; validator,
+    IProductRepository repo,
+    CancellationToken ct) =&gt;
+{
+    var v = await validator.ValidateAsync(req, ct);
+    if (!v.IsValid) return TypedResults.ValidationProblem(v.ToDictionary());
+    var p = await repo.UpdateAsync(id, req, ct);
+    return p is null ? TypedResults.NotFound() : TypedResults.Ok(p);
+}).RequireAuthorization();
+
+api.MapDelete("/{id:int}", async Task&lt;Results&lt;NoContent, NotFound&gt;&gt;(
+    int id, IProductRepository repo, CancellationToken ct) =&gt;
+{
+    var deleted = await repo.DeleteAsync(id, ct);
+    return deleted ? TypedResults.NoContent() : TypedResults.NotFound();
+}).RequireAuthorization("AdminOnly");
+
+app.Run();</code></pre>
+
+  <div class="card orange">
+    <strong>Uwaga — walidacja w Minimal APIs:</strong> W odroznieniu od kontrolerow z <code>[ApiController]</code>, Minimal APIs NIE wykonuja automatycznej walidacji Data Annotations. Musisz recznie wywolac walidator (FluentValidation) lub uzyc filtra.
+  </div>
+
+  <h2>Integracja z OpenAPI (.NET 9)</h2>
+  <pre><code>// .NET 9 — wbudowane OpenAPI (bez Swashbuckle)
+builder.Services.AddOpenApi(options =&gt;
+{
+    options.AddDocumentTransformer((doc, ctx, ct) =&gt;
+    {
+        doc.Info.Title = "Products API";
+        doc.Info.Version = "v1";
+        return Task.CompletedTask;
+    });
+});
+
+app.MapOpenApi();  // dostepne pod /openapi/v1.json
+
+// Metadane endpointu
+api.MapGet("/", GetAllProducts)
+   .WithSummary("Pobierz liste produktow")
+   .WithDescription("Zwraca stronicowana liste produktow z opcjonalnym filtrowaniem.")
+   .Produces&lt;PagedResult&lt;Product&gt;&gt;(200)
+   .WithOpenApi();</code></pre>
+
+  <div class="nav-bottom">
+    <a href="01-podstawy-aspnet-core.html">← 01-podstawy-aspnet-core.html</a>
+    <a href="03-controllers-i-mvc.html">03-controllers-i-mvc.html →</a>
+  </div>
+</div>
+</body>
+</html>

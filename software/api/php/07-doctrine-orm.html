@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doctrine ORM</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#818cf8;--accent-hover:#a5b4fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">PHP</a><span class="sep">/</span>
+  <span class="title">Doctrine ORM</span>
+</div>
+<div class="container">
+  <h1>Doctrine ORM</h1>
+  <p class="subtitle">Encje z atrybutami PHP 8, EntityManager, DQL, QueryBuilder, asocjacje i migracje</p>
+
+  <h2>Doctrine vs Active Record</h2>
+  <p>Doctrine implementuje wzorzec <strong>Data Mapper</strong> — separuje logike domenowa (encje) od logiki persystencji (EntityManager). Encje to czyste obiekty PHP bez dziedziczenia z klas ORM. Doctrine zarzadza stanem encji w Unit of Work i wysyla zmiany do bazy dopiero przy <code>flush()</code>. To podejscie lepiej nadaje sie do skomplikowanych modeli domenowych i architektur DDD.</p>
+
+  <div class="card blue">
+    <strong>Instalacja Doctrine w projekcie Symfony</strong>
+    <pre style="margin:8px 0 0"><code># Symfony z Doctrine
+composer require symfony/orm-pack
+composer require --dev symfony/maker-bundle
+
+# Konfiguracja polaczenia (.env)
+DATABASE_URL="mysql://user:pass@127.0.0.1:3306/mydb?serverVersion=8.0&charset=utf8mb4"
+
+# Generowanie encji przez Maker
+php bin/console make:entity Product
+
+# Tworzenie i uruchamianie migracji
+php bin/console make:migration
+php bin/console doctrine:migrations:migrate
+</code></pre>
+  </div>
+
+  <h2>Definicja encji z atrybutami PHP 8</h2>
+  <p>Doctrine 2.9+ obsługuje atrybuty PHP 8 jako alternatywe dla adnotacji XML i YAML. Atrybuty sa sprawdzane w czasie wykonania i oferuja pelna kontrole nad mapowaniem obiektowo-relacyjnym bezposrednio w klasie encji.</p>
+
+<pre><code>&lt;?php
+
+namespace App\Entity;
+
+use Doctrine\ORM\Mapping as ORM;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use Symfony\Component\Validator\Constraints as Assert;
+
+#[ORM\Entity(repositoryClass: ProductRepository::class)]
+#[ORM\Table(name: 'products')]
+#[ORM\HasLifecycleCallbacks]
+class Product
+{
+    #[ORM\Id]
+    #[ORM\GeneratedValue(strategy: 'IDENTITY')]
+    #[ORM\Column(type: 'integer')]
+    private ?int $id = null;
+
+    #[ORM\Column(type: 'string', length: 255, unique: true)]
+    #[Assert\NotBlank]
+    #[Assert\Length(min: 2, max: 255)]
+    private string $name;
+
+    #[ORM\Column(type: 'string', length: 255, unique: true)]
+    private string $slug;
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+    #[Assert\Positive]
+    private string $price;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $description = null;
+
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $stock = 0;
+
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $createdAt;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $updatedAt = null;
+
+    // Relacja Many-to-One: wiele produktow nalezy do jednej kategorii
+    #[ORM\ManyToOne(targetEntity: Category::class, inversedBy: 'products')]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
+    private Category $category;
+
+    // Relacja One-to-Many: jeden produkt ma wiele recenzji
+    #[ORM\OneToMany(
+        mappedBy: 'product',
+        targetEntity: Review::class,
+        cascade: ['persist', 'remove'],
+        orphanRemoval: true,
+        fetch: 'LAZY'
+    )]
+    #[ORM\OrderBy(['createdAt' => 'DESC'])]
+    private Collection $reviews;
+
+    // Relacja Many-to-Many: produkt moze miec wiele tagow
+    #[ORM\ManyToMany(targetEntity: Tag::class, cascade: ['persist'])]
+    #[ORM\JoinTable(name: 'products_tags')]
+    private Collection $tags;
+
+    public function __construct(string $name, string $price, Category $category)
+    {
+        $this->name      = $name;
+        $this->price     = $price;
+        $this->category  = $category;
+        $this->createdAt = new \DateTimeImmutable();
+        $this->reviews   = new ArrayCollection();
+        $this->tags      = new ArrayCollection();
+    }
+
+    // Lifecycle callback — wywolywany przed Update
+    #[ORM\PreUpdate]
+    public function onPreUpdate(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    public function getId(): ?int { return $this->id; }
+    public function getName(): string { return $this->name; }
+
+    public function addReview(Review $review): void
+    {
+        if (!$this->reviews->contains($review)) {
+            $this->reviews->add($review);
+            $review->setProduct($this);
+        }
+    }
+
+    public function removeReview(Review $review): void
+    {
+        $this->reviews->removeElement($review);
+    }
+
+    public function getReviews(): Collection { return $this->reviews; }
+}
+</code></pre>
+
+  <h2>EntityManager — Unit of Work</h2>
+  <p>EntityManager jest centralnym komponentem Doctrine. Sluzy do pobierania, zapisywania i usuwania encji. Implementuje wzorzec <strong>Unit of Work</strong> — sledzi wszystkie zmiany w encjach i wysyla je do bazy w jednej transakcji przy wywolaniu <code>flush()</code>.</p>
+
+<pre><code>&lt;?php
+
+namespace App\Controller;
+
+use App\Entity\Product;
+use App\Repository\ProductRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\Routing\Attribute\Route;
+
+#[Route('/api/products', name: 'api_products_')]
+class ProductController extends AbstractController
+{
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly ProductRepository $productRepository,
+    ) {}
+
+    #[Route('', name: 'index', methods: ['GET'])]
+    public function index(): JsonResponse
+    {
+        $products = $this->productRepository->findAllInStock();
+        return $this->json($products, context: ['groups' => ['product:list']]);
+    }
+
+    #[Route('', name: 'create', methods: ['POST'])]
+    public function create(Request $request): JsonResponse
+    {
+        $data     = json_decode($request->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        $category = $this->em->find(Category::class, $data['category_id']);
+
+        $product = new Product($data['name'], $data['price'], $category);
+
+        // persist() — rejestruje encje w Unit of Work
+        $this->em->persist($product);
+        // flush() — wysyla INSERT/UPDATE/DELETE do bazy (transakcja)
+        $this->em->flush();
+
+        return $this->json($product, 201, context: ['groups' => ['product:detail']]);
+    }
+
+    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    public function delete(Product $product): JsonResponse
+    {
+        $this->em->remove($product);
+        $this->em->flush();
+        return $this->json(null, 204);
+    }
+}
+</code></pre>
+
+  <h2>Repository Pattern i DQL</h2>
+  <p>Repository hermetyzuje logike zapytan do bazy danych. Doctrine oferuje bazowa klase <code>EntityRepository</code> z metodami jak <code>find()</code>, <code>findBy()</code>, <code>findOneBy()</code>. Wlasne metody mozna pisac w DQL lub QueryBuilder.</p>
+
+  <div class="card green">
+    <strong>Wlasne repozytorium z DQL i QueryBuilder</strong>
+    <pre style="margin:8px 0 0"><code>&lt;?php
+
+namespace App\Repository;
+
+use App\Entity\Product;
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\ORM\QueryBuilder;
+
+class ProductRepository extends ServiceEntityRepository
+{
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, Product::class);
+    }
+
+    // DQL — Doctrine Query Language (obiektowe SQL)
+    public function findExpensive(float $minPrice): array
+    {
+        return $this->getEntityManager()
+            ->createQuery(
+                'SELECT p, c FROM App\Entity\Product p
+                 JOIN p.category c
+                 WHERE p.price >= :price
+                 AND p.stock > 0
+                 ORDER BY p.price DESC'
+            )
+            ->setParameter('price', $minPrice)
+            ->setMaxResults(50)
+            ->getResult();
+    }
+
+    // QueryBuilder — programowe budowanie zapytan
+    public function findAllInStock(): array
+    {
+        return $this->createQueryBuilder('p')
+            ->select('p', 'c', 't')
+            ->leftJoin('p.category', 'c')
+            ->leftJoin('p.tags', 't')
+            ->where('p.stock > :stock')
+            ->setParameter('stock', 0)
+            ->orderBy('p.createdAt', 'DESC')
+            ->setMaxResults(100)
+            ->getQuery()
+            ->getResult();
+    }
+
+    // Natywne SQL z mapowaniem na encje
+    public function findByFullText(string $query): array
+    {
+        $sql = 'SELECT p.* FROM products p
+                WHERE MATCH(p.name, p.description) AGAINST(:q IN BOOLEAN MODE)
+                AND p.stock > 0
+                LIMIT 20';
+
+        $rsm = new \Doctrine\ORM\Query\ResultSetMappingBuilder($this->getEntityManager());
+        $rsm->addRootEntityFromClassMetadata(Product::class, 'p');
+
+        return $this->getEntityManager()
+            ->createNativeQuery($sql, $rsm)
+            ->setParameter('q', $query . '*')
+            ->getResult();
+    }
+}
+</code></pre>
+  </div>
+
+  <h2>Tabela: Doctrine ORM vs Eloquent ORM</h2>
+  <table>
+    <thead>
+      <tr><th>Kryterium</th><th>Doctrine ORM</th><th>Eloquent ORM</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Wzorzec projektowy</td><td>Data Mapper + Unit of Work</td><td>Active Record</td></tr>
+      <tr><td>Separacja logiki</td><td>Encja ≠ dostep do DB</td><td>Model = dostep do DB</td></tr>
+      <tr><td>Framework</td><td>Symfony (+ standalone)</td><td>Laravel (+ standalone)</td></tr>
+      <tr><td>Jezyk zapytan</td><td>DQL + QueryBuilder</td><td>Eloquent Builder (fluent SQL)</td></tr>
+      <tr><td>Migracje</td><td>doctrine/migrations</td><td>Laravel Migrations</td></tr>
+      <tr><td>Relacje</td><td>Atrybuty PHP 8 (#[ManyToOne])</td><td>Metody PHP (hasMany())</td></tr>
+      <tr><td>Lazy loading</td><td>Proxy obiekty (transparentne)</td><td>Dynamic properties</td></tr>
+      <tr><td>Krzywa uczenia</td><td>Wyzsza (UoW, flush)</td><td>Nizsza (intuicyjny API)</td></tr>
+      <tr><td>Testy jednostkowe</td><td>Latwiejsze (czyste POPO)</td><td>Trudniejsze (statyczne metody)</td></tr>
+      <tr><td>DDD / Clean Arch.</td><td>Doskonale pasuje</td><td>Wymaga obejsc</td></tr>
+    </tbody>
+  </table>
+
+  <div class="nav-bottom">
+    <a href="06-eloquent-orm.html">← 06-eloquent-orm.html</a>
+    <a href="08-walidacja-bezpieczenstwo.html">08-walidacja-bezpieczenstwo.html →</a>
+  </div>
+</div>
+</body>
+</html>

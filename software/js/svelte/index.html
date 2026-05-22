@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Svelte 5 / SvelteKit</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fb923c;--accent-hover:#fdba74;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:36px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);text-align:center}
+.footer a{color:var(--accent);text-decoration:none;font-weight:500}.footer a:hover{color:var(--accent-hover)}
+tr:nth-child(even) td{background:rgba(30,41,59,.5)}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <a href="../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../index.html">JS-TS</a>
+  <span class="sep">/</span>
+  <span class="title">Svelte 5</span>
+</nav>
+
+<div class="container">
+  <h1>Svelte 5 / SvelteKit</h1>
+  <p class="subtitle">Compile-time framework. Runes reactive primitives. Najmniejsze bundles w 2026.</p>
+
+  <!-- 1. Co to Svelte -->
+  <h2>1. Co to Svelte</h2>
+  <p>Svelte to framework UI, ktory <strong>kompiluje sie do vanilla JavaScript</strong> w czasie budowania. Nie ma runtime'u — kod wynikowy to czyste operacje DOM bez biblioteki pomocniczej. To oznacza minimalne rozmiary bundla i maksymalna wydajnosc uruchomieniowa.</p>
+  <div class="card blue">
+    <strong>Kluczowa roznica od React/Vue:</strong> React i Vue sa bibliotekami uruchamianymi w przegladarce — framework jest czescią bundla. Svelte jest kompilatorem — "znika" po kompilacji, zostawia tylko Twoj kod.
+  </div>
+  <ul>
+    <li><strong>React/Vue:</strong> wysyla framework + Twoj kod → przeglądarka interpretuje oba</li>
+    <li><strong>Svelte:</strong> kompiluje .svelte do zoptymalizowanego JS → przeglada interpretuje tylko Twoj kod</li>
+    <li>Svelte 4 i wczesniejsze: reaktywnosc przez specjalne oznaczenia kompilatora (<code>$:</code> labels)</li>
+    <li>Svelte 5 (2024+): reaktywnosc przez <strong>Runes</strong> — nowe API oparte na sygnalach</li>
+  </ul>
+
+  <!-- 2. Instalacja -->
+  <h2>2. Instalacja — SvelteKit</h2>
+  <p>Zalecany sposob to SvelteKit — oficjalny meta-framework analogiczny do Next.js:</p>
+  <pre><code># nowy projekt SvelteKit
+npm create svelte@latest moja-aplikacja
+# opcje: Skeleton / Demo app / Library
+# TypeScript: Yes (zalecane)
+# Prettier + ESLint: Yes
+
+cd moja-aplikacja
+npm install
+npm run dev
+
+# standalone Svelte (bez SvelteKit, przez Vite)
+npm create vite@latest moja-app -- --template svelte-ts</code></pre>
+  <div class="card green">
+    <strong>Wymagania:</strong> Node 18+. SvelteKit uzywa Vite wewnetrznie — masz HMR, TypeScript, CSS preprocessory out of the box.
+  </div>
+  <pre><code># dodanie do istniejacego projektu Vite
+npm install -D svelte @sveltejs/vite-plugin-svelte
+
+# vite.config.ts
+import { svelte } from '@sveltejs/vite-plugin-svelte';
+export default { plugins: [svelte()] };</code></pre>
+
+  <!-- 3. Svelte 5 Runes -->
+  <h2>3. Svelte 5 Runes — $state, $derived, $effect, $props</h2>
+  <p>Runes to nowe API reaktywnosci w Svelte 5. Sa to <strong>symbole kompilatora</strong> — wyglądają jak wywolania funkcji, ale sa transformowane w czasie kompilacji do zoptymalizowanego kodu reaktywnego.</p>
+  <pre><code>&lt;script lang="ts"&gt;
+  // $state — reaktywna zmienna (zastepuje stary "let" z reaktywnoscia)
+  let count = $state(0);
+  let name = $state('Swiat');
+  let items = $state&lt;string[]&gt;([]);
+
+  // $derived — obliczona wartosc (zastepuje $: label)
+  let doubled = $derived(count * 2);
+  let greeting = $derived(`Czesc, ${name}!`);
+  let itemCount = $derived(items.length);
+
+  // $derived.by — dla bardziej zlozonych obliczen
+  let stats = $derived.by(() =&gt; ({
+    total: items.length,
+    long: items.filter(i =&gt; i.length &gt; 5).length
+  }));
+
+  // $effect — side effecty (zastepuje onMount + reactive statements)
+  $effect(() =&gt; {
+    console.log('count zmieniony na:', count);
+    // cleanup — zwroc funkcje
+    return () =&gt; console.log('cleanup');
+  });
+
+  // $effect.pre — uruchamiany PRZED aktualizacja DOM
+  $effect.pre(() =&gt; {
+    console.log('przed renderem, count =', count);
+  });
+
+  // $props — deklaracja propsow komponentu
+  let { title, description = 'brak opisu', onClose }: {
+    title: string;
+    description?: string;
+    onClose?: () =&gt; void;
+  } = $props();
+&lt;/script&gt;</code></pre>
+  <div class="card orange">
+    <strong>Svelte 4 vs Svelte 5:</strong> Svelte 4 uzywal <code>$: doubled = count * 2</code> (magiczny label JS). Svelte 5 uzywa <code>$derived(count * 2)</code> — bardziej explicite, latwiejsze do statycznej analizy i refaktoryzacji.
+  </div>
+
+  <!-- 4. .svelte files -->
+  <h2>4. Struktura pliku .svelte</h2>
+  <p>Kazdy plik .svelte to self-contained komponent z trzema sekcjami: script, template i style. Style sa automatycznie <strong>scoped</strong> do komponentu.</p>
+  <pre><code>&lt;!-- MyCard.svelte --&gt;
+&lt;script lang="ts"&gt;
+  let { title, body, variant = 'default' } = $props&lt;{
+    title: string;
+    body: string;
+    variant?: 'default' | 'warning' | 'success';
+  }&gt;();
+
+  let isExpanded = $state(false);
+  let charCount = $derived(body.length);
+&lt;/script&gt;
+
+&lt;!-- template — HTML z Svelte directives --&gt;
+&lt;article class="card {variant}" class:expanded={isExpanded}&gt;
+  &lt;h3&gt;{title}&lt;/h3&gt;
+  &lt;p&gt;{body}&lt;/p&gt;
+  &lt;small&gt;{charCount} znakow&lt;/small&gt;
+  &lt;button onclick={() =&gt; isExpanded = !isExpanded}&gt;
+    {isExpanded ? 'Zwiń' : 'Rozwiń'}
+  &lt;/button&gt;
+&lt;/article&gt;
+
+&lt;!-- style — automatycznie scoped, nie wyciekaja do rodzica --&gt;
+&lt;style&gt;
+  .card { border: 1px solid #ccc; padding: 16px; border-radius: 8px; }
+  .card.warning { border-color: orange; }
+  .card.success { border-color: green; }
+  /* :global(...) — jesli potrzeba wyjs ze scope */
+  :global(.external-class) { color: red; }
+&lt;/style&gt;</code></pre>
+
+  <!-- 5. Reactivity -->
+  <h2>5. Reaktywnosc — $state vs stary model Svelte 4</h2>
+  <table>
+    <tr><th>Cecha</th><th>Svelte 4 (stary)</th><th>Svelte 5 Runes</th></tr>
+    <tr><td>Reaktywna zmienna</td><td><code>let count = 0</code> (magiczne)</td><td><code>let count = $state(0)</code></td></tr>
+    <tr><td>Computed</td><td><code>$: doubled = count * 2</code></td><td><code>let doubled = $derived(count * 2)</code></td></tr>
+    <tr><td>Side effect</td><td><code>$: console.log(count)</code></td><td><code>$effect(() =&gt; { console.log(count) })</code></td></tr>
+    <tr><td>Props</td><td><code>export let title</code></td><td><code>let { title } = $props()</code></td></tr>
+    <tr><td>Store</td><td><code>writable(), readable(), derived()</code></td><td>Rzadko potrzebne (runes zastepuja)</td></tr>
+    <tr><td>Reaktywnosc poza .svelte</td><td>Niemozliwa bez stores</td><td>Mozliwa w .svelte.ts przez runes</td></tr>
+    <tr><td>Kompatybilnosc wsteczna</td><td>—</td><td>Stary API dziala (tryb "legacy")</td></tr>
+  </table>
+  <p>Runes dzialaja rowniez w plikach <code>.svelte.ts</code> / <code>.svelte.js</code> — mozna ekstrahorac logike do zewnetrznych plikow zachowujac reaktywnosc.</p>
+  <pre><code">// counter.svelte.ts — reaktywna logika poza komponentem
+export function createCounter(initial = 0) {
+  let count = $state(initial);
+  let doubled = $derived(count * 2);
+
+  return {
+    get count() { return count; },
+    get doubled() { return doubled; },
+    increment: () =&gt; count++,
+    reset: () =&gt; count = initial
+  };
+}
+
+// uzycie w komponencie
+// &lt;script&gt;
+//   const counter = createCounter(10);
+// &lt;/script&gt;
+// &lt;button onclick={counter.increment}&gt;{counter.count}&lt;/button&gt;</code></pre>
+
+  <!-- 6. Events i binding -->
+  <h2>6. Events i binding</h2>
+  <p>Svelte 5 zmienil skladnie event handlerów — z <code>on:click</code> na <code>onclick</code> (zwykly atrybut HTML). Bindingi dwukierunkowe nadal dzialaja przez <code>bind:</code>.</p>
+  <pre><code>&lt;script lang="ts"&gt;
+  let value = $state('');
+  let checked = $state(false);
+  let selected = $state('option1');
+  let inputRef = $state&lt;HTMLInputElement | null&gt;(null);
+&lt;/script&gt;
+
+&lt;!-- Svelte 5: onclick zamiast on:click --&gt;
+&lt;button onclick={() =&gt; console.log('klik')}&gt;Kliknij&lt;/button&gt;
+&lt;button onmouseenter={handleHover} onmouseleave={handleLeave}&gt;Hover&lt;/button&gt;
+
+&lt;!-- Binding dwukierunkowy --&gt;
+&lt;input bind:value type="text" /&gt;
+&lt;input bind:checked type="checkbox" /&gt;
+&lt;select bind:value={selected}&gt;
+  &lt;option value="option1"&gt;Opcja 1&lt;/option&gt;
+  &lt;option value="option2"&gt;Opcja 2&lt;/option&gt;
+&lt;/select&gt;
+
+&lt;!-- bind:this — referencja do elementu DOM --&gt;
+&lt;input bind:this={inputRef} /&gt;
+&lt;button onclick={() =&gt; inputRef?.focus()}&gt;Focus&lt;/button&gt;
+
+&lt;!-- Svelte 4 way (nadal dziala) --&gt;
+&lt;button on:click={handler}&gt;Stary sposob&lt;/button&gt;</code></pre>
+
+  <!-- 7. Components -->
+  <h2>7. Components — props, slots, snippets</h2>
+  <p>Svelte 5 wprowadzil <strong>snippets</strong> jako nastepce slotow. Snippets sa bardziej elastyczne — mozna je przekazywac jako propsy i uzywac w wielu miejscach.</p>
+  <pre><code">&lt;!-- Card.svelte — komponent z snippetem --&gt;
+&lt;script lang="ts"&gt;
+  import type { Snippet } from 'svelte';
+  let { title, children, footer }: {
+    title: string;
+    children: Snippet;
+    footer?: Snippet&lt;[{ close: () =&gt; void }]&gt;;
+  } = $props();
+
+  let isOpen = $state(true);
+&lt;/script&gt;
+
+&lt;div class="card"&gt;
+  &lt;h3&gt;{title}&lt;/h3&gt;
+  &lt;div class="body"&gt;
+    {@render children()}
+  &lt;/div&gt;
+  {#if footer}
+    {@render footer({ close: () =&gt; isOpen = false })}
+  {/if}
+&lt;/div&gt;
+
+&lt;!-- uzycie --&gt;
+&lt;Card title="Moja karta"&gt;
+  &lt;p&gt;Zawartosc karty&lt;/p&gt;
+  {#snippet footer({ close })}
+    &lt;button onclick={close}&gt;Zamknij&lt;/button&gt;
+  {/snippet}
+&lt;/Card&gt;</code></pre>
+
+  <!-- 8. SvelteKit routing -->
+  <h2>8. SvelteKit — routing oparty na plikach</h2>
+  <p>SvelteKit uzywa systemu routingu opartego na strukturze katalogu <code>src/routes/</code>. Specjalne pliki definiuja roznymi aspekty trasy.</p>
+  <pre><code>src/routes/
+  +page.svelte        # strona (UI)
+  +page.ts            # load function (dane dla strony)
+  +layout.svelte      # layout wspolny dla dzieci
+  +layout.ts          # load function dla layoutu
+  +error.svelte       # strona bledu
+  +server.ts          # API endpoint (GET, POST, PUT, DELETE)
+  blog/
+    +page.svelte      # /blog
+    [slug]/
+      +page.svelte    # /blog/:slug
+      +page.ts        # load dla /blog/:slug</code></pre>
+  <pre><code">// src/routes/blog/[slug]/+page.ts
+import type { PageLoad } from './$types';
+import { error } from '@sveltejs/kit';
+
+// load function — uruchamiana na serwerze (SSR) i/lub kliencie
+export const load: PageLoad = async ({ params, fetch }) =&gt; {
+  const res = await fetch(`/api/posts/${params.slug}`);
+  if (!res.ok) error(404, 'Post nie znaleziony');
+
+  const post = await res.json();
+  return { post };   // dostepne jako data.post w +page.svelte
+};
+
+// src/routes/blog/[slug]/+page.svelte
+&lt;script lang="ts"&gt;
+  import type { PageData } from './$types';
+  let { data }: { data: PageData } = $props();
+&lt;/script&gt;
+
+&lt;h1&gt;{data.post.title}&lt;/h1&gt;
+&lt;article&gt;{@html data.post.content}&lt;/article&gt;</code></pre>
+  <pre><code">// src/routes/contact/+server.ts — API endpoint
+import type { RequestHandler } from './$types';
+import { json } from '@sveltejs/kit';
+
+export const POST: RequestHandler = async ({ request }) =&gt; {
+  const body = await request.json();
+  // walidacja, zapis do DB, itd.
+  return json({ success: true }, { status: 201 });
+};
+
+// Form Actions — serwer-side form handling
+// src/routes/login/+page.server.ts
+export const actions = {
+  default: async ({ request }) =&gt; {
+    const data = await request.formData();
+    const email = data.get('email');
+    // ...logika logowania
+    return { success: true };
+  }
+};</code></pre>
+
+  <!-- 9. SvelteKit rendering -->
+  <h2>9. SvelteKit — tryby renderowania</h2>
+  <div class="card blue">
+    SvelteKit wspiera wszystkie tryby renderowania przez system adapterow i opcje eksportowane z plikow trasy.
+  </div>
+  <table>
+    <tr><th>Tryb</th><th>Jak wlaczyc</th><th>Kiedy uzywac</th></tr>
+    <tr><td>SSR (domyslny)</td><td>Domyslnie wlaczony</td><td>Dynamiczne dane, SEO</td></tr>
+    <tr><td>CSR (SPA)</td><td><code>export const ssr = false</code></td><td>Admin panele, dashboardy</td></tr>
+    <tr><td>SSG (prerender)</td><td><code>export const prerender = true</code></td><td>Blogi, docs, marketing</td></tr>
+    <tr><td>ISR (revalidate)</td><td>Przez adapter + cache headers</td><td>Czestosciowe dane</td></tr>
+    <tr><td>Streaming</td><td><code>export const streaming = true</code> + Promise w load</td><td>Wolne datasources</td></tr>
+  </table>
+  <pre><code">// pelny prerender strony
+export const prerender = true;
+
+// generowanie sciezek dla dynamicznych tras przy prerender
+export const entries = () =&gt; [
+  { slug: 'hello-world' },
+  { slug: 'about-svelte' }
+];
+
+// adapter system — definiuje target deployment
+// svelte.config.js
+import adapter from '@sveltejs/adapter-auto';        // auto-detect (Vercel/Netlify)
+// import adapter from '@sveltejs/adapter-node';      // Node.js server
+// import adapter from '@sveltejs/adapter-static';    // pelny SSG
+// import adapter from '@sveltejs/adapter-cloudflare'; // CF Workers
+
+export default {
+  kit: { adapter: adapter() }
+};</code></pre>
+
+  <!-- 10. Porownanie -->
+  <h2>10. Porownanie Svelte 5 vs Vue 3 vs React</h2>
+  <table>
+    <tr>
+      <th>Cecha</th>
+      <th>Svelte 5</th>
+      <th>Vue 3</th>
+      <th>React 19</th>
+    </tr>
+    <tr>
+      <td>DX (Developer Experience)</td>
+      <td>Bardzo wysoka — mniej boilerplate</td>
+      <td>Wysoka — Composition API czytelny</td>
+      <td>Srednia — hooks, memoizacja reczna</td>
+    </tr>
+    <tr>
+      <td>Bundle size (hello world)</td>
+      <td>~2-3 KB</td>
+      <td>~33 KB</td>
+      <td>~45 KB</td>
+    </tr>
+    <tr>
+      <td>Runtime overhead</td>
+      <td>Minimalny (brak runtime)</td>
+      <td>Proxy reactivity runtime</td>
+      <td>VDOM diffing</td>
+    </tr>
+    <tr>
+      <td>TypeScript</td>
+      <td>Bardzo dobry (Svelte LS)</td>
+      <td>Doskonaly (Volar)</td>
+      <td>Doskonaly</td>
+    </tr>
+    <tr>
+      <td>Scoped CSS</td>
+      <td>Wbudowany</td>
+      <td>Wbudowany (&lt;style scoped&gt;)</td>
+      <td>Zewnetrzny (CSS Modules, Tailwind)</td>
+    </tr>
+    <tr>
+      <td>Meta-framework</td>
+      <td>SvelteKit</td>
+      <td>Nuxt 3</td>
+      <td>Next.js, Remix, TanStack Start</td>
+    </tr>
+    <tr>
+      <td>Learning curve</td>
+      <td>Niska (HTML-first)</td>
+      <td>Niska-srednia</td>
+      <td>Srednia (hooks cognitive load)</td>
+    </tr>
+    <tr>
+      <td>Ecosystem</td>
+      <td>Rosnacy, mniejszy</td>
+      <td>Duzy (zwl. Azja)</td>
+      <td>Ogromny</td>
+    </tr>
+    <tr>
+      <td>Animation support</td>
+      <td>Wbudowany (transition, animate)</td>
+      <td>Zewnetrzny (Vue Motion)</td>
+      <td>Zewnetrzny (Framer Motion)</td>
+    </tr>
+    <tr>
+      <td>Kiedy wybrac</td>
+      <td>Maly bundle, prostota, hobby</td>
+      <td>PHP/Laravel ekosystem, Europa/Azja</td>
+      <td>Hiring, ecosystem, enterprise</td>
+    </tr>
+  </table>
+
+  <h2>Kompletny przyklad: SvelteKit Form Action</h2>
+  <pre><code">// src/routes/register/+page.server.ts
+import { fail, redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+import { z } from 'zod';
+
+const schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8)
+});
+
+export const load: PageServerLoad = async ({ locals }) =&gt; {
+  if (locals.user) redirect(302, '/dashboard');
+  return {};
+};
+
+export const actions: Actions = {
+  default: async ({ request }) =&gt; {
+    const formData = await request.formData();
+    const parsed = schema.safeParse({
+      email: formData.get('email'),
+      password: formData.get('password')
+    });
+
+    if (!parsed.success) {
+      return fail(400, {
+        errors: parsed.error.flatten().fieldErrors,
+        email: formData.get('email')
+      });
+    }
+
+    await createUser(parsed.data);
+    redirect(303, '/dashboard');
+  }
+};
+
+// src/routes/register/+page.svelte
+&lt;script lang="ts"&gt;
+  import { enhance } from '$app/forms';
+  import type { ActionData } from './$types';
+  let { form }: { form: ActionData } = $props();
+&lt;/script&gt;
+
+&lt;form method="POST" use:enhance&gt;
+  &lt;input name="email" value={form?.email ?? ''} /&gt;
+  {#if form?.errors?.email}
+    &lt;span class="error"&gt;{form.errors.email[0]}&lt;/span&gt;
+  {/if}
+  &lt;input name="password" type="password" /&gt;
+  &lt;button type="submit"&gt;Zarejestruj&lt;/button&gt;
+&lt;/form&gt;</code></pre>
+
+  <div class="footer">
+    <a href="../index.html">← Wroc do JS/TS</a>
+  </div>
+</div>
+</body>
+</html>

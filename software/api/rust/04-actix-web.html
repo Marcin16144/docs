@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Actix-web</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f97316;--accent-hover:#fb923c;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Rust</a>
+  <span class="sep">/</span>
+  <span class="title">Actix-web</span>
+</div>
+<div class="container">
+  <h1>Actix-web</h1>
+  <p class="subtitle">Jeden z najszybszych frameworkow webowych na swiecie. Oparty na aktorach i asynchronicznym modelu Tokio, z bogatym ekosystemem middleware.</p>
+
+  <h2>HttpServer i App — punkt wejscia</h2>
+  <p><strong>HttpServer::new()</strong> tworzy serwer HTTP. Przyjmuje domkniecie (<code>|| App::new()</code>) — jest ono wywolywane osobno dla kazdego watku roboczego, dlatego stan musi implementowac <code>Send + Sync</code> lub byc opakowany w <code>web::Data&lt;T&gt;</code>.</p>
+
+  <pre><code>use actix_web::{web, App, HttpServer, HttpResponse, middleware};
+
+#[actix_web::main]
+async fn main() -> std::io::Result&lt;()&gt; {
+    dotenvy::dotenv().ok();
+    tracing_subscriber::fmt::init();
+
+    let db_pool = PgPoolOptions::new()
+        .max_connections(20)
+        .connect(&amp;std::env::var("DATABASE_URL").unwrap())
+        .await
+        .expect("Nie mozna polaczyc z baza");
+
+    let shared_pool = web::Data::new(db_pool);
+
+    HttpServer::new(move || {
+        App::new()
+            .app_data(shared_pool.clone())
+            .app_data(web::JsonConfig::default()
+                .limit(1_048_576)                  // 1 MB limit body
+                .error_handler(json_error_handler))
+            .wrap(middleware::Logger::default())
+            .wrap(middleware::Compress::default())
+            .configure(user_routes)
+            .configure(product_routes)
+            .route("/health", web::get().to(health_check))
+    })
+    .bind("0.0.0.0:8080")?
+    .workers(4)
+    .run()
+    .await
+}</code></pre>
+
+  <h2>Handlery i rejestracja tras</h2>
+  <p>Handlery to async funkcje zwracajace dowolny typ implementujacy <code>Responder</code>. Trasy rejestrujemy przez <code>web::get().to(handler)</code> lub makra atrybutowe <code>#[get("/path")]</code>. Funkcja <code>.configure()</code> pozwala grupowac trasy w osobnych modulach.</p>
+
+  <pre><code>use actix_web::{get, post, put, delete, web, HttpResponse, Responder};
+use serde::{Deserialize, Serialize};
+
+#[derive(Deserialize)]
+struct ListQuery {
+    page: Option&lt;u32&gt;,
+    limit: Option&lt;u32&gt;,
+    search: Option&lt;String&gt;,
+}
+
+#[derive(Serialize)]
+struct User { id: i64, name: String, email: String }
+
+// GET /users?page=1&amp;limit=10
+#[get("/users")]
+async fn list_users(
+    db: web::Data&lt;sqlx::PgPool&gt;,
+    query: web::Query&lt;ListQuery&gt;,
+) -> impl Responder {
+    let page = query.page.unwrap_or(1);
+    HttpResponse::Ok().json(vec![/* users */])
+}
+
+// GET /users/{id}
+#[get("/users/{id}")]
+async fn get_user(
+    db: web::Data&lt;sqlx::PgPool&gt;,
+    path: web::Path&lt;i64&gt;,
+) -> impl Responder {
+    let id = path.into_inner();
+    // ...
+    HttpResponse::NotFound().json(serde_json::json!({"error": "nie znaleziono"}))
+}
+
+// POST /users
+#[post("/users")]
+async fn create_user(
+    db: web::Data&lt;sqlx::PgPool&gt;,
+    body: web::Json&lt;CreateUserRequest&gt;,
+) -> impl Responder {
+    // body.email, body.name
+    HttpResponse::Created().json(/* nowy user */)
+}
+
+pub fn user_routes(cfg: &amp;mut web::ServiceConfig) {
+    cfg.service(list_users)
+       .service(get_user)
+       .service(create_user);
+}</code></pre>
+
+  <h2>web::Data&lt;T&gt; — wspoldzielony stan</h2>
+  <p><code>web::Data&lt;T&gt;</code> to opakowanie na <code>Arc&lt;T&gt;</code>. Rejestrujemy je przez <code>.app_data(web::Data::new(value))</code> na poziomie <code>App</code>. W handlerach extractujemy jako parametr funkcji — Actix automatycznie wstrzykuje odpowiedni typ.</p>
+
+  <div class="card blue">
+    <strong>Uwaga:</strong> Jesli twoj stan wymaga mutowalnosci, uzyj <code>web::Data&lt;Mutex&lt;T&gt;&gt;</code> lub <code>web::Data&lt;RwLock&lt;T&gt;&gt;</code>. Dla polaczen z baza danych pool (<code>PgPool</code>) jest juz wewnetrznie thread-safe.
+  </div>
+
+  <h2>Middleware — Logger, Compress, wrap_fn</h2>
+  <p>Actix dostarcza wbudowane middleware przez <code>.wrap()</code>. Mozna tez tworzyc proste middleware przez <code>wrap_fn</code>:</p>
+
+  <pre><code>use actix_web::dev::{ServiceRequest, ServiceResponse};
+use actix_web::middleware::Next;
+
+// Prosty timing middleware
+App::new()
+    .wrap_fn(|req, srv| {
+        let start = std::time::Instant::now();
+        let path = req.path().to_string();
+        let fut = srv.call(req);
+        async move {
+            let res = fut.await?;
+            let elapsed = start.elapsed().as_millis();
+            tracing::info!("{path} — {elapsed}ms");
+            Ok(res)
+        }
+    })
+    .wrap(actix_cors::Cors::default()
+        .allowed_origin("https://app.example.com")
+        .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+        .allowed_headers(vec!["Content-Type", "Authorization"])
+        .max_age(3600))
+    .wrap(middleware::Logger::new("%r %s %Dms"))
+    .wrap(middleware::Compress::default())</code></pre>
+
+  <h2>ResponseError — obsluga bledow</h2>
+  <p>Wlasne typy bledow musza implementowac trait <code>ResponseError</code> z actix-web. Zapewnia on metody <code>status_code()</code> i <code>error_response()</code>.</p>
+
+  <pre><code>use actix_web::{ResponseError, HttpResponse};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error("Nie znaleziono: {0}")]
+    NotFound(String),
+    #[error("Blad bazy danych")]
+    Database(#[from] sqlx::Error),
+    #[error("Nieautoryzowany")]
+    Unauthorized,
+}
+
+impl ResponseError for ApiError {
+    fn status_code(&amp;self) -> actix_web::http::StatusCode {
+        match self {
+            ApiError::NotFound(_)  =&gt; actix_web::http::StatusCode::NOT_FOUND,
+            ApiError::Unauthorized =&gt; actix_web::http::StatusCode::UNAUTHORIZED,
+            ApiError::Database(_)  =&gt; actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn error_response(&amp;self) -> HttpResponse {
+        HttpResponse::build(self.status_code())
+            .json(serde_json::json!({"error": self.to_string()}))
+    }
+}
+
+// Handler moze teraz zwracac Result&lt;HttpResponse, ApiError&gt;:
+async fn get_user(path: web::Path&lt;i64&gt;, db: web::Data&lt;PgPool&gt;)
+    -> Result&lt;HttpResponse, ApiError&gt;
+{
+    let user = find_user(*path, &amp;db).await?;  // ? konwertuje sqlx::Error
+    Ok(HttpResponse::Ok().json(user))
+}</code></pre>
+
+  <h2>web::scope — grupowanie tras</h2>
+  <p><code>web::scope()</code> pozwala nadac wspolny prefiks grupie tras i zastosowac do nich wspolne middleware (np. autoryzacje):</p>
+
+  <pre><code>App::new()
+    .service(
+        web::scope("/api/v1")
+            .service(
+                web::scope("/admin")
+                    .wrap(AdminAuthMiddleware)
+                    .service(admin_routes())
+            )
+            .service(user_routes())
+            .service(product_routes())
+    )
+    .route("/health", web::get().to(health))</code></pre>
+
+  <h2>Actix-web vs Axum — porownanie</h2>
+
+  <table>
+    <thead>
+      <tr><th>Aspekt</th><th>Actix-web</th><th>Axum</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Wydajnosc (req/s)</td><td>bardzo wysoka (wlasny runtime)</td><td>wysoka (hyper + tokio)</td></tr>
+      <tr><td>Model middleware</td><td>wlasny trait (Transform)</td><td>tower Layer / Service</td></tr>
+      <tr><td>Ekosystem middleware</td><td>actix-* crates</td><td>tower-http + caly tower</td></tr>
+      <tr><td>Ergonomia extractorow</td><td>dobra, ale mniej elastyczna</td><td>bardzo dobra, kompilator weryfikuje</td></tr>
+      <tr><td>WebSocket</td><td>actix-ws</td><td>wbudowany (axum::extract::ws)</td></tr>
+      <tr><td>Obsluga bledow</td><td>ResponseError trait</td><td>IntoResponse + thiserror</td></tr>
+      <tr><td>Dojrzalosc</td><td>bardzo wysoka (od 2017)</td><td>wysoka (od 2021, team tokio)</td></tr>
+      <tr><td>Kiedy wybrac</td><td>max wydajnosc, legacy kod</td><td>nowe projekty, integracja tower</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card orange">
+    <strong>Rekomendacja 2025:</strong> Dla nowych projektow wybierz <strong>Axum</strong> — ma lepszą ergonomie, pelna integracje z ekosystemem tower i jest aktywnie rozwijany przez team Tokio. Actix-web wybierz gdy potrzebujesz maksymalnej surowej wydajnosci lub masz istniejaca codebaze.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="03-axum-zaawansowany.html">← 03-axum-zaawansowany.html</a>
+    <a href="05-rocket.html">05-rocket.html →</a>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REST API — przykłady kodu</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span>
+    <a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span>
+    <span class="crumb">REST API</span>
+</div>
+<div class="container">
+<h1>🔌 REST API — ten sam endpoint w 5 językach</h1>
+<p class="lead">CRUD dla zasobu <code>products</code> z walidacją, błędami i paginacją. FastAPI, Express, ASP.NET Core, Axum, Go Fiber.</p>
+
+<div class="toc">
+<div class="toc-title">Spis treści</div>
+<ul>
+    <li><a href="#fastapi">1. Python — FastAPI</a></li>
+    <li><a href="#express">2. Node.js — Express + Zod</a></li>
+    <li><a href="#aspnet">3. C# — ASP.NET Core Minimal API</a></li>
+    <li><a href="#axum">4. Rust — Axum + SQLx</a></li>
+    <li><a href="#fiber">5. Go — Fiber</a></li>
+    <li><a href="#wzorzec">6. Wspólny wzorzec: walidacja, błędy, ETag</a></li>
+</ul>
+</div>
+
+<h2 id="fastapi">1. Python — FastAPI</h2>
+<pre data-lang="python"><code><span class="com"># pip install fastapi uvicorn sqlalchemy asyncpg pydantic</span>
+<span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, HTTPException, Depends, Query
+<span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel, Field
+<span class="kw">from</span> uuid <span class="kw">import</span> UUID, uuid4
+<span class="kw">from</span> decimal <span class="kw">import</span> Decimal
+
+app = FastAPI(title=<span class="str">"Products API"</span>)
+
+<span class="kw">class</span> <span class="fn">ProductIn</span>(BaseModel):
+    name: str = Field(min_length=<span class="num">1</span>, max_length=<span class="num">200</span>)
+    price: Decimal = Field(gt=<span class="num">0</span>)
+    stock: int = Field(ge=<span class="num">0</span>, default=<span class="num">0</span>)
+
+<span class="kw">class</span> <span class="fn">ProductOut</span>(ProductIn):
+    id: UUID
+
+db: dict[UUID, ProductOut] = {}  <span class="com"># w prod: PostgreSQL</span>
+
+<span class="com">@app.get("/products", response_model=list[ProductOut])</span>
+<span class="kw">async def</span> <span class="fn">list_products</span>(page: int = Query(<span class="num">1</span>, ge=<span class="num">1</span>), size: int = Query(<span class="num">20</span>, le=<span class="num">100</span>)):
+    items = <span class="kw">list</span>(db.values())[(page-<span class="num">1</span>)*size : page*size]
+    <span class="kw">return</span> items
+
+<span class="com">@app.post("/products", response_model=ProductOut, status_code=201)</span>
+<span class="kw">async def</span> <span class="fn">create_product</span>(p: ProductIn):
+    out = ProductOut(id=uuid4(), **p.model_dump())
+    db[out.id] = out
+    <span class="kw">return</span> out
+
+<span class="com">@app.get("/products/{pid}", response_model=ProductOut)</span>
+<span class="kw">async def</span> <span class="fn">get_product</span>(pid: UUID):
+    <span class="kw">if</span> pid <span class="kw">not in</span> db: <span class="kw">raise</span> HTTPException(<span class="num">404</span>, <span class="str">"Not found"</span>)
+    <span class="kw">return</span> db[pid]
+
+<span class="com">@app.delete("/products/{pid}", status_code=204)</span>
+<span class="kw">async def</span> <span class="fn">delete_product</span>(pid: UUID):
+    db.pop(pid, <span class="kw">None</span>)
+
+<span class="com"># Uruchom: uvicorn main:app --reload</span>
+<span class="com"># Docs: http://localhost:8000/docs</span></code></pre>
+
+<h2 id="express">2. Node.js — Express + Zod</h2>
+<pre data-lang="typescript"><code><span class="com">// npm i express zod @types/express tsx</span>
+<span class="kw">import</span> express <span class="kw">from</span> <span class="str">'express'</span>;
+<span class="kw">import</span> { z } <span class="kw">from</span> <span class="str">'zod'</span>;
+<span class="kw">import</span> { randomUUID } <span class="kw">from</span> <span class="str">'crypto'</span>;
+
+<span class="kw">const</span> app = <span class="fn">express</span>();
+app.<span class="fn">use</span>(express.<span class="fn">json</span>());
+
+<span class="kw">const</span> ProductSchema = z.<span class="fn">object</span>({
+    name: z.<span class="fn">string</span>().<span class="fn">min</span>(<span class="num">1</span>).<span class="fn">max</span>(<span class="num">200</span>),
+    price: z.<span class="fn">number</span>().<span class="fn">positive</span>(),
+    stock: z.<span class="fn">number</span>().<span class="fn">int</span>().<span class="fn">nonnegative</span>().<span class="fn">default</span>(<span class="num">0</span>)
+});
+<span class="kw">type</span> Product = z.infer&lt;<span class="kw">typeof</span> ProductSchema&gt; &amp; { id: <span class="kw">string</span> };
+
+<span class="kw">const</span> db = <span class="kw">new</span> Map&lt;<span class="kw">string</span>, Product&gt;();
+
+app.<span class="fn">get</span>(<span class="str">'/products'</span>, (req, res) =&gt; {
+    <span class="kw">const</span> page = +(req.query.page ?? <span class="num">1</span>);
+    <span class="kw">const</span> size = Math.<span class="fn">min</span>(+(req.query.size ?? <span class="num">20</span>), <span class="num">100</span>);
+    <span class="kw">const</span> all = [...db.<span class="fn">values</span>()];
+    res.<span class="fn">json</span>(all.<span class="fn">slice</span>((page-<span class="num">1</span>)*size, page*size));
+});
+
+app.<span class="fn">post</span>(<span class="str">'/products'</span>, (req, res) =&gt; {
+    <span class="kw">const</span> parsed = ProductSchema.<span class="fn">safeParse</span>(req.body);
+    <span class="kw">if</span> (!parsed.success) <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">400</span>).<span class="fn">json</span>({ errors: parsed.error.errors });
+    <span class="kw">const</span> product = { id: <span class="fn">randomUUID</span>(), ...parsed.data };
+    db.<span class="fn">set</span>(product.id, product);
+    res.<span class="fn">status</span>(<span class="num">201</span>).<span class="fn">json</span>(product);
+});
+
+app.<span class="fn">get</span>(<span class="str">'/products/:id'</span>, (req, res) =&gt; {
+    <span class="kw">const</span> p = db.<span class="fn">get</span>(req.params.id);
+    <span class="kw">if</span> (!p) <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">404</span>).<span class="fn">json</span>({ error: <span class="str">'Not found'</span> });
+    res.<span class="fn">json</span>(p);
+});
+
+app.<span class="fn">listen</span>(<span class="num">3000</span>, () =&gt; console.<span class="fn">log</span>(<span class="str">'http://localhost:3000'</span>));</code></pre>
+
+<h2 id="aspnet">3. C# / .NET 9 — Minimal API</h2>
+<pre data-lang="csharp"><code><span class="com">// dotnet new web -n Api &amp;&amp; cd Api &amp;&amp; dotnet add package FluentValidation.AspNetCore</span>
+<span class="kw">using</span> FluentValidation;
+
+<span class="kw">var</span> builder = WebApplication.<span class="fn">CreateBuilder</span>(args);
+builder.Services.<span class="fn">AddValidatorsFromAssemblyContaining</span>&lt;Program&gt;();
+<span class="kw">var</span> app = builder.<span class="fn">Build</span>();
+
+<span class="kw">record</span> <span class="fn">Product</span>(<span class="kw">Guid</span> Id, <span class="kw">string</span> Name, <span class="kw">decimal</span> Price, <span class="kw">int</span> Stock);
+<span class="kw">record</span> <span class="fn">ProductIn</span>(<span class="kw">string</span> Name, <span class="kw">decimal</span> Price, <span class="kw">int</span> Stock);
+
+<span class="kw">class</span> <span class="fn">ProductInValidator</span> : <span class="fn">AbstractValidator</span>&lt;ProductIn&gt;
+{
+    <span class="kw">public</span> <span class="fn">ProductInValidator</span>()
+    {
+        <span class="fn">RuleFor</span>(x =&gt; x.Name).<span class="fn">NotEmpty</span>().<span class="fn">MaximumLength</span>(<span class="num">200</span>);
+        <span class="fn">RuleFor</span>(x =&gt; x.Price).<span class="fn">GreaterThan</span>(<span class="num">0</span>);
+        <span class="fn">RuleFor</span>(x =&gt; x.Stock).<span class="fn">GreaterThanOrEqualTo</span>(<span class="num">0</span>);
+    }
+}
+
+<span class="kw">var</span> db = <span class="kw">new</span> Dictionary&lt;Guid, Product&gt;();
+
+app.<span class="fn">MapGet</span>(<span class="str">"/products"</span>, (<span class="kw">int</span> page = <span class="num">1</span>, <span class="kw">int</span> size = <span class="num">20</span>) =&gt;
+    db.<span class="fn">Values</span>.<span class="fn">Skip</span>((page-<span class="num">1</span>)*size).<span class="fn">Take</span>(Math.<span class="fn">Min</span>(size, <span class="num">100</span>)));
+
+app.<span class="fn">MapPost</span>(<span class="str">"/products"</span>, <span class="kw">async</span> (ProductIn p, IValidator&lt;ProductIn&gt; v) =&gt;
+{
+    <span class="kw">var</span> r = <span class="kw">await</span> v.<span class="fn">ValidateAsync</span>(p);
+    <span class="kw">if</span> (!r.IsValid) <span class="kw">return</span> Results.<span class="fn">ValidationProblem</span>(r.<span class="fn">ToDictionary</span>());
+    <span class="kw">var</span> product = <span class="kw">new</span> <span class="fn">Product</span>(<span class="fn">Guid</span>.<span class="fn">NewGuid</span>(), p.Name, p.Price, p.Stock);
+    db[product.Id] = product;
+    <span class="kw">return</span> Results.<span class="fn">Created</span>($<span class="str">"/products/{product.Id}"</span>, product);
+});
+
+app.<span class="fn">MapGet</span>(<span class="str">"/products/{id}"</span>, (<span class="kw">Guid</span> id) =&gt;
+    db.<span class="fn">TryGetValue</span>(id, <span class="kw">out var</span> p) ? Results.<span class="fn">Ok</span>(p) : Results.<span class="fn">NotFound</span>());
+
+app.<span class="fn">Run</span>();</code></pre>
+
+<h2 id="axum">4. Rust — Axum + SQLx</h2>
+<pre data-lang="rust"><code><span class="com">// Cargo.toml: axum = "0.7", tokio = { version = "1", features = ["full"] }</span>
+<span class="com">// sqlx = { version = "0.8", features = ["postgres", "uuid", "runtime-tokio-rustls"] }</span>
+<span class="com">// serde = { version = "1", features = ["derive"] }, uuid = { version = "1", features = ["v4", "serde"] }</span>
+
+<span class="kw">use</span> axum::{
+    extract::{Path, Query, State},
+    http::StatusCode, response::IntoResponse, routing::{get, post}, Json, Router,
+};
+<span class="kw">use</span> serde::{Deserialize, Serialize};
+<span class="kw">use</span> sqlx::PgPool;
+<span class="kw">use</span> uuid::Uuid;
+
+<span class="com">#[derive(Serialize, sqlx::FromRow)]</span>
+<span class="kw">struct</span> Product { id: Uuid, name: String, price: <span class="kw">f64</span>, stock: <span class="kw">i32</span> }
+
+<span class="com">#[derive(Deserialize)]</span>
+<span class="kw">struct</span> ProductIn { name: String, price: <span class="kw">f64</span>, stock: Option&lt;<span class="kw">i32</span>&gt; }
+
+<span class="com">#[derive(Deserialize)]</span>
+<span class="kw">struct</span> Page { page: Option&lt;<span class="kw">i64</span>&gt;, size: Option&lt;<span class="kw">i64</span>&gt; }
+
+<span class="kw">async fn</span> list(State(db): State&lt;PgPool&gt;, Query(p): Query&lt;Page&gt;) -&gt; <span class="kw">impl</span> IntoResponse {
+    <span class="kw">let</span> size = p.size.unwrap_or(<span class="num">20</span>).min(<span class="num">100</span>);
+    <span class="kw">let</span> page = p.page.unwrap_or(<span class="num">1</span>);
+    <span class="kw">let</span> rows = sqlx::query_as::&lt;_, Product&gt;(
+        <span class="str">"SELECT * FROM products ORDER BY name LIMIT $1 OFFSET $2"</span>)
+        .bind(size).bind((page-<span class="num">1</span>)*size).fetch_all(&amp;db).<span class="kw">await</span>.unwrap();
+    Json(rows)
+}
+
+<span class="kw">async fn</span> create(State(db): State&lt;PgPool&gt;, Json(p): Json&lt;ProductIn&gt;) -&gt; <span class="kw">impl</span> IntoResponse {
+    <span class="kw">if</span> p.price &lt;= <span class="num">0.0</span> <span class="kw">return</span> StatusCode::BAD_REQUEST.into_response();
+    <span class="kw">let</span> row = sqlx::query_as::&lt;_, Product&gt;(
+        <span class="str">"INSERT INTO products (id, name, price, stock) VALUES ($1,$2,$3,$4) RETURNING *"</span>)
+        .bind(Uuid::new_v4()).bind(&amp;p.name).bind(p.price).bind(p.stock.unwrap_or(<span class="num">0</span>))
+        .fetch_one(&amp;db).<span class="kw">await</span>.unwrap();
+    (StatusCode::CREATED, Json(row)).into_response()
+}
+
+<span class="com">#[tokio::main]</span>
+<span class="kw">async fn</span> main() {
+    <span class="kw">let</span> db = PgPool::connect(<span class="str">"postgres://localhost/shop"</span>).<span class="kw">await</span>.unwrap();
+    <span class="kw">let</span> app = Router::new()
+        .route(<span class="str">"/products"</span>, get(list).post(create))
+        .with_state(db);
+    <span class="kw">let</span> listener = tokio::net::TcpListener::bind(<span class="str">"0.0.0.0:3000"</span>).<span class="kw">await</span>.unwrap();
+    axum::serve(listener, app).<span class="kw">await</span>.unwrap();
+}</code></pre>
+
+<h2 id="fiber">5. Go — Fiber (najszybsze w benchmarkach 2026)</h2>
+<pre data-lang="go"><code><span class="com">// go mod init products &amp;&amp; go get github.com/gofiber/fiber/v3 github.com/google/uuid</span>
+<span class="kw">package</span> main
+
+<span class="kw">import</span> (
+    <span class="str">"github.com/gofiber/fiber/v3"</span>
+    <span class="str">"github.com/google/uuid"</span>
+    <span class="str">"sync"</span>
+)
+
+<span class="kw">type</span> Product <span class="kw">struct</span> {
+    ID    <span class="kw">string</span>  <span class="str">`json:"id"`</span>
+    Name  <span class="kw">string</span>  <span class="str">`json:"name" validate:"required,max=200"`</span>
+    Price <span class="kw">float64</span> <span class="str">`json:"price" validate:"gt=0"`</span>
+    Stock <span class="kw">int</span>     <span class="str">`json:"stock" validate:"gte=0"`</span>
+}
+
+<span class="kw">var</span> (
+    db = <span class="kw">map</span>[<span class="kw">string</span>]Product{}
+    mu sync.RWMutex
+)
+
+<span class="kw">func</span> main() {
+    app := fiber.New()
+    app.Get(<span class="str">"/products"</span>, <span class="kw">func</span>(c fiber.Ctx) <span class="kw">error</span> {
+        mu.RLock(); <span class="kw">defer</span> mu.RUnlock()
+        <span class="kw">out</span> := make([]Product, <span class="num">0</span>, <span class="fn">len</span>(db))
+        <span class="kw">for</span> _, p := <span class="kw">range</span> db { <span class="kw">out</span> = <span class="fn">append</span>(<span class="kw">out</span>, p) }
+        <span class="kw">return</span> c.JSON(<span class="kw">out</span>)
+    })
+    app.Post(<span class="str">"/products"</span>, <span class="kw">func</span>(c fiber.Ctx) <span class="kw">error</span> {
+        <span class="kw">var</span> p Product
+        <span class="kw">if</span> err := c.Bind().JSON(&amp;p); err != <span class="kw">nil</span> {
+            <span class="kw">return</span> c.Status(<span class="num">400</span>).JSON(fiber.Map{<span class="str">"error"</span>: err.Error()})
+        }
+        p.ID = uuid.NewString()
+        mu.Lock(); db[p.ID] = p; mu.Unlock()
+        <span class="kw">return</span> c.Status(<span class="num">201</span>).JSON(p)
+    })
+    app.Listen(<span class="str">":3000"</span>)
+}</code></pre>
+
+<h2 id="wzorzec">6. Wzorzec wspólny: walidacja, błędy, ETag</h2>
+<p>Niezależnie od języka, dobre REST API ma:</p>
+<table>
+    <tr><th>Aspekt</th><th>Praktyka</th></tr>
+    <tr><td>Status codes</td><td>200 OK / 201 Created / 204 No Content / 400 Bad / 404 / 409 Conflict / 422 Validation</td></tr>
+    <tr><td>Walidacja</td><td>Zod (TS), Pydantic (Py), FluentValidation (.NET), validator (Go) — fail-fast</td></tr>
+    <tr><td>Błędy</td><td>RFC 9457 (Problem Details for HTTP APIs)</td></tr>
+    <tr><td>Paginacja</td><td><code>?page=1&amp;size=20</code> + nagłówki <code>X-Total-Count</code> / <code>Link</code></td></tr>
+    <tr><td>Wersjonowanie</td><td>URL <code>/v1/...</code> lub <code>Accept: application/vnd.api+json;version=1</code></td></tr>
+    <tr><td>Cache</td><td>ETag + <code>If-None-Match</code> → 304</td></tr>
+    <tr><td>OpenAPI</td><td>Auto-generowany z kodu (FastAPI, NSwag, oapi-codegen)</td></tr>
+</table>
+
+<h3>Problem Details (RFC 9457) — uniwersalny format błędu</h3>
+<pre data-lang="json"><code>{
+  <span class="str">"type"</span>: <span class="str">"https://example.com/errors/validation"</span>,
+  <span class="str">"title"</span>: <span class="str">"Validation failed"</span>,
+  <span class="str">"status"</span>: <span class="num">422</span>,
+  <span class="str">"detail"</span>: <span class="str">"price must be greater than 0"</span>,
+  <span class="str">"instance"</span>: <span class="str">"/products"</span>,
+  <span class="str">"errors"</span>: {
+    <span class="str">"price"</span>: [<span class="str">"must be greater than 0"</span>]
+  }
+}</code></pre>
+
+<div class="next-prev">
+    <a href="llm.html"><div class="label">← Poprzedni</div><div class="title">LLM</div></a>
+    <a href="api-graphql.html"><div class="label">Następny →</div><div class="title">GraphQL</div></a>
+</div>
+</div>
+</body>
+</html>

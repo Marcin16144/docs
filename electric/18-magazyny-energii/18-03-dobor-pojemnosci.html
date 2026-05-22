@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>18-03 — Dobór pojemności magazynu</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">18 Magazyny energii</a><span class="sep">/</span><span class="title">18-03 Dobór pojemności</span>
+</div>
+<div class="container">
+<h1>Dobór pojemności magazynu</h1>
+<p class="subtitle">Cel decyduje o rozmiarze — autokonsumpcja, backup czy arbitraż taryfowy. Wzory, przykłady liczbowe i tabela doboru.</p>
+
+<p>Pojemność magazynu nie wynika z metrażu domu ani z mocy fotowoltaiki. Wynika z <strong>celu</strong>, jakiemu magazyn ma służyć. Inny rozmiar potrzebny jest do zwiększenia autokonsumpcji PV, inny do podtrzymania domu przy zaniku sieci, a jeszcze inny do gry na taryfach. Najpierw określ cel, potem licz.</p>
+
+<h2>Cel determinuje pojemność</h2>
+
+<h3>a) Zwiększenie autokonsumpcji PV</h3>
+<p>Najczęstszy scenariusz. Magazyn gromadzi dzienną nadwyżkę produkcji PV i oddaje ją wieczorem oraz w nocy, gdy panele już nie pracują. Reguła praktyczna:</p>
+<pre><code>magazyn ≈ 1,0 – 1,5 × dobowa nadwyżka PV</code></pre>
+<p>Nadwyżka to ta część produkcji, która nie jest zużywana na bieżąco — głównie energia z południowych godzin, gdy dom mało konsumuje.</p>
+
+<h3>b) Backup przy zaniku sieci</h3>
+<p>Magazyn zasila wydzielone obwody krytyczne (lodówka, oświetlenie, router, pompa CO, ewentualnie kocioł) przez założony czas podtrzymania.</p>
+<pre><code>C = (P_krytyczne × t_podtrzymania) / DoD</code></pre>
+
+<h3>c) Arbitraż taryfowy G12</h3>
+<p>W taryfie dwustrefowej magazyn ładuje się z sieci w nocy po cenie tańszej strefy, a rozładowuje w drogiej strefie dziennej. Pojemność dobiera się do energii zużywanej w drogiej strefie.</p>
+
+<h2>Wzór ogólny</h2>
+<pre><code>C = E_dobowe × dni_autonomii / (DoD × η)
+
+C             — pojemność nominalna magazynu [kWh]
+E_dobowe      — energia do pokrycia z magazynu na dobę [kWh]
+dni_autonomii — liczba dób pracy bez doładowania (zwykle 1)
+DoD           — dopuszczalna głębokość rozładowania (LFP ≈ 0,9–0,95)
+η             — sprawność round-trip (≈ 0,92)</code></pre>
+
+<h2>Przykład 1 — autokonsumpcja</h2>
+<p>Dom zużywa 15 kWh na dobę. Instalacja PV produkuje latem ok. 20 kWh dziennie. Część produkcji jest konsumowana na bieżąco; nadwyżka popołudniowo-wieczorna do zmagazynowania to ok. 8 kWh.</p>
+<pre><code>E_dobowe = 8 kWh        (nadwyżka do zmagazynowania)
+dni_autonomii = 1
+DoD = 0,9
+η   = 0,92
+
+C = 8 × 1 / (0,9 × 0,92)
+C = 8 / 0,828
+C ≈ 9,7 kWh   →  magazyn 10 kWh</code></pre>
+<div class="callout">Magazyn 10 kWh LFP w pełni obsłuży dzienną nadwyżkę i odda ją wieczorem.</div>
+
+<h2>Przykład 2 — backup</h2>
+<p>Wydzielone obwody krytyczne pobierają średnio 1,5 kW. Czas podtrzymania zakładany na 6 godzin.</p>
+<pre><code>P_krytyczne = 1,5 kW
+t_podtrzymania = 6 h
+E = 1,5 × 6 = 9 kWh
+DoD = 0,9
+
+C = 9 / 0,9 = 10 kWh   →  magazyn 10 kWh</code></pre>
+<div class="warning"><strong>Uwaga przy backupie.</strong> Sprawdź też C-rate magazynu i tryb pracy inwertera. Magazyn musi udźwignąć szczytową moc obwodów krytycznych, a inwerter musi mieć funkcję pracy wyspowej (backup / EPS), inaczej przy zaniku sieci magazyn nie zasili domu.</div>
+
+<h2>Zasada: nie przewymiarowywać</h2>
+<p>Większy magazyn to wyższy koszt, a magazyn, który rzadko bywa w pełni wykorzystany, to <strong>zamrożone pieniądze</strong>.</p>
+<ul>
+<li>Magazyn dobrany na letnią nadwyżkę zimą będzie wykorzystany w niewielkim stopniu — produkcja PV spada</li>
+<li>Każda kWh pojemności kosztuje 2,5–4 zł/Wh; nieużywane kWh nigdy się nie zwracają</li>
+<li>Lepiej dobrać magazyn do realnej, uśrednionej rocznie nadwyżki niż do szczytu z czerwca</li>
+<li>Wiele systemów pozwala rozbudować magazyn modułowo — bezpieczniej zacząć od mniejszego</li>
+</ul>
+
+<h2>Tabela doboru wg zużycia</h2>
+<table>
+<thead><tr><th>Dobowe zużycie domu</th><th>Moc PV</th><th>Typowa nadwyżka do magazynu</th><th>Sugerowana pojemność</th></tr></thead>
+<tbody>
+<tr><td>6–8 kWh</td><td>3–4 kWp</td><td>3–5 kWh</td><td>5 kWh</td></tr>
+<tr><td>10–14 kWh</td><td>5–6 kWp</td><td>6–9 kWh</td><td>10 kWh</td></tr>
+<tr><td>15–20 kWh</td><td>7–9 kWp</td><td>9–13 kWh</td><td>13–15 kWh</td></tr>
+<tr><td>20–30 kWh (pompa ciepła, EV)</td><td>10–12 kWp</td><td>13–18 kWh</td><td>15–20 kWh</td></tr>
+</tbody>
+</table>
+<p>Wartości orientacyjne — zawsze weryfikuj rzeczywistym profilem zużycia z licznika lub aplikacji inwertera.</p>
+
+<div class="nav-bottom">
+<a href="18-02-parametry.html">⟵ Parametry magazynów</a>
+<a href="18-04-topologie-schematy.html">Topologie i schematy →</a>
+</div>
+</div>
+</body>
+</html>

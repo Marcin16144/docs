@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>08-04 — Sterowanie oświetleniem</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(251,191,36,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">⚡ Elektryka</a><span class="sep">/</span><a href="index.html">08 Oświetlenie</a><span class="sep">/</span><span class="title">08-04 Sterowanie</span>
+</div>
+<div class="container">
+<h1>Sterowanie oświetleniem</h1>
+<p class="subtitle">Ściemniacze, przekaźniki impulsowe, DALI, 1-10 V, KNX, czujniki ruchu i zmierzchowe, sceny.</p>
+
+<p>Wyłącznik dwustanowy „on/off" to ledwie 10% możliwości. Nowoczesna instalacja domowa wykorzystuje ściemnianie, automatyzację, czujniki i sceny — z różnym stopniem skomplikowania.</p>
+
+<h2>Klasyfikacja systemów sterowania</h2>
+<table>
+<thead><tr><th>System</th><th>Złożoność</th><th>Koszt</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td>Łączniki klasyczne</td><td>bardzo niska</td><td>niska</td><td>każdy dom</td></tr>
+<tr><td>Ściemniacz triakowy</td><td>niska</td><td>niska</td><td>salon, sypialnia</td></tr>
+<tr><td>Przekaźnik impulsowy + przyciski</td><td>średnia</td><td>średnia</td><td>korytarze, schody, duże pokoje</td></tr>
+<tr><td>Czujniki PIR / mikrofalowe</td><td>średnia</td><td>średnia-niska</td><td>korytarze, łazienki, garaż</td></tr>
+<tr><td>1-10 V analogowe</td><td>średnia</td><td>średnia</td><td>oświetlenie biurowe</td></tr>
+<tr><td><strong>DALI</strong></td><td>wysoka</td><td>średnia-wysoka</td><td>biura, biblioteki, sklepy</td></tr>
+<tr><td><strong>KNX</strong></td><td>bardzo wysoka</td><td>wysoka</td><td>dom premium, smart home</td></tr>
+<tr><td>Wi-Fi / Zigbee (Tuya, Philips Hue)</td><td>niska</td><td>średnia</td><td>retrofit, lokatorzy</td></tr>
+</tbody>
+</table>
+
+<h2>Łączniki klasyczne</h2>
+<p>Najprostsze przerywniki w przewodzie L:</p>
+<ul>
+<li><strong>1-biegunowy</strong> — włącza/wyłącza pojedynczy obwód</li>
+<li><strong>schodowy (dwukierunkowy)</strong> — sterowanie z dwóch miejsc</li>
+<li><strong>krzyżowy</strong> — sterowanie z trzech i więcej miejsc (między dwoma schodowymi)</li>
+<li><strong>przycisk dzwonkowy (zwierny)</strong> — chwilowy styk; do przekaźników impulsowych</li>
+</ul>
+
+<h2>Ściemniacz triakowy</h2>
+<p>Tradycyjny ściemniacz oparty na triaku (półprzewodnik) — odcina część fazy sinusoidy zasilającej. Działa:</p>
+<ul>
+<li>doskonale z <strong>żarówkami i halogenami</strong> (obciążenie rezystancyjne)</li>
+<li>z <strong>LED tylko oznaczonymi „dimmable"</strong> (mają specjalny driver)</li>
+<li>minimum obciążenie zwykle <strong>40 W</strong> (poniżej tej wartości ściemniacz tańszy nie pracuje)</li>
+</ul>
+
+<h3>Typy ściemniaczy</h3>
+<table>
+<thead><tr><th>Typ</th><th>Cięcie fazy</th><th>Z czym współpracuje</th></tr></thead>
+<tbody>
+<tr><td>Triak (leading edge)</td><td>przedniego zbocza</td><td>żarówki, halogeny 230 V</td></tr>
+<tr><td>Tranzystor (trailing edge)</td><td>tylnego zbocza</td><td>LED, halogeny niskonapięciowe z transformatorem elektronicznym</td></tr>
+<tr><td>Uniwersalny</td><td>automatycznie</td><td>wszystko (sprawdza obciążenie)</td></tr>
+</tbody>
+</table>
+<div class="tip"><strong>Wybierz uniwersalny</strong> — kosztuje 60-150 zł, działa z każdym typem żarówek, mniejsze ryzyko brzęczenia/migotania.</div>
+
+<h2>Przekaźnik impulsowy</h2>
+<p>Jeden moduł D01 (np. Schneider iTL, Eaton Z-R230) w rozdzielnicy plus dowolna liczba przycisków zwiernych w pokoju.</p>
+<p>Zalety:</p>
+<ul>
+<li>każdy przycisk zwierny załącza/wyłącza światło — można dorzucić nieskończenie wiele przycisków</li>
+<li>jeden moduł zamiast skomplikowanej sieci przewodów schodowych/krzyżowych</li>
+<li>centralne wyłączanie z jednego miejsca (np. przyciskiem przy wyjściu z domu)</li>
+<li>styk impulsowy → zerowy pobór prądu spoczynkowego</li>
+</ul>
+<p>Wady:</p>
+<ul>
+<li>nieco droższy w starcie (moduł 80-150 zł + przyciski zamiast łączników)</li>
+<li>bez sygnalizacji stanu (nie wiadomo „on/off" patrząc na przycisk)</li>
+</ul>
+
+<h2>DALI (Digital Addressable Lighting Interface)</h2>
+<p>Standard cyfrowej komunikacji z każdą oprawą indywidualnie — magistrala 2-żyłowa, do 64 opraw na linię, do 16 grup, 16 scen.</p>
+<ul>
+<li>każda oprawa ma swój adres</li>
+<li>możliwość zdalnej zmiany stanu, ściemniania, grup</li>
+<li>sterowniki montowane w rozdzielnicy + bramka do KNX / Modbus</li>
+<li>używany w biurach, hotelach, muzeach</li>
+</ul>
+<p>W domu jednorodzinnym DALI bywa overkillem — chyba że właściciel projektuje pełne sceny w salonie z 20+ oprawami.</p>
+
+<h2>1-10 V (analogowe)</h2>
+<p>Starszy standard analogowy: oprawa LED ma 2 dodatkowe przewody sterujące. Napięcie 0 V = 0%, 10 V = 100%. Sterownik wytwarza to napięcie.</p>
+<ul>
+<li>prostsze niż DALI</li>
+<li>działa tylko na danej oprawie / grupie (brak adresowania)</li>
+<li>popularne w biurach średniej klasy</li>
+</ul>
+
+<h2>KNX</h2>
+<p>Najbardziej rozbudowany system smart home dla budynków — magistrala typu bus z dziesiątkami modułów (ściemniacze, przekaźniki, czujniki, termostaty). Programowalny w środowisku ETS.</p>
+<ul>
+<li>jeden system steruje: oświetleniem, roletami, ogrzewaniem, klimatyzacją, alarmami, audio</li>
+<li>bardzo wysoki koszt początkowy (1000-3000 zł za pomieszczenie)</li>
+<li>dożywotnia żywotność (standard z 1990, kompatybilność wsteczna)</li>
+</ul>
+
+<h2>Czujniki ruchu i obecności</h2>
+
+<h3>PIR (Pasywna podczerwień)</h3>
+<p>Wykrywa <strong>różnicę temperatur</strong> ruchomego obiektu. Klasyczny czujnik w korytarzu lub na zewnątrz.</p>
+<ul>
+<li>działa od 5 do 12 m zasięgu</li>
+<li>wadą: nie wykrywa siedzącego nieruchomego użytkownika</li>
+<li>zwykle „wyłącznik czasowy" — czas opóźnienia 10 s do 30 min</li>
+</ul>
+
+<h3>Mikrofalowy / radarowy</h3>
+<p>Emituje fale mikrofalowe i odbiera odbite — reaguje na <strong>każdy ruch</strong>, nawet drobny.</p>
+<ul>
+<li>wykrywa obecność za szybą (przez drzwi)</li>
+<li>lepszy do toalet i pomieszczeń, gdzie użytkownik siedzi/pracuje nieruchomo</li>
+<li>droższy</li>
+</ul>
+
+<h3>Ultradźwiękowy</h3>
+<p>Rzadziej spotykany — czuły, ale generuje hałas niemowląt/zwierząt.</p>
+
+<h3>Zmierzchowy (fotokomórka, LDR)</h3>
+<p>Załącza światło, gdy ciemno (luksomierz wewnętrzny w czujniku). Do zewnętrznego oświetlenia, słupków ogrodowych, klatek schodowych w pochmurne dni.</p>
+
+<h3>Czas (TM, time switch)</h3>
+<p>Włącza/wyłącza wg harmonogramu (np. 16:00-22:00 zimą, 18:30-23:30 latem). Mechaniczny (tarcza z zębami) lub elektroniczny (wyświetlacz LCD).</p>
+
+<h3>Kombinacja sensors</h3>
+<div class="callout">W praktyce łączymy: <strong>zmierzchowy + czas + PIR</strong> = oświetlenie zewnętrzne tylko gdy ciemno, w godzinach aktywności i tylko gdy ktoś jest w pobliżu.</div>
+
+<h2>Sceny oświetleniowe</h2>
+<p>W systemach inteligentnych (KNX, DALI, Hue) tworzymy „sceny" — zaprogramowane stany wszystkich opraw:</p>
+<ul>
+<li><strong>„Kino"</strong> — salon ściemniony 20%, podświetlenie ekranu / nasze gabloty 30%, reszta 0%</li>
+<li><strong>„Kolacja"</strong> — żyrandol 50%, kinkiety 70%, podświetlenie kuchni 0%</li>
+<li><strong>„Praca"</strong> — sufitowe 100%, lampka biurkowa 100%, akcenty 0%</li>
+<li><strong>„Wyjście / noc"</strong> — wszystko 0%, podświetlenie schodów 10%</li>
+</ul>
+<p>Sceny przypisuje się do przycisków lub uruchamia z aplikacji.</p>
+
+<h2>Praktyczne rady</h2>
+<ol>
+<li><strong>Łazienka</strong>: czujnik mikrofalowy + ściemniacz na lustrze (max 100% rano, 30% w nocy).</li>
+<li><strong>Korytarze</strong>: PIR z opóźnieniem 60-90 s. Bez wyłącznika klasycznego (chyba że dwustopniowy: PIR + ręczny override).</li>
+<li><strong>Salon</strong>: ściemniacz uniwersalny + min. 2-3 obwody (sufit / strop / lampy stojące) → możliwość scen.</li>
+<li><strong>Sypialnia</strong>: ściemniacz + drugi łącznik przy łóżku (sterowanie centralne + lokalne).</li>
+<li><strong>Pomieszczenia gospodarcze</strong>: PIR (włącza się sam przy wejściu z workami z zakupami).</li>
+<li><strong>Schody</strong>: PIR + czujnik schodowy LED (każdy stopień podświetlony osobno).</li>
+</ol>
+
+<div class="nav-bottom">
+<a href="08-03-zrodla-swiatla.html">⟵ Źródła światła</a>
+<a href="08-05-zewnetrzne.html">Oświetlenie zewnętrzne →</a>
+</div>
+</div>
+</body>
+</html>

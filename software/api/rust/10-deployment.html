@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment Rust API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f97316;--accent-hover:#fb923c;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Rust</a>
+  <span class="sep">/</span>
+  <span class="title">Deployment Rust API</span>
+</div>
+<div class="container">
+  <h1>Deployment Rust API</h1>
+  <p class="subtitle">Optymalizacja binarki, cross-compilation, minimalne obrazy Docker, Kubernetes, fly.io i graceful shutdown — wszystko co potrzebne do produkcji.</p>
+
+  <h2>cargo build --release — optymalizacje</h2>
+  <p>Domyslny profil release jest juz znacznie szybszy od debug, ale mozna go dalej optymalizowac w <code>Cargo.toml</code>. Kluczowe ustawienia to <strong>LTO</strong> (Link Time Optimization) i <strong>codegen-units=1</strong> — powoduja dluzsza kompilacje, ale generuja znacznie szybszy i mniejszy binarny.</p>
+
+  <pre><code># Cargo.toml
+[profile.release]
+opt-level = 3          # maksymalna optymalizacja (domyslne dla release)
+lto = true             # link-time optimization (wolniejszy build, szybszy runtime)
+codegen-units = 1      # jeden jednostka kodowania (lepsze LTO, wolniejszy build)
+strip = true           # usun symbole debug z binarki (mniejszy plik)
+panic = "abort"        # mniejszy binarny (bez unwind tables)
+
+# Profil dla szybkiego CI (bez LTO, ale z optymalizacjami)
+[profile.ci]
+inherits = "release"
+lto = false
+codegen-units = 16
+
+# Sprawdzenie rozmiaru binarki
+# cargo build --release
+# ls -lh target/release/my-api
+# Typowy rozmiar: 5-15 MB (przed stripem), 2-8 MB (po stripie)</code></pre>
+
+  <h2>Cross-compilation — narzedzie cross</h2>
+  <p>Crate <strong>cross</strong> uzywa Docker do cross-kompilacji bez konfigurowania lokalnego toolchainu. Wystarczy zainstalowac i wywolac jak cargo — reszta dzieje sie w kontenerze.</p>
+
+  <pre><code># Instalacja
+cargo install cross --git https://github.com/cross-rs/cross
+
+# Kompilacja dla Linux x86_64 (musl — statyczny binarny)
+cross build --release --target x86_64-unknown-linux-musl
+
+# Kompilacja dla ARM64 (np. AWS Graviton, Apple M1 serwery)
+cross build --release --target aarch64-unknown-linux-musl
+
+# Kompilacja dla ARM32 (Raspberry Pi)
+cross build --release --target armv7-unknown-linux-musleabihf
+
+# Wynikowy binarny jest statycznie zlinkowany — nie wymaga glibc na serwerze
+# Mozna go uruchomic na scratch/distroless bez zadnych zaleznosci systemowych</code></pre>
+
+  <h2>Multi-stage Dockerfile — minimalny obraz</h2>
+  <p>Multi-stage build pozwala uzyc pelnego obrazu do kompilacji, a nastepnie skopiowac tylko binarny do minimalnego obrazu bazowego. Obraz <code>scratch</code> ma 0 MB — idealny dla statycznie zlinkowanych binarow musl.</p>
+
+  <pre><code># Dockerfile
+# ---- Etap budowania ----
+FROM rust:1.78-slim AS builder
+
+WORKDIR /app
+
+# Cache zaleznosci (osobna warstwa)
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src &amp;&amp; echo 'fn main(){}' &gt; src/main.rs
+RUN cargo build --release --locked
+RUN rm src/main.rs
+
+# Kompilacja wlasciwego kodu
+COPY src ./src
+COPY migrations ./migrations
+RUN touch src/main.rs &amp;&amp; cargo build --release --locked
+
+# Stripowanie symboli debug
+RUN strip target/release/my-api
+
+# ---- Obraz produkcyjny (distroless) ----
+FROM gcr.io/distroless/cc-debian12 AS runtime
+
+# distroless zawiera minimalne biblioteki C (libc, libssl)
+# Alternatywa: FROM scratch  (tylko dla musl/statycznych binarow)
+
+WORKDIR /app
+COPY --from=builder /app/target/release/my-api ./my-api
+COPY --from=builder /app/migrations ./migrations
+
+# Bezpieczenstwo: uruchom jako non-root
+USER nonroot:nonroot
+
+EXPOSE 8080
+ENTRYPOINT ["./my-api"]</code></pre>
+
+  <h2>Porownanie obrazow bazowych</h2>
+
+  <table>
+    <thead>
+      <tr><th>Obraz bazowy</th><th>Rozmiar</th><th>Shell</th><th>Libc</th><th>Kiedy uzywac</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>scratch</code></td><td>0 MB</td><td>nie</td><td>nie (musl)</td><td>statyczne binary musl — najmniejszy mozliwy</td></tr>
+      <tr><td><code>distroless/cc</code></td><td>~20 MB</td><td>nie</td><td>glibc</td><td>standardowe binary glibc, bezpieczny</td></tr>
+      <tr><td><code>distroless/static</code></td><td>~2 MB</td><td>nie</td><td>nie</td><td>musl/statyczne, z CA certs</td></tr>
+      <tr><td><code>alpine:3</code></td><td>~7 MB</td><td>sh</td><td>musl</td><td>gdy potrzebny shell do debugowania</td></tr>
+      <tr><td><code>debian:slim</code></td><td>~75 MB</td><td>bash</td><td>glibc</td><td>pelne srodowisko, latwy debugging</td></tr>
+    </tbody>
+  </table>
+
+  <h2>docker-compose — lokalne srodowisko</h2>
+
+  <pre><code># docker-compose.yml
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://postgres:password@db:5432/myapp
+      REDIS_URL: redis://redis:6379
+      RUST_LOG: info,my_api=debug
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:</code></pre>
+
+  <h2>Graceful shutdown — tokio signal</h2>
+  <p>Aplikacja produkcyjna musi obsluzyc sygnaly SIGTERM/SIGINT i zakonczyc aktywne polaczenia zanim sie wylacy. Axum wspiera graceful shutdown przez <code>.with_graceful_shutdown()</code>.</p>
+
+  <pre><code>use tokio::signal;
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c().await.expect("Nie mozna zainstalowac handlera Ctrl+C");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("Nie mozna zainstalowac handlera SIGTERM")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::&lt;()&gt;();
+
+    tokio::select! {
+        _ = ctrl_c    =&gt; { tracing::info!("Otrzymano Ctrl+C"); },
+        _ = terminate =&gt; { tracing::info!("Otrzymano SIGTERM"); },
+    }
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result&lt;()&gt; {
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+    tracing::info!("Serwer startuje na :8080");
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+
+    tracing::info!("Serwer zakonczyl dzialanie");
+    Ok(())
+}</code></pre>
+
+  <h2>Kubernetes — health probes</h2>
+  <p>Kubernetes wymaga endpointow liveness i readiness. Liveness sprawdza czy aplikacja zyje (restart jesli nie), readiness czy jest gotowa do ruchu (usun z load balancera jesli nie).</p>
+
+  <pre><code>// Health check handlery
+async fn liveness() -> impl IntoResponse {
+    StatusCode::OK
+}
+
+async fn readiness(State(state): State&lt;Arc&lt;AppState&gt;&gt;) -> impl IntoResponse {
+    // Sprawdz polaczenie z baza
+    match sqlx::query("SELECT 1").execute(&amp;state.db).await {
+        Ok(_) =&gt; StatusCode::OK,
+        Err(_) =&gt; StatusCode::SERVICE_UNAVAILABLE,
+    }
+}
+
+// Fragment deployment.yaml Kubernetes:
+// livenessProbe:
+//   httpGet:
+//     path: /health/live
+//     port: 8080
+//   initialDelaySeconds: 5
+//   periodSeconds: 10
+// readinessProbe:
+//   httpGet:
+//     path: /health/ready
+//     port: 8080
+//   initialDelaySeconds: 5
+//   periodSeconds: 5</code></pre>
+
+  <h2>Konfiguracja — config crate i dotenvy</h2>
+
+  <pre><code>// Cargo.toml [dependencies]
+// config = "0.14"
+// dotenvy = "0.15"
+// serde = { version = "1", features = ["derive"] }
+
+use config::{Config, ConfigError, Environment, File};
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct AppConfig {
+    pub database_url: String,
+    pub listen_addr: String,
+    pub jwt_secret: String,
+    pub log_level: String,
+    pub max_connections: u32,
+}
+
+impl AppConfig {
+    pub fn load() -> Result&lt;Self, ConfigError&gt; {
+        dotenvy::dotenv().ok();
+
+        Config::builder()
+            // Domyslne wartosci
+            .set_default("listen_addr", "0.0.0.0:8080")?
+            .set_default("log_level", "info")?
+            .set_default("max_connections", 20)?
+            // Plik konfiguracyjny (opcjonalny)
+            .add_source(File::with_name("config/default").required(false))
+            .add_source(File::with_name("config/local").required(false))
+            // Zmienne srodowiskowe maja najwyzszy priorytet
+            // APP_DATABASE_URL -> database_url
+            .add_source(Environment::with_prefix("APP").separator("_"))
+            .build()?
+            .try_deserialize()
+    }
+}</code></pre>
+
+  <h2>fly.io — szybki deployment</h2>
+
+  <pre><code># fly.toml
+app = "my-rust-api"
+primary_region = "waw"   # Warsaw
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  RUST_LOG = "info"
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 500
+    soft_limit = 200
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
+
+# Deployment:
+# fly launch                          # pierwsza konfiguracja
+# fly secrets set DATABASE_URL="..."  # sekrety (nie w fly.toml!)
+# fly deploy                          # deployment
+# fly logs                            # logi produkcyjne
+# fly status                          # status maszyn</code></pre>
+
+  <div class="card green">
+    <strong>Typowy rozmiar obrazu Docker dla Rust API:</strong> Binarny release (~5 MB po stripie) + distroless/cc (~20 MB) = obraz ~25 MB. Dla porownania: Node.js API to zwykle 200-500 MB, Python FastAPI to 150-300 MB. Mniejszy obraz to szybszy pull, mniejsza powierzchnia ataku i nizsze koszty storage.
+  </div>
+
+  <div class="card blue">
+    <strong>CI/CD tip:</strong> Uzyj GitHub Actions z cache Cargo — <code>actions/cache</code> dla <code>~/.cargo</code> i <code>target/</code>. Bez cache kompilacja release trwa 5-10 min, z cache — 1-2 min. W monorepo workspace dodaj <code>--package my-api</code> do <code>cargo build</code> aby nie kompilowac wszystkiego.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="09-testing.html">← 09-testing.html</a>
+    <a href="../index.html">../index.html →</a>
+  </div>
+</div>
+</body>
+</html>

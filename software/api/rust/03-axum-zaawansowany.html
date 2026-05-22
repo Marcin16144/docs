@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axum — zaawansowany</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#f97316;--accent-hover:#fb923c;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Rust</a>
+  <span class="sep">/</span>
+  <span class="title">Axum — zaawansowany</span>
+</div>
+<div class="container">
+  <h1>Axum — zaawansowany</h1>
+  <p class="subtitle">Middleware z tower, obsluga bledow, WebSocket, multipart upload, tower-http i wspoldzielony stan aplikacji.</p>
+
+  <h2>Middleware z tower — ServiceBuilder</h2>
+  <p>Axum jest zbudowany na tower, wiec kazdy <code>Service</code> i <code>Layer</code> z ekosystemu tower dziala bezposrednio. <strong>ServiceBuilder</strong> pozwala laczyc warstwy middleware w czytelny lancuch. Kolejnosc ma znaczenie: pierwsza dodana warstwa jest najbardziej zewnetrzna (pierwsza przetwarza request, ostatnia odpowiedz).</p>
+
+  <pre><code>use axum::Router;
+use tower::ServiceBuilder;
+use tower_http::{
+    cors::CorsLayer,
+    trace::TraceLayer,
+    compression::CompressionLayer,
+    timeout::TimeoutLayer,
+    limit::RequestBodyLimitLayer,
+};
+use std::time::Duration;
+
+let middleware_stack = ServiceBuilder::new()
+    .layer(TraceLayer::new_for_http())
+    .layer(CorsLayer::permissive())          // dev only!
+    .layer(CompressionLayer::new())
+    .layer(TimeoutLayer::new(Duration::from_secs(30)))
+    .layer(RequestBodyLimitLayer::new(5 * 1024 * 1024)); // 5 MB
+
+let app = Router::new()
+    .route("/users", get(list_users))
+    .layer(middleware_stack)
+    .with_state(state);</code></pre>
+
+  <h3>CorsLayer — konfiguracja produkcyjna</h3>
+  <p>W produkcji nie uzywaj <code>CorsLayer::permissive()</code>. Zdefiniuj dozwolone zrodla jawnie:</p>
+
+  <pre><code>use tower_http::cors::{CorsLayer, Any};
+use axum::http::{HeaderName, Method};
+
+let cors = CorsLayer::new()
+    .allow_origin(["https://app.example.com".parse().unwrap()])
+    .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+    .allow_headers([
+        HeaderName::from_static("content-type"),
+        HeaderName::from_static("authorization"),
+    ])
+    .allow_credentials(true)
+    .max_age(Duration::from_secs(3600));</code></pre>
+
+  <h2>Custom middleware — from_fn</h2>
+  <p>Najprostszy sposob na wlasne middleware to <code>axum::middleware::from_fn</code>. Funkcja middleware otrzymuje request i <code>Next</code> — wywolujac <code>next.run(req)</code> przekazujemy request dalej w lancuchu.</p>
+
+  <pre><code>use axum::{middleware::{self, Next}, extract::Request, response::Response};
+use axum::http::StatusCode;
+
+async fn auth_middleware(
+    State(state): State&lt;Arc&lt;AppState&gt;&gt;,
+    req: Request,
+    next: Next,
+) -> Result&lt;Response, StatusCode&gt; {
+    let token = req
+        .headers()
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "));
+
+    match token {
+        Some(t) if validate_token(t, &amp;state.jwt_secret) => {
+            Ok(next.run(req).await)
+        }
+        _ => Err(StatusCode::UNAUTHORIZED),
+    }
+}
+
+// Rejestracja tylko dla wybranych tras:
+let protected = Router::new()
+    .route("/profile", get(profile_handler))
+    .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));</code></pre>
+
+  <h2>AppError implementing IntoResponse</h2>
+  <p>Zamiast zwracac <code>StatusCode</code> z handlerow, zdefiniuj wlasny typ bledu ktory implementuje <code>IntoResponse</code>. Dzieki temu handlery zwracaja <code>Result&lt;T, AppError&gt;</code> i mozesz uzywac operatora <code>?</code>.</p>
+
+  <table>
+    <thead>
+      <tr><th>Wariant AppError</th><th>HTTP Status</th><th>Odpowiedz JSON</th><th>Zrodlo</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>NotFound(String)</code></td><td>404</td><td>{"error": "...", "code": "NOT_FOUND"}</td><td>logika biznesowa</td></tr>
+      <tr><td><code>Unauthorized</code></td><td>401</td><td>{"error": "Unauthorized"}</td><td>middleware / JWT</td></tr>
+      <tr><td><code>Forbidden</code></td><td>403</td><td>{"error": "Forbidden"}</td><td>RBAC</td></tr>
+      <tr><td><code>Validation(String)</code></td><td>422</td><td>{"error": "...", "field": "..."}</td><td>deserializacja / guard</td></tr>
+      <tr><td><code>Database(sqlx::Error)</code></td><td>500</td><td>{"error": "Internal error"}</td><td>#[from] sqlx</td></tr>
+      <tr><td><code>Internal(anyhow::Error)</code></td><td>500</td><td>{"error": "Internal error"}</td><td>catchall</td></tr>
+    </tbody>
+  </table>
+
+  <pre><code>use axum::{response::{IntoResponse, Response}, Json, http::StatusCode};
+use thiserror::Error;
+use serde_json::json;
+
+#[derive(Debug, Error)]
+pub enum AppError {
+    #[error("{0}")]
+    NotFound(String),
+    #[error("Unauthorized")]
+    Unauthorized,
+    #[error("{0}")]
+    Validation(String),
+    #[error(transparent)]
+    Database(#[from] sqlx::Error),
+    #[error(transparent)]
+    Internal(#[from] anyhow::Error),
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let (status, message) = match &amp;self {
+            AppError::NotFound(m)    => (StatusCode::NOT_FOUND, m.clone()),
+            AppError::Unauthorized   => (StatusCode::UNAUTHORIZED, "Unauthorized".into()),
+            AppError::Validation(m)  => (StatusCode::UNPROCESSABLE_ENTITY, m.clone()),
+            AppError::Database(e)    => {
+                tracing::error!("DB error: {e}");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Database error".into())
+            }
+            AppError::Internal(e)    => {
+                tracing::error!("Internal: {e}");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal error".into())
+            }
+        };
+        (status, Json(json!({"error": message}))).into_response()
+    }
+}</code></pre>
+
+  <h2>Wspoldzielony stan — Arc&lt;AppState&gt;</h2>
+  <p>Stan aplikacji jest tworzony raz i wspoldzielony miedzy wszystkimi handlerami. <code>Arc&lt;T&gt;</code> zapewnia thread-safe reference counting. Wewnetrzna mutowalnosc realizujemy przez <code>RwLock</code> lub <code>Mutex</code> z Tokio (nie blokuja watku OS).</p>
+
+  <pre><code>#[derive(Clone)]
+pub struct AppState {
+    pub db: sqlx::PgPool,
+    pub config: Arc&lt;Config&gt;,
+    pub redis: redis::aio::ConnectionManager,
+}
+
+impl AppState {
+    pub async fn new() -> anyhow::Result&lt;Self&gt; {
+        let db = PgPoolOptions::new()
+            .max_connections(20)
+            .connect(&amp;std::env::var("DATABASE_URL")?)
+            .await?;
+        Ok(Self {
+            db,
+            config: Arc::new(Config::from_env()?),
+            redis: /* ... */,
+        })
+    }
+}
+
+// Uzycie w handlerze:
+async fn handler(State(state): State&lt;Arc&lt;AppState&gt;&gt;) -> impl IntoResponse {
+    // state.db, state.config, state.redis
+}</code></pre>
+
+  <h2>WebSocket handler</h2>
+  <p>Axum wspiera WebSocket przez <code>WebSocketUpgrade</code> extractor. Po upgrade, handler dostaje <code>WebSocket</code> — strumien wiadomosci.</p>
+
+  <pre><code>use axum::extract::ws::{WebSocketUpgrade, WebSocket, Message};
+
+async fn ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
+    ws.on_upgrade(handle_socket)
+}
+
+async fn handle_socket(mut socket: WebSocket) {
+    while let Some(Ok(msg)) = socket.recv().await {
+        match msg {
+            Message::Text(t) => {
+                if socket.send(Message::Text(format!("Echo: {t}"))).await.is_err() {
+                    break;
+                }
+            }
+            Message::Close(_) => break,
+            _ => {}
+        }
+    }
+}</code></pre>
+
+  <h2>Multipart upload</h2>
+  <p>Do obslugi uploadow plikow uzyj extractora <code>Multipart</code>. Pamietaj o ograniczeniu rozmiaru przez <code>RequestBodyLimitLayer</code>.</p>
+
+  <pre><code>use axum::extract::Multipart;
+
+async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
+    while let Some(field) = multipart.next_field().await.unwrap_or(None) {
+        let name = field.name().unwrap_or("unknown").to_string();
+        let filename = field.file_name().map(str::to_string);
+        let data = field.bytes().await.unwrap_or_default();
+
+        tracing::info!("Pole: {name}, plik: {:?}, rozmiar: {}", filename, data.len());
+        // zapis na dysk lub do cloud storage
+    }
+    StatusCode::OK
+}</code></pre>
+
+  <div class="card blue">
+    <strong>Extension&lt;T&gt; vs State&lt;T&gt;:</strong> <code>State&lt;T&gt;</code> jest zalecane dla stanu aplikacji — jest sprawdzane w czasie kompilacji i ma lepszą wydajnosc. <code>Extension&lt;T&gt;</code> uzywa TypeMap i jest przydatne gdy chcesz przekazac dane z middleware do handlera (np. zalogowanego uzytkownika po weryfikacji JWT).
+  </div>
+
+  <div class="nav-bottom">
+    <a href="02-axum.html">← 02-axum.html</a>
+    <a href="04-actix-web.html">04-actix-web.html →</a>
+  </div>
+</div>
+</body>
+</html>

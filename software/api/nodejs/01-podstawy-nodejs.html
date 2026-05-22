@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy Node.js v22</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Node.js</a>
+  <span class="sep">/</span>
+  <span class="title">Podstawy Node.js v22</span>
+</div>
+
+<div class="container">
+  <h1>Podstawy Node.js v22</h1>
+  <p class="subtitle">Event loop, silnik V8, libuv, system modulow oraz nowosci Node.js 22</p>
+
+  <h2>Czym jest Node.js?</h2>
+  <p>Node.js to srodowisko uruchomieniowe JavaScript zbudowane na silniku V8 z Chrome. Dziala poza przegladarka, umozliwiajac tworzenie aplikacji serwerowych, narzedzi CLI i systemow backendowych. Kluczowe cechy to jednowatkowos, nieblokujace I/O oraz model oparty na zdarzeniach (event-driven).</p>
+  <p>Node.js v22 (LTS od pazdziernika 2024) wprowadza natywne stripowanie TypeScript, wbudowany test runner w stabilnej wersji oraz klienta WebSocket bez dodatkowych bibliotek.</p>
+
+  <div class="card green">
+    <strong>Node.js v22 — wazna wersja LTS</strong>
+    <p style="margin-top:8px;margin-bottom:0">Node.js 22 jest aktualnym LTS (Long Term Support) — zalecana do produkcji do 2027 roku. Wspiera ESM jako domyslny system modulow i oferuje znaczace usprawnienia wydajnosci V8.</p>
+  </div>
+
+  <h2>Event Loop — fazy wykonania</h2>
+  <p>Event loop to mechanizm pozwalajacy Node.js realizowac nieblokujace I/O mimo jednowatkowosci. Libuv (biblioteka C) zarzadza kolejkami zdarzen i deleguje operacje do puli watkow systemowych. Event loop przechodzi przez szesc faz w kazdej iteracji (tzw. <strong>tick</strong>).</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Faza</th>
+        <th>Kolejka / zrodlo</th>
+        <th>Przyklad operacji</th>
+        <th>Priorytet</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>timers</strong></td>
+        <td>setTimeout, setInterval</td>
+        <td>Callbacki zegarow, których delay minal</td>
+        <td>1 (najwyzszy w petli)</td>
+      </tr>
+      <tr>
+        <td><strong>I/O callbacks</strong></td>
+        <td>Callbacki systemowe</td>
+        <td>Bledy TCP, wyniki odczytu pliku (opoznione)</td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><strong>idle / prepare</strong></td>
+        <td>Wewnetrzna libuv</td>
+        <td>Przygotowanie petli (wewnetrzne Node.js)</td>
+        <td>3 (niedostepna z JS)</td>
+      </tr>
+      <tr>
+        <td><strong>poll</strong></td>
+        <td>Kolejka I/O</td>
+        <td>Nowe zdarzenia I/O: odczyt pliku, socket, HTTP</td>
+        <td>4 (najdluzej blokuje)</td>
+      </tr>
+      <tr>
+        <td><strong>check</strong></td>
+        <td>setImmediate</td>
+        <td>Callbacki setImmediate — po poll</td>
+        <td>5</td>
+      </tr>
+      <tr>
+        <td><strong>close callbacks</strong></td>
+        <td>Zdarzenie "close"</td>
+        <td>socket.destroy(), zamkniecie strumieni</td>
+        <td>6</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>Przed kazda faza Node.js oproznia kolejki <strong>nextTick</strong> (<code>process.nextTick</code>) oraz <strong>microtask</strong> (Promise callbacks). Maja one wyzszy priorytet niz jakakolwiek faza petli.</p>
+
+  <h3>Kolejnosc wykonania — przyklad</h3>
+  <pre><code>// Demonstracja kolejnosci: nextTick > Promise > setImmediate > setTimeout
+console.log('1: synchroniczne');
+
+process.nextTick(() => console.log('2: nextTick'));
+
+Promise.resolve().then(() => console.log('3: Promise microtask'));
+
+setImmediate(() => console.log('4: setImmediate (faza check)'));
+
+setTimeout(() => console.log('5: setTimeout (faza timers)'), 0);
+
+console.log('6: synchroniczne koniec');
+
+// Wynik: 1, 6, 2, 3, 4, 5 (lub 4/5 zamienione — zalezne od OS)</code></pre>
+
+  <h2>Silnik V8 i libuv</h2>
+  <p><strong>V8</strong> to silnik JavaScript rozwijany przez Google (uzywa Chrome i Node.js). Kompiluje JS do kodu maszynowego (JIT compilation), zarzadza sterta (heap) i odsmiecaniem pamieci (garbage collection — Generational GC z young/old space).</p>
+  <p><strong>libuv</strong> to wieloplatformowa biblioteka C zapewniajaca: asynchroniczne I/O, pule watkow (domyslnie 4 watki dla operacji plikowych i DNS), implementacje event loop oraz abstrakcje dla systemow operacyjnych (epoll/Linux, kqueue/macOS, IOCP/Windows).</p>
+
+  <div class="card blue">
+    <strong>Pula watkow libuv</strong>
+    <p style="margin-top:8px;margin-bottom:0">Domyslnie libuv utrzymuje 4 watki robocze (<code>UV_THREADPOOL_SIZE=4</code>). Mozna zwiekszyc do 1024. Operacje CPU-bound (np. kryptografia, kompresja zlib) korzystaja z tej puli — dlatego moze byc waskim gardlem pod obciazeniem.</p>
+  </div>
+
+  <h2>CommonJS vs ESM</h2>
+  <p>Node.js wspiera dwa systemy modulow. <strong>CommonJS</strong> (CJS) to klasyczny system z <code>require()</code>, obecny od poczatku Node.js. <strong>ES Modules</strong> (ESM) to standard ECMAScript z <code>import/export</code>, domyslny w przegladarkach i Node.js v22+.</p>
+
+  <pre><code>// === CommonJS (plik .cjs lub bez "type":"module" w package.json) ===
+const fs = require('fs');
+const { join } = require('path');
+const myModule = require('./myModule'); // synchroniczny odczyt
+
+module.exports = { myFunction };
+// lub: exports.myFunction = myFunction;
+
+// Dostep do katalogu biezacego pliku (dostepne w CJS):
+console.log(__dirname);   // np. /home/user/project/src
+console.log(__filename);  // np. /home/user/project/src/app.js
+
+// === ES Modules (plik .mjs lub "type":"module" w package.json) ===
+import fs from 'fs';
+import { join } from 'path';
+import { myFunction } from './myModule.js'; // rozszerzenie wymagane!
+
+export function hello() { return 'hello'; }
+export default class App {}
+
+// Odpowiednik __dirname w ESM:
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = dirname(__filename);
+
+// Lub top-level await (tylko w ESM):
+const data = await fetch('https://api.example.com/data').then(r => r.json());</code></pre>
+
+  <h2>package.json — kluczowe pola</h2>
+  <p>Plik <code>package.json</code> steruje zachowaniem projektu Node.js. Pole <code>type</code> decyduje o domyslnym systemie modulow, <code>exports</code> pozwala zdefiniowac publiczne API paczki, a <code>scripts</code> definiuje skrypty uruchamiane przez <code>npm run</code>.</p>
+
+  <pre><code>{
+  "name": "my-api",
+  "version": "1.0.0",
+  "type": "module",            // domyslny system: ESM (pliki .js traktowane jako ESM)
+  "main": "./dist/index.js",  // punkt wejscia dla CJS (stary interop)
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",  // dla: import x from 'my-api'
+      "require": "./dist/index.cjs" // dla: require('my-api')
+    },
+    "./utils": "./dist/utils.js"    // subpath export: import { x } from 'my-api/utils'
+  },
+  "scripts": {
+    "start":   "node dist/index.js",
+    "dev":     "node --watch src/index.ts",  // --watch: hot-reload (v18+)
+    "build":   "tsc -p tsconfig.json",
+    "test":    "node --test",                // wbudowany test runner Node.js
+    "lint":    "eslint src/"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}</code></pre>
+
+  <h2>Nowosci Node.js v22</h2>
+
+  <h3>Natywne stripowanie TypeScript</h3>
+  <p>Node.js v22.6+ (eksperymentalnie) i v23+ umozliwia uruchomienie plikow TypeScript bez transpilatora. Typy sa usuwane (strip), ale nie ma type-checkingu. Flaga <code>--experimental-strip-types</code> (v22) lub automatycznie w v23+.</p>
+
+  <pre><code>// Uruchomienie pliku .ts bezposrednio (Node.js 22.6+ z flaga):
+// node --experimental-strip-types src/server.ts
+
+// Plik server.ts:
+import { createServer } from 'http';
+
+interface Config {
+  port: number;
+  host: string;
+}
+
+const config: Config = { port: 3000, host: 'localhost' };
+
+const server = createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ status: 'ok', config }));
+});
+
+server.listen(config.port, config.host, () => {
+  console.log(\`Serwer dziala na http://\${config.host}:\${config.port}\`);
+});</code></pre>
+
+  <h3>Wbudowany test runner (stabilny od v20, ulepszony w v22)</h3>
+  <p>Node.js ma wbudowany modul testowy dostepny przez <code>node:test</code>. Nie wymaga zewnetrznych bibliotek. Wspiera: <code>describe/it</code>, <code>assert</code>, coverage, mock functions, snapshots i subtesty.</p>
+
+  <h3>Wbudowany klient WebSocket</h3>
+  <p>Node.js v22 wprowadza globalny <code>WebSocket</code> (po stronie klienta) zgodny z API przegladarki. Wczesniej wymagane bylo <code>ws</code> lub <code>undici</code>.</p>
+
+  <h2>process.env i zmienne srodowiskowe</h2>
+  <p>Zmienne srodowiskowe sa dostepne przez obiekt <code>process.env</code>. Node.js v22.9+ laduje plik <code>.env</code> natywnie przy uzyciu flagi <code>--env-file</code>, bez potrzeby biblioteki <code>dotenv</code>.</p>
+
+  <div class="card orange">
+    <strong>Bezpieczenstwo zmiennych srodowiskowych</strong>
+    <p style="margin-top:8px;margin-bottom:0">Nigdy nie commituj pliku <code>.env</code> do repozytorium. Dodaj go do <code>.gitignore</code>. W produkcji uzyj sekretow platformy (Kubernetes Secrets, Railway Variables, Fly.io secrets).</p>
+  </div>
+
+  <h2>__dirname vs import.meta.url</h2>
+  <p>W CommonJS dostepne sa globalne zmienne <code>__dirname</code> i <code>__filename</code>. W ESM nie istnieja — zamiast nich uzywamy <code>import.meta.url</code>, który zawiera URL biezacego pliku (<code>file:///absolute/path/to/file.js</code>).</p>
+
+  <div class="card green">
+    <strong>Tip: pomocniczy snippet dla ESM</strong>
+    <p style="margin-top:8px;margin-bottom:0">Umieszczony raz na gorze pliku ESM: <code>import { fileURLToPath } from 'url'; import { dirname, join } from 'path'; const __dirname = dirname(fileURLToPath(import.meta.url));</code> — przywraca znane zachowanie.</p>
+  </div>
+
+  <h2>Jednowatkowosc a wydajnosc</h2>
+  <p>Node.js wykonuje kod JavaScript w jednym watku. Oznacza to, ze operacje CPU-intensive (np. szyfrowanie RSA, kompresja, parsowanie JSON ogromnych plikow) blokuja caly serwer. Rozwiazania:</p>
+  <ul>
+    <li><strong>Worker Threads</strong> (<code>node:worker_threads</code>) — osobne watki JS z wlasna sterta V8</li>
+    <li><strong>Child Processes</strong> (<code>node:child_process</code>) — osobne procesy Node.js</li>
+    <li><strong>Cluster mode</strong> (<code>node:cluster</code>) — wiele procesow Node.js na tym samym porcie (load balancing przez OS)</li>
+    <li><strong>Offloading do mikroserwisow</strong> — ciezkie operacje w osobnym serwisie (np. Python, Go)</li>
+  </ul>
+
+  <div class="nav-bottom">
+    <a href="index.html">← index.html</a>
+    <a href="02-express.html">02-express.html →</a>
+  </div>
+</div>
+</body>
+</html>

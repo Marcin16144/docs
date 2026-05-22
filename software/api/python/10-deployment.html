@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment Python API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--accent-hover:#60a5fa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Python</a>
+  <span class="sep">/</span>
+  <span class="title">Deployment Python API</span>
+</div>
+<div class="container">
+  <h1>Deployment Python API</h1>
+  <p class="subtitle">Gunicorn + Uvicorn, Docker multi-stage, docker-compose, Railway/Render/Fly.io, AWS Lambda z Mangum, pydantic-settings, health check</p>
+
+  <h2>Gunicorn + Uvicorn workers</h2>
+  <p>Na produkcji nie uruchamiaj Uvicorna bezposrednio — uzyj <strong>Gunicorn</strong> jako process managera z workerami Uvicorn. Gunicorn zarzadza procesami (restart po awarii, graceful shutdown), Uvicorn obsluguje ASGI w kazdym workerze.</p>
+
+  <div class="card green">
+    <h3>Podstawowe uruchomienie produkcyjne</h3>
+    <pre style="margin:8px 0 0"><code>gunicorn main:app \
+  -w 4 \
+  -k uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 \
+  --timeout 120 \
+  --keepalive 5 \
+  --access-logfile - \
+  --error-logfile -</code></pre>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Parametr</th>
+        <th>Wartosc / opis</th>
+        <th>Rekomendacja</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>-w / --workers</code></td>
+        <td>Liczba procesow worker</td>
+        <td>2 * CPU + 1 (np. 4 CPU = 9 workers)</td>
+      </tr>
+      <tr>
+        <td><code>-k / --worker-class</code></td>
+        <td>Klasa workera</td>
+        <td><code>uvicorn.workers.UvicornWorker</code></td>
+      </tr>
+      <tr>
+        <td><code>--timeout</code></td>
+        <td>Max czas requestu (sekundy)</td>
+        <td>30-120s, 0 = bez limitu</td>
+      </tr>
+      <tr>
+        <td><code>--keepalive</code></td>
+        <td>Keep-alive dla polaczen</td>
+        <td>2-5s przy uzyciu load balancera</td>
+      </tr>
+      <tr>
+        <td><code>--max-requests</code></td>
+        <td>Restart workera co N requestow</td>
+        <td>1000-2000 (zapobiega wyciekom pamieci)</td>
+      </tr>
+      <tr>
+        <td><code>--preload</code></td>
+        <td>Zaladuj aplikacje przed forkiem</td>
+        <td>Oszczedza pamiec (copy-on-write)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Docker — multi-stage build</h2>
+  <p>Multi-stage build pozwala na stworzenie malego obrazu produkcyjnego — etap build instaluje zaleznosci, etap final kopiuje tylko to co potrzebne. Uzycie <code>uv</code> drastycznie przyspiesza instalacje pakietow.</p>
+
+<pre><code># Dockerfile
+# ================================
+# ETAP 1: Builder — instalacja zaleznosci
+# ================================
+FROM python:3.12-slim AS builder
+
+# Instalacja uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app
+
+# Kopiuj pliki konfiguracji zaleznosci
+COPY pyproject.toml uv.lock ./
+
+# Instalacja zaleznosci do oddzielnego katalogu
+RUN uv sync --frozen --no-dev --no-install-project
+
+# ================================
+# ETAP 2: Final — obraz produkcyjny
+# ================================
+FROM python:3.12-slim AS final
+
+# Uzytkownik bez uprawnien root (bezpieczenstwo)
+RUN groupadd --gid 1001 appuser && \
+    useradd --uid 1001 --gid appuser --shell /bin/bash appuser
+
+WORKDIR /app
+
+# Kopiuj zainstalowane pakiety z buildera
+COPY --from=builder /app/.venv /app/.venv
+
+# Kopiuj kod aplikacji
+COPY --chown=appuser:appuser . .
+
+# Aktywacja venv przez PATH
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+USER appuser
+
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
+
+CMD ["gunicorn", "main:app", \
+     "-w", "4", \
+     "-k", "uvicorn.workers.UvicornWorker", \
+     "--bind", "0.0.0.0:8000", \
+     "--timeout", "120", \
+     "--access-logfile", "-"]
+</code></pre>
+
+  <h2>docker-compose z PostgreSQL</h2>
+
+<pre><code># docker-compose.yml
+services:
+  api:
+    build:
+      context: .
+      target: final
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:tajne@db:5432/mojabaza
+      SECRET_KEY: ${SECRET_KEY}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: tajne
+      POSTGRES_DB: mojabaza
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # Migracje (uruchamiane jednorazowo)
+  migrate:
+    build:
+      context: .
+      target: final
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:tajne@db:5432/mojabaza
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+</code></pre>
+
+  <h2>Platformy PaaS — Railway, Render, Fly.io</h2>
+  <p>Dla mniejszych projektow i MVP warto rozwazyc platformy PaaS zamiast samodzielnie zarzadzac serwerami. Porownanie popularnych opcji:</p>
+
+  <ul>
+    <li><strong>Railway</strong> — najprostszy deploy z GitHub, auto-detect Dockerfile lub Procfile, PostgreSQL w jednym kliknieciu, darmowy tier (500h/mies.)</li>
+    <li><strong>Render</strong> — podobny do Railway, dobre wsparcie dla background workers i cron jobs, darmowy tier z usspiaciem po nieaktywnosci</li>
+    <li><strong>Fly.io</strong> — bardziej zaawansowany, maszyny VM w wybranych regionach, dobry dla aplikacji wymagajacych niskich opoznienia lub globalnej dystrybucji</li>
+  </ul>
+
+  <h2>AWS Lambda z Mangum</h2>
+  <p><strong>Mangum</strong> to adapter ASGI dla AWS Lambda — pozwala uruchamiac FastAPI (i inne ASGI) jako serverless funkcje za API Gateway bez zadnych zmian w kodzie aplikacji.</p>
+
+  <h2>Konfiguracja — pydantic-settings</h2>
+  <p><strong>pydantic-settings</strong> to oficjalne rozszerzenie Pydantic do zarzadzania konfiguracja przez zmienne srodowiskowe i pliki <code>.env</code>. Oferuje automatyczna walidacje typow i szyfrowanie sekretow.</p>
+
+<pre><code># settings.py
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import PostgresDsn, RedisDsn, field_validator
+from typing import Literal
+import secrets
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # Serwer
+    APP_NAME: str = "Moje API"
+    APP_VERSION: str = "1.0.0"
+    DEBUG: bool = False
+    ENVIRONMENT: Literal["development", "staging", "production"] = "development"
+    ALLOWED_HOSTS: list[str] = ["*"]
+
+    # Baza danych
+    DATABASE_URL: PostgresDsn
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+
+    # Redis
+    REDIS_URL: RedisDsn = "redis://localhost:6379/0"  # type: ignore
+
+    # Bezpieczenstwo
+    SECRET_KEY: str = secrets.token_urlsafe(32)
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # Zewnetrzne serwisy
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def sprawdz_secret_key(cls, v: str) -> str:
+        if len(v) &lt; 32:
+            raise ValueError("SECRET_KEY musi miec min. 32 znaki")
+        return v
+
+    @property
+    def jest_produkcja(self) -> bool:
+        return self.ENVIRONMENT == "production"
+
+# Singleton — jeden obiekt w calej aplikacji
+settings = Settings()  # type: ignore
+
+# Uzycie w aplikacji FastAPI
+# from .settings import settings
+# DATABASE_URL = str(settings.DATABASE_URL)
+
+# ================================
+# Health check endpoint
+# ================================
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from datetime import datetime
+import sys
+
+app = FastAPI()
+
+@app.get("/health", tags=["monitoring"])
+async def health_check() -> JSONResponse:
+    """
+    Endpoint health check dla load balancerów i kontenerów.
+    Zwraca 200 jesli aplikacja dziala poprawnie.
+    """
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": settings.APP_VERSION,
+            "environment": settings.ENVIRONMENT,
+            "python": sys.version,
+        }
+    )
+
+@app.get("/health/ready", tags=["monitoring"])
+async def readiness_check() -> JSONResponse:
+    """Sprawdza gotowosci: polaczenie z DB i Redis."""
+    checks: dict[str, str] = {}
+    overall_ok = True
+
+    # Sprawdz baze danych
+    try:
+        # await db.execute("SELECT 1")
+        checks["database"] = "ok"
+    except Exception as e:
+        checks["database"] = f"error: {e}"
+        overall_ok = False
+
+    # Sprawdz Redis
+    try:
+        # await redis.ping()
+        checks["redis"] = "ok"
+    except Exception as e:
+        checks["redis"] = f"error: {e}"
+        overall_ok = False
+
+    return JSONResponse(
+        status_code=200 if overall_ok else 503,
+        content={"status": "ready" if overall_ok else "not_ready", "checks": checks},
+    )
+
+# ================================
+# AWS Lambda z Mangum
+# ================================
+# pip install mangum
+from mangum import Mangum
+
+# Handler dla AWS Lambda / API Gateway
+handler = Mangum(
+    app,
+    lifespan="off",        # Lambda nie obsluguje lifespan
+    api_gateway_base_path="/prod",  # prefix stage API Gateway
+)
+
+# W serverless.yml lub template.yaml:
+# Handler: main.handler
+# Zdarzenia: httpApi lub http (API Gateway v2 lub v1)
+</code></pre>
+
+  <div class="card orange">
+    <h3>Liczba workers Gunicorn</h3>
+    <p>Zalecana formula: <strong>workers = 2 * CPU_cores + 1</strong>. Dla maszyny 2 CPU = 5 workers, dla 4 CPU = 9 workers. Nie przekraczaj dostepnej pamieci RAM — kazdy worker FastAPI z asyncpg moze zuzyc 50-150 MB. Monitoruj uzycie pamieci i dostosowuj.</p>
+  </div>
+
+  <div class="card blue">
+    <h3>Procfile dla Railway i Render</h3>
+    <p>Jesli nie uzywasz Dockerfile, platformy PaaS wykrywaja <code>Procfile</code>:<br>
+    <code>web: gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT</code><br>
+    Zmienna <code>$PORT</code> jest automatycznie ustawiana przez platforme.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="09-uwierzytelnianie.html">← 09-uwierzytelnianie.html</a>
+    <a href="../index.html">../index.html →</a>
+  </div>
+</div>
+</body>
+</html>

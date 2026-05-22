@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Error handling i ProblemDetails — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">Error handling i ProblemDetails</span>
+</div>
+<div class="container">
+  <h1>Error handling i ProblemDetails</h1>
+  <p class="subtitle">IExceptionHandler, UseExceptionHandler, RFC 7807 ProblemDetails, niestandardowe typy bledow i logowanie</p>
+
+  <h2>Strategia obslugi wyjatkow</h2>
+  <p>Dobra strategia obslugi bledow w API powinna: zwracac spójne, ustandaryzowane odpowiedzi (RFC 7807 ProblemDetails), logowac wystarczajaco duzo kontekstu do diagnozy, ale nie ujawniac szczegolów implementacyjnych klientom zewnetrznym.</p>
+
+  <table>
+    <thead>
+      <tr><th>Warstwa</th><th>Mechanizm</th><th>Odpowiedzialnosc</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Globalna</td><td><code>IExceptionHandler</code> / <code>UseExceptionHandler</code></td><td>Zlap wszystko co przeszlo niezlapane, zwroc 500</td></tr>
+      <tr><td>Middleware</td><td>Niestandardowy middleware</td><td>Cross-cutting concerns (timing, correlation ID)</td></tr>
+      <tr><td>Kontroler</td><td>Action filter (<code>IAsyncActionFilter</code>)</td><td>Mapowanie domenowych wyjatkow na HTTP status</td></tr>
+      <tr><td>Serwis</td><td>Try/catch + domain exceptions</td><td>Biznesowe bledy — rzuc typowany wyjatek</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Niestandardowe typy wyjatkow domenowych</h2>
+  <pre><code>// Bazowy wyjatek domenowy
+public abstract class DomainException : Exception
+{
+    public string ErrorCode { get; }
+    public int StatusCode { get; }
+
+    protected DomainException(
+        string message,
+        string errorCode,
+        int statusCode = 400)
+        : base(message)
+    {
+        ErrorCode = errorCode;
+        StatusCode = statusCode;
+    }
+}
+
+// Konkretne wyjatki
+public class NotFoundException : DomainException
+{
+    public NotFoundException(string resource, object id)
+        : base($"{resource} o Id={id} nie znaleziono",
+               "NOT_FOUND", 404) { }
+}
+
+public class ConflictException : DomainException
+{
+    public ConflictException(string message)
+        : base(message, "CONFLICT", 409) { }
+}
+
+public class BusinessRuleException : DomainException
+{
+    public BusinessRuleException(string rule, string detail)
+        : base(detail, rule, 422) { }
+}
+
+public class ForbiddenException : DomainException
+{
+    public ForbiddenException(string message = "Brak uprawnien")
+        : base(message, "FORBIDDEN", 403) { }
+}
+
+// Uzycie w serwisie
+public async Task&lt;Product&gt; GetByIdAsync(int id, CancellationToken ct)
+{
+    var product = await _repo.GetByIdAsync(id, ct);
+    if (product is null)
+        throw new NotFoundException("Produkt", id);
+    return product;
+}
+
+public async Task&lt;Order&gt; PlaceOrderAsync(
+    PlaceOrderRequest req, CancellationToken ct)
+{
+    var customer = await _customerRepo.GetByIdAsync(req.CustomerId, ct)
+        ?? throw new NotFoundException("Klient", req.CustomerId);
+
+    if (customer.IsBlocked)
+        throw new BusinessRuleException(
+            "CUSTOMER_BLOCKED",
+            "Konto klienta jest zablokowane i nie moze skladac zamowien");
+
+    var product = await _productRepo.GetByIdAsync(req.ProductId, ct)
+        ?? throw new NotFoundException("Produkt", req.ProductId);
+
+    if (product.Stock &lt; req.Quantity)
+        throw new BusinessRuleException(
+            "INSUFFICIENT_STOCK",
+            $"Dostepny stan: {product.Stock}, zamowiono: {req.Quantity}");
+
+    return await _orderRepo.CreateAsync(req, ct);
+}</code></pre>
+
+  <h2>IExceptionHandler — .NET 8+</h2>
+  <p><code>IExceptionHandler</code> to interfejs dostepny od .NET 8, ktory zastepuje starsze podejscia. Mozna laczyc wiele handlerow w lancuch.</p>
+
+  <pre><code>// Handler dla wyjatkow domenowych
+public class DomainExceptionHandler : IExceptionHandler
+{
+    private readonly ILogger&lt;DomainExceptionHandler&gt; _logger;
+    private readonly IProblemDetailsService _problemDetails;
+
+    public DomainExceptionHandler(
+        ILogger&lt;DomainExceptionHandler&gt; logger,
+        IProblemDetailsService problemDetails)
+    {
+        _logger = logger;
+        _problemDetails = problemDetails;
+    }
+
+    public async ValueTask&lt;bool&gt; TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        if (exception is not DomainException domainEx)
+            return false;  // Przekaz do nastepnego handlera
+
+        _logger.LogWarning(
+            "Wyjatek domenowy {ErrorCode}: {Message}",
+            domainEx.ErrorCode, domainEx.Message);
+
+        httpContext.Response.StatusCode = domainEx.StatusCode;
+
+        await _problemDetails.WriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = httpContext,
+            ProblemDetails =
+            {
+                Status = domainEx.StatusCode,
+                Title = GetTitleForStatus(domainEx.StatusCode),
+                Detail = domainEx.Message,
+                Type = $"https://myapi.example.com/errors/{domainEx.ErrorCode.ToLower()}",
+                Extensions =
+                {
+                    ["errorCode"] = domainEx.ErrorCode,
+                    ["traceId"] = httpContext.TraceIdentifier
+                }
+            }
+        });
+
+        return true;  // Obsluzono
+    }
+
+    private static string GetTitleForStatus(int status) =&gt; status switch
+    {
+        400 =&gt; "Nieprawidlowe zadanie",
+        403 =&gt; "Dostep zabroniony",
+        404 =&gt; "Nie znaleziono zasobu",
+        409 =&gt; "Konflikt danych",
+        422 =&gt; "Naruszenie reguly biznesowej",
+        _   =&gt; "Blad"
+    };
+}
+
+// Handler dla nieobsluzonych wyjatkow (fallback)
+public class GlobalExceptionHandler : IExceptionHandler
+{
+    private readonly ILogger&lt;GlobalExceptionHandler&gt; _logger;
+    private readonly IProblemDetailsService _problemDetails;
+
+    public GlobalExceptionHandler(
+        ILogger&lt;GlobalExceptionHandler&gt; logger,
+        IProblemDetailsService problemDetails)
+    {
+        _logger = logger;
+        _problemDetails = problemDetails;
+    }
+
+    public async ValueTask&lt;bool&gt; TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogError(exception,
+            "Nieobsluzony wyjatek dla {Method} {Path}",
+            httpContext.Request.Method,
+            httpContext.Request.Path);
+
+        httpContext.Response.StatusCode =
+            StatusCodes.Status500InternalServerError;
+
+        await _problemDetails.WriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = httpContext,
+            Exception = exception,
+            ProblemDetails =
+            {
+                Status = 500,
+                Title = "Wewnetrzny blad serwera",
+                Type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+                Extensions =
+                {
+                    ["traceId"] = httpContext.TraceIdentifier
+                }
+            }
+        });
+
+        return true;
+    }
+}
+
+// Rejestracja w Program.cs
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler&lt;DomainExceptionHandler&gt;();
+builder.Services.AddExceptionHandler&lt;GlobalExceptionHandler&gt;();
+
+app.UseExceptionHandler();  // aktywuje pipeline IExceptionHandler</code></pre>
+
+  <h2>ProblemDetails Factory — niestandardowe formatowanie</h2>
+  <pre><code>// Niestandardowa fabryka ProblemDetails
+public class CustomProblemDetailsFactory : ProblemDetailsFactory
+{
+    private readonly ApiBehaviorOptions _options;
+
+    public CustomProblemDetailsFactory(
+        IOptions&lt;ApiBehaviorOptions&gt; options)
+    {
+        _options = options.Value;
+    }
+
+    public override ProblemDetails CreateProblemDetails(
+        HttpContext httpContext,
+        int? statusCode = null,
+        string? title = null,
+        string? type = null,
+        string? detail = null,
+        string? instance = null)
+    {
+        var problem = new ProblemDetails
+        {
+            Status = statusCode ?? 500,
+            Title = title,
+            Type = type,
+            Detail = detail,
+            Instance = instance ?? httpContext.Request.Path
+        };
+
+        problem.Extensions["traceId"] = httpContext.TraceIdentifier;
+        problem.Extensions["timestamp"] =
+            DateTimeOffset.UtcNow.ToString("O");
+
+        _options.ClientErrorMapping.TryGetValue(
+            problem.Status.Value, out var mapping);
+
+        problem.Title ??= mapping?.Title;
+        problem.Type ??= mapping?.Link;
+
+        return problem;
+    }
+
+    public override ValidationProblemDetails CreateValidationProblemDetails(
+        HttpContext httpContext,
+        ModelStateDictionary modelStateDictionary,
+        int? statusCode = null,
+        string? title = null,
+        string? type = null,
+        string? detail = null,
+        string? instance = null)
+    {
+        var problem = new ValidationProblemDetails(modelStateDictionary)
+        {
+            Status = statusCode ?? 422,
+            Title = title ?? "Blad walidacji danych",
+            Type = type ?? "https://myapi.example.com/errors/validation",
+            Detail = detail,
+            Instance = instance ?? httpContext.Request.Path
+        };
+
+        problem.Extensions["traceId"] = httpContext.TraceIdentifier;
+        return problem;
+    }
+}
+
+// Rejestracja
+builder.Services.AddSingleton&lt;ProblemDetailsFactory,
+    CustomProblemDetailsFactory&gt;();</code></pre>
+
+  <h2>Rozroznienie srodowisk — dev vs prod</h2>
+  <pre><code>// Program.cs — rozna konfiguracja per srodowisko
+if (app.Environment.IsDevelopment())
+{
+    // Szczegolowe informacje o wyjatku (stack trace, inner exception)
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    // Produkcja — tylko bezpieczne ProblemDetails bez stack trace
+    app.UseExceptionHandler();
+    app.UseHsts();
+}
+
+// Warunkowe logowanie — wiecej szczegolow w dev
+builder.Logging.AddFilter("Microsoft.AspNetCore", level =&gt;
+    app.Environment.IsDevelopment()
+        ? level &gt;= LogLevel.Debug
+        : level &gt;= LogLevel.Warning);
+
+// Structured logging z enricherem srodowiska
+Log.Logger = new LoggerConfiguration()
+    .Enrich.WithProperty("Environment",
+        builder.Environment.EnvironmentName)
+    .Enrich.WithProperty("Application", "MyApi")
+    .WriteTo.Console(new JsonFormatter())
+    .WriteTo.Conditional(
+        e =&gt; !builder.Environment.IsDevelopment(),
+        s =&gt; s.Seq("http://seq:5341"))
+    .CreateLogger();</code></pre>
+
+  <h2>Przyklad kompletnej odpowiedzi ProblemDetails</h2>
+  <pre><code>// HTTP 404 — domenowy wyjatek NotFoundException
+{
+  "type": "https://myapi.example.com/errors/not_found",
+  "title": "Nie znaleziono zasobu",
+  "status": 404,
+  "detail": "Produkt o Id=42 nie znaleziono",
+  "instance": "/api/v1/products/42",
+  "errorCode": "NOT_FOUND",
+  "traceId": "00-4af12bc3...d1-00",
+  "timestamp": "2026-05-08T12:34:56.789Z"
+}
+
+// HTTP 422 — naruszenie reguly biznesowej
+{
+  "type": "https://myapi.example.com/errors/insufficient_stock",
+  "title": "Naruszenie reguly biznesowej",
+  "status": 422,
+  "detail": "Dostepny stan: 3, zamowiono: 10",
+  "errorCode": "INSUFFICIENT_STOCK",
+  "traceId": "00-9bc21de4...f2-00"
+}
+
+// HTTP 422 — blad walidacji
+{
+  "type": "https://myapi.example.com/errors/validation",
+  "title": "Blad walidacji danych",
+  "status": 422,
+  "errors": {
+    "Name": ["Nazwa jest wymagana"],
+    "Price": ["Cena musi byc wieksza od 0"]
+  },
+  "traceId": "00-7fd34ab1...c3-00"
+}</code></pre>
+
+  <div class="card orange">
+    <strong>Zasada bezpieczenstwa:</strong> Nigdy nie ujawniaj stack trace, nazw wewnetrznych klas ani szczegolów bazy danych w odpowiedziach produkcyjnych. Uzywaj <code>traceId</code> — klient zglosic moze incydent podajac ten identyfikator, a Ty znajdziesz pelne szczegoly w logach.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="09-openapi-swagger.html">← 09-openapi-swagger.html</a>
+    <a href="11-testowanie.html">11-testowanie.html →</a>
+  </div>
+</div>
+</body>
+</html>

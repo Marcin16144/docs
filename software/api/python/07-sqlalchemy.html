@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQLAlchemy 2.0</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--accent-hover:#60a5fa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Python</a>
+  <span class="sep">/</span>
+  <span class="title">SQLAlchemy 2.0</span>
+</div>
+<div class="container">
+  <h1>SQLAlchemy 2.0</h1>
+  <p class="subtitle">AsyncEngine, AsyncSession, Mapped[], Alembic migracje, connection pooling</p>
+
+  <h2>SQLAlchemy 2.0 — nowy styl</h2>
+  <p><strong>SQLAlchemy 2.0</strong> wprowadzilo kompletnie nowe API dla modeli ORM oparte na <code>Mapped[]</code> i <code>mapped_column()</code>. Stary styl z <code>Column()</code> nadal dziala, ale nowy jest bardziej czytelny, w pelni type-safe i zalecany do nowych projektow.</p>
+
+  <div class="card green">
+    <h3>Instalacja</h3>
+    <p><code>uv add sqlalchemy[asyncio] asyncpg greenlet alembic</code><br>
+    Dla PostgreSQL async uzywaj <code>asyncpg</code>. Dla SQLite async: <code>aiosqlite</code>.</p>
+  </div>
+
+  <h2>Modele ORM — nowy styl 2.0</h2>
+
+<pre><code>from sqlalchemy import String, Integer, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import func, select, update, delete
+from sqlalchemy.orm import (
+    DeclarativeBase, Mapped, mapped_column, relationship, selectinload
+)
+from sqlalchemy.ext.asyncio import (
+    AsyncSession, AsyncEngine, create_async_engine, async_sessionmaker
+)
+from datetime import datetime
+from typing import Optional
+import uuid
+
+# ---- Baza dla wszystkich modeli ----
+class Base(DeclarativeBase):
+    pass
+
+# ---- Mixin z wspolnymi polami ----
+class TimestampMixin:
+    utworzono: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    zaktualizowano: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False
+    )
+
+# ---- Model uzytkownika ----
+class Uzytkownik(TimestampMixin, Base):
+    __tablename__ = "uzytkownicy"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    imie: Mapped[str] = mapped_column(String(100), nullable=False)
+    nazwisko: Mapped[str] = mapped_column(String(100), nullable=False)
+    aktywny: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Relacja one-to-many
+    artykuly: Mapped[list["Artykul"]] = relationship(
+        back_populates="autor", cascade="all, delete-orphan", lazy="select"
+    )
+
+    def __repr__(self) -> str:
+        return f"Uzytkownik(id={self.id}, email={self.email!r})"
+
+# ---- Model artykulu ----
+class Artykul(TimestampMixin, Base):
+    __tablename__ = "artykuly"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tytul: Mapped[str] = mapped_column(String(300), nullable=False)
+    tresc: Mapped[str] = mapped_column(Text, nullable=False)
+    opublikowano: Mapped[bool] = mapped_column(Boolean, default=False)
+    autor_id: Mapped[int] = mapped_column(ForeignKey("uzytkownicy.id"), nullable=False)
+
+    # Relacja many-to-one
+    autor: Mapped["Uzytkownik"] = relationship(back_populates="artykuly")
+
+    # Relacja many-to-many przez tabele asocjacyjna
+    tagi: Mapped[list["Tag"]] = relationship(
+        secondary="artykul_tagi", back_populates="artykuly"
+    )
+
+class Tag(Base):
+    __tablename__ = "tagi"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nazwa: Mapped[str] = mapped_column(String(50), unique=True)
+    artykuly: Mapped[list["Artykul"]] = relationship(
+        secondary="artykul_tagi", back_populates="tagi"
+    )
+
+# Tabela asocjacyjna many-to-many
+from sqlalchemy import Table, Column
+artykul_tagi = Table(
+    "artykul_tagi", Base.metadata,
+    Column("artykul_id", ForeignKey("artykuly.id"), primary_key=True),
+    Column("tag_id", ForeignKey("tagi.id"), primary_key=True),
+)
+</code></pre>
+
+  <h2>AsyncEngine i AsyncSession</h2>
+
+<pre><code>from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+# ---- Tworzenie silnika async ----
+DATABASE_URL = "postgresql+asyncpg://user:password@localhost:5432/mojabaza"
+
+engine: AsyncEngine = create_async_engine(
+    DATABASE_URL,
+    echo=False,           # True = loguj SQL (tylko dev)
+    pool_size=10,         # stale polaczenia w puli
+    max_overflow=20,      # dodatkowe polaczenia ponad pool_size
+    pool_timeout=30,      # max czas oczekiwania na polaczenie
+    pool_pre_ping=True,   # sprawdzaj polaczenie przed uzyciem
+)
+
+# ---- Fabryka sesji ----
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,  # wazne: nie inwaliduj obiektow po commit
+    autoflush=False,
+)
+
+# ---- Dependency dla FastAPI ----
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+# ---- Inicjalizacja tabel (dev) ----
+async def init_db() -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+# ---- Repozytorium — wzorzec dostep do danych ----
+class UzytkownikRepo:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def pobierz_po_id(self, user_id: int) -> Uzytkownik | None:
+        stmt = (
+            select(Uzytkownik)
+            .where(Uzytkownik.id == user_id)
+            .options(selectinload(Uzytkownik.artykuly))  # eager load
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def lista(self, skip: int = 0, limit: int = 20) -> list[Uzytkownik]:
+        stmt = select(Uzytkownik).offset(skip).limit(limit).order_by(Uzytkownik.id)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def utworz(self, email: str, imie: str, nazwisko: str) -> Uzytkownik:
+        uzytkownik = Uzytkownik(email=email, imie=imie, nazwisko=nazwisko)
+        self.session.add(uzytkownik)
+        await self.session.flush()  # generuje ID bez commit
+        return uzytkownik
+
+    async def aktualizuj(self, user_id: int, **dane) -> int:
+        stmt = (
+            update(Uzytkownik)
+            .where(Uzytkownik.id == user_id)
+            .values(**dane)
+            .returning(Uzytkownik.id)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
+
+    async def usun(self, user_id: int) -> bool:
+        stmt = delete(Uzytkownik).where(Uzytkownik.id == user_id)
+        result = await self.session.execute(stmt)
+        return result.rowcount > 0
+</code></pre>
+
+  <h2>Alembic — migracje schematu</h2>
+  <p><strong>Alembic</strong> to narzedzie do migracji bazy danych stworzone przez tworcow SQLAlchemy. Generuje pliki migracji na podstawie roznic miedzy modelem ORM a aktualnym schematem bazy.</p>
+
+  <div class="card blue">
+    <h3>Komendy Alembic</h3>
+    <ul>
+      <li><code>alembic init alembic</code> — inicjalizacja, tworzy alembic.ini i katalog alembic/</li>
+      <li><code>alembic revision --autogenerate -m "Dodaj tabele uzytkownikow"</code> — generuj migrace</li>
+      <li><code>alembic upgrade head</code> — zastosuj wszystkie migracje</li>
+      <li><code>alembic downgrade -1</code> — cofnij ostatnia migrace</li>
+      <li><code>alembic history</code> — historia migracji</li>
+      <li><code>alembic current</code> — aktualna wersja bazy</li>
+    </ul>
+  </div>
+
+  <h2>Porownanie Python ORM</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cecha</th>
+        <th>SQLAlchemy 2.0</th>
+        <th>Tortoise ORM</th>
+        <th>PonyORM</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Paradygmat</td>
+        <td>Data Mapper</td>
+        <td>Active Record</td>
+        <td>Active Record</td>
+      </tr>
+      <tr>
+        <td>Async</td>
+        <td>Tak (asyncio)</td>
+        <td>Tak (natywny)</td>
+        <td>Nie</td>
+      </tr>
+      <tr>
+        <td>Migracje</td>
+        <td>Alembic (oddzielny)</td>
+        <td>Aerich (wbudowany)</td>
+        <td>Brak oficjalnego</td>
+      </tr>
+      <tr>
+        <td>Dojrzalosc</td>
+        <td>Bardzo wysoka (20+ lat)</td>
+        <td>Srednia</td>
+        <td>Srednia</td>
+      </tr>
+      <tr>
+        <td>Zlozonosc zapytan</td>
+        <td>Pelna kontrola SQL</td>
+        <td>Ograniczona</td>
+        <td>Unikalna skladnia Python</td>
+      </tr>
+      <tr>
+        <td>Integracja FastAPI</td>
+        <td>Najlepsza</td>
+        <td>Dobra</td>
+        <td>Slaba</td>
+      </tr>
+      <tr>
+        <td>Type safety</td>
+        <td>Pelna (Mapped[])</td>
+        <td>Czesciowa</td>
+        <td>Ograniczona</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card orange">
+    <h3>expire_on_commit=False</h3>
+    <p>Domyslnie SQLAlchemy po <code>commit()</code> inwaliduje wszystkie obiekty w sesji. W aplikacjach async to problem — dostep do atrybutu po commit generuje nowe zapytanie SQL. Ustaw <code>expire_on_commit=False</code> w <code>async_sessionmaker</code> aby tego uniknac.</p>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="06-litestar.html">← 06-litestar.html</a>
+    <a href="08-beanie-mongodb.html">08-beanie-mongodb.html →</a>
+  </div>
+</div>
+</body>
+</html>

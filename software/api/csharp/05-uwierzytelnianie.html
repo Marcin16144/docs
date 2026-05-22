@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uwierzytelnianie i autoryzacja — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">Uwierzytelnianie i autoryzacja</span>
+</div>
+<div class="container">
+  <h1>Uwierzytelnianie i autoryzacja (.NET)</h1>
+  <p class="subtitle">ASP.NET Core Identity, JWT bearer, refresh tokens, OAuth 2.0/OIDC, polityki, RBAC i autoryzacja zasobowa</p>
+
+  <h2>JWT Bearer — konfiguracja</h2>
+  <p>JWT (JSON Web Token) jest najpopularniejszym mechanizmem uwierzytelniania w REST API. Token zawiera claims (twierdzenia) o uzytkownika i jest podpisany kluczem tajnym lub certyfikatem.</p>
+
+  <pre><code>// dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+
+// Program.cs
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =&gt;
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(
+                    builder.Configuration["Jwt:Secret"]!)),
+
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30), // tolerancja zegara
+
+            // Wymagane claims w tokenie
+            NameClaimType = JwtRegisteredClaimNames.Sub,
+            RoleClaimType = ClaimTypes.Role
+        };
+
+        // Zdarzenia — np. logowanie bledow walidacji
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = ctx =&gt;
+            {
+                if (ctx.Exception is SecurityTokenExpiredException)
+                    ctx.Response.Headers.Append(
+                        "Token-Expired", "true");
+                return Task.CompletedTask;
+            }
+        };
+    });</code></pre>
+
+  <h3>Generowanie tokenu JWT</h3>
+  <pre><code>public class TokenService : ITokenService
+{
+    private readonly JwtOptions _opts;
+
+    public TokenService(IOptions&lt;JwtOptions&gt; opts)
+    {
+        _opts = opts.Value;
+    }
+
+    public string GenerateAccessToken(User user, IList&lt;string&gt; roles)
+    {
+        var claims = new List&lt;Claim&gt;
+        {
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, user.Email!),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(JwtRegisteredClaimNames.Iat,
+                DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),
+                ClaimValueTypes.Integer64),
+        };
+
+        claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(_opts.Secret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: _opts.Issuer,
+            audience: _opts.Audience,
+            claims: claims,
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddMinutes(_opts.ExpiryMinutes),
+            signingCredentials: creds);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public string GenerateRefreshToken()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(64);
+        return Convert.ToBase64String(bytes);
+    }
+}</code></pre>
+
+  <h2>Refresh Tokens</h2>
+  <p>Access token powinien miec krotki czas wygasniecia (15-60 minut). Refresh token (dlugo zyjacy, przechowywany w bazie) pozwala pobrac nowy access token bez ponownego logowania.</p>
+
+  <pre><code>// Encja refresh tokenu
+public class RefreshToken
+{
+    public int Id { get; set; }
+    public string Token { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public DateTime ExpiresAt { get; set; }
+    public bool IsRevoked { get; set; }
+    public string? ReplacedByToken { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+// Endpoint odswiezania tokenu
+app.MapPost("/auth/refresh", async (
+    RefreshRequest req,
+    ITokenService tokenService,
+    UserManager&lt;AppUser&gt; userManager,
+    AppDbContext db) =&gt;
+{
+    var stored = await db.RefreshTokens
+        .FirstOrDefaultAsync(t =&gt; t.Token == req.RefreshToken
+            &amp;&amp; !t.IsRevoked
+            &amp;&amp; t.ExpiresAt &gt; DateTime.UtcNow);
+
+    if (stored is null)
+        return Results.Unauthorized();
+
+    var user = await userManager.FindByIdAsync(stored.UserId);
+    if (user is null) return Results.Unauthorized();
+
+    var roles = await userManager.GetRolesAsync(user);
+
+    // Rotacja refresh tokenu (token reuse detection)
+    stored.IsRevoked = true;
+    var newRefresh = new RefreshToken
+    {
+        Token = tokenService.GenerateRefreshToken(),
+        UserId = user.Id,
+        ExpiresAt = DateTime.UtcNow.AddDays(30),
+        CreatedAt = DateTime.UtcNow
+    };
+    stored.ReplacedByToken = newRefresh.Token;
+    db.RefreshTokens.Add(newRefresh);
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new
+    {
+        AccessToken = tokenService.GenerateAccessToken(user, roles),
+        RefreshToken = newRefresh.Token
+    });
+});</code></pre>
+
+  <h2>ASP.NET Core Identity</h2>
+  <pre><code>// dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
+
+public class AppUser : IdentityUser
+{
+    public string? FullName { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class AppDbContext : IdentityDbContext&lt;AppUser&gt;
+{
+    public AppDbContext(DbContextOptions&lt;AppDbContext&gt; options)
+        : base(options) { }
+}
+
+// Program.cs
+builder.Services
+    .AddIdentity&lt;AppUser, IdentityRole&gt;(options =&gt;
+    {
+        options.Password.RequiredLength = 8;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.User.RequireUniqueEmail = true;
+        options.SignIn.RequireConfirmedEmail = true;
+    })
+    .AddEntityFrameworkStores&lt;AppDbContext&gt;()
+    .AddDefaultTokenProviders();</code></pre>
+
+  <h2>OAuth 2.0 / OIDC — zewnetrzni dostawcy</h2>
+  <pre><code>// Auth0
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =&gt;
+    {
+        options.Authority = $"https://{builder.Configuration["Auth0:Domain"]}/";
+        options.Audience = builder.Configuration["Auth0:Audience"];
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            NameClaimType = ClaimTypes.NameIdentifier
+        };
+    });
+
+// Azure AD B2C
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAdB2C"));
+
+// appsettings.json — Azure AD B2C
+{
+  "AzureAdB2C": {
+    "Instance": "https://myb2c.b2clogin.com",
+    "ClientId": "CLIENT_ID",
+    "Domain": "myb2c.onmicrosoft.com",
+    "SignUpSignInPolicyId": "B2C_1_SignUpSignIn"
+  }
+}</code></pre>
+
+  <h2>Polityki autoryzacji</h2>
+  <pre><code>// Definicja polityk
+builder.Services.AddAuthorization(options =&gt;
+{
+    // Prosta polityka roli
+    options.AddPolicy("AdminOnly", policy =&gt;
+        policy.RequireRole("Admin"));
+
+    // Polityka z claims
+    options.AddPolicy("PremiumUser", policy =&gt;
+        policy.RequireClaim("subscription", "premium", "enterprise"));
+
+    // Polityka z wymaganiem uwierzytelnienia i emailem firmowym
+    options.AddPolicy("CompanyEmployee", policy =&gt;
+        policy.RequireAuthenticatedUser()
+              .RequireClaim(ClaimTypes.Email)
+              .AddRequirements(new CompanyEmailRequirement("mycompany.com")));
+
+    // Polityka kombinowana
+    options.AddPolicy("SeniorEditor", policy =&gt;
+        policy.RequireRole("Editor")
+              .RequireClaim("experience_years", "5", "6", "7", "8", "9", "10+"));
+
+    // Fallback policy — wszystkie endpointy wymagaja autoryzacji
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+// Uzycie na kontrolerze / akcji
+[Authorize(Policy = "AdminOnly")]
+[HttpDelete("{id:int}")]
+public async Task&lt;IActionResult&gt; Delete(int id) { ... }
+
+// Uzycie w Minimal API
+app.MapDelete("/products/{id}", DeleteHandler)
+   .RequireAuthorization("AdminOnly");</code></pre>
+
+  <h2>Claims-based RBAC i IAuthorizationHandler</h2>
+  <pre><code>// Wymaganie autoryzacji
+public class CompanyEmailRequirement : IAuthorizationRequirement
+{
+    public string Domain { get; }
+    public CompanyEmailRequirement(string domain) =&gt; Domain = domain;
+}
+
+// Handler wymagania
+public class CompanyEmailHandler
+    : AuthorizationHandler&lt;CompanyEmailRequirement&gt;
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        CompanyEmailRequirement requirement)
+    {
+        var emailClaim = context.User
+            .FindFirst(ClaimTypes.Email)?.Value;
+
+        if (emailClaim is not null
+            &amp;&amp; emailClaim.EndsWith($"@{requirement.Domain}",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            context.Succeed(requirement);
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+// Rejestracja
+builder.Services
+    .AddSingleton&lt;IAuthorizationHandler, CompanyEmailHandler&gt;();</code></pre>
+
+  <h2>Resource-based authorization</h2>
+  <pre><code>// Autoryzacja zasobowa — "czy uzytkownik moze edytowac TEN dokument?"
+public class DocumentEditRequirement : IAuthorizationRequirement { }
+
+public class DocumentAuthorizationHandler
+    : AuthorizationHandler&lt;DocumentEditRequirement, Document&gt;
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        DocumentEditRequirement requirement,
+        Document resource)
+    {
+        var userId = context.User
+            .FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+        if (resource.OwnerId == userId
+            || context.User.IsInRole("Admin"))
+        {
+            context.Succeed(requirement);
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+// Uzycie w akcji kontrolera
+[HttpPut("{id:int}")]
+public async Task&lt;IActionResult&gt; Update(int id, UpdateDocumentRequest req)
+{
+    var document = await _repo.GetByIdAsync(id);
+    if (document is null) return NotFound();
+
+    var authResult = await _authorizationService
+        .AuthorizeAsync(User, document, new DocumentEditRequirement());
+
+    if (!authResult.Succeeded)
+        return Forbid();
+
+    var updated = await _repo.UpdateAsync(id, req);
+    return Ok(updated);
+}</code></pre>
+
+  <h3>Wyciaganie claims z tokenu</h3>
+  <pre><code>// W kontrolerze / handlerze
+var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+var email = User.FindFirst(JwtRegisteredClaimNames.Email)?.Value;
+var roles = User.FindAll(ClaimTypes.Role).Select(c =&gt; c.Value).ToList();
+bool isAdmin = User.IsInRole("Admin");
+
+// Serwis pomocniczy — ICurrentUserService
+public interface ICurrentUserService
+{
+    string? UserId { get; }
+    string? Email { get; }
+    bool IsAuthenticated { get; }
+    bool IsInRole(string role);
+}
+
+public class CurrentUserService : ICurrentUserService
+{
+    private readonly IHttpContextAccessor _accessor;
+
+    public CurrentUserService(IHttpContextAccessor accessor)
+    {
+        _accessor = accessor;
+    }
+
+    public string? UserId =&gt;
+        _accessor.HttpContext?.User
+            .FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+    public string? Email =&gt;
+        _accessor.HttpContext?.User
+            .FindFirst(JwtRegisteredClaimNames.Email)?.Value;
+
+    public bool IsAuthenticated =&gt;
+        _accessor.HttpContext?.User.Identity?.IsAuthenticated ?? false;
+
+    public bool IsInRole(string role) =&gt;
+        _accessor.HttpContext?.User.IsInRole(role) ?? false;
+}
+
+// Rejestracja
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped&lt;ICurrentUserService, CurrentUserService&gt;();</code></pre>
+
+  <div class="card red">
+    <strong>Bezpieczenstwo — wazne zasady:</strong>
+    <ul style="margin-top:8px">
+      <li>Nigdy nie przechowuj klucza JWT w kodzie — uzywaj zmiennych srodowiskowych lub Key Vault.</li>
+      <li>Access token: max 60 minut waznosci. Refresh token: max 30 dni, przechowywany w httpOnly cookie.</li>
+      <li>Implementuj rotacje refresh tokenow (jeden token = jedno uzycie).</li>
+      <li>Dla produkcji rozważ asymetryczne klucze (RSA/ECDSA) zamiast HMAC.</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="04-entity-framework-core.html">← 04-entity-framework-core.html</a>
+    <a href="06-walidacja.html">06-walidacja.html →</a>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testowanie API (.NET) — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">Testowanie API (.NET)</span>
+</div>
+<div class="container">
+  <h1>Testowanie API (.NET)</h1>
+  <p class="subtitle">WebApplicationFactory, Testcontainers, xUnit, Moq/NSubstitute, Verify i testy kontraktowe z Pact.NET</p>
+
+  <h2>Piramida testow dla API</h2>
+  <table>
+    <thead>
+      <tr><th>Typ testu</th><th>Co testuje</th><th>Narzedzie</th><th>Predkosc</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Unit</strong></td><td>Logika serwisow, validatorow, domen</td><td>xUnit + Moq/NSubstitute</td><td>Bardzo szybkie (&lt;1ms)</td></tr>
+      <tr><td><strong>Integration</strong></td><td>Endpointy HTTP + baza danych</td><td>WebApplicationFactory + Testcontainers</td><td>Srednie (1-10s)</td></tr>
+      <tr><td><strong>Contract</strong></td><td>Kontrakt API miedzy consumer/provider</td><td>Pact.NET</td><td>Srednie</td></tr>
+      <tr><td><strong>E2E</strong></td><td>Pelny flow uzytkowania</td><td>Playwright, Postman/Newman</td><td>Wolne (10s+)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>WebApplicationFactory — testy integracyjne</h2>
+  <pre><code>// dotnet add package Microsoft.AspNetCore.Mvc.Testing
+
+// Fabryka aplikacji testowej
+public class ApiFactory : WebApplicationFactory&lt;Program&gt;,
+    IAsyncLifetime
+{
+    private readonly PostgreSqlContainer _postgres =
+        new PostgreSqlBuilder()
+            .WithImage("postgres:16-alpine")
+            .WithDatabase("testdb")
+            .WithUsername("test")
+            .WithPassword("test")
+            .Build();
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureTestServices(services =&gt;
+        {
+            // Zamien prawdziwy DbContext na testowy (wskazujacy na kontener)
+            services.RemoveAll&lt;DbContextOptions&lt;AppDbContext&gt;&gt;();
+            services.AddDbContext&lt;AppDbContext&gt;(options =&gt;
+                options.UseNpgsql(_postgres.GetConnectionString()));
+
+            // Zamien zewnetrzne serwisy na mocki
+            services.RemoveAll&lt;IEmailSender&gt;();
+            services.AddSingleton&lt;IEmailSender&gt;(
+                Substitute.For&lt;IEmailSender&gt;());
+
+            // Zamien autentykacje na testowa
+            services
+                .AddAuthentication("Test")
+                .AddScheme&lt;AuthenticationSchemeOptions,
+                    TestAuthHandler&gt;("Test", _ =&gt; { });
+        });
+
+        builder.UseEnvironment("Test");
+    }
+
+    public async Task InitializeAsync()
+    {
+        await _postgres.StartAsync();
+
+        // Zastosuj migracje na kontenerze testowym
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider
+            .GetRequiredService&lt;AppDbContext&gt;();
+        await db.Database.MigrateAsync();
+        await SeedTestDataAsync(db);
+    }
+
+    public new async Task DisposeAsync()
+    {
+        await _postgres.StopAsync();
+        await base.DisposeAsync();
+    }
+
+    private static async Task SeedTestDataAsync(AppDbContext db)
+    {
+        db.Categories.AddRange(
+            new Category { Id = 1, Name = "Elektronika" },
+            new Category { Id = 2, Name = "Odziez" });
+        db.Products.Add(new Product
+        {
+            Id = 1, Name = "Laptop", Price = 3999m,
+            Stock = 10, CategoryId = 1
+        });
+        await db.SaveChangesAsync();
+    }
+}
+
+// Handler autentykacji testowej
+public class TestAuthHandler : AuthenticationHandler&lt;AuthenticationSchemeOptions&gt;
+{
+    public TestAuthHandler(
+        IOptionsMonitor&lt;AuthenticationSchemeOptions&gt; options,
+        ILoggerFactory logger,
+        UrlEncoder encoder)
+        : base(options, logger, encoder) { }
+
+    protected override Task&lt;AuthenticateResult&gt; HandleAuthenticateAsync()
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "test-user-id"),
+            new Claim(ClaimTypes.Email, "test@example.com"),
+            new Claim(ClaimTypes.Role, "Admin")
+        };
+        var identity = new ClaimsIdentity(claims, "Test");
+        var principal = new ClaimsPrincipal(identity);
+        var ticket = new AuthenticationTicket(principal, "Test");
+        return Task.FromResult(AuthenticateResult.Success(ticket));
+    }
+}</code></pre>
+
+  <h2>Testy integracyjne endpointow</h2>
+  <pre><code>public class ProductsEndpointTests
+    : IClassFixture&lt;ApiFactory&gt;
+{
+    private readonly HttpClient _client;
+    private readonly ApiFactory _factory;
+
+    public ProductsEndpointTests(ApiFactory factory)
+    {
+        _factory = factory;
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task GetProducts_ReturnsOkWithList()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/v1/products");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content
+            .ReadFromJsonAsync&lt;PagedResult&lt;ProductDto&gt;&gt;();
+        body.Should().NotBeNull();
+        body!.Items.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetProduct_WithValidId_ReturnsProduct()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/v1/products/1");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var product = await response.Content
+            .ReadFromJsonAsync&lt;ProductDto&gt;();
+        product!.Id.Should().Be(1);
+        product.Name.Should().Be("Laptop");
+    }
+
+    [Fact]
+    public async Task GetProduct_WithInvalidId_Returns404()
+    {
+        var response = await _client.GetAsync("/api/v1/products/99999");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var problem = await response.Content
+            .ReadFromJsonAsync&lt;ProblemDetails&gt;();
+        problem!.Status.Should().Be(404);
+    }
+
+    [Fact]
+    public async Task CreateProduct_WithValidData_Returns201()
+    {
+        // Arrange
+        var request = new CreateProductRequest(
+            "Nowy Produkt", 299.99m, 50, 1);
+
+        // Act
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/products", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        response.Headers.Location.Should().NotBeNull();
+
+        var created = await response.Content
+            .ReadFromJsonAsync&lt;ProductDto&gt;();
+        created!.Name.Should().Be("Nowy Produkt");
+        created.Price.Should().Be(299.99m);
+    }
+
+    [Fact]
+    public async Task CreateProduct_WithInvalidData_Returns422()
+    {
+        var request = new { Name = "", Price = -1 };
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/products", request);
+
+        response.StatusCode.Should().Be(
+            HttpStatusCode.UnprocessableEntity);
+        var problem = await response.Content
+            .ReadFromJsonAsync&lt;ValidationProblemDetails&gt;();
+        problem!.Errors.Should().ContainKey("Name");
+    }
+
+    // Izolacja testow — czyszczenie po kazdym tescie
+    public async Task DisposeAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider
+            .GetRequiredService&lt;AppDbContext&gt;();
+        db.Products.RemoveRange(
+            db.Products.Where(p =&gt; p.Id &gt; 1));
+        await db.SaveChangesAsync();
+    }
+}</code></pre>
+
+  <h2>Testcontainers — PostgreSQL i SQL Server</h2>
+  <pre><code>// dotnet add package Testcontainers.PostgreSql
+// dotnet add package Testcontainers.MsSql
+
+// PostgreSQL
+var postgres = new PostgreSqlBuilder()
+    .WithImage("postgres:16-alpine")
+    .WithDatabase("mydb")
+    .WithUsername("user")
+    .WithPassword("pass")
+    .WithCleanUp(true)
+    .Build();
+
+await postgres.StartAsync();
+var connStr = postgres.GetConnectionString();
+
+// SQL Server
+var mssql = new MsSqlBuilder()
+    .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+    .WithPassword("MyStr0ngP@ss!")
+    .Build();
+
+await mssql.StartAsync();
+
+// Redis
+var redis = new RedisBuilder()
+    .WithImage("redis:7-alpine")
+    .Build();
+
+await redis.StartAsync();</code></pre>
+
+  <h2>Moq — mockowanie zaleznosci</h2>
+  <pre><code>// dotnet add package Moq
+// dotnet add package Moq.AutoMock
+
+public class OrderServiceTests
+{
+    private readonly Mock&lt;IOrderRepository&gt; _repoMock = new();
+    private readonly Mock&lt;IProductRepository&gt; _productMock = new();
+    private readonly Mock&lt;IEmailSender&gt; _emailMock = new();
+    private readonly OrderService _sut;
+
+    public OrderServiceTests()
+    {
+        _sut = new OrderService(
+            _repoMock.Object,
+            _productMock.Object,
+            _emailMock.Object);
+    }
+
+    [Fact]
+    public async Task PlaceOrder_WhenProductInStock_CreatesOrder()
+    {
+        // Arrange
+        var product = new Product { Id = 1, Stock = 10, Price = 99m };
+        _productMock.Setup(r =&gt; r.GetByIdAsync(1, It.IsAny&lt;CancellationToken&gt;()))
+            .ReturnsAsync(product);
+
+        var expectedOrder = new Order { Id = 42, TotalAmount = 99m };
+        _repoMock.Setup(r =&gt; r.CreateAsync(
+                It.IsAny&lt;PlaceOrderRequest&gt;(),
+                It.IsAny&lt;CancellationToken&gt;()))
+            .ReturnsAsync(expectedOrder);
+
+        // Act
+        var result = await _sut.PlaceOrderAsync(
+            new PlaceOrderRequest(CustomerId: 1, ProductId: 1, Quantity: 1),
+            CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Id.Should().Be(42);
+
+        _emailMock.Verify(e =&gt; e.SendOrderConfirmationAsync(
+            It.IsAny&lt;Order&gt;(),
+            It.IsAny&lt;CancellationToken&gt;()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task PlaceOrder_WhenInsufficientStock_ThrowsException()
+    {
+        // Arrange
+        var product = new Product { Id = 1, Stock = 2 };
+        _productMock.Setup(r =&gt; r.GetByIdAsync(1, It.IsAny&lt;CancellationToken&gt;()))
+            .ReturnsAsync(product);
+
+        // Act &amp; Assert
+        var act = () =&gt; _sut.PlaceOrderAsync(
+            new PlaceOrderRequest(1, 1, Quantity: 10),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync&lt;BusinessRuleException&gt;()
+            .WithMessage("*stan*");
+
+        _repoMock.Verify(r =&gt; r.CreateAsync(
+            It.IsAny&lt;PlaceOrderRequest&gt;(),
+            It.IsAny&lt;CancellationToken&gt;()),
+            Times.Never);
+    }
+}</code></pre>
+
+  <h2>Verify — snapshot testing</h2>
+  <pre><code>// dotnet add package Verify.Xunit
+
+// Snapshot test — zapisuje i porownuje odpowiedz JSON
+[UsesVerify]
+public class ProductSnapshotTests : IClassFixture&lt;ApiFactory&gt;
+{
+    private readonly HttpClient _client;
+
+    public ProductSnapshotTests(ApiFactory factory)
+    {
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task GetProduct_MatchesSnapshot()
+    {
+        var response = await _client.GetAsync("/api/v1/products/1");
+        var json = await response.Content.ReadAsStringAsync();
+
+        // Przy pierwszym uruchomieniu tworzy plik .verified.json
+        // Przy kolejnych porownuje z zapisanym
+        await Verify(json)
+            .ScrubMember("createdAt")  // ignoruj dynamiczne pola
+            .ScrubMember("traceId");
+    }
+}
+// Plik: ProductSnapshotTests.GetProduct_MatchesSnapshot.verified.json
+// {
+//   "id": 1,
+//   "name": "Laptop",
+//   "price": 3999.00,
+//   "stock": 10
+// }</code></pre>
+
+  <div class="card green">
+    <strong>Dobre praktyki testowania API:</strong>
+    <ul style="margin-top:8px">
+      <li>Uzywaj <strong>Testcontainers</strong> zamiast in-memory bazy — testy sa bardziej realistyczne i wykrywaja bledy specyficzne dla SQL.</li>
+      <li>Jeden <code>WebApplicationFactory</code> na kolekcje testow (IClassFixture) — nie twórz nowej instancji per test.</li>
+      <li>Izoluj testy — czyszcz dane po kazdym tescie lub uzywaj transakcji.</li>
+      <li>Testuj kody HTTP, naglowki odpowiedzi i strukture ProblemDetails, nie tylko body.</li>
+    </ul>
+  </div>
+
+  <div class="nav-bottom">
+    <a href="10-error-handling.html">← 10-error-handling.html</a>
+    <a href="12-deployment.html">12-deployment.html →</a>
+  </div>
+</div>
+</body>
+</html>

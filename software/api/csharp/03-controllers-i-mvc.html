@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controllers i MVC — API C#/.NET</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a855f7;--accent-hover:#c084fc;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--cyan:#22d3ee;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.red{border-left:4px solid var(--red)}.card.blue{border-left:4px solid var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a><span class="sep">/</span>
+  <a href="../../index.html">API</a><span class="sep">/</span>
+  <a href="../index.html">C#/.NET</a><span class="sep">/</span>
+  <span class="title">Controllers i MVC</span>
+</div>
+<div class="container">
+  <h1>Controllers i MVC</h1>
+  <p class="subtitle">[ApiController], routing atrybutowy, model binding, ActionResult&lt;T&gt;, ProblemDetails, action filtry, output caching</p>
+
+  <h2>[ApiController] — co robi ten atrybut?</h2>
+  <p>Atrybut <code>[ApiController]</code> wlacza zestaw konwencji API, ktore zmniejszaja ilosc kodu plytki. Bez niego musisz recznie sprawdzac <code>ModelState</code>, bindowac cialo zadania atrybutem i inne.</p>
+
+  <table>
+    <thead>
+      <tr><th>Funkcja wlaczona przez [ApiController]</th><th>Opis</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Automatyczna walidacja ModelState</td><td>Zwraca 400 ValidationProblem jesli ModelState jest nieprawidlowy</td></tr>
+      <tr><td>Inferowanie [FromBody]</td><td>Parametry zlozonych typow sa bindowane z ciala JSON automatycznie</td></tr>
+      <tr><td>Inferowanie [FromRoute]</td><td>Parametry zgodne z segmentem trasy sa bindowane z URL</td></tr>
+      <tr><td>Multipart/form-data binding</td><td>IFormFile bindowane automatycznie</td></tr>
+      <tr><td>ProblemDetails dla bledow klienta</td><td>Odpowiedzi 4xx zwracaja RFC 7807 ProblemDetails</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Attribute routing</h2>
+  <pre><code>[ApiController]
+[Route("api/v{version:apiVersion}/[controller]")]
+[Produces("application/json")]
+public class ProductsController : ControllerBase
+{
+    private readonly IProductService _service;
+    private readonly ILogger&lt;ProductsController&gt; _logger;
+
+    public ProductsController(
+        IProductService service,
+        ILogger&lt;ProductsController&gt; logger)
+    {
+        _service = service;
+        _logger = logger;
+    }
+
+    // GET api/v1/products
+    [HttpGet]
+    [ProducesResponseType(typeof(PagedResult&lt;ProductDto&gt;), 200)]
+    public async Task&lt;ActionResult&lt;PagedResult&lt;ProductDto&gt;&gt;&gt; GetAll(
+        [FromQuery] ProductQueryParams queryParams,
+        CancellationToken ct)
+    {
+        var result = await _service.GetPagedAsync(queryParams, ct);
+        return Ok(result);
+    }
+
+    // GET api/v1/products/42
+    [HttpGet("{id:int}", Name = "GetProductById")]
+    [ProducesResponseType(typeof(ProductDto), 200)]
+    [ProducesResponseType(typeof(ProblemDetails), 404)]
+    public async Task&lt;ActionResult&lt;ProductDto&gt;&gt; GetById(int id, CancellationToken ct)
+    {
+        var product = await _service.GetByIdAsync(id, ct);
+        if (product is null)
+            return NotFound(new ProblemDetails
+            {
+                Title = "Produkt nie znaleziony",
+                Detail = $"Produkt o Id={id} nie istnieje.",
+                Status = 404
+            });
+        return Ok(product);
+    }
+
+    // POST api/v1/products
+    [HttpPost]
+    [Authorize]
+    [ProducesResponseType(typeof(ProductDto), 201)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), 400)]
+    public async Task&lt;ActionResult&lt;ProductDto&gt;&gt; Create(
+        [FromBody] CreateProductRequest request,
+        CancellationToken ct)
+    {
+        var product = await _service.CreateAsync(request, ct);
+        return CreatedAtRoute("GetProductById",
+            new { id = product.Id }, product);
+    }
+
+    // PUT api/v1/products/42
+    [HttpPut("{id:int}")]
+    [Authorize]
+    public async Task&lt;ActionResult&lt;ProductDto&gt;&gt; Update(
+        int id,
+        [FromBody] UpdateProductRequest request,
+        CancellationToken ct)
+    {
+        var product = await _service.UpdateAsync(id, request, ct);
+        return product is null ? NotFound() : Ok(product);
+    }
+
+    // DELETE api/v1/products/42
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(404)]
+    public async Task&lt;IActionResult&gt; Delete(int id, CancellationToken ct)
+    {
+        var deleted = await _service.DeleteAsync(id, ct);
+        return deleted ? NoContent() : NotFound();
+    }
+}</code></pre>
+
+  <h2>Model binding — zlozzone typy</h2>
+  <p>Model binding w kontrolerach automatycznie mapuje dane z roznych zrodel HTTP na parametry akcji. Dla zlozonych obiektow uzywane jest cialo zadania (JSON), dla prostych typow — query string lub route.</p>
+
+  <pre><code>// Zbiorczy parametr query z walidacja
+public class ProductQueryParams
+{
+    [Range(1, int.MaxValue, ErrorMessage = "Strona musi byc >= 1")]
+    public int Page { get; set; } = 1;
+
+    [Range(1, 100, ErrorMessage = "Rozmiar strony musi byc od 1 do 100")]
+    public int PageSize { get; set; } = 20;
+
+    [MaxLength(100)]
+    public string? Search { get; set; }
+
+    public ProductSortField SortBy { get; set; } = ProductSortField.Name;
+    public bool SortDescending { get; set; } = false;
+}
+
+// Cialo zadania (automatycznie [FromBody] dzieki [ApiController])
+public record CreateProductRequest(
+    [Required][StringLength(200)] string Name,
+    [Required][Range(0.01, 999999)] decimal Price,
+    [Required][Range(0, 100000)] int Stock,
+    [StringLength(1000)] string? Description
+);
+
+// Mieszane zrodla
+[HttpPost("{categoryId:int}/products")]
+public async Task&lt;IActionResult&gt; CreateInCategory(
+    [FromRoute] int categoryId,          // z URL
+    [FromBody] CreateProductRequest req, // z JSON body
+    [FromHeader(Name = "X-Trace-Id")] string? traceId,  // z naglowka
+    [FromServices] ILogger&lt;ProductsController&gt; logger)  // z DI
+{
+    logger.LogInformation("Trace: {TraceId}", traceId);
+    var product = await _service.CreateInCategoryAsync(categoryId, req);
+    return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
+}</code></pre>
+
+  <h2>ActionResult&lt;T&gt; vs IActionResult</h2>
+  <div class="card blue">
+    <strong>ActionResult&lt;T&gt;</strong> jest preferowany — pozwala OpenAPI automatycznie wykryc typ odpowiedzi sukcesu. <strong>IActionResult</strong> uzywaj gdy akcja moze zwracac wiele roznych typow sukcesu (rzadkie).
+  </div>
+
+  <pre><code>// Preferowany sposob — ActionResult&lt;T&gt;
+[HttpGet("{id:int}")]
+public async Task&lt;ActionResult&lt;ProductDto&gt;&gt; GetById(int id)
+{
+    var p = await _service.GetByIdAsync(id);
+    // Niejawna konwersja: return p; == return Ok(p);
+    return p is null ? NotFound() : p;
+}
+
+// Niestandardowy ActionResult
+public class CsvResult : IActionResult
+{
+    private readonly IEnumerable&lt;object&gt; _data;
+    private readonly string _filename;
+
+    public CsvResult(IEnumerable&lt;object&gt; data, string filename)
+    {
+        _data = data;
+        _filename = filename;
+    }
+
+    public async Task ExecuteResultAsync(ActionContext context)
+    {
+        var response = context.HttpContext.Response;
+        response.ContentType = "text/csv";
+        response.Headers.ContentDisposition = $"attachment; filename={_filename}";
+        await using var writer = new StreamWriter(response.Body);
+        foreach (var row in _data)
+            await writer.WriteLineAsync(row.ToString());
+    }
+}
+
+// Uzycie
+[HttpGet("export")]
+public IActionResult ExportCsv()
+{
+    var data = _service.GetAllForExport();
+    return new CsvResult(data, "products.csv");
+}</code></pre>
+
+  <h2>ProblemDetails — RFC 7807</h2>
+  <p>ProblemDetails to ustandaryzowany format odpowiedzi bledow (RFC 7807). Od .NET 7 ASP.NET Core uzywa go domyslnie dla wszystkich odpowiedzi 4xx/5xx.</p>
+
+  <pre><code>// Wlaczenie ProblemDetails (Program.cs)
+builder.Services.AddProblemDetails(options =&gt;
+{
+    options.CustomizeProblemDetails = ctx =&gt;
+    {
+        ctx.ProblemDetails.Extensions["traceId"] =
+            ctx.HttpContext.TraceIdentifier;
+        ctx.ProblemDetails.Extensions["instance"] =
+            $"{ctx.HttpContext.Request.Method} {ctx.HttpContext.Request.Path}";
+    };
+});
+
+// Przyklad odpowiedzi ProblemDetails
+// HTTP 404
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "Produkt o Id=99 nie istnieje.",
+  "instance": "GET /api/v1/products/99",
+  "traceId": "00-4f12ab...3c-00"
+}
+
+// Rzucanie ProblemDetails z dowolnego miejsca
+throw new HttpRequestException("Zewnetrzny serwis niedostepny",
+    inner: null, statusCode: HttpStatusCode.BadGateway);</code></pre>
+
+  <h2>Action Filters</h2>
+  <p>Filtry akcji dzialaja podobnie do middleware, ale na poziomie kontrolera lub akcji. Umozliwiaja przechwytywanie przed i po wykonaniu akcji.</p>
+
+  <pre><code>// Synchroniczny filter akcji
+public class LogActionFilter : IActionFilter
+{
+    private readonly ILogger&lt;LogActionFilter&gt; _logger;
+
+    public LogActionFilter(ILogger&lt;LogActionFilter&gt; logger)
+    {
+        _logger = logger;
+    }
+
+    public void OnActionExecuting(ActionExecutingContext context)
+    {
+        _logger.LogInformation(
+            "Wywolanie akcji {Action} z parametrami {@Params}",
+            context.ActionDescriptor.DisplayName,
+            context.ActionArguments);
+    }
+
+    public void OnActionExecuted(ActionExecutedContext context)
+    {
+        if (context.Exception is not null)
+            _logger.LogError(context.Exception,
+                "Akcja {Action} rzucila wyjatek",
+                context.ActionDescriptor.DisplayName);
+    }
+}
+
+// Asynchroniczny filter — preferowany dla operacji async
+public class PerformanceFilter : IAsyncActionFilter
+{
+    private readonly ILogger&lt;PerformanceFilter&gt; _logger;
+
+    public PerformanceFilter(ILogger&lt;PerformanceFilter&gt; logger)
+    {
+        _logger = logger;
+    }
+
+    public async Task OnActionExecutionAsync(
+        ActionExecutingContext context,
+        ActionExecutionDelegate next)
+    {
+        var sw = Stopwatch.StartNew();
+        var executed = await next();
+        sw.Stop();
+
+        if (sw.ElapsedMilliseconds &gt; 500)
+            _logger.LogWarning(
+                "Wolna akcja {Action}: {Ms}ms",
+                context.ActionDescriptor.DisplayName,
+                sw.ElapsedMilliseconds);
+    }
+}
+
+// Rejestracja globalna
+builder.Services.AddControllers(options =&gt;
+{
+    options.Filters.Add&lt;LogActionFilter&gt;();
+    options.Filters.Add&lt;PerformanceFilter&gt;();
+});
+
+// Rejestracja na poziomie kontrolera lub akcji
+[ServiceFilter(typeof(LogActionFilter))]
+public class ProductsController : ControllerBase { }
+
+[HttpGet]
+[ServiceFilter(typeof(PerformanceFilter))]
+public async Task&lt;IActionResult&gt; GetAll() { ... }</code></pre>
+
+  <h2>Response Compression i Output Caching</h2>
+  <pre><code>// Response compression
+builder.Services.AddResponseCompression(options =&gt;
+{
+    options.EnableForHttps = true;
+    options.Providers.Add&lt;BrotliCompressionProvider&gt;();
+    options.Providers.Add&lt;GzipCompressionProvider&gt;();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes
+        .Concat(new[] { "application/json" });
+});
+builder.Services.Configure&lt;BrotliCompressionProviderOptions&gt;(o =&gt;
+    o.Level = CompressionLevel.Optimal);
+
+app.UseResponseCompression();
+
+// Output Caching (.NET 7+)
+builder.Services.AddOutputCache(options =&gt;
+{
+    options.AddBasePolicy(b =&gt; b.Cache());
+    options.AddPolicy("Products", b =&gt; b
+        .Cache()
+        .Expire(TimeSpan.FromMinutes(5))
+        .SetVaryByQuery("page", "size", "search")
+        .Tag("products"));
+});
+
+app.UseOutputCache();
+
+// Uzywanie na akcji
+[HttpGet]
+[OutputCache(PolicyName = "Products")]
+public async Task&lt;ActionResult&lt;PagedResult&lt;ProductDto&gt;&gt;&gt; GetAll(...)
+{ ... }
+
+// Inwaliacja cache po zmianie
+[HttpPost]
+public async Task&lt;ActionResult&lt;ProductDto&gt;&gt; Create(
+    CreateProductRequest req,
+    IOutputCacheStore cache,
+    CancellationToken ct)
+{
+    var product = await _service.CreateAsync(req, ct);
+    await cache.EvictByTagAsync("products", ct);
+    return CreatedAtRoute("GetProductById", new { id = product.Id }, product);
+}</code></pre>
+
+  <div class="card green">
+    <strong>Wskazowka:</strong> Output Cache w .NET 9 wspiera distributed cache (Redis). Uzyj <code>AddOutputCache()</code> z <code>AddStackExchangeRedisOutputCache()</code> dla srodowisk wieloinstancyjnych.
+  </div>
+
+  <div class="nav-bottom">
+    <a href="02-minimal-apis.html">← 02-minimal-apis.html</a>
+    <a href="04-entity-framework-core.html">04-entity-framework-core.html →</a>
+  </div>
+</div>
+</body>
+</html>

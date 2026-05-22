@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bezpieczeństwo — przykłady</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<div class="topbar">
+    <a href="../index.html">← Strona główna</a>
+    <span class="crumb-sep">/</span><a href="index.html">Przykłady</a>
+    <span class="crumb-sep">/</span><span class="crumb">Bezpieczeństwo</span>
+</div>
+<div class="container">
+<h1>🔒 Bezpieczeństwo — exploit + fix</h1>
+<p class="lead">OWASP Top 10 (2025): ❌ podatny kod → ✅ poprawiony kod. JWT z refresh, CORS, CSP, secrets.</p>
+
+<h2>1. SQL Injection</h2>
+<pre data-lang="python"><code><span class="com"># ❌ PODATNY</span>
+cursor.execute(f<span class="str">"SELECT * FROM users WHERE email = '{email}'"</span>)
+<span class="com"># Atak: email = "' OR '1'='1' --"</span>
+
+<span class="com"># ✅ POPRAWNY — parametryzowane zapytanie</span>
+cursor.execute(<span class="str">"SELECT * FROM users WHERE email = %s"</span>, (email,))</code></pre>
+
+<h2>2. XSS (Cross-Site Scripting)</h2>
+<pre data-lang="typescript"><code><span class="com">// ❌ PODATNY (React)</span>
+&lt;div dangerouslySetInnerHTML={{ __html: userInput }} /&gt;
+
+<span class="com">// ✅ POPRAWNY — React escapuje domyślnie</span>
+&lt;div&gt;{userInput}&lt;/div&gt;
+
+<span class="com">// Jeśli MUSISZ renderować HTML (np. z editora) — sanityzuj</span>
+<span class="kw">import</span> DOMPurify <span class="kw">from</span> <span class="str">'dompurify'</span>;
+<span class="kw">const</span> clean = DOMPurify.<span class="fn">sanitize</span>(userHtml, {
+    ALLOWED_TAGS: [<span class="str">'b'</span>, <span class="str">'i'</span>, <span class="str">'em'</span>, <span class="str">'strong'</span>, <span class="str">'p'</span>, <span class="str">'br'</span>, <span class="str">'a'</span>],
+    ALLOWED_ATTR: [<span class="str">'href'</span>]
+});</code></pre>
+
+<h2>3. CSRF — same-site cookies + token</h2>
+<pre data-lang="typescript"><code><span class="com">// Express + csrf-csrf (modern, double-submit cookie)</span>
+<span class="kw">import</span> { doubleCsrf } <span class="kw">from</span> <span class="str">'csrf-csrf'</span>;
+
+<span class="kw">const</span> { generateToken, doubleCsrfProtection } = <span class="fn">doubleCsrf</span>({
+    getSecret: () =&gt; process.env.CSRF_SECRET!,
+    cookieName: <span class="str">'__Host-csrf'</span>,
+    cookieOptions: { secure: <span class="kw">true</span>, sameSite: <span class="str">'strict'</span>, httpOnly: <span class="kw">true</span> }
+});
+
+app.<span class="fn">get</span>(<span class="str">'/csrf-token'</span>, (req, res) =&gt; res.<span class="fn">json</span>({ token: <span class="fn">generateToken</span>(req, res) }));
+app.<span class="fn">post</span>(<span class="str">'/transfer'</span>, doubleCsrfProtection, transferHandler);</code></pre>
+<div class="tip">💡 W 2026 wystarczy <code>SameSite=Strict</code> dla większości; CSRF token dodaj dla pojawiających się cross-origin formularzy.</div>
+
+<h2>4. JWT z refresh token rotation</h2>
+<pre data-lang="typescript"><code><span class="kw">import</span> { SignJWT, jwtVerify } <span class="kw">from</span> <span class="str">'jose'</span>;
+<span class="kw">import</span> crypto <span class="kw">from</span> <span class="str">'crypto'</span>;
+
+<span class="kw">const</span> ACCESS_SECRET = <span class="kw">new</span> <span class="fn">TextEncoder</span>().<span class="fn">encode</span>(process.env.ACCESS_SECRET!);
+<span class="kw">const</span> ACCESS_TTL = <span class="str">'15m'</span>;
+<span class="kw">const</span> REFRESH_TTL_DAYS = <span class="num">30</span>;
+
+<span class="kw">async function</span> <span class="fn">issueTokens</span>(userId: <span class="kw">string</span>) {
+    <span class="kw">const</span> accessToken = <span class="kw">await new</span> <span class="fn">SignJWT</span>({ sub: userId })
+        .<span class="fn">setProtectedHeader</span>({ alg: <span class="str">'HS256'</span> })
+        .<span class="fn">setIssuedAt</span>()
+        .<span class="fn">setExpirationTime</span>(ACCESS_TTL)
+        .<span class="fn">sign</span>(ACCESS_SECRET);
+
+    <span class="com">// Refresh token NIE jest JWT — to opaque token zapisany w DB</span>
+    <span class="kw">const</span> refreshToken = crypto.<span class="fn">randomBytes</span>(<span class="num">32</span>).<span class="fn">toString</span>(<span class="str">'hex'</span>);
+    <span class="kw">const</span> hash = crypto.<span class="fn">createHash</span>(<span class="str">'sha256'</span>).<span class="fn">update</span>(refreshToken).<span class="fn">digest</span>(<span class="str">'hex'</span>);
+    <span class="kw">await</span> db.refreshToken.<span class="fn">create</span>({ data: {
+        userId, hash,
+        expiresAt: <span class="kw">new</span> Date(Date.<span class="fn">now</span>() + REFRESH_TTL_DAYS * <span class="num">86400000</span>)
+    } });
+
+    <span class="kw">return</span> { accessToken, refreshToken };
+}
+
+<span class="kw">async function</span> <span class="fn">refresh</span>(refreshToken: <span class="kw">string</span>) {
+    <span class="kw">const</span> hash = crypto.<span class="fn">createHash</span>(<span class="str">'sha256'</span>).<span class="fn">update</span>(refreshToken).<span class="fn">digest</span>(<span class="str">'hex'</span>);
+    <span class="kw">const</span> stored = <span class="kw">await</span> db.refreshToken.<span class="fn">findUnique</span>({ where: { hash } });
+
+    <span class="kw">if</span> (!stored || stored.expiresAt &lt; <span class="kw">new</span> Date()) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid'</span>);
+    <span class="kw">if</span> (stored.revokedAt) {
+        <span class="com">// Token użyty po revoke = sygnał ataku → unieważnij całą rodzinę</span>
+        <span class="kw">await</span> db.refreshToken.<span class="fn">updateMany</span>({
+            where: { userId: stored.userId },
+            data: { revokedAt: <span class="kw">new</span> Date() }
+        });
+        <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Compromised — re-login required'</span>);
+    }
+
+    <span class="com">// Rotation: stary token → revoked, wystaw nowy</span>
+    <span class="kw">await</span> db.refreshToken.<span class="fn">update</span>({ where: { id: stored.id },
+        data: { revokedAt: <span class="kw">new</span> Date() } });
+    <span class="kw">return</span> <span class="fn">issueTokens</span>(stored.userId);
+}</code></pre>
+
+<h2>5. Bcrypt / Argon2 — hashowanie haseł</h2>
+<pre data-lang="typescript"><code><span class="com">// npm i argon2 (preferowane w 2026, OWASP recommendation)</span>
+<span class="kw">import</span> argon2 <span class="kw">from</span> <span class="str">'argon2'</span>;
+
+<span class="com">// Hash przy rejestracji</span>
+<span class="kw">const</span> hash = <span class="kw">await</span> argon2.<span class="fn">hash</span>(password, {
+    type: argon2.argon2id,
+    memoryCost: <span class="num">19456</span>,    <span class="com">// 19 MiB (OWASP min. od 2024)</span>
+    timeCost: <span class="num">2</span>,
+    parallelism: <span class="num">1</span>
+});
+
+<span class="com">// Weryfikacja przy logowaniu</span>
+<span class="kw">const</span> valid = <span class="kw">await</span> argon2.<span class="fn">verify</span>(hash, providedPassword);
+
+<span class="com">// Re-hash gdy parametry zmienione</span>
+<span class="kw">if</span> (argon2.<span class="fn">needsRehash</span>(hash, { memoryCost: <span class="num">19456</span> })) {
+    <span class="kw">const</span> newHash = <span class="kw">await</span> argon2.<span class="fn">hash</span>(providedPassword);
+    <span class="kw">await</span> db.user.<span class="fn">update</span>({ where: { id }, data: { passwordHash: newHash } });
+}</code></pre>
+<div class="warn">⚠️ NIGDY: <code>md5</code>, <code>sha1</code>, <code>sha256</code> bez salt. Plain <code>bcrypt</code> jest OK ale Argon2id lepsze.</div>
+
+<h2>6. Rate limiting (Redis + token bucket)</h2>
+<pre data-lang="typescript"><code><span class="kw">import</span> { Ratelimit } <span class="kw">from</span> <span class="str">'@upstash/ratelimit'</span>;
+<span class="kw">import</span> { Redis } <span class="kw">from</span> <span class="str">'@upstash/redis'</span>;
+
+<span class="kw">const</span> ratelimit = <span class="kw">new</span> <span class="fn">Ratelimit</span>({
+    redis: Redis.<span class="fn">fromEnv</span>(),
+    limiter: Ratelimit.<span class="fn">slidingWindow</span>(<span class="num">10</span>, <span class="str">'10 s'</span>),  <span class="com">// 10 req / 10s</span>
+    analytics: <span class="kw">true</span>
+});
+
+<span class="kw">async function</span> <span class="fn">middleware</span>(req: Request) {
+    <span class="kw">const</span> ip = req.headers.<span class="fn">get</span>(<span class="str">'x-forwarded-for'</span>) ?? <span class="str">'unknown'</span>;
+    <span class="kw">const</span> { success, limit, remaining, reset } = <span class="kw">await</span> ratelimit.<span class="fn">limit</span>(ip);
+    <span class="kw">if</span> (!success) {
+        <span class="kw">return new</span> <span class="fn">Response</span>(<span class="str">'Rate limit exceeded'</span>, {
+            status: <span class="num">429</span>,
+            headers: {
+                <span class="str">'X-RateLimit-Limit'</span>: <span class="kw">String</span>(limit),
+                <span class="str">'X-RateLimit-Remaining'</span>: <span class="str">'0'</span>,
+                <span class="str">'X-RateLimit-Reset'</span>: <span class="kw">String</span>(reset),
+                <span class="str">'Retry-After'</span>: <span class="kw">String</span>(Math.<span class="fn">ceil</span>((reset - Date.<span class="fn">now</span>()) / <span class="num">1000</span>))
+            }
+        });
+    }
+}</code></pre>
+
+<h2>7. Headers — bezpieczeństwo na poziomie HTTP</h2>
+<pre data-lang="typescript"><code><span class="com">// Express + helmet (next.js: w next.config.js, .NET: w UseSecurityHeaders)</span>
+<span class="kw">import</span> helmet <span class="kw">from</span> <span class="str">'helmet'</span>;
+
+app.<span class="fn">use</span>(<span class="fn">helmet</span>({
+    contentSecurityPolicy: {
+        directives: {
+            <span class="str">"default-src"</span>: [<span class="str">"'self'"</span>],
+            <span class="str">"script-src"</span>: [<span class="str">"'self'"</span>, <span class="str">"https://cdn.example.com"</span>],
+            <span class="str">"style-src"</span>: [<span class="str">"'self'"</span>, <span class="str">"'unsafe-inline'"</span>],
+            <span class="str">"img-src"</span>: [<span class="str">"'self'"</span>, <span class="str">"data:"</span>, <span class="str">"https:"</span>],
+            <span class="str">"connect-src"</span>: [<span class="str">"'self'"</span>, <span class="str">"https://api.example.com"</span>],
+            <span class="str">"frame-ancestors"</span>: [<span class="str">"'none'"</span>]
+        }
+    },
+    strictTransportSecurity: { maxAge: <span class="num">63072000</span>, includeSubDomains: <span class="kw">true</span>, preload: <span class="kw">true</span> }
+}));
+
+<span class="com">// CORS — wąsko</span>
+<span class="kw">import</span> cors <span class="kw">from</span> <span class="str">'cors'</span>;
+app.<span class="fn">use</span>(<span class="fn">cors</span>({
+    origin: [<span class="str">'https://app.example.com'</span>],   <span class="com">// nie '*'!</span>
+    credentials: <span class="kw">true</span>,
+    methods: [<span class="str">'GET'</span>, <span class="str">'POST'</span>, <span class="str">'PUT'</span>, <span class="str">'DELETE'</span>],
+    maxAge: <span class="num">86400</span>
+}));</code></pre>
+
+<h2>8. Secrets — nie w git, nie w env w prod</h2>
+<pre data-lang="bash"><code><span class="com"># Lokalnie: .env (w .gitignore!)</span>
+echo <span class="str">".env"</span> &gt;&gt; .gitignore
+
+<span class="com"># Prod: secret manager</span>
+<span class="com"># AWS:</span>
+aws secretsmanager get-secret-value --secret-id prod/api/db --query SecretString
+
+<span class="com"># Azure:</span>
+az keyvault secret show --vault-name myvault --name db-password
+
+<span class="com"># K8s + External Secrets Operator (najlepszy w 2026)</span>
+<span class="com"># Operator synchronizuje secrets z AWS/Azure/Vault do K8s Secret automatycznie</span>
+
+<span class="com"># Pre-commit: blokuj commity z secrets</span>
+pip install detect-secrets
+detect-secrets scan &gt; .secrets.baseline</code></pre>
+
+<h2>9. OWASP Top 10 (2025) checklist</h2>
+<table>
+<tr><th>Pozycja</th><th>Sprawdź</th></tr>
+<tr><td>A01 Broken Access Control</td><td>Authz check w KAŻDYM endpoincie. Nie ufaj <code>userId</code> z requesta.</td></tr>
+<tr><td>A02 Cryptographic Failures</td><td>Argon2id dla haseł, TLS 1.3, AES-256-GCM dla data-at-rest</td></tr>
+<tr><td>A03 Injection</td><td>Parametryzowane queries, ORM, walidacja Zod/Pydantic</td></tr>
+<tr><td>A04 Insecure Design</td><td>Threat modeling (STRIDE), security review dla nowych features</td></tr>
+<tr><td>A05 Security Misconfiguration</td><td>Helmet, CSP, brak debug w prod, security headers</td></tr>
+<tr><td>A06 Vulnerable Components</td><td><code>npm audit</code>, <code>pip-audit</code>, Dependabot, Trivy</td></tr>
+<tr><td>A07 Auth Failures</td><td>MFA dla adminów, lockout po nieudanych próbach, sesje</td></tr>
+<tr><td>A08 Data Integrity</td><td>Signed packages, SBOM (CycloneDX), supply chain (Sigstore)</td></tr>
+<tr><td>A09 Logging Failures</td><td>Audit log dla auth/admin, structured logs, brak PII w logach</td></tr>
+<tr><td>A10 SSRF</td><td>Allowlist URL, blokuj <code>169.254.169.254</code>, <code>127.0.0.0/8</code>, <code>10.0.0.0/8</code></td></tr>
+</table>
+
+<div class="next-prev">
+    <a href="sql.html"><div class="label">← Poprzedni</div><div class="title">SQL</div></a>
+    <a href="iis.html"><div class="label">Następny →</div><div class="title">IIS / Windows Server</div></a>
+</div>
+</div>
+</body>
+</html>

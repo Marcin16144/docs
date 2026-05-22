@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podstawy Python API</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--accent-hover:#60a5fa;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}.card.orange{border-left:4px solid var(--orange)}.card.blue{border-left:4px solid var(--blue)}.card.red{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../../index.html">Glowna</a>
+  <span class="sep">/</span>
+  <a href="../../index.html">API</a>
+  <span class="sep">/</span>
+  <a href="../index.html">Python</a>
+  <span class="sep">/</span>
+  <span class="title">Podstawy Python API</span>
+</div>
+<div class="container">
+  <h1>Podstawy Python API</h1>
+  <p class="subtitle">Srodowiska wirtualne, zarzadzanie pakietami, type hints, Pydantic v2, httpx</p>
+
+  <h2>Srodowiska wirtualne — venv vs uv</h2>
+  <p>Kazdy projekt Python powinien miec izolowane srodowisko wirtualne. Tradycyjnym narzedziem jest wbudowany modul <strong>venv</strong>, jednak w 2024 roku pojawil sie <strong>uv</strong> — nowoczesny menezer pakietow i srodowisk wirtualnych napisany w Rust, ktory jest drastycznie szybszy.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cecha</th>
+        <th>venv + pip</th>
+        <th>uv</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Jezyk implementacji</td>
+        <td>Python</td>
+        <td>Rust</td>
+      </tr>
+      <tr>
+        <td>Szybkosc instalacji</td>
+        <td>1x (baseline)</td>
+        <td>10-100x szybciej</td>
+      </tr>
+      <tr>
+        <td>Tworzenie venv</td>
+        <td><code>python -m venv .venv</code></td>
+        <td><code>uv venv</code></td>
+      </tr>
+      <tr>
+        <td>Instalacja pakietu</td>
+        <td><code>pip install fastapi</code></td>
+        <td><code>uv add fastapi</code></td>
+      </tr>
+      <tr>
+        <td>Lock file</td>
+        <td>requirements.txt (reczny)</td>
+        <td>uv.lock (automatyczny)</td>
+      </tr>
+      <tr>
+        <td>pyproject.toml</td>
+        <td>czesto pomijany</td>
+        <td>natywna integracja</td>
+      </tr>
+      <tr>
+        <td>Wersje Pythona</td>
+        <td>wymaga zewnetrznego narzedzia</td>
+        <td><code>uv python install 3.12</code></td>
+      </tr>
+      <tr>
+        <td>Zgodnosc z pip</td>
+        <td>pelen standard</td>
+        <td>zgodny (drop-in replacement)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <h3>Rekomendacja</h3>
+    <p>Uzywaj <strong>uv</strong> do nowych projektow. Dla istniejacych projektow z <code>requirements.txt</code> mozesz uzyc <code>uv pip install -r requirements.txt</code> bez zadnych zmian w workflow.</p>
+  </div>
+
+  <h2>Konfiguracja projektu — pyproject.toml</h2>
+  <p>Standard PEP 517/518 definiuje <strong>pyproject.toml</strong> jako jedyne miejsce konfiguracji projektu Python. Zastepuje on <code>setup.py</code>, <code>setup.cfg</code> oraz rozne pliki konfiguracyjne narzedzi.</p>
+
+<pre><code>[project]
+name = "moje-api"
+version = "0.1.0"
+description = "Przykladowe API w Pythonie"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.111.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.7.0",
+    "uvicorn[standard]>=0.29.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "mypy>=1.9.0",
+    "ruff>=0.4.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "mypy>=1.9.0",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+</code></pre>
+
+  <h2>Type Hints w Python 3.12+</h2>
+  <p>Type hints sa fundamentem nowoczesnego Python API. Pozwalaja na statyczna analize kodu, lepsza dokumentacje i integracje z Pydantic. Python 3.12 wprowadzil kilka usprawnien skladni.</p>
+
+  <h3>Nowa skladnia generykow (Python 3.12)</h3>
+<pre><code># Python 3.12 — nowy styl (PEP 695)
+type Vector[T] = list[T]
+type Matrix[T] = list[list[T]]
+
+def pierwsza[T](lista: list[T]) -> T:
+    return lista[0]
+
+def para[T, U](a: T, b: U) -> tuple[T, U]:
+    return a, b
+
+# Wbudowane typy jako generyki (od 3.9)
+def przetworz(dane: list[int]) -> dict[str, int]:
+    return {"suma": sum(dane), "max": max(dane)}
+
+# Typy unii (od 3.10)
+def parsuj(wartosc: int | str | None) -> str:
+    if wartosc is None:
+        return "brak"
+    return str(wartosc)
+
+# TypeVar dla zaawansowanych przypadkow
+from typing import TypeVar, Protocol
+
+class Porownywalne(Protocol):
+    def __lt__(self, other: object) -> bool: ...
+
+P = TypeVar("P", bound=Porownywalne)
+
+def minimum(a: P, b: P) -> P:
+    return a if a &lt; b else b
+</code></pre>
+
+  <h2>Pydantic v2 — walidacja danych</h2>
+  <p>Pydantic v2 to kompletna przepisanie biblioteki (rdzen w Rust), oferujace 5-50x wieksza wydajnosc niz v1. Jest fundamentem FastAPI i de facto standardem walidacji danych w Python API.</p>
+
+  <h3>BaseModel i Field</h3>
+<pre><code>from pydantic import BaseModel, Field, model_validator, computed_field
+from pydantic import EmailStr, HttpUrl
+from typing import Annotated
+from datetime import datetime
+import uuid
+
+# Alias typow z walidacja
+PositiveInt = Annotated[int, Field(gt=0)]
+ShortStr = Annotated[str, Field(min_length=1, max_length=100)]
+
+class Adres(BaseModel):
+    ulica: ShortStr
+    miasto: ShortStr
+    kod_pocztowy: str = Field(pattern=r"^\d{2}-\d{3}$")
+    kraj: str = Field(default="PL", max_length=2)
+
+class Uzytkownik(BaseModel):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    imie: ShortStr
+    nazwisko: ShortStr
+    email: EmailStr
+    wiek: PositiveInt
+    adres: Adres | None = None
+    utworzono: datetime = Field(default_factory=datetime.utcnow)
+    tagi: list[str] = Field(default_factory=list)
+
+    # Walidator calego modelu
+    @model_validator(mode="after")
+    def sprawdz_wiek_email(self) -> "Uzytkownik":
+        if self.wiek &lt; 18 and self.email.endswith(".edu") is False:
+            raise ValueError("Osoby niepelnoletnie moga uzyc tylko adresu .edu")
+        return self
+
+    # Pole obliczane (nie zapisywane do DB)
+    @computed_field
+    @property
+    def pelne_imie(self) -> str:
+        return f"{self.imie} {self.nazwisko}"
+
+    model_config = {
+        "str_strip_whitespace": True,
+        "validate_assignment": True,
+        "json_schema_extra": {
+            "example": {
+                "imie": "Jan",
+                "nazwisko": "Kowalski",
+                "email": "jan@example.com",
+                "wiek": 30,
+            }
+        }
+    }
+
+# Uzycie
+u = Uzytkownik(imie="Jan", nazwisko="Kowalski", email="jan@example.com", wiek=30)
+print(u.pelne_imie)        # "Jan Kowalski"
+print(u.model_dump())      # slownik
+print(u.model_dump_json()) # JSON string
+</code></pre>
+
+  <h2>httpx — asynchroniczny klient HTTP</h2>
+  <p><strong>httpx</strong> to nowoczesny klient HTTP dla Pythona, wspierajacy zarowno synchroniczne jak i asynchroniczne uzycie. Jest naturalnym nastepca <code>requests</code> z pelnym wsparciem dla HTTP/2 i async/await.</p>
+
+  <div class="card blue">
+    <h3>requests vs httpx</h3>
+    <p>Biblioteka <code>requests</code> nie obsluguje async/await. Jesli budujesz aplikacje FastAPI lub inne ASGI, uzywaj <strong>httpx</strong> — ma identyczne API dla czesci synchronicznej i dodaje <code>AsyncClient</code> dla async.</p>
+  </div>
+
+  <h2>dataclasses vs Pydantic</h2>
+  <p>Python oferuje wbudowane <code>dataclasses</code> jako lzejsza alternatywe. Wybor miedzy nimi zalezy od kontekstu:</p>
+  <ul>
+    <li><strong>dataclasses</strong> — brak walidacji, szybkie tworzenie instancji, brak zaleznosci zewnetrznych, dobre dla wewnetrznych struktur danych</li>
+    <li><strong>Pydantic BaseModel</strong> — pelna walidacja, serializacja JSON, schematy OpenAPI, integracja z FastAPI — wybieraj dla danych z zewnatrz (API, bazy danych, pliki)</li>
+    <li><strong>Pydantic dataclasses</strong> — polaczenie obu: skladnia dataclass + walidacja Pydantic, przydatne przy migracji kodu</li>
+  </ul>
+
+  <div class="nav-bottom">
+    <a href="index.html">← index.html</a>
+    <a href="02-fastapi.html">02-fastapi.html →</a>
+  </div>
+</div>
+</body>
+</html>
