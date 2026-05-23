@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polne rośliny zielarskie — kompendium</title>
+    <style>
+        :root{--bg:#0f1a14;--surface:#1a2920;--surface-hi:#243832;--border:#2f4438;--text:#e8efe8;--text-muted:#8aa098;--accent:#6dc26d;--accent-hover:#8fd58f;--warn:#fbbf24;--danger:#f87171;--earth:#c9a06a}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;min-height:100vh}
+
+        /* HERO */
+        .hero{text-align:center;padding:52px 20px 36px;background:linear-gradient(135deg,#1a2920 0%,#0f1a14 50%,#1f2a1c 100%);border-bottom:1px solid var(--border)}
+        .hero h1{font-size:2.4rem;font-weight:700;margin-bottom:10px;background:linear-gradient(135deg,var(--accent),var(--earth));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .hero p{color:var(--text-muted);font-size:1rem;max-width:600px;margin:0 auto}
+        .quick-tools{max-width:900px;margin:20px auto 0;padding:0 20px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+        .quick-tools a{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);color:var(--accent);text-decoration:none;padding:7px 14px;border-radius:20px;font-size:0.85rem;font-weight:500;transition:all .15s}
+        .quick-tools a:hover{background:rgba(109,194,109,.1);border-color:var(--accent);transform:translateY(-2px)}
+
+        /* GRID */
+        .container{max-width:1080px;margin:0 auto;padding:36px 20px 80px}
+        .plant-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+        .plant-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;color:var(--text);transition:all .2s}
+        .plant-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.3)}
+        /* Photo = link to subpage */
+        .plant-photo{background:var(--surface-hi);height:170px;overflow:hidden;position:relative;display:block;text-decoration:none}
+        .plant-photo img{width:100%;height:100%;object-fit:cover;transition:transform .3s;display:block}
+        .plant-card:hover .plant-photo img{transform:scale(1.05)}
+        /* Photo overlay arrow */
+        .plant-photo::after{content:'→ strona';position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.7) 0%,transparent 100%);color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.04em;padding:22px 10px 7px;opacity:0;transition:opacity .2s;pointer-events:none}
+        .plant-card:hover .plant-photo::after{opacity:1}
+        .plant-info{padding:14px 16px}
+        .plant-info h2{font-size:1rem;font-weight:600;color:var(--accent);margin-bottom:3px}
+        .plant-info .latin{color:var(--text-muted);font-size:.75rem;font-style:italic;margin-bottom:7px}
+        .plant-info p{color:var(--text-muted);font-size:.82rem;margin-bottom:7px}
+        /* Quick use chip */
+        .quick-use{display:inline-flex;align-items:center;gap:4px;background:rgba(109,194,109,.12);border:1px solid rgba(109,194,109,.25);border-radius:12px;padding:3px 9px;font-size:.72rem;color:var(--accent);font-weight:600;margin:5px 0 3px;cursor:pointer}
+        .quick-use:hover{background:rgba(109,194,109,.22)}
+        .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+        .tag{display:inline-block;font-size:.65rem;padding:2px 7px;border-radius:4px;font-weight:600}
+        .tag-leaf{background:rgba(109,194,109,.15);color:var(--accent)}
+        .tag-flower{background:rgba(251,191,36,.15);color:var(--warn)}
+        .tag-root{background:rgba(201,160,106,.15);color:var(--earth)}
+        .tag-fruit{background:rgba(167,139,250,.15);color:#a78bfa}
+        .tag-warn{background:rgba(248,113,113,.15);color:var(--danger)}
+
+        .intro-note{background:linear-gradient(135deg,rgba(248,113,113,.08),rgba(251,191,36,.05));border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:14px 18px;margin-bottom:22px;font-size:.88rem;color:var(--text-muted)}
+        .intro-note strong{color:var(--danger)}
+        .section-head{color:var(--accent);margin-bottom:14px;font-size:1.4rem}
+        footer{text-align:center;padding:28px;color:var(--text-muted);font-size:.82rem;border-top:1px solid var(--border)}
+
+        /* ==================== MODAL ==================== */
+        .modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.78);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .2s}
+        .modal-overlay.open{opacity:1;pointer-events:all}
+        .modal{background:var(--surface);border:1px solid var(--border);border-radius:18px;max-width:740px;width:100%;max-height:92vh;overflow-y:auto;position:relative;transform:translateY(24px) scale(.97);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:0 32px 80px rgba(0,0,0,.65)}
+        .modal-overlay.open .modal{transform:translateY(0) scale(1)}
+
+        /* --- Gallery wrapper --- */
+        .modal-gallery{position:relative;height:280px;background:var(--surface-hi);border-radius:18px 18px 0 0;overflow:hidden;flex-shrink:0}
+        .gallery-img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;transition:opacity .35s;opacity:0}
+        .gallery-img.active{opacity:1}
+
+        /* Top plant nav arrows (prev/next plant) */
+        .modal-top-nav{position:absolute;top:0;left:0;right:0;z-index:4;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:linear-gradient(to bottom,rgba(0,0,0,.65) 0%,transparent 100%)}
+        .top-nav-btn{background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:38px;height:38px;cursor:pointer;font-size:1.15rem;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+        .top-nav-btn:hover:not(:disabled){background:rgba(109,194,109,.7);border-color:var(--accent)}
+        .top-nav-btn:disabled{opacity:.25;cursor:default}
+        .top-nav-counter{color:#fff;font-size:.82rem;font-weight:700;background:rgba(0,0,0,.45);padding:4px 12px;border-radius:20px;letter-spacing:.03em}
+
+        /* Photo gallery arrows */
+        .gal-btn{position:absolute;top:50%;transform:translateY(-50%);z-index:3;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:1.05rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .gal-btn:hover:not(:disabled){background:rgba(109,194,109,.6)}
+        .gal-btn:disabled{opacity:.2;cursor:default}
+        .gal-prev{left:8px}
+        .gal-next{right:8px}
+
+        /* Dots */
+        .gal-dots{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:3}
+        .gal-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.45);border:none;cursor:pointer;transition:all .15s;padding:0}
+        .gal-dot.active{background:#fff;transform:scale(1.3)}
+
+        /* Close button */
+        .modal-close{position:absolute;top:10px;right:10px;z-index:5;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .modal-close:hover{background:rgba(248,113,113,.5);border-color:var(--danger)}
+
+        /* Modal body */
+        .modal-body{padding:20px 24px 24px}
+        .modal-header{margin-bottom:14px}
+        .modal-header h2{font-size:1.5rem;font-weight:700;color:var(--accent);margin-bottom:3px}
+        .modal-header .latin{color:var(--text-muted);font-size:.87rem;font-style:italic}
+        .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+        .modal-info-box{background:var(--surface-hi);border:1px solid var(--border);border-radius:8px;padding:9px 13px}
+        .modal-info-box .label{font-size:.68rem;color:var(--text-muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em}
+        .modal-info-box .value{font-size:.88rem;font-weight:600}
+        .modal-uses{margin:14px 0}
+        .modal-uses h3{font-size:.78rem;color:var(--text-muted);margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+        .modal-uses ul{list-style:none;display:flex;flex-wrap:wrap;gap:5px}
+        .modal-uses li{background:rgba(109,194,109,.1);border:1px solid rgba(109,194,109,.25);border-radius:6px;padding:3px 10px;font-size:.8rem;color:var(--accent)}
+        .modal-warn{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:10px 13px;margin:10px 0;font-size:.82rem;color:var(--danger)}
+        .modal-footer{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);gap:10px;flex-wrap:wrap}
+        .modal-nav-bottom{display:flex;gap:7px;align-items:center}
+        .nav-bottom-btn{background:var(--surface-hi);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 13px;cursor:pointer;font-size:.85rem;transition:all .15s;display:flex;align-items:center;gap:5px}
+        .nav-bottom-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+        .nav-bottom-btn:disabled{opacity:.3;cursor:default}
+        .modal-counter-bottom{color:var(--text-muted);font-size:.78rem;min-width:44px;text-align:center}
+        .modal-cta{display:inline-flex;align-items:center;gap:7px;background:var(--accent);color:#0f1a14;padding:10px 22px;border-radius:9px;font-weight:700;text-decoration:none;font-size:.92rem;transition:all .15s;box-shadow:0 3px 12px rgba(109,194,109,.35)}
+        .modal-cta:hover{background:var(--accent-hover);transform:translateY(-2px);box-shadow:0 5px 18px rgba(109,194,109,.5)}
+        .modal-quick-use{display:inline-flex;align-items:center;gap:5px;background:rgba(109,194,109,.1);border:1px solid rgba(109,194,109,.25);border-radius:14px;padding:4px 12px;font-size:.78rem;color:var(--accent);font-weight:600;margin-top:6px}
+
+        /* ==================== SIDEBAR ==================== */
+        .sidebar-toggle{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:500;background:var(--accent);color:#0f1a14;border:none;border-radius:10px 0 0 10px;padding:12px 8px;cursor:pointer;font-size:.72rem;font-weight:700;letter-spacing:.08em;writing-mode:vertical-rl;line-height:1;transition:all .2s;box-shadow:-2px 0 12px rgba(0,0,0,.3)}
+        .sidebar-toggle:hover{background:var(--accent-hover);padding-right:12px}
+        .sidebar-overlay{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s}
+        .sidebar-overlay.open{opacity:1;pointer-events:all}
+        .sidebar{position:fixed;top:0;right:0;z-index:700;width:300px;max-width:90vw;height:100vh;background:var(--surface);border-left:1px solid var(--border);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.4)}
+        .sidebar.open{transform:translateX(0)}
+        .sidebar-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);background:var(--surface-hi)}
+        .sidebar-head h3{font-size:.95rem;font-weight:700;color:var(--accent)}
+        .sidebar-close-btn{background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .sidebar-close-btn:hover{border-color:var(--danger);color:var(--danger)}
+        .sidebar-search{margin:10px 14px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:.83rem;width:calc(100% - 28px);outline:none;transition:border-color .15s}
+        .sidebar-search:focus{border-color:var(--accent)}
+        .sidebar-nav{flex:1;overflow-y:auto}
+        .sidebar-nav a{display:flex;align-items:center;gap:10px;padding:9px 14px;text-decoration:none;color:var(--text);border-bottom:1px solid rgba(47,68,56,.5);transition:all .15s;font-size:.84rem}
+        .sidebar-nav a:hover{background:var(--surface-hi);color:var(--accent)}
+        .sidebar-nav a.active{background:rgba(109,194,109,.1);color:var(--accent);border-left:3px solid var(--accent)}
+        .sthumb{width:38px;height:38px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--surface-hi)}
+        .sinfo{flex:1;min-width:0}
+        .sname{font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .slatin{font-style:italic;color:var(--text-muted);font-size:.71rem;display:block}
+        .snum{background:var(--surface-hi);color:var(--text-muted);border-radius:4px;min-width:22px;height:22px;font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .sidebar-links{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:6px}
+        .sidebar-links a{flex:1;text-align:center;background:var(--surface-hi);border:1px solid var(--border);border-radius:8px;padding:7px 4px;color:var(--accent);text-decoration:none;font-size:.76rem;font-weight:600;transition:all .15s}
+        .sidebar-links a:hover{border-color:var(--accent)}
+        .sidebar-links a.active{background:rgba(109,194,109,.1)}
+
+        /* hide scrollbar but keep scroll */
+        .sidebar-nav::-webkit-scrollbar{width:4px}
+        .sidebar-nav::-webkit-scrollbar-track{background:transparent}
+        .sidebar-nav::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+        @media(max-width:600px){
+            .modal-grid{grid-template-columns:1fr}
+            .modal-body{padding:16px 16px 20px}
+            .modal-gallery{height:220px}
+            .modal-header h2{font-size:1.2rem}
+            .modal-footer{flex-direction:column-reverse;align-items:stretch}
+            .modal-cta{justify-content:center}
+            .hero h1{font-size:1.8rem}
+        }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <h1>🌿 Polne rośliny zielarskie</h1>
+    <p>Kompendium polskich roślin łąkowych, polnych i leśnych — zbiór, zielarstwo, przepisy lecznicze i kulinarne.</p>
+    <div class="quick-tools">
+        <a href="galeria.html">🖼️ Galeria</a>
+        <a href="przepisy.html">📋 Przepisy lecznicze</a>
+        <a href="mikstury.html">⚗️ Mikstury ziołowe</a>
+        <a href="kosmetyki.html">🧴 Kosmetyki ziołowe</a>
+        <a href="kulinarne.html">🍽️ Przepisy kulinarne</a>
+        <a href="laka.html">🌾 Chwasty łąkowe</a>
+        <a href="#lista">📖 Wszystkie rośliny</a>
+    </div>
+</div>
+
+<div class="container">
+    <div class="intro-note">
+        <strong>⚠ Ważne:</strong> Informacje mają charakter edukacyjny. Przed zastosowaniem ziół — skonsultuj się z lekarzem, szczególnie w ciąży, karmieniu, przy lekach i chorobach. Niektóre rośliny są silnie aktywne i wchodzą w interakcje z farmaceutykami.
+    </div>
+
+    <h2 id="lista" class="section-head">🌱 Wszystkie rośliny</h2>
+
+    <div class="plant-grid" id="plantGrid">
+
+        <div class="plant-card" data-plant="0" tabindex="0">
+            <a class="plant-photo" href="01-pokrzywa.html"><img src="media/01-1.jpg" alt="Pokrzywa zwyczajna" loading="eager"></a>
+            <div class="plant-info"><h2>Pokrzywa zwyczajna</h2><div class="latin">Urtica dioica</div><p>Żelazo, krzem, witaminy. Wzmacnia włosy, oczyszcza krew, wspomaga nerki.</p><span class="quick-use">🩺 włosy · anemia · nerki</span><div class="tags"><span class="tag tag-leaf">liście</span><span class="tag tag-root">korzeń</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="1" tabindex="0">
+            <a class="plant-photo" href="02-mniszek-lekarski.html"><img src="media/02-1.jpg" alt="Mniszek lekarski" loading="eager"></a>
+            <div class="plant-info"><h2>Mniszek lekarski</h2><div class="latin">Taraxacum officinale</div><p>Wątroba, woreczek żółciowy, moczopędny. Syrop = miód majowy.</p><span class="quick-use">💛 na wątrobę · żółć</span><div class="tags"><span class="tag tag-leaf">liście</span><span class="tag tag-flower">kwiaty</span><span class="tag tag-root">korzeń</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="2" tabindex="0">
+            <a class="plant-photo" href="03-babka-lancetowata.html"><img src="media/03-1.jpg" alt="Babka lancetowata" loading="eager"></a>
+            <div class="plant-info"><h2>Babka lancetowata</h2><div class="latin">Plantago lanceolata</div><p>Kaszel, rany, ukąszenia. Syrop na drogi oddechowe — klasyk w aptece.</p><span class="quick-use">🩹 na rany · kaszel · gardło</span><div class="tags"><span class="tag tag-leaf">liście</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="3" tabindex="0">
+            <a class="plant-photo" href="04-rumianek.html"><img src="media/04-1.jpg" alt="Rumianek pospolity" loading="eager"></a>
+            <div class="plant-info"><h2>Rumianek pospolity</h2><div class="latin">Matricaria chamomilla</div><p>Żołądek, nerwy, oczy, skóra. Najpopularniejsze polskie zioło.</p><span class="quick-use">🫧 na żołądek · nerwy · skórę</span><div class="tags"><span class="tag tag-flower">kwiaty</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="4" tabindex="0">
+            <a class="plant-photo" href="05-krwawnik.html"><img src="media/05-1.jpg" alt="Krwawnik pospolity" loading="lazy"></a>
+            <div class="plant-info"><h2>Krwawnik pospolity</h2><div class="latin">Achillea millefolium</div><p>Tysiąclistnik. Tamuje krwawienia, reguluje menstruację, trawienie.</p><span class="quick-use">🩸 tamuje krew · trawienie</span><div class="tags"><span class="tag tag-leaf">ziele</span><span class="tag tag-flower">kwiaty</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="5" tabindex="0">
+            <a class="plant-photo" href="06-dziurawiec.html"><img src="media/06-1.jpg" alt="Dziurawiec zwyczajny" loading="lazy"></a>
+            <div class="plant-info"><h2>Dziurawiec zwyczajny</h2><div class="latin">Hypericum perforatum</div><p>Świętojańskie ziele. Antydepresyjny, ochrona wątroby, rany.</p><span class="quick-use">🧠 na depresję · nastrój ⚠</span><div class="tags"><span class="tag tag-flower">ziele</span><span class="tag tag-warn">interakcje!</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="6" tabindex="0">
+            <a class="plant-photo" href="07-skrzyp-polny.html"><img src="media/07-1.jpg" alt="Skrzyp polny" loading="lazy"></a>
+            <div class="plant-info"><h2>Skrzyp polny</h2><div class="latin">Equisetum arvense</div><p>Rekordowa zawartość krzemu. Wzmacnia paznokcie, włosy, kości.</p><span class="quick-use">💅 paznokcie · kości · włosy</span><div class="tags"><span class="tag tag-leaf">ziele</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="7" tabindex="0">
+            <a class="plant-photo" href="08-lopian.html"><img src="media/08-2.jpg" alt="Łopian większy" loading="lazy"></a>
+            <div class="plant-info"><h2>Łopian większy</h2><div class="latin">Arctium lappa</div><p>Oczyszcza krew, zwalcza trądzik. Nalewka na cebulki włosów.</p><span class="quick-use">🌿 włosy · trądzik · krew</span><div class="tags"><span class="tag tag-root">korzeń</span><span class="tag tag-leaf">liście</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="8" tabindex="0">
+            <a class="plant-photo" href="09-mieta.html"><img src="media/09-1.jpg" alt="Mięta pieprzowa" loading="lazy"></a>
+            <div class="plant-info"><h2>Mięta pieprzowa</h2><div class="latin">Mentha × piperita</div><p>Trawienie, mdłości, migreny, świeży oddech. Olejek chłodzący.</p><span class="quick-use">🫙 na trawienie · mdłości</span><div class="tags"><span class="tag tag-leaf">liście</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="9" tabindex="0">
+            <a class="plant-photo" href="10-czarny-bez.html"><img src="media/10-1.jpg" alt="Czarny bez" loading="lazy"></a>
+            <div class="plant-info"><h2>Czarny bez</h2><div class="latin">Sambucus nigra</div><p>Kwiaty napotne, owoce na odporność. Klasyka zimowa.</p><span class="quick-use">🛡️ odporność · przeziębienie</span><div class="tags"><span class="tag tag-flower">kwiaty</span><span class="tag tag-fruit">owoce</span><span class="tag tag-warn">surowe trujące!</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="10" tabindex="0">
+            <a class="plant-photo" href="11-lipa.html"><img src="media/11-1.jpg" alt="Lipa drobnolistna" loading="lazy"></a>
+            <div class="plant-info"><h2>Lipa drobnolistna</h2><div class="latin">Tilia cordata</div><p>Herbatka od babci. Napotna, uspokajająca. Zbieraj w czerwcu!</p><span class="quick-use">😴 przeziębienie · sen · stres</span><div class="tags"><span class="tag tag-flower">kwiaty</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="11" tabindex="0">
+            <a class="plant-photo" href="12-podbial.html"><img src="media/12-1.jpg" alt="Podbiał pospolity" loading="lazy"></a>
+            <div class="plant-info"><h2>Podbiał pospolity</h2><div class="latin">Tussilago farfara</div><p>Pierwszy kwiat wiosny. Suchy kaszel, oskrzela. Krótka kuracja!</p><span class="quick-use">🫁 suchy kaszel · oskrzela ⚠</span><div class="tags"><span class="tag tag-leaf">liście</span><span class="tag tag-flower">kwiaty</span><span class="tag tag-warn">max 6 tyg.</span></div></div>
+        </div>
+
+    </div>
+</div>
+
+<footer>Polne rośliny zielarskie · Kompendium 2026 · Zdjęcia: Wikimedia Commons (CC)</footer>
+
+<!-- ==================== MODAL ==================== -->
+<div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-label="Informacje o roślinie">
+    <div class="modal" id="modal">
+        <button class="modal-close" id="modalClose" aria-label="Zamknij">&times;</button>
+
+        <!-- Gallery -->
+        <div class="modal-gallery" id="modalGallery">
+            <!-- Top plant nav -->
+            <div class="modal-top-nav">
+                <button class="top-nav-btn" id="topPrev" aria-label="Poprzednia roślina">&#8592;</button>
+                <span class="top-nav-counter" id="topCounter"></span>
+                <button class="top-nav-btn" id="topNext" aria-label="Następna roślina">&#8594;</button>
+            </div>
+            <!-- Images injected by JS -->
+            <!-- Photo prev/next -->
+            <button class="gal-btn gal-prev" id="galPrev" aria-label="Poprzednie zdjęcie">&#8249;</button>
+            <button class="gal-btn gal-next" id="galNext" aria-label="Następne zdjęcie">&#8250;</button>
+            <div class="gal-dots" id="galDots"></div>
+        </div>
+
+        <div class="modal-body">
+            <div class="modal-header">
+                <h2 id="modalName"></h2>
+                <div class="latin" id="modalLatin"></div>
+                <div class="modal-quick-use" id="modalQuickUse"></div>
+            </div>
+            <div class="modal-grid" id="modalGrid"></div>
+            <div class="modal-uses"><h3>Zastosowania</h3><ul id="modalUses"></ul></div>
+            <div class="modal-warn" id="modalWarn" style="display:none"></div>
+            <div class="modal-footer">
+                <div class="modal-nav-bottom">
+                    <button class="nav-bottom-btn" id="botPrev">&#8592; Poprzednia</button>
+                    <div class="modal-counter-bottom" id="botCounter"></div>
+                    <button class="nav-bottom-btn" id="botNext">Następna &#8594;</button>
+                </div>
+                <a class="modal-cta" id="modalCta" href="#">📖 Pełna strona rośliny &rarr;</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== SIDEBAR ==================== -->
+<button class="sidebar-toggle" id="sidebarToggle" aria-label="Lista roślin">🌿 Rośliny</button>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="sidebar" id="sidebar" aria-label="Panel nawigacji">
+    <div class="sidebar-head">
+        <h3>🌿 Rośliny</h3>
+        <button class="sidebar-close-btn" id="sidebarClose" aria-label="Zamknij panel">&times;</button>
+    </div>
+    <input type="search" class="sidebar-search" id="sidebarSearch" placeholder="🔍 Szukaj rośliny...">
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-links">
+        <a href="galeria.html">🖼️ Galeria</a>
+        <a href="przepisy.html">📋 Przepisy</a>
+        <a href="kulinarne.html">🍽️ Kulinarne</a>
+        <a href="laka.html">🌾 Łąka</a>
+    </div>
+</div>
+
+<script>
+const plants = [
+    {
+        name:"Pokrzywa zwyczajna", latin:"Urtica dioica · rodzina pokrzywowate",
+        quickUse:"🩺 włosy · anemia · nerki",
+        photos:["media/01-1.jpg","media/01-2.jpg","media/01-3.jpg"],
+        alts:["Pokrzywa - łodyga","Pokrzywa - liście","Pokrzywa - kłącza"],
+        info:[{l:"Kwitnienie",v:"VI – IX"},{l:"Zbiór liści",v:"V – VIII"},{l:"Surowiec",v:"Liście, korzeń"},{l:"Działanie",v:"Moczopędne, odżywcze"}],
+        uses:["Odwar wzmacniający","Nalewka na włosy","Sok z liści","Szpinak pokrzywowy","Herbata na odporność","Maść na stawy"],
+        warn:null, href:"01-pokrzywa.html"
+    },{
+        name:"Mniszek lekarski", latin:"Taraxacum officinale · rodzina astrowate",
+        quickUse:"💛 na wątrobę · żółć",
+        photos:["media/02-1.jpg","media/02-2.jpg","media/02-3.jpg"],
+        alts:["Mniszek - kwiaty","Mniszek - dmuchawiec","Mniszek - rozeta"],
+        info:[{l:"Kwitnienie",v:"III – X"},{l:"Zbiór",v:"III – IV (kwiaty)"},{l:"Surowiec",v:"Kwiaty, liście, korzeń"},{l:"Działanie",v:"Żółciopędne, moczopędne"}],
+        uses:["Syrop miodowy z kwiatów","Nalewka korzeniowa","Sałatka z liści","Herbata żółciowa","Kawa z korzenia","Wino z mniszka"],
+        warn:null, href:"02-mniszek-lekarski.html"
+    },{
+        name:"Babka lancetowata", latin:"Plantago lanceolata · rodzina babkowate",
+        quickUse:"🩹 na rany · kaszel · gardło",
+        photos:["media/03-1.jpg","media/03-2.jpg","media/03-3.jpg"],
+        alts:["Babka - pokrój","Babka - kwiatostan","Babka - liść"],
+        info:[{l:"Kwitnienie",v:"V – IX"},{l:"Zbiór",v:"V – VIII"},{l:"Surowiec",v:"Liście (młode)"},{l:"Działanie",v:"Wykrztuśne, śluzowe, gojące"}],
+        uses:["Syrop na kaszel","Napar gardłowy","Okład na rany","Papka na użądlenia","Płukanka","Herbata antyalergiczna"],
+        warn:null, href:"03-babka-lancetowata.html"
+    },{
+        name:"Rumianek pospolity", latin:"Matricaria chamomilla · rodzina astrowate",
+        quickUse:"🫧 na żołądek · nerwy · skórę",
+        photos:["media/04-1.jpg","media/04-2.jpg","media/04-3.jpg"],
+        alts:["Rumianek - kwiaty","Rumianek - pole","Rumianek - botanika"],
+        info:[{l:"Kwitnienie",v:"V – VIII"},{l:"Zbiór",v:"VI – VIII"},{l:"Surowiec",v:"Koszyczki kwiatowe"},{l:"Zapach",v:"Intensywny, jabłkowy"}],
+        uses:["Napar na żołądek","Herbata uspokajająca","Okład na oczy","Kąpiel rumiankowa","Inhalacja zatok","Płukanka na włosy"],
+        warn:null, href:"04-rumianek.html"
+    },{
+        name:"Krwawnik pospolity", latin:"Achillea millefolium · rodzina astrowate",
+        quickUse:"🩸 tamuje krew · trawienie",
+        photos:["media/05-1.jpg","media/05-2.jpg","media/05-3.jpg"],
+        alts:["Krwawnik - kwiaty","Krwawnik - liść","Krwawnik - botanika"],
+        info:[{l:"Kwitnienie",v:"VI – X"},{l:"Zbiór",v:"VII – VIII"},{l:"Surowiec",v:"Ziele kwitnące"},{l:"Działanie",v:"Hemostyczne, żółciopędne"}],
+        uses:["Napar na trawienie","Okład tamujący krew","Herbata na cykl","Odwar żylakowy","Kąpiel ziołowa","Likier wzmacniający"],
+        warn:"⚠ Nie stosować w ciąży. Możliwa alergia (astrowate).",
+        href:"05-krwawnik.html"
+    },{
+        name:"Dziurawiec zwyczajny", latin:"Hypericum perforatum · rodzina dziurawcowate",
+        quickUse:"🧠 na depresję · nastrój ⚠",
+        photos:["media/06-1.jpg","media/06-2.jpg","media/06-3.jpg"],
+        alts:["Dziurawiec - kwiaty","Dziurawiec - łodyga","Dziurawiec - botanika"],
+        info:[{l:"Kwitnienie",v:"VI – VIII (24.06)"},{l:"Zbiór",v:"VI – VII"},{l:"Surowiec",v:"Ziele kwitnące"},{l:"Działanie",v:"Antydepresyjne, ochronne"}],
+        uses:["Czerwony olejek","Napar na nastrój","Nalewka wątrobowa","Maść na rany","Herbata na klimakterium","Napar antywirusowy"],
+        warn:"⚠ SILNE INTERAKCJE: antykoagulanty, SSRI, antykoncepcja! Fotouczulenie — unikaj słońca!",
+        href:"06-dziurawiec.html"
+    },{
+        name:"Skrzyp polny", latin:"Equisetum arvense · rodzina skrzypowate",
+        quickUse:"💅 paznokcie · kości · włosy",
+        photos:["media/07-1.jpg","media/07-2.jpg","media/07-3.jpg"],
+        alts:["Skrzyp - pędy zielone","Skrzyp - pędy zarodnikowe","Skrzyp - pole"],
+        info:[{l:"Zbiór",v:"VI – VIII (pędy zielone)"},{l:"Krzem",v:"Do 40% SiO₂ — rekord"},{l:"Surowiec",v:"Gałązki boczne"},{l:"Działanie",v:"Moczopędne, krzemotwórcze"}],
+        uses:["Odwar na włosy","Herbata moczopędna","Kąpiel kości","Napar na paznokcie","Płukanka łupieżowa","Okład na obrzęki"],
+        warn:"⚠ Nie mylić ze skrzypem błotnym (trujący)! Tylko pędy letnie (zielone).",
+        href:"07-skrzyp-polny.html"
+    },{
+        name:"Łopian większy", latin:"Arctium lappa · rodzina astrowate",
+        quickUse:"🌿 włosy · trądzik · krew",
+        photos:["media/08-2.jpg","media/08-3.jpg","media/08-1.jpg"],
+        alts:["Łopian - korzeń","Łopian - kwiaty","Łopian - botanika"],
+        info:[{l:"Kwitnienie",v:"VII – IX"},{l:"Zbiór korzenia",v:"IX – X (1. rok)"},{l:"Surowiec",v:"Korzeń (główny)"},{l:"Działanie",v:"Oczyszczające, dermatologiczne"}],
+        uses:["Nalewka na włosy","Odwar oczyszczający","Herbata na trądzik","Okład z liści","Gotowany korzeń (gobo)","Maść łopianowa"],
+        warn:null, href:"08-lopian.html"
+    },{
+        name:"Mięta pieprzowa", latin:"Mentha × piperita · rodzina jasnotowate",
+        quickUse:"🫙 na trawienie · mdłości",
+        photos:["media/09-1.jpg","media/09-2.jpg"],
+        alts:["Mięta - roślina","Mięta - botanika"],
+        info:[{l:"Zbiór",v:"VI – VIII (przed kwitnieniem)"},{l:"Mentol",v:"Do 55% w olejku"},{l:"Surowiec",v:"Liście i szczyty pędów"},{l:"Działanie",v:"Rozkurczowe, chłodzące"}],
+        uses:["Napar na trawienie","Inhalacja zatok","Olejek miętowy","Herbata migreny","Okład chłodzący","Likier miętowy"],
+        warn:"⚠ Nie stosować u niemowląt (mentol blokuje oddychanie). Ostrożnie przy refluksie.",
+        href:"09-mieta.html"
+    },{
+        name:"Czarny bez", latin:"Sambucus nigra · rodzina piżmaczkowate",
+        quickUse:"🛡️ odporność · przeziębienie",
+        photos:["media/10-1.jpg","media/10-2.jpg","media/10-3.jpg"],
+        alts:["Czarny bez - kwiaty","Czarny bez - owoce","Czarny bez - krzew"],
+        info:[{l:"Kwitnienie",v:"V – VI"},{l:"Zbiór owoców",v:"VIII – IX (dojrzałe!)"},{l:"Surowiec",v:"Kwiaty i czarne owoce"},{l:"Działanie",v:"Napotne, antywirusowe"}],
+        uses:["Syrop z kwiatów","Sok na odporność","Napar napotny","Wino bzowe","Kwiaty w cieście","Kombucha bzowa"],
+        warn:"⚠ SUROWE owoce, liście, kora TRUJĄCE! Tylko dojrzałe owoce po gotowaniu.",
+        href:"10-czarny-bez.html"
+    },{
+        name:"Lipa drobnolistna", latin:"Tilia cordata · rodzina ślazowate",
+        quickUse:"😴 przeziębienie · sen · stres",
+        photos:["media/11-1.jpg","media/11-2.jpg","media/11-3.jpg"],
+        alts:["Lipa - drzewo","Lipa - liście","Lipa - botanika"],
+        info:[{l:"Kwitnienie",v:"VI – VII (Piotr i Paweł)"},{l:"Zbiór",v:"2-3 dzień kwitnienia!"},{l:"Surowiec",v:"Kwiatostan z podsadką"},{l:"Działanie",v:"Napotne, uspokajające"}],
+        uses:["Napar na przeziębienie","Herbata uspokajająca","Syrop lipowy","Nalewka lipowa","Kąpiel relaksacyjna","Okład na cerę"],
+        warn:"⚠ Nie zbierać z lip przy ruchliwych ulicach (kumulują ołów).",
+        href:"11-lipa.html"
+    },{
+        name:"Podbiał pospolity", latin:"Tussilago farfara · rodzina astrowate",
+        quickUse:"🫁 suchy kaszel · oskrzela ⚠",
+        photos:["media/12-1.jpg","media/12-2.jpg","media/12-3.jpg"],
+        alts:["Podbiał - kwiaty","Podbiał - liście","Podbiał - całość"],
+        info:[{l:"Kwitnienie",v:"III – IV (pierwszy!)"},{l:"Zbiór kwiatów",v:"III – IV"},{l:"Zbiór liści",v:"V – VII"},{l:"Działanie",v:"Wykrztuśne, śluzowe"}],
+        uses:["Napar na kaszel","Syrop podbiałowy","Inhalacja oskrzeli","Okład na rany","Płukanka na gardło"],
+        warn:"⚠ ALKALOIDY PIROLIZYDYNOWE — uszkadzają wątrobę! Max 4-6 tygodni, 6 mies. przerwy. NIE dla dzieci <6 lat, ciąży.",
+        href:"12-podbial.html"
+    }
+];
+
+// ===== MODAL STATE =====
+let pIdx = 0;   // current plant index
+let phIdx = 0;  // current photo index within plant
+
+const overlay   = document.getElementById('modalOverlay');
+const gallery   = document.getElementById('modalGallery');
+const galDots   = document.getElementById('galDots');
+const galPrev   = document.getElementById('galPrev');
+const galNext   = document.getElementById('galNext');
+const topPrev   = document.getElementById('topPrev');
+const topNext   = document.getElementById('topNext');
+const topCounter= document.getElementById('topCounter');
+const botPrev   = document.getElementById('botPrev');
+const botNext   = document.getElementById('botNext');
+const botCounter= document.getElementById('botCounter');
+const modalClose= document.getElementById('modalClose');
+const modalName = document.getElementById('modalName');
+const modalLatin= document.getElementById('modalLatin');
+const modalGrid = document.getElementById('modalGrid');
+const modalUses = document.getElementById('modalUses');
+const modalWarn = document.getElementById('modalWarn');
+const modalCta  = document.getElementById('modalCta');
+
+// Build img elements once per plant in gallery
+function buildGallery(p) {
+    // Remove old images
+    gallery.querySelectorAll('.gallery-img').forEach(e=>e.remove());
+    galDots.innerHTML='';
+    p.photos.forEach((src,i)=>{
+        const img=document.createElement('img');
+        img.className='gallery-img'+(i===0?' active':'');
+        img.src=src; img.alt=p.alts[i]||p.name; img.loading='lazy';
+        gallery.insertBefore(img, gallery.querySelector('.modal-top-nav'));
+
+        const dot=document.createElement('button');
+        dot.className='gal-dot'+(i===0?' active':'');
+        dot.setAttribute('aria-label',`Zdjęcie ${i+1}`);
+        dot.addEventListener('click',()=>setPhoto(i));
+        galDots.appendChild(dot);
+    });
+    setPhotoUI(0);
+}
+
+function setPhoto(i) {
+    phIdx=i;
+    const imgs=gallery.querySelectorAll('.gallery-img');
+    const dots=galDots.querySelectorAll('.gal-dot');
+    imgs.forEach((el,j)=>el.classList.toggle('active',j===i));
+    dots.forEach((el,j)=>el.classList.toggle('active',j===i));
+    setPhotoUI(i);
+}
+
+function setPhotoUI(i) {
+    const n=plants[pIdx].photos.length;
+    galPrev.disabled=i===0;
+    galNext.disabled=i===n-1;
+}
+
+function openModal(idx) {
+    pIdx=idx; phIdx=0;
+    renderModal();
+    overlay.classList.add('open');
+    document.body.style.overflow='hidden';
+}
+function closeModal() {
+    overlay.classList.remove('open');
+    document.body.style.overflow='';
+}
+
+const modalQuickUse = document.getElementById('modalQuickUse');
+
+function renderModal() {
+    const p=plants[pIdx];
+    buildGallery(p);
+    modalName.textContent=p.name;
+    modalLatin.textContent=p.latin;
+    if(p.quickUse){modalQuickUse.textContent=p.quickUse;modalQuickUse.style.display='inline-flex';}
+    else modalQuickUse.style.display='none';
+    modalCta.href=p.href;
+    modalGrid.innerHTML=p.info.map(i=>`<div class="modal-info-box"><div class="label">${i.l}</div><div class="value">${i.v}</div></div>`).join('');
+    modalUses.innerHTML=p.uses.map(u=>`<li>${u}</li>`).join('');
+    if(p.warn){modalWarn.textContent=p.warn;modalWarn.style.display='block';}
+    else modalWarn.style.display='none';
+    const c=`${pIdx+1} / ${plants.length}`;
+    topCounter.textContent=c; botCounter.textContent=c;
+    topPrev.disabled=botPrev.disabled=pIdx===0;
+    topNext.disabled=botNext.disabled=pIdx===plants.length-1;
+    document.getElementById('modal').scrollTop=0;
+}
+
+// Card clicks — photo = go to page, info area = open modal
+document.querySelectorAll('.plant-card').forEach(c=>{
+    c.addEventListener('click', e => {
+        // Photo link handles its own navigation — let it bubble naturally
+        if (e.target.closest('.plant-photo')) return;
+        // quick-use chip also opens modal
+        openModal(+c.dataset.plant);
+    });
+    c.addEventListener('keydown', e => {
+        if (e.key==='Enter' || e.key===' ') { e.preventDefault(); openModal(+c.dataset.plant); }
+    });
+});
+
+// Plant navigation
+function goPlant(dir){
+    pIdx=Math.max(0,Math.min(plants.length-1,pIdx+dir));
+    phIdx=0; renderModal();
+}
+topPrev.addEventListener('click',()=>goPlant(-1));
+topNext.addEventListener('click',()=>goPlant(1));
+botPrev.addEventListener('click',()=>goPlant(-1));
+botNext.addEventListener('click',()=>goPlant(1));
+
+// Photo navigation
+galPrev.addEventListener('click',()=>setPhoto(Math.max(0,phIdx-1)));
+galNext.addEventListener('click',()=>setPhoto(Math.min(plants[pIdx].photos.length-1,phIdx+1)));
+
+// Close
+modalClose.addEventListener('click',closeModal);
+overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});
+document.addEventListener('keydown',e=>{
+    if(!overlay.classList.contains('open'))return;
+    if(e.key==='Escape')closeModal();
+    if(e.key==='ArrowLeft'){if(e.shiftKey)goPlant(-1);else setPhoto(Math.max(0,phIdx-1));}
+    if(e.key==='ArrowRight'){if(e.shiftKey)goPlant(1);else setPhoto(Math.min(plants[pIdx].photos.length-1,phIdx+1));}
+});
+
+// ===== SIDEBAR =====
+const sidebar        = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const sidebarToggle  = document.getElementById('sidebarToggle');
+const sidebarClose   = document.getElementById('sidebarClose');
+const sidebarSearch  = document.getElementById('sidebarSearch');
+const sidebarNav     = document.getElementById('sidebarNav');
+
+function buildSidebar() {
+    sidebarNav.innerHTML = plants.map((p,i) => `
+        <a href="${p.href}" data-idx="${i}">
+            <span class="snum">${i+1}</span>
+            <img class="sthumb" src="${p.photos[0]}" alt="${p.name}" loading="lazy">
+            <span class="sinfo"><span class="sname">${p.name}</span><span class="slatin">${p.latin.split('·')[0].trim()}</span></span>
+        </a>`).join('');
+}
+buildSidebar();
+
+function filterSidebar(q) {
+    const lq = q.toLowerCase();
+    sidebarNav.querySelectorAll('a').forEach(a => {
+        const name = a.querySelector('.sname').textContent.toLowerCase();
+        const latin = a.querySelector('.slatin').textContent.toLowerCase();
+        a.style.display = (!q || name.includes(lq) || latin.includes(lq)) ? '' : 'none';
+    });
+}
+
+function openSidebar()  { sidebar.classList.add('open'); sidebarOverlay.classList.add('open'); document.body.style.overflow='hidden'; }
+function closeSidebar() { sidebar.classList.remove('open'); sidebarOverlay.classList.remove('open'); document.body.style.overflow=''; }
+
+sidebarToggle.addEventListener('click', openSidebar);
+sidebarClose.addEventListener('click', closeSidebar);
+sidebarOverlay.addEventListener('click', closeSidebar);
+sidebarSearch.addEventListener('input', e => filterSidebar(e.target.value));
+document.addEventListener('keydown', e => { if(e.key==='Escape' && sidebar.classList.contains('open')) closeSidebar(); });
+</script>
+</body>
+</html>

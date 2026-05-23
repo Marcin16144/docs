@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galeria grzybów — Polska, Słowacja, Czechy</title>
+    <style>
+        :root{--bg:#0f130a;--surface:#1a1e12;--surface-hi:#23281a;--border:#2e3820;--text:#efe8d8;--text-muted:#a09878;--accent:#c8943c;--accent-hover:#e0aa52;--warn:#fbbf24;--danger:#f87171;--earth:#6b4020}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .hero{text-align:center;padding:44px 20px 28px;background:linear-gradient(135deg,#1e180c 0%,#0f130a 60%,#1a1a0a 100%);border-bottom:1px solid var(--border)}
+        .hero h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--earth));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .hero p{color:var(--text-muted);font-size:.95rem;max-width:580px;margin:0 auto}
+        .container{max-width:1200px;margin:0 auto;padding:28px 20px 80px}
+        .filter-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;align-items:center}
+        .filter-label{font-size:.8rem;color:var(--text-muted);margin-right:4px}
+        .filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);padding:6px 16px;border-radius:20px;font-size:.83rem;cursor:pointer;transition:all .15s}
+        .filter-btn.active,.filter-btn:hover{background:rgba(200,148,60,.12);border-color:var(--accent);color:var(--accent)}
+        .filter-btn[data-filter="trujace"].active,.filter-btn[data-filter="trujace"]:hover{background:rgba(248,113,113,.1);border-color:var(--danger);color:var(--danger)}
+        .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+        .gal-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:all .2s;text-decoration:none;color:inherit;display:block}
+        .gal-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.35)}
+        .gal-card[data-cat="trujace"]:hover{border-color:var(--danger)}
+        .gal-main{position:relative;height:190px;overflow:hidden;background:var(--surface-hi)}
+        .gal-main img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+        .gal-card:hover .gal-main img{transform:scale(1.05)}
+        .gal-badge{position:absolute;top:10px;right:10px;font-size:.65rem;font-weight:700;padding:3px 9px;border-radius:10px;letter-spacing:.03em;backdrop-filter:blur(4px)}
+        .badge-j{background:rgba(200,148,60,.9);color:#0f130a}
+        .badge-u{background:rgba(251,191,36,.9);color:#0f130a}
+        .badge-t{background:rgba(248,113,113,.92);color:#fff}
+        .gal-thumbs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px}
+        .gal-thumbs img{width:100%;height:64px;object-fit:cover;display:block}
+        .gal-info{padding:12px 14px 16px}
+        .gal-info h3{font-size:.98rem;font-weight:600;color:var(--accent);margin-bottom:2px}
+        .gal-card[data-cat="trujace"] .gal-info h3{color:var(--danger)}
+        .gal-info .latin{font-style:italic;font-size:.74rem;color:var(--text-muted);margin-bottom:6px}
+        .gal-info .desc{font-size:.79rem;color:var(--text-muted);line-height:1.5}
+        .gal-meta{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+        .gal-meta span{font-size:.68rem;color:var(--text-muted);background:var(--surface-hi);padding:2px 8px;border-radius:4px}
+        .gal-card.hidden{display:none}
+        footer{text-align:center;padding:28px;color:var(--text-muted);font-size:.82rem;border-top:1px solid var(--border)}
+        @media(max-width:640px){.gallery-grid{grid-template-columns:repeat(2,1fr)}.gal-thumbs img{height:50px}.gal-main{height:160px}}
+        @media(max-width:380px){.gallery-grid{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">← Wszystkie grzyby</a>
+        <span class="sep">/</span>
+        <span class="title">Galeria</span>
+    </div>
+    <div class="hero">
+        <h1>📸 Galeria grzybów</h1>
+        <p>Przegląd fotograficzny grzybów jadalnych i niebezpiecznych środkowej Europy — Polska, Słowacja, Czechy.</p>
+    </div>
+    <div class="container">
+        <div class="filter-bar">
+            <span class="filter-label">Filtr:</span>
+            <button class="filter-btn active" data-filter="all">Wszystkie (15)</button>
+            <button class="filter-btn" data-filter="jadalne">Jadalne i lecznicze (14)</button>
+            <button class="filter-btn" data-filter="trujace">☠ Trujące (1)</button>
+        </div>
+        <div class="gallery-grid" id="galleryGrid">
+
+            <a class="gal-card" href="01-borowik.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/01-1.jpg" alt="Borowik szlachetny" loading="lazy"><span class="gal-badge badge-j">Jadalne</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/01-1.jpg" alt="Borowik - widok" loading="lazy">
+                    <img src="media/01-2.jpg" alt="Borowik - kapelusz" loading="lazy">
+                    <img src="media/01-3.jpg" alt="Borowik - trzon" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Borowik szlachetny</h3>
+                    <div class="latin">Boletus edulis</div>
+                    <div class="desc">Król polskich grzybów — orzechowy aromat, siateczkowy trzon. Lasy iglaste i mieszane.</div>
+                    <div class="gal-meta"><span>VII–X</span><span>Rurkowiec</span><span>5–25 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="02-kurka.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/02-1.jpg" alt="Kurka pieprznik jadalny" loading="lazy"><span class="gal-badge badge-j">Jadalne</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/02-1.jpg" alt="Kurki w lesie" loading="lazy">
+                    <img src="media/02-2.jpg" alt="Kurka - fałdowce" loading="lazy">
+                    <img src="media/02-3.jpg" alt="Kurka - złoty kolor" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Kurka (Pieprznik jadalny)</h3>
+                    <div class="latin">Cantharellus cibarius</div>
+                    <div class="desc">Złoty kolor, owocowy zapach morelowy — fałdowiec, nie blaszkowy. Tradycja PL, CZ, SK.</div>
+                    <div class="gal-meta"><span>VI–X</span><span>Fałdowiec</span><span>2–12 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="03-podgrzybek.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/03-1.jpg" alt="Podgrzybek brunatny" loading="lazy"><span class="gal-badge badge-j">Jadalne</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/03-1.jpg" alt="Podgrzybek - kapelusz" loading="lazy">
+                    <img src="media/03-2.jpg" alt="Podgrzybek - rurki" loading="lazy">
+                    <img src="media/03-3.jpg" alt="Podgrzybek - sinienie" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Podgrzybek brunatny</h3>
+                    <div class="latin">Imleria badia</div>
+                    <div class="desc">Najpospolitszy rurkowiec w borach — sinieje po przekrojeniu (to normalne!). Sezon letni-jesienny.</div>
+                    <div class="gal-meta"><span>VI–X</span><span>Rurkowiec</span><span>4–15 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="04-maslak.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/04-1.jpg" alt="Maślak zwyczajny" loading="lazy"><span class="gal-badge badge-u">Obierz skórkę!</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/04-1.jpg" alt="Maślak - śluzowaty kapelusz" loading="lazy">
+                    <img src="media/04-2.jpg" alt="Maślak - rurki" loading="lazy">
+                    <img src="media/04-3.jpg" alt="Maślak - pierścień" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Maślak zwyczajny</h3>
+                    <div class="latin">Suillus luteus</div>
+                    <div class="desc">Pod sosnami — śluzowaty kapelusz. Zawsze obieraj skórkę przed gotowaniem! Doskonały do marynaty.</div>
+                    <div class="gal-meta"><span>VIII–XI</span><span>Rurkowiec</span><span>5–12 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="05-kozlarz.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/05-1.jpg" alt="Koźlarz babka" loading="lazy"><span class="gal-badge badge-j">Jadalne</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/05-1.jpg" alt="Koźlarz - kapelusz" loading="lazy">
+                    <img src="media/05-2.jpg" alt="Koźlarz - łuskowaty trzon" loading="lazy">
+                    <img src="media/05-3.jpg" alt="Koźlarz - ciemniejący miąższ" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Koźlarz babka</h3>
+                    <div class="latin">Leccinum scabrum</div>
+                    <div class="desc">Pod brzozami — łuskowaty ciemny trzon, miąższ ciemnieje po cięciu (norma). Masowy grzyb jesienny.</div>
+                    <div class="gal-meta"><span>VII–X</span><span>Rurkowiec</span><span>5–15 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="06-opienka.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/06-1.jpg" alt="Opieńka miodowa" loading="lazy"><span class="gal-badge badge-u">Gotuj 20 min!</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/06-1.jpg" alt="Opieńki - kępa na pniaku" loading="lazy">
+                    <img src="media/06-2.jpg" alt="Opieńka - kapelusz" loading="lazy">
+                    <img src="media/06-3.jpg" alt="Opieńka - pierścień" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Opieńka miodowa</h3>
+                    <div class="latin">Armillaria mellea</div>
+                    <div class="desc">Kępy na pniakach — surowa toksyczna! Gotuj min. 20 min przed spożyciem. Idealna do marynaty.</div>
+                    <div class="gal-meta"><span>VIII–XI</span><span>Blaszkowy</span><span>3–10 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="07-rydz.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/07-1.jpg" alt="Rydz" loading="lazy"><span class="gal-badge badge-j">Jadalne</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/07-1.jpg" alt="Rydz - widok górny" loading="lazy">
+                    <img src="media/07-2.jpg" alt="Rydz - pomarańczowe mleczko" loading="lazy">
+                    <img src="media/07-3.jpg" alt="Rydz - profil" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Rydz</h3>
+                    <div class="latin">Lactarius deliciosus</div>
+                    <div class="desc">Pomarańczowe mleczko, zieleniej po cięciu — to normalne. Skarb Słowacji i Czech, smażony na maśle.</div>
+                    <div class="gal-meta"><span>VIII–X</span><span>Mleczny</span><span>5–15 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="08-kania.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/08-1.jpg" alt="Czubajka kania" loading="lazy"><span class="gal-badge badge-u">Nie surowa!</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/08-1.jpg" alt="Kania - rozwinięty kapelusz" loading="lazy">
+                    <img src="media/08-2.jpg" alt="Kania - bębenek" loading="lazy">
+                    <img src="media/08-3.jpg" alt="Kania - łuski i trzon" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Czubajka kania</h3>
+                    <div class="latin">Macrolepiota procera</div>
+                    <div class="desc">Olbrzymi kapelusz do 30 cm, ruchomy pierścień, wężowaty trzon. Tylko smażona lub pieczona!</div>
+                    <div class="gal-meta"><span>VII–X</span><span>Blaszkowy</span><span>10–30 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="09-smardz.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/09-1.jpg" alt="Smardz jadalny" loading="lazy"><span class="gal-badge badge-u">Gotuj 15 min!</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/09-1.jpg" alt="Smardz - siateczkowaty kapelusz" loading="lazy">
+                    <img src="media/09-2.jpg" alt="Smardz - kształt" loading="lazy">
+                    <img src="media/09-3.jpg" alt="Smardz w sadzie" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Smardz jadalny</h3>
+                    <div class="latin">Morchella esculenta</div>
+                    <div class="desc">Pierwszy grzyb wiosny (III–V) — siateczkowaty kapelusz, pusty w środku. Surowy silnie toksyczny!</div>
+                    <div class="gal-meta"><span>III–V</span><span>Workowiec</span><span>3–10 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="10-pieczarka.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/10-1.jpg" alt="Pieczarka łąkowa" loading="lazy"><span class="gal-badge badge-u">Różowe blaszki!</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/10-1.jpg" alt="Pieczarka - widok górny" loading="lazy">
+                    <img src="media/10-2.jpg" alt="Pieczarka - różowe blaszki" loading="lazy">
+                    <img src="media/10-3.jpg" alt="Pieczarka na łące" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Pieczarka łąkowa</h3>
+                    <div class="latin">Agaricus campestris</div>
+                    <div class="desc">Różowe blaszki = bezpieczna. Białe blaszki = śmiertelne niebezpieczeństwo. Sprawdzaj ZAWSZE!</div>
+                    <div class="gal-meta"><span>V–X</span><span>Blaszkowy</span><span>5–12 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="11-bocziak.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/11-1.jpg" alt="Boczniak ostrygowaty" loading="lazy"><span class="gal-badge badge-j">Jadalne</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/11-1.jpg" alt="Boczniaki - grono na pniu" loading="lazy">
+                    <img src="media/11-2.jpg" alt="Boczniak - kapelusz" loading="lazy">
+                    <img src="media/11-3.jpg" alt="Boczniaki na buku" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Boczniak ostrygowaty</h3>
+                    <div class="latin">Pleurotus ostreatus</div>
+                    <div class="desc">Całoroczny na pniach drzew liściastych — brak groźnych sobowtórów, idealny dla początkujących.</div>
+                    <div class="gal-meta"><span>IX–IV</span><span>Boczny</span><span>5–25 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="12-muchomor.html" data-cat="trujace">
+                <div class="gal-main"><img src="media/12-1.jpg" alt="Muchomor sromotnikowy" loading="lazy"><span class="gal-badge badge-t">☠ ŚMIERTELNY</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/12-1.jpg" alt="Muchomor - widok" loading="lazy">
+                    <img src="media/12-2.jpg" alt="Muchomor - pochwa u podstawy" loading="lazy">
+                    <img src="media/12-3.jpg" alt="Muchomor - pierścień i kapelusz" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Muchomor sromotnikowy</h3>
+                    <div class="latin">Amanita phalloides</div>
+                    <div class="desc">☠ Odpowiada za 90% zgonów po grzybach. Naucz się rozpoznawać go, by bezwzględnie OMIJAĆ!</div>
+                    <div class="gal-meta"><span>VII–XI</span><span>Blaszkowy</span><span>☠ NIE ZBIERAĆ</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="13-zolciak.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/13-1.jpg" alt="Żółciak siarkowy" loading="lazy"><span class="gal-badge badge-u">Tylko młode!</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/13-1.jpg" alt="Żółciak na drzewie" loading="lazy">
+                    <img src="media/13-2.jpg" alt="Żółciak - wachlarze" loading="lazy">
+                    <img src="media/13-3.jpg" alt="Żółciak - dolna strona" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Żółciak siarkowy</h3>
+                    <div class="latin">Laetiporus sulphureus</div>
+                    <div class="desc">Jaskrawopomarańczowa huba na drzewach — „las-kurczak". Jadalna gdy młoda i miękka, brak sobowtórów.</div>
+                    <div class="gal-meta"><span>V–X</span><span>Huba</span><span>10–40 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="14-szmaciak.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/14-1.jpg" alt="Szmaciak gałęzisty" loading="lazy"><span class="gal-badge badge-j">Jadalne</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/14-1.jpg" alt="Szmaciak - kalafior" loading="lazy">
+                    <img src="media/14-2.jpg" alt="Szmaciak - listki" loading="lazy">
+                    <img src="media/14-3.jpg" alt="Szmaciak u sosny" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Szmaciak gałęzisty</h3>
+                    <div class="latin">Sparassis crispa</div>
+                    <div class="desc">Grzyb jak kalafior lub koronka u podstawy sosen — znakomity smak, brak sobowtórów.</div>
+                    <div class="gal-meta"><span>VIII–X</span><span>Koralowy</span><span>20–50 cm</span></div>
+                </div>
+            </a>
+
+            <a class="gal-card" href="15-lakownica.html" data-cat="jadalne">
+                <div class="gal-main"><img src="media/15-1.jpg" alt="Lakownica lśniąca Reishi" loading="lazy"><span class="gal-badge badge-j">Leczniczy</span></div>
+                <div class="gal-thumbs">
+                    <img src="media/15-1.jpg" alt="Lakownica na drzewie" loading="lazy">
+                    <img src="media/15-2.jpg" alt="Lakownica - lakier" loading="lazy">
+                    <img src="media/15-3.jpg" alt="Lakownica - spód" loading="lazy">
+                </div>
+                <div class="gal-info">
+                    <h3>Lakownica lśniąca (Reishi)</h3>
+                    <div class="latin">Ganoderma lucidum</div>
+                    <div class="desc">Lakierowana huba wieloletnia — słynny grzyb leczniczy. Herbata, nalewka, suplementy.</div>
+                    <div class="gal-meta"><span>Całoroczna</span><span>Huba</span><span>5–30 cm</span></div>
+                </div>
+            </a>
+
+        </div>
+    </div>
+    <footer>Galeria grzybów · Polska, Słowacja, Czechy · Kompendium 2026 · Zdjęcia: Wikimedia Commons (CC)</footer>
+    <script>
+        const btns = document.querySelectorAll('.filter-btn');
+        const cards = document.querySelectorAll('.gal-card');
+        btns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                btns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const f = btn.dataset.filter;
+                cards.forEach(c => {
+                    c.classList.toggle('hidden', f !== 'all' && c.dataset.cat !== f);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

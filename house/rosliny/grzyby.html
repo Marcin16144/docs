@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grzyby polskich lasów — rozpoznawanie i zastosowanie</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .page-hero{background:linear-gradient(135deg,#1a2920,#0f1a14,#1a1a0f);padding:50px 20px 36px;text-align:center;border-bottom:1px solid var(--border)}
+        .page-hero h1{font-size:2rem;font-weight:700;background:linear-gradient(135deg,var(--earth),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+        .page-hero p{color:var(--text-muted);max-width:680px;margin:0 auto;font-size:.95rem}
+
+        /* Season nav */
+        .cat-nav{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0;justify-content:center;position:sticky;top:53px;z-index:9;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--border)}
+        .cat-nav a{padding:6px 15px;border-radius:20px;background:var(--surface);border:1px solid var(--border);color:var(--text-muted);text-decoration:none;font-size:.82rem;font-weight:500;transition:all .15s;white-space:nowrap}
+        .cat-nav a:hover,.cat-nav a.active{border-color:var(--earth);color:var(--earth);background:rgba(201,160,106,.12)}
+
+        /* Stats strip */
+        .count-strip{display:flex;gap:14px;flex-wrap:wrap;background:rgba(201,160,106,.06);border:1px solid rgba(201,160,106,.2);border-radius:8px;padding:10px 16px;margin-bottom:24px;font-size:.83rem}
+        .count-strip div{color:var(--text-muted)}
+        .count-strip div strong{color:var(--earth)}
+
+        /* Legend */
+        .legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px}
+        .legend-item{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text-muted)}
+        .badge{display:inline-block;font-size:.62rem;padding:2px 8px;border-radius:4px;font-weight:700;letter-spacing:.02em}
+        .badge-edible{background:rgba(109,194,109,.15);color:var(--accent)}
+        .badge-cond{background:rgba(251,191,36,.15);color:var(--warn)}
+        .badge-toxic{background:rgba(248,113,113,.15);color:var(--danger)}
+        .badge-deadly{background:rgba(248,113,113,.3);color:#ff4444;border:1px solid rgba(248,113,113,.4)}
+        .badge-rare{background:rgba(201,160,106,.15);color:var(--earth)}
+        .badge-med{background:rgba(109,194,109,.12);color:var(--accent)}
+
+        /* Section */
+        .section{margin-bottom:52px;scroll-margin-top:80px}
+        .section-title{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid var(--border)}
+        .section-title h2{font-size:1.3rem;color:var(--earth);padding:0;border:0;margin:0}
+        .section-icon{font-size:1.8rem}
+        .section-desc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;color:var(--text-muted);font-size:.88rem;margin-bottom:20px}
+
+        /* Mushroom card */
+        .mush-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+        .mush-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .2s}
+        .mush-card:hover{border-color:var(--earth)}
+        .mush-card.toxic-card{border-color:rgba(248,113,113,.3)}
+        .mush-card.toxic-card:hover{border-color:var(--danger)}
+        .mush-card.deadly-card{border-color:rgba(248,113,113,.5);background:rgba(248,113,113,.04)}
+        .mush-card.deadly-card:hover{border-color:var(--danger)}
+
+        /* Photo */
+        .mush-photo{height:190px;overflow:hidden;position:relative;background:var(--surface-hi)}
+        .mush-photo img{width:100%;height:100%;object-fit:cover;display:block}
+        .mush-photo .no-photo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted);gap:6px;font-size:.75rem}
+        .mush-photo .no-photo .em{font-size:2.8rem}
+        .photo-badge{position:absolute;top:8px;right:8px;z-index:2}
+        .toxic-stamp{position:absolute;top:8px;left:8px;z-index:2;background:rgba(248,113,113,.9);color:#fff;font-size:.68rem;font-weight:800;padding:4px 9px;border-radius:6px;letter-spacing:.04em}
+        .edible-stamp{position:absolute;top:8px;left:8px;z-index:2;background:rgba(109,194,109,.9);color:#0f1a14;font-size:.68rem;font-weight:800;padding:4px 9px;border-radius:6px;letter-spacing:.04em}
+
+        /* Card body */
+        .mush-body{padding:14px 16px}
+        .mush-name{font-size:1rem;font-weight:700;color:var(--accent);margin-bottom:2px}
+        .mush-card.toxic-card .mush-name{color:var(--danger)}
+        .mush-card.deadly-card .mush-name{color:#ff4444}
+        .mush-latin{font-style:italic;color:var(--text-muted);font-size:.75rem;margin-bottom:6px}
+        .mush-badges{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+
+        /* ID table */
+        .id-table{width:100%;font-size:.78rem;border-collapse:collapse;margin:8px 0}
+        .id-table td{padding:4px 6px;border-bottom:1px solid rgba(47,68,56,.4);vertical-align:top}
+        .id-table td:first-child{color:var(--text-muted);width:90px;font-weight:500;white-space:nowrap}
+        .id-table td:last-child{color:var(--text);font-weight:500}
+        .id-table tr:last-child td{border:0}
+
+        .mush-desc{color:var(--text-muted);font-size:.82rem;line-height:1.55;margin:8px 0}
+
+        .mush-warn{background:rgba(248,113,113,.07);border-left:3px solid var(--danger);padding:7px 10px;border-radius:0 6px 6px 0;font-size:.78rem;color:var(--danger);margin-top:8px}
+        .mush-tip{background:rgba(109,194,109,.07);border-left:3px solid var(--accent);padding:7px 10px;border-radius:0 6px 6px 0;font-size:.78rem;color:var(--accent);margin-top:6px}
+
+        /* Lookalike warning banner */
+        .lookalike-box{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.25);border-radius:8px;padding:10px 14px;margin-top:10px;font-size:.78rem}
+        .lookalike-box strong{color:var(--warn)}
+        .lookalike-box span{color:var(--text-muted)}
+
+        /* Safety box */
+        .safety-box{background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.25);border-radius:10px;padding:16px 20px;margin:28px 0}
+        .safety-box h3{color:var(--danger);margin-bottom:10px;font-size:1rem}
+        .safety-box ul{margin-left:18px;color:var(--text-muted);font-size:.88rem;line-height:1.8}
+        .safety-box li strong{color:var(--text)}
+
+        /* Identification guide */
+        .guide-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin:20px 0}
+        .guide-box h3{color:var(--accent);margin-bottom:12px;font-size:1rem}
+        .guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+        .guide-item{background:var(--surface-hi);border-radius:8px;padding:10px 12px}
+        .guide-item .gi-label{font-size:.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+        .guide-item .gi-val{font-size:.85rem;color:var(--text);font-weight:500}
+
+        @media(max-width:640px){
+            .mush-grid{grid-template-columns:1fr}
+            .mush-photo{height:160px}
+        }
+    </style>
+</head>
+<body>
+
+<div class="page-hero">
+    <h1>🍄 Grzyby polskich lasów i łąk</h1>
+    <p>Przewodnik po grzybach jadalnych i trujących w Polsce — cechy rozpoznawcze, siedlisko, sezon, zastosowanie i mylniki. Skupiamy się na <strong>identyfikacji w terenie</strong>.</p>
+</div>
+
+<div class="topbar">
+    <a href="index.html">← Strona główna</a>
+    <span class="sep">/</span>
+    <a href="laka.html">🌾 Rośliny łąkowe</a>
+    <span class="sep">/</span>
+    <span class="title">🍄 Grzyby</span>
+</div>
+
+<div class="container" style="max-width:1060px">
+
+    <nav class="cat-nav">
+        <a href="#jadalne">✅ Jadalne</a>
+        <a href="#warunkowo">⚠️ Warunkowo jadalne</a>
+        <a href="#trujace">☠️ Trujące</a>
+        <a href="#mylniki">🔍 Mylniki</a>
+    </nav>
+
+    <div class="count-strip">
+        <div><strong>25+</strong> gatunków</div>
+        <div><strong>15</strong> jadalnych</div>
+        <div><strong>10</strong> trujących / śmiertelnych</div>
+        <div><strong>8</strong> par mylnych</div>
+        <div><strong>📸</strong> lokalne zdjęcia z Wikimedia CC</div>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item"><span class="badge badge-edible">jadalny</span> bezpieczny po prawidłowej obróbce</div>
+        <div class="legend-item"><span class="badge badge-cond">warunkowo</span> tylko po gotowaniu / w małych ilościach</div>
+        <div class="legend-item"><span class="badge badge-toxic">trujący ⚠</span> powoduje zatrucie</div>
+        <div class="legend-item"><span class="badge badge-deadly">☠ śmiertelny</span> może zabić nawet w małej dawce</div>
+    </div>
+
+    <div class="safety-box">
+        <h3>⚠️ Zasady bezpiecznego grzybobrania</h3>
+        <ul>
+            <li><strong>Zbieraj tylko to, co 100% rozpoznajesz.</strong> Nawet doświadczeni grzybiarze popełniają błędy.</li>
+            <li><strong>Jeden muchomor sromotnikowy = śmierć.</strong> Nie ma antidotum. Uszkodzenie wątroby jest nieodwracalne.</li>
+            <li><strong>Nie zbieraj z dróg, zakładów przemysłowych, cmentarzy</strong> — grzyby kumulują metale ciężkie i pestycydy.</li>
+            <li><strong>Koszyk wiklinowy</strong>, nie foliowy — grzyby w foliówce fermentują w ciągu godzin.</li>
+            <li><strong>Odcinaj nożem</strong>, nie wyrywaj — zachowujesz grzybnię i kolejne plony.</li>
+            <li><strong>Wątpliwy grzyb → zostaw w lesie.</strong> Zrób zdjęcie i skonsultuj z mycologiem lub sanepid.</li>
+            <li><strong>Dzieci i grzyby</strong> — nigdy nie dawaj dzieciom grzybów leśnych bez weryfikacji eksperta.</li>
+        </ul>
+    </div>
+
+    <!-- ===== JADALNE ===== -->
+    <div class="section" id="jadalne">
+        <div class="section-title"><span class="section-icon">✅</span><h2>Grzyby jadalne</h2></div>
+        <div class="section-desc">Grzyby powszechnie zbierane w Polsce, bezpieczne gdy prawidłowo zidentyfikowane. <strong>Każdy z nich ma niebezpieczny mylnik</strong> — czytaj uważnie opisy.</div>
+
+        <div class="mush-grid">
+
+            <!-- Borowik szlachetny -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-borowik.jpg" alt="Borowik szlachetny - prawdziwek"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🍄</div><span>Borowik</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Borowik szlachetny (prawdziwek)</div>
+                    <div class="mush-latin">Boletus edulis · rodzina borowikowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★★</span><span class="badge badge-rare">król grzybów</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>5–25 cm, brązowy do ciemnobrązowego, wypukły</td></tr>
+                        <tr><td>Rurki</td><td>Białe→żółte→oliwkowe, drobne pory, NIE sinieje</td></tr>
+                        <tr><td>Trzon</td><td>Masywny, bulwiasty, biała siateczka na jasnym tle</td></tr>
+                        <tr><td>Zapach</td><td>Orzechowy, intensywny, przyjemny</td></tr>
+                        <tr><td>Smak</td><td>Łagodny, słodkawy</td></tr>
+                        <tr><td>Siedlisko</td><td>Lasy iglaste (sosna, świerk), dębowe, pod bukami</td></tr>
+                        <tr><td>Sezon</td><td>VII – XI (szczyt: IX–X)</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Ciasto (miąższ) NIE sinieje po przecięciu — kluczowa cecha. Odcięty kapelusz — aromat orzechowy.</div>
+                    <div class="lookalike-box"><strong>⚠ Mylnik: Goryczak żółciowy</strong> <span>(Tylopilus felleus) — sinieje, gorzki smak, różowe rurki. Niejadalny, ale nie trujący.</span></div>
+                </div>
+            </div>
+
+            <!-- Kurka / Pieprznik jadalny -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-kurka.jpg" alt="Kurka pieprznik jadalny"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🟡</div><span>Kurka</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Kurka (pieprznik jadalny)</div>
+                    <div class="mush-latin">Cantharellus cibarius · rodzina pieprznikowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★★</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>3–12 cm, żółty do pomarańczowego, falisto wklęsły</td></tr>
+                        <tr><td>Blaszki</td><td>FAŁDKI (nie blaszki!) — rozwidlone, zbiegające na trzon</td></tr>
+                        <tr><td>Trzon</td><td>Żółty, pełny, zwężający się ku dołowi</td></tr>
+                        <tr><td>Zapach</td><td>Owocowy, morelowy, charakterystyczny</td></tr>
+                        <tr><td>Siedlisko</td><td>Lasy liściaste i mieszane, pod dębami i bukami</td></tr>
+                        <tr><td>Sezon</td><td>VI – X</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Kluczowe: fałdki (nie blaszki), żółty miąższ, owocowy zapach. Ciągliwe, nie łamliwe.</div>
+                    <div class="lookalike-box"><strong>⚠ Mylnik: Lisówka pomarańczowa</strong> <span>(Omphalotus olearius) — rośnie w kępach przy pniu, ma prawdziwe blaszki, świeci w ciemności. TRUJĄCA.</span></div>
+                </div>
+            </div>
+
+            <!-- Maślak zwyczajny -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-maslak.jpg" alt="Maślak zwyczajny"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🤎</div><span>Maślak</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Maślak zwyczajny</div>
+                    <div class="mush-latin">Suillus luteus · rodzina maślakowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★</span><span class="badge badge-cond">obierać skórkę</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>4–12 cm, czekoladowobrązowy, śluzowy (mokry)</td></tr>
+                        <tr><td>Rurki</td><td>Żółte, drobne pory, blaszkowaty pierścień na trzonie</td></tr>
+                        <tr><td>Trzon</td><td>Żółty, z fioletowym pierścieniem!</td></tr>
+                        <tr><td>Siedlisko</td><td>Tylko pod sosnami, często na skraju lasu</td></tr>
+                        <tr><td>Sezon</td><td>VIII – XI</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Obowiązkowo ściągaj śluzową skórkę z kapelusza — zawiera substancje powodujące biegunki u wrażliwych osób.</div>
+                </div>
+            </div>
+
+            <!-- Podgrzybek brunatny -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-podgrzybek.jpg" alt="Podgrzybek brunatny"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🍄</div><span>Podgrzybek</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Podgrzybek brunatny (zajączek)</div>
+                    <div class="mush-latin">Imleria badia · rodzina borowikowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★★</span><span class="badge badge-med">pospolity</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>5–15 cm, brązowy, aksamitny (suchy)</td></tr>
+                        <tr><td>Rurki</td><td>Żółte→sinieją po przecięciu!</td></tr>
+                        <tr><td>Trzon</td><td>Brunatny, walcowaty, bez siateczki</td></tr>
+                        <tr><td>Siedlisko</td><td>Lasy iglaste — sosna, świerk</td></tr>
+                        <tr><td>Sezon</td><td>VII – XI</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Sinieje mocno po przecięciu — normalnie. Jedna z najbardziej pospolitych jadalnych grzybów w Polsce.</div>
+                    <div class="lookalike-box"><strong>⚠ Mylnik: Borowik szatański</strong> <span>— czerwone pory, sinieje, trujący. Podgrzybek ma żółte pory!</span></div>
+                </div>
+            </div>
+
+            <!-- Czubajka kania -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-kania.jpg" alt="Czubajka kania"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">☂️</div><span>Kania</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Czubajka kania</div>
+                    <div class="mush-latin">Macrolepiota procera · rodzina pieczarkowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★★</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>10–30 cm! Brązowa łuska na białym tle, guzek w centrum</td></tr>
+                        <tr><td>Blaszki</td><td>Białe, wolne (nie łączą się z trzonem)</td></tr>
+                        <tr><td>Trzon</td><td>Wysoki (20–40 cm), węziasty, ruchomy pierścień</td></tr>
+                        <tr><td>Zapach</td><td>Orzechowy, delikatny</td></tr>
+                        <tr><td>Siedlisko</td><td>Skraje lasów, łąki, miedze, parki</td></tr>
+                        <tr><td>Sezon</td><td>VII – X</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Kapelusz smażony jak kotlet — panierowany i na maśle. Trzon zbyt twardy do jedzenia. Miąższ NIE zmienia koloru.</div>
+                    <div class="lookalike-box"><strong>⚠ Mylnik: Czubajka cuchnąca</strong> <span>(M. venenata) — mniejsza, zmienia kolor miąższu na czerwony, nieprzyjemny zapach. TRUJĄCA.</span></div>
+                </div>
+            </div>
+
+            <!-- Rydz -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-rydz.jpg" alt="Rydz Lactarius deliciosus"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🟠</div><span>Rydz</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Rydz (mleczaj rydz)</div>
+                    <div class="mush-latin">Lactarius deliciosus · rodzina gołąbkowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★★</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>5–15 cm, pomarańczowy z ciemniejszymi koncentrycznymi strefami</td></tr>
+                        <tr><td>Blaszki</td><td>Pomarańczowe, gęste, kruchliwe, pod naciskiem zielenieją</td></tr>
+                        <tr><td>Mleczko</td><td>Pomarańczowe! (kluczowa cecha), zieleńieje na powietrzu</td></tr>
+                        <tr><td>Smak</td><td>Łagodny do lekko gorzkawego</td></tr>
+                        <tr><td>Siedlisko</td><td>Pod sosnami i świerkami</td></tr>
+                        <tr><td>Sezon</td><td>VIII – X</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Pomarańczowe mleczko to znak rozpoznawczy. Wyborny smażony na maśle lub marynowany. Po ugotowaniu traci kolor — wygląda mniej apetycznie, ale nadal smaczny.</div>
+                </div>
+            </div>
+
+            <!-- Opieńka miodowa -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-opienka.jpg" alt="Opieńka miodowa"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🍯</div><span>Opieńka</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Opieńka miodowa</div>
+                    <div class="mush-latin">Armillaria mellea · rodzina drobnołuszczakowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★</span><span class="badge badge-cond">tylko gotowane!</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>3–10 cm, miodowy brąz, łuski ciemniejsze w centrum</td></tr>
+                        <tr><td>Blaszki</td><td>Białawe→plamiste, pierścień z łuseczkami na trzonie</td></tr>
+                        <tr><td>Wzrost</td><td>W gęstych kępach przy podstawie drzew i pni</td></tr>
+                        <tr><td>Siedlisko</td><td>Na martwych i żywych drzewach (pasożyt)</td></tr>
+                        <tr><td>Sezon</td><td>IX – XI (masowo)</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ KONIECZNIE gotuj min. 20 min i zlej wodę! Surowe i niedogotowane — powodują silne dolegliwości żołądkowe.</div>
+                    <div class="lookalike-box"><strong>⚠ Mylnik: Hełmówka jadowita</strong> <span>(Galerina marginata) — rośnie podobnie na drewnie, śmiertelnie trująca. Różnica: opieńka ma łuskowany pierścień, większy kapelusz.</span></div>
+                </div>
+            </div>
+
+            <!-- Koźlarz czerwony -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-kozlarz-cz.jpg" alt="Koźlarz czerwony"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🧡</div><span>Koźlarz czerwony</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Koźlarz czerwony (czerwieniak)</div>
+                    <div class="mush-latin">Leccinum aurantiacum · rodzina borowikowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>5–20 cm, pomarańczowo-czerwony, gładki</td></tr>
+                        <tr><td>Rurki</td><td>Kremowe, po uszkodzeniu szarzeją/czernieją</td></tr>
+                        <tr><td>Trzon</td><td>Biały z ciemnymi łuseczkami (charakterystyczne!)</td></tr>
+                        <tr><td>Miąższ</td><td>Biały, mocno sinieje/czernieje po przecięciu</td></tr>
+                        <tr><td>Siedlisko</td><td>Pod topolami i osikami (obowiązkowo!)</td></tr>
+                        <tr><td>Sezon</td><td>VII – X</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Czernienie po przecięciu — normalne, nie psuje smaku. Zawsze rośnie pod osiką lub topolą.</div>
+                </div>
+            </div>
+
+            <!-- Koźlarz babka -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-kozlarz-b.jpg" alt="Koźlarz babka"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🤎</div><span>Koźlarz babka</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Koźlarz babka (szary)</div>
+                    <div class="mush-latin">Leccinum scabrum · rodzina borowikowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>5–15 cm, szarobrązowy, gładki</td></tr>
+                        <tr><td>Rurki</td><td>Kremowe, drobne pory</td></tr>
+                        <tr><td>Trzon</td><td>Szary z ciemnymi łuseczkami — jak babka</td></tr>
+                        <tr><td>Siedlisko</td><td>Pod brzozami (obowiązkowo!)</td></tr>
+                        <tr><td>Sezon</td><td>VI – X</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Trzon bywa gąbczasty — wyciąć przy starszych. Smak delikatny, dobry do zup i sosów.</div>
+                </div>
+            </div>
+
+            <!-- Smardz -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-smardz.jpg" alt="Smardz stożkowaty"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🍫</div><span>Smardz</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Smardz stożkowaty / jadalny</div>
+                    <div class="mush-latin">Morchella conica / M. esculenta · rodzina smardzokowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★★</span><span class="badge badge-cond">tylko gotowane!</span><span class="badge badge-rare">chroniony</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>Stożkowaty/jajowaty, siatkowaty (plastry miodu), brązowy</td></tr>
+                        <tr><td>Trzon</td><td>Biały/kremowy, wewnątrz pusty</td></tr>
+                        <tr><td>Siedlisko</td><td>Sady, lasy liściaste, skraje lasów, wiosną!</td></tr>
+                        <tr><td>Sezon</td><td>III – V (wiosna, pierwszy!)</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ Surowy toksyczny! Gotuj minimum 10 min i zlej wodę. Chroniony — zbieraj z umiarem.</div>
+                    <div class="lookalike-box"><strong>⚠ Mylnik: Piestrzenica kasztanowata</strong> <span>(Gyromitra esculenta) — mózgowata, nie siatkowata, fałdkowata. Trująca surowa i po niedogotowaniu.</span></div>
+                </div>
+            </div>
+
+            <!-- Boczniak -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-boczniak.jpg" alt="Boczniak ostrygowaty"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🦪</div><span>Boczniak</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Boczniak ostrygowaty</div>
+                    <div class="mush-latin">Pleurotus ostreatus · rodzina boczniakowe</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★★</span><span class="badge badge-med">sklep/las</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>5–20 cm, szary do brązowego, muszlowaty, jednostronny</td></tr>
+                        <tr><td>Blaszki</td><td>Zbiegające, białe, zbiegają na skrócony trzon</td></tr>
+                        <tr><td>Wzrost</td><td>Na martwym drewnie (buk, topola, wierzba)</td></tr>
+                        <tr><td>Zapach</td><td>Anyżowy, delikatny</td></tr>
+                        <tr><td>Sezon</td><td>X – III (jesień i zima!)</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Jeden z niewielu grzybów rosnących zimą. Identyczny z kupowanym w sklepach. Świetny do smażenia i duszenia.</div>
+                </div>
+            </div>
+
+            <!-- Purchawka olbrzymia -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-purchawka.jpg" alt="Purchawka olbrzymia"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">⚪</div><span>Purchawka</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Purchawka olbrzymia</div>
+                    <div class="mush-latin">Calvatia gigantea · rodzina purchawkowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★</span><span class="badge badge-cond">tylko biały miąższ</span></div>
+                    <table class="id-table">
+                        <tr><td>Owocnik</td><td>10–60 cm! Biała, kulista „piłka"</td></tr>
+                        <tr><td>Miąższ</td><td>Biały jak ser — tylko gdy CZYSTO BIAŁY!</td></tr>
+                        <tr><td>Siedlisko</td><td>Łąki, pastwiska, skraje lasów</td></tr>
+                        <tr><td>Sezon</td><td>VII – X</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ Jadalna TYLKO gdy miąższ w środku jest czysto biały i jednolity. Żółty, zielony lub zbrązowiały = niejadalny. KONIECZNIE przekroić przed zjedzeniem!</div>
+                    <div class="lookalike-box"><strong>⚠ Mylnik: Muchomor jajowaty</strong> <span>(Amanita ovoidea) — na zewnątrz podobny biały, ale po przekrojeniu widać zarys kapelusza i trzonu. ŚMIERTELNY.</span></div>
+                </div>
+            </div>
+
+            <!-- Lejkowiec dęty -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-lisowka.jpg" alt="Lejkowiec dęty trąbka śmierci"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🖤</div><span>Lejkowiec</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Lejkowiec dęty (trąba śmierci)</div>
+                    <div class="mush-latin">Craterellus cornucopioides · rodzina pieprznikowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★★</span><span class="badge badge-rare">delikates</span></div>
+                    <table class="id-table">
+                        <tr><td>Owocnik</td><td>4–12 cm, lejkowaty/trąbkowaty, czarny do szarego</td></tr>
+                        <tr><td>Powierzchnia</td><td>Zewnątrz szara, gładka (brak blaszek!)</td></tr>
+                        <tr><td>Zapach</td><td>Intensywny, owocowy, truflopodobny</td></tr>
+                        <tr><td>Siedlisko</td><td>Lasy liściaste, pod bukami i dębami</td></tr>
+                        <tr><td>Sezon</td><td>VIII – XI</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Mimo groźnej nazwy — wybitny delikates! Czarny kolor utrzymuje się po suszeniu. Doskonały do sosów i rysa. Brak trujących mylników!</div>
+                </div>
+            </div>
+
+            <!-- Pieczarka -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-pieczarka.jpg" alt="Pieczarka polna"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🍄</div><span>Pieczarka</span></div>
+                    <div class="edible-stamp">JADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Pieczarka polna</div>
+                    <div class="mush-latin">Agaricus campestris · rodzina pieczarkowate</div>
+                    <div class="mush-badges"><span class="badge badge-edible">jadalny ★★★</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>5–12 cm, biały, gładki lub włókienkowaty</td></tr>
+                        <tr><td>Blaszki</td><td>Różowe→ciemnobrązowe (dojrzałe). NIE białe!</td></tr>
+                        <tr><td>Zapach</td><td>Pieczarkowaty, grzybowy, przyjemny</td></tr>
+                        <tr><td>Siedlisko</td><td>Łąki, pastwiska, ogrody, skraje lasów</td></tr>
+                        <tr><td>Sezon</td><td>VI – X</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ NIGDY nie zbieraj białych pieczarkowatych w lesie — mylna z muchomorem sromotnikowym! Pieczarka polna rośnie na łąkach, ma różowe blaszki.</div>
+                    <div class="lookalike-box"><strong>⚠ Mylnik: Muchomor sromotnikowy</strong> <span>— biały, ma pochewkę u podstawy, białe blaszki przez całe życie. ŚMIERTELNY.</span></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===== WARUNKOWO JADALNE ===== -->
+    <div class="section" id="warunkowo">
+        <div class="section-title"><span class="section-icon">⚠️</span><h2>Warunkowo jadalne — tylko po odpowiedniej obróbce</h2></div>
+        <div class="section-desc">Grzyby jadalne, ale wymagające specjalnego przygotowania — gotowania, blanszowania lub suszenia. Surowe mogą być toksyczne.</div>
+
+        <div class="mush-grid">
+
+            <!-- Piestrzenica -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-piestrzenica.jpg" alt="Piestrzenica kasztanowata"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🧠</div><span>Piestrzenica</span></div>
+                    <div class="toxic-stamp">OSTROŻNIE</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Piestrzenica kasztanowata (fałszywy smardz)</div>
+                    <div class="mush-latin">Gyromitra esculenta · rodzina piestrzenicowate</div>
+                    <div class="mush-badges"><span class="badge badge-cond">warunkowo ⚠</span><span class="badge badge-toxic">gyromitrin</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>Brązowy, fałdkowaty jak mózg (NIE siatkowaty jak smardz)</td></tr>
+                        <tr><td>Trzon</td><td>Biały, karbowany, pusty</td></tr>
+                        <tr><td>Siedlisko</td><td>Lasy iglaste, wiosną (IV–V)</td></tr>
+                        <tr><td>Toksyna</td><td>Gyromitrin — konwertuje do hydrazyny (rakotwórczej)</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ W wielu krajach UE zakazana do sprzedaży. Gotuj dwukrotnie, wylewając wodę. NIE suszyć w domu bez wentylacji — opary toksyczne. Dzieci i kobiety w ciąży — całkowity zakaz.</div>
+                </div>
+            </div>
+
+            <!-- Goryczak -->
+            <div class="mush-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-goryczak.jpg" alt="Goryczak żółciowy"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🟡</div><span>Goryczak</span></div>
+                    <div class="toxic-stamp">NIEJADALNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Goryczak żółciowy (fałszywy borowik)</div>
+                    <div class="mush-latin">Tylopilus felleus · rodzina borowikowate</div>
+                    <div class="mush-badges"><span class="badge badge-toxic">niejadalny</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>Brązowy, podobny do borowika</td></tr>
+                        <tr><td>Rurki</td><td>RÓŻOWE (kluczowe!) — u borowika białe/żółte</td></tr>
+                        <tr><td>Siateczka</td><td>Ciemna na jasnym tle (u borowika jasna siateczka)</td></tr>
+                        <tr><td>Smak</td><td>Intensywnie gorzki — nawet ułamek psuje potrawę</td></tr>
+                    </table>
+                    <div class="mush-tip">💡 Niebezpieczny bo podobny do borowika, ale nie trujący — tylko niejadalny. Jeden grzyb goryczaka zniszczy cały garnek zupy gorzyczą.</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===== TRUJĄCE ===== -->
+    <div class="section" id="trujace">
+        <div class="section-title"><span class="section-icon">☠️</span><h2>Grzyby trujące i śmiertelnie niebezpieczne</h2></div>
+        <div class="section-desc">Znajomość tych grzybów jest równie ważna jak znajomość jadalnych. Większość zatruć śmiertelnych w Polsce powodują muchomory.</div>
+
+        <div class="mush-grid">
+
+            <!-- Muchomor sromotnikowy -->
+            <div class="mush-card deadly-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-sromotnik.jpg" alt="Muchomor sromotnikowy"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">☠️</div><span>Sromotnik</span></div>
+                    <div class="toxic-stamp">☠ ŚMIERTELNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Muchomor sromotnikowy (zielony)</div>
+                    <div class="mush-latin">Amanita phalloides · rodzina muchomorowate</div>
+                    <div class="mush-badges"><span class="badge badge-deadly">☠ śmiertelny</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>6–12 cm, zielonkawy do białego, jedwabisty połysk</td></tr>
+                        <tr><td>Blaszki</td><td>Białe przez CAŁE życie — nigdy nie różowieją!</td></tr>
+                        <tr><td>Pochewka</td><td>Biała pochewka (volva) u podstawy — KLUCZOWE</td></tr>
+                        <tr><td>Pierścień</td><td>Biały zwisający pierścień na trzonie</td></tr>
+                        <tr><td>Zapach</td><td>Początkowo słodkawy, z wiekiem cuchnący</td></tr>
+                        <tr><td>Siedlisko</td><td>Lasy liściaste — dąb, buk, grabie</td></tr>
+                    </table>
+                    <div class="mush-warn">☠ 50% śmiertelnych zatruć grzybami w Europie. Amatoksyny niszczą wątrobę — objawy dopiero po 6–24 h! Nie ma antidotum. Dawka śmiertelna to 1/3 kapelusza. NIE JEŚĆ, NIE DOTYKAĆ BEZ POTRZEBY.</div>
+                    <div class="lookalike-box"><strong>Mylony z:</strong> <span>pieczarką polną (ma różowe blaszki), czubajką kanią (brak pochewki, łuskowany), gołąbkiem (brak pochewki). SPRAWDŹ PODSTAWĘ TRZONU!</span></div>
+                </div>
+            </div>
+
+            <!-- Muchomor jadowity (niszczyciel) -->
+            <div class="mush-card deadly-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-muchomoV.jpg" alt="Muchomor jadowity niszczyciel"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">☠️</div><span>Niszczyciel</span></div>
+                    <div class="toxic-stamp">☠ ŚMIERTELNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Muchomor jadowity (niszczyciel)</div>
+                    <div class="mush-latin">Amanita virosa / A. verna · rodzina muchomorowate</div>
+                    <div class="mush-badges"><span class="badge badge-deadly">☠ śmiertelny</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>Czysto biały (cały grzyb!) — nie myli się z zielonym</td></tr>
+                        <tr><td>Blaszki</td><td>Białe, wolne</td></tr>
+                        <tr><td>Pochewka</td><td>Duża biała pochewka — KONIECZNIE sprawdź!</td></tr>
+                        <tr><td>Siedlisko</td><td>Lasy liściaste i iglaste</td></tr>
+                    </table>
+                    <div class="mush-warn">☠ Równie śmiertelny jak sromotnikowy. Cały biały — mylony z pieczarką i czubajką. Ta sama toksyna (amatoksyny), ta sama śmierć. Pochewka u podstawy = zawsze trucizna z rodziny Amanita.</div>
+                </div>
+            </div>
+
+            <!-- Muchomor czerwony -->
+            <div class="mush-card toxic-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-muchomor-cz.jpg" alt="Muchomor czerwony"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🔴</div><span>Muchomor czerwony</span></div>
+                    <div class="toxic-stamp">TRUJĄCY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Muchomor czerwony (fly agaric)</div>
+                    <div class="mush-latin">Amanita muscaria · rodzina muchomorowate</div>
+                    <div class="mush-badges"><span class="badge badge-toxic">trujący</span><span class="badge badge-rare">halucynogenny</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>8–20 cm, intensywnie czerwony z białymi brodawkami</td></tr>
+                        <tr><td>Blaszki</td><td>Białe, wolne</td></tr>
+                        <tr><td>Trzon</td><td>Biały, z pierścieniem i pochewką</td></tr>
+                        <tr><td>Siedlisko</td><td>Pod brzozami i sosnami (symboliczne)</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ Toksyny: muscymol + kwas ibotenowy — halucynacje, majaczenie, śpiączka. Rzadko śmiertelny dla dorosłych, ale niebezpieczny. Biały kolor brodawek zmywa deszcz — myląco podobny do pieczarki lub kani!</div>
+                </div>
+            </div>
+
+            <!-- Muchomor plamisty -->
+            <div class="mush-card deadly-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-muchomor-pl.jpg" alt="Muchomor plamisty"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">☠️</div><span>Muchomor plamisty</span></div>
+                    <div class="toxic-stamp">☠ ŚMIERTELNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Muchomor plamisty (panterowy)</div>
+                    <div class="mush-latin">Amanita pantherina · rodzina muchomorowate</div>
+                    <div class="mush-badges"><span class="badge badge-deadly">☠ śmiertelny</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>6–12 cm, brązowy z białymi brodawkami (jak leopard)</td></tr>
+                        <tr><td>Blaszki</td><td>Białe, wolne</td></tr>
+                        <tr><td>Pochewka</td><td>Biała, z wałeczkowatymi obwódkami</td></tr>
+                        <tr><td>Siedlisko</td><td>Lasy mieszane</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ Bardziej trujący niż muchomor czerwony — śmiertelny! Mylony z brązowymi kaniami lub pieczarkami w stadium jaja. Te same toksyny co czerwony, ale wyższe stężenie.</div>
+                </div>
+            </div>
+
+            <!-- Krowiak podwinięty -->
+            <div class="mush-card deadly-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-paxillus.jpg" alt="Krowiak podwinięty"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">☠️</div><span>Krowiak</span></div>
+                    <div class="toxic-stamp">☠ ŚMIERTELNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Krowiak podwinięty (fałszywy rydz)</div>
+                    <div class="mush-latin">Paxillus involutus · rodzina krowickowate</div>
+                    <div class="mush-badges"><span class="badge badge-deadly">☠ śmiertelny</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>5–15 cm, brązowawy, brzeg podwinięty do środka!</td></tr>
+                        <tr><td>Blaszki</td><td>Żółtawe, gęste, zbiegające, łatwo oddzielają się</td></tr>
+                        <tr><td>Trzon</td><td>Brązowy, krótki, ekscentryczny</td></tr>
+                        <tr><td>Siedlisko</td><td>Lasy mieszane, pod brzozami</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ Podstępny — przez lata był uważany za jadalny po gotowaniu. Toksyna kumuluje się w organizmie — po latach spożywania powoduje hemolizę (rozpad krwinek) i śmierć z powodu niewydolności nerek. NIE JEŚĆ NIGDY!</div>
+                </div>
+            </div>
+
+            <!-- Zasłonak rudy -->
+            <div class="mush-card deadly-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-zaslonak.jpg" alt="Zasłonak rudy"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">☠️</div><span>Zasłonak</span></div>
+                    <div class="toxic-stamp">☠ ŚMIERTELNY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Zasłonak rudy (webcap)</div>
+                    <div class="mush-latin">Cortinarius orellanus · rodzina zasłonakowate</div>
+                    <div class="mush-badges"><span class="badge badge-deadly">☠ śmiertelny</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>4–10 cm, rdzawobrązowy do pomarańczowego</td></tr>
+                        <tr><td>Blaszki</td><td>Rdzawe, szerokie</td></tr>
+                        <tr><td>Zasłona</td><td>Pająkowate włókna (pajęczyna) u młodych</td></tr>
+                        <tr><td>Siedlisko</td><td>Lasy liściaste — pod dębami i bukami</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ WYJĄTKOWO PODSTĘPNY — objawy pojawiają się dopiero po 3–21 dniach! Orellanus niszczy nerki nieodwracalnie — przeszczep nerki lub śmierć. Mylony z lisówką i boczniakowniem. Nigdy nie smakuj nieznanych brązowych grzybów.</div>
+                </div>
+            </div>
+
+            <!-- Hełmówka / Galerina -->
+            <div class="mush-card deadly-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-galerina.jpg" alt="Hełmówka trująca Galerina marginata"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">☠️</div><span>Hełmówka</span></div>
+                    <div class="toxic-stamp">☠ ŚMIERTELNA</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Hełmówka trująca (deadly skullcap)</div>
+                    <div class="mush-latin">Galerina marginata · rodzina zasłonakowate</div>
+                    <div class="mush-badges"><span class="badge badge-deadly">☠ śmiertelna</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>2–5 cm, miodowo-brązowy, gładki</td></tr>
+                        <tr><td>Blaszki</td><td>Brązowe, wąskie</td></tr>
+                        <tr><td>Wzrost</td><td>W kępach na martwym drewnie</td></tr>
+                        <tr><td>Toksyna</td><td>Amatoksyny — ta sama co sromotnikowy!</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ Mylona z opieńką miodową — obie rosną w kępach na drewnie! Różnica: opieńka jest większa, ma łuskowaty pierścień i łuski na kapeluszu. Hełmówka: mała, gładka, gładki pierścień (często zanika).</div>
+                </div>
+            </div>
+
+            <!-- Borowik szatański -->
+            <div class="mush-card toxic-card">
+                <div class="mush-photo">
+                    <img src="media/grzyb-szatanskiB.jpg" alt="Borowik szatański"
+                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="no-photo" style="display:none"><div class="em">🔴</div><span>Borowik szatański</span></div>
+                    <div class="toxic-stamp">TRUJĄCY</div>
+                </div>
+                <div class="mush-body">
+                    <div class="mush-name">Borowik szatański (szatan)</div>
+                    <div class="mush-latin">Rubroboletus satanas · rodzina borowikowate</div>
+                    <div class="mush-badges"><span class="badge badge-toxic">silnie trujący</span></div>
+                    <table class="id-table">
+                        <tr><td>Kapelusz</td><td>10–25 cm, białawy do szarego, masywny</td></tr>
+                        <tr><td>Rurki</td><td>CZERWONE lub pomarańczowoczerwone (kluczowe!)</td></tr>
+                        <tr><td>Trzon</td><td>Grubawa beczułka z czerwoną siateczką</td></tr>
+                        <tr><td>Sinieje</td><td>Intensywnie i natychmiastowo po przecięciu</td></tr>
+                        <tr><td>Zapach</td><td>Dojrzały — nieprzyjemny (padlina)</td></tr>
+                    </table>
+                    <div class="mush-warn">⚠ Czerwone pory + sinienie = ZAWSZE unikaj. Powoduje intensywne wymioty i biegunki. Rzadko śmiertelny, ale dolegliwości bardzo poważne. Reguła: czerwone pory u borowika = trucizna.</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===== PRZEWODNIK IDENTYFIKACJI ===== -->
+    <div class="section" id="mylniki">
+        <div class="section-title"><span class="section-icon">🔍</span><h2>Przewodnik identyfikacji — na co patrzeć</h2></div>
+
+        <div class="guide-box">
+            <h3>🔬 Kluczowe cechy do sprawdzenia przy każdym grzybie</h3>
+            <div class="guide-grid">
+                <div class="guide-item">
+                    <div class="gi-label">Pochewka (volva)</div>
+                    <div class="gi-val">Biała torebka u podstawy = <span style="color:var(--danger)">Amanita = NIEBEZPIECZEŃSTWO</span>. Odkopaj podstawę trzonu!</div>
+                </div>
+                <div class="guide-item">
+                    <div class="gi-label">Kolor blaszek/rurek</div>
+                    <div class="gi-val">Białe blaszki przez całe życie = podejrzane. Różowe/brązowe = pieczarka. Czerwone rurki = borowik trujący.</div>
+                </div>
+                <div class="guide-item">
+                    <div class="gi-label">Sinieje po przecięciu?</div>
+                    <div class="gi-val">Podgrzybek: sinieje — jadalny. Borowik: NIE sinieje — jadalny. Borowik szatański: sinieje + czerwone pory = trujący.</div>
+                </div>
+                <div class="guide-item">
+                    <div class="gi-label">Mleczko</div>
+                    <div class="gi-val">Pomarańczowe = rydz (jadalny). Białe gorzkie = gołąbek pieprzowy (niejadalny). Białe łagodne = mleczaj (gatunki różne).</div>
+                </div>
+                <div class="guide-item">
+                    <div class="gi-label">Drzewo gospodarz</div>
+                    <div class="gi-val">Koźlarz czerwony = TYLKO pod osiką. Koźlarz babka = TYLKO pod brzozą. Rydz = sosna/świerk. Maślak = TYLKO sosna.</div>
+                </div>
+                <div class="guide-item">
+                    <div class="gi-label">Pierścień na trzonie</div>
+                    <div class="gi-val">Ruchomy pierścień kani = łatwy do przesunięcia. Pierścień sromotnikowego = delikatny. Brak pierścienia + pochewka = bardzo podejrzane.</div>
+                </div>
+                <div class="guide-item">
+                    <div class="gi-label">Fałdki vs blaszki</div>
+                    <div class="gi-val">Kurka = FAŁDKI (rozwidlone, twarde). Lisówka trująca = blaszki (cienkie, oddzielne). Kluczowa różnica!</div>
+                </div>
+                <div class="guide-item">
+                    <div class="gi-label">Wzrost w kępach</div>
+                    <div class="gi-val">Na drewnie w kępach: opieńka (duże, łuskowate) vs hełmówka (małe, gładkie). ZAWSZE sprawdzaj rozmiar i pierścień!</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabela par mylnych -->
+        <h3 style="color:var(--warn);margin:28px 0 12px">⚠️ Najgroźniejsze pary mylne w Polsce</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+            <thead>
+                <tr>
+                    <th style="background:var(--surface);color:var(--accent);padding:10px 12px;text-align:left;border:1px solid var(--border)">Grzyb jadalny</th>
+                    <th style="background:var(--surface);color:var(--danger);padding:10px 12px;text-align:left;border:1px solid var(--border)">☠ Mylnik trujący</th>
+                    <th style="background:var(--surface);color:var(--warn);padding:10px 12px;text-align:left;border:1px solid var(--border)">Jak rozróżnić</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td style="padding:9px 12px;border:1px solid var(--border)">Pieczarka polna</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--danger)">Muchomor sromotnikowy</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--text-muted)">Pieczarka ma różowe blaszki + rośnie na łące. Sromotnik: białe blaszki, pochewka u podstawy, las.</td></tr>
+                <tr style="background:rgba(47,68,56,.3)"><td style="padding:9px 12px;border:1px solid var(--border)">Opieńka miodowa</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--danger)">Hełmówka trująca</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--text-muted)">Opieńka: większa, pierścień łuskowany, łuski na kapeluszu. Hełmówka: mała (2–5 cm), gładka, gładki pierścień.</td></tr>
+                <tr><td style="padding:9px 12px;border:1px solid var(--border)">Kurka (pieprznik)</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--danger)">Lisówka pomarańczowa</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--text-muted)">Kurka: FAŁDKI, owocowy zapach, rośnie samotnie. Lisówka: blaszki, rośnie w kępach przy pniu.</td></tr>
+                <tr style="background:rgba(47,68,56,.3)"><td style="padding:9px 12px;border:1px solid var(--border)">Borowik szlachetny</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--warn)">Goryczak żółciowy</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--text-muted)">Borowik: białe/żółte rurki, orzechowy zapach. Goryczak: różowe rurki, gorzki smak.</td></tr>
+                <tr><td style="padding:9px 12px;border:1px solid var(--border)">Rydz</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--danger)">Krowiak podwinięty</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--text-muted)">Rydz: pomarańczowe mleczko, blaszki. Krowiak: BRAK mleczka, podwinięty brzeg kapelusza, blaszki łatwo oddzielalne.</td></tr>
+                <tr style="background:rgba(47,68,56,.3)"><td style="padding:9px 12px;border:1px solid var(--border)">Smardz jadalny</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--warn)">Piestrzenica kasztanowata</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--text-muted)">Smardz: siatkowaty jak plastry miodu, regularny. Piestrzenica: mózgowaty, nieregularny, fałdkowaty.</td></tr>
+                <tr><td style="padding:9px 12px;border:1px solid var(--border)">Purchawka olbrzymia</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--danger)">Muchomor w stadium jaja</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--text-muted)">Purchawka: biała kula bez trzonu, miąższ jednolicie biały. Jajo muchomora: po przekrojeniu widać zarys grzyba w środku.</td></tr>
+                <tr style="background:rgba(47,68,56,.3)"><td style="padding:9px 12px;border:1px solid var(--border)">Czubajka kania</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--danger)">Muchomor czerwony (stary)</td><td style="padding:9px 12px;border:1px solid var(--border);color:var(--text-muted)">Kania: brązowe łuski, ruchomy pierścień, brak pochewki. Muchomor: pochewka u podstawy, inny wzór łusek.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="nav-bottom">
+        <a href="index.html">← Strona główna</a>
+        <a href="laka.html">🌾 Rośliny łąkowe →</a>
+    </div>
+
+</div>
+
+<footer>Polne rośliny i grzyby · Kompendium 2026 · Zdjęcia: Wikimedia Commons (CC) · ⚠️ Zawsze weryfikuj z ekspertem przed spożyciem</footer>
+
+<script>
+// Sticky nav highlight
+const sections = document.querySelectorAll('.section');
+const navLinks = document.querySelectorAll('.cat-nav a');
+window.addEventListener('scroll', () => {
+    let cur = '';
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 120) cur = s.id; });
+    navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + cur));
+});
+</script>
+</body>
+</html>

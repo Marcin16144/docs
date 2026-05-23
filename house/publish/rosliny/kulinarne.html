@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Przepisy kulinarne z roślin polnych</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Category tabs */
+        .cat-nav{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 8px;position:sticky;top:53px;z-index:9;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--border)}
+        .cat-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);border-radius:20px;padding:6px 16px;font-size:.85rem;cursor:pointer;transition:.2s;font-family:inherit}
+        .cat-btn:hover,.cat-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+        /* Recipe cards grid */
+        .recipes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:18px;margin:20px 0 36px}
+
+        /* Individual recipe card */
+        .rcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:.2s;cursor:pointer;display:flex;flex-direction:column}
+        .rcard:hover{border-color:var(--accent);transform:translateY(-2px)}
+        .rcard-img{height:160px;background:var(--surface-hi);overflow:hidden;position:relative;flex-shrink:0}
+        .rcard-img img{width:100%;height:100%;object-fit:cover}
+        .rcard-img .no-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem}
+        .rcard-badges{position:absolute;top:8px;left:8px;display:flex;gap:6px;flex-wrap:wrap}
+        .badge{font-size:.7rem;padding:3px 9px;border-radius:12px;font-weight:600;letter-spacing:.3px}
+        .badge-easy{background:rgba(109,194,109,.25);color:var(--accent);border:1px solid rgba(109,194,109,.35)}
+        .badge-med{background:rgba(251,191,36,.2);color:var(--warn);border:1px solid rgba(251,191,36,.3)}
+        .badge-hard{background:rgba(248,113,113,.2);color:var(--danger);border:1px solid rgba(248,113,113,.3)}
+        .badge-veg{background:rgba(109,194,109,.2);color:#8fd58f;border:1px solid rgba(109,194,109,.25)}
+        .badge-season{background:rgba(201,160,106,.2);color:var(--earth);border:1px solid rgba(201,160,106,.25)}
+        .rcard-body{padding:14px 18px;flex:1;display:flex;flex-direction:column;gap:6px}
+        .rcard-title{font-size:1rem;font-weight:600;color:var(--text)}
+        .rcard-sub{font-size:.82rem;color:var(--text-muted)}
+        .rcard-meta{display:flex;gap:16px;font-size:.78rem;color:var(--text-muted);margin-top:4px}
+        .rcard-meta span{display:flex;align-items:center;gap:4px}
+        .rcard-plant{display:flex;flex-wrap:wrap;gap:4px;margin-top:auto;padding-top:8px}
+        .plant-tag{font-size:.72rem;background:rgba(109,194,109,.12);color:var(--accent);border:1px solid rgba(109,194,109,.2);border-radius:10px;padding:2px 9px}
+
+        /* Full recipe modal */
+        .rov{position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .25s}
+        .rov.open{opacity:1;pointer-events:all}
+        .rbox{background:var(--surface);border:1px solid var(--border);border-radius:18px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;transform:translateY(20px) scale(.97);transition:.25s}
+        .rov.open .rbox{transform:none}
+        .rbox-img{height:220px;background:var(--surface-hi);overflow:hidden;position:relative;flex-shrink:0;border-radius:18px 18px 0 0}
+        .rbox-img img{width:100%;height:100%;object-fit:cover}
+        .rbox-img .no-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:5rem}
+        .rbox-head{padding:20px 24px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+        .rbox-title{font-size:1.4rem;font-weight:700;color:var(--text);line-height:1.3}
+        .rbox-close{background:none;border:none;color:var(--text-muted);font-size:1.6rem;cursor:pointer;line-height:1;flex-shrink:0}
+        .rbox-close:hover{color:var(--accent)}
+        .rbox-body{padding:16px 24px 28px}
+        .rbox-meta{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 16px;font-size:.85rem;color:var(--text-muted)}
+        .rbox-meta span{display:flex;align-items:center;gap:5px}
+        .rbox-meta strong{color:var(--text)}
+        .rbox-section{margin:18px 0 0}
+        .rbox-section h3{font-size:1rem;color:var(--accent);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+        .rbox-section ul,.rbox-section ol{margin-left:20px;font-size:.93rem;line-height:1.8}
+        .rbox-section li{margin-bottom:4px}
+        .rbox-tip{background:rgba(109,194,109,.07);border-left:3px solid var(--accent);border-radius:6px;padding:10px 14px;font-size:.88rem;margin-top:14px}
+        .rbox-warn{background:rgba(251,191,36,.07);border-left:3px solid var(--warn);border-radius:6px;padding:10px 14px;font-size:.88rem;margin-top:10px}
+        .plant-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+        .plant-links a{font-size:.8rem;color:var(--accent);text-decoration:none;background:rgba(109,194,109,.1);border:1px solid rgba(109,194,109,.2);border-radius:12px;padding:4px 12px}
+        .plant-links a:hover{background:rgba(109,194,109,.2)}
+
+        /* Section headings */
+        .section-title{color:var(--accent);font-size:1.35rem;margin:40px 0 14px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+
+        /* Seasonal legend */
+        .season-legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;font-size:.82rem;color:var(--text-muted)}
+        .season-legend span{display:flex;align-items:center;gap:5px}
+        .sdot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+        /* Search bar */
+        .search-wrap{position:relative;max-width:380px}
+        .search-wrap input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 14px 9px 36px;font-size:.9rem;font-family:inherit}
+        .search-wrap input:focus{outline:none;border-color:var(--accent)}
+        .search-wrap::before{content:'🔍';position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:.85rem;pointer-events:none}
+        .search-wrap input::placeholder{color:var(--text-muted)}
+
+        /* Hidden cards */
+        .rcard.hidden{display:none}
+
+        @media(max-width:600px){
+            .recipes-grid{grid-template-columns:1fr}
+            .rbox-img{height:160px}
+            .rbox-title{font-size:1.1rem}
+            .rbox-body{padding:12px 16px 20px}
+            .rbox-head{padding:14px 16px 0}
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">← Strona główna</a>
+        <span class="sep">/</span>
+        <a href="przepisy.html">🩺 Lecznicze</a>
+        <span class="sep">/</span>
+        <a href="laka.html">🌾 Łąka</a>
+        <span class="sep">/</span>
+        <span class="title">🍽️ Przepisy kulinarne</span>
+    </div>
+
+    <div class="container" style="max-width:1000px">
+        <header style="margin-bottom:4px">
+            <h1>🍽️ Kuchnia z dzikiej łąki</h1>
+            <p style="color:var(--text-muted);font-size:1.05rem;margin-top:8px">Przepisy kulinarne łączące dzikie rośliny polne z codziennymi składnikami. Od pierogów przez risotto po ciasta i napoje.</p>
+        </header>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:18px">
+            <div class="search-wrap">
+                <input type="text" id="recipeSearch" placeholder="Szukaj przepisu lub rośliny…">
+            </div>
+            <div class="season-legend">
+                <span><span class="sdot" style="background:#6dc26d"></span>Wiosna</span>
+                <span><span class="sdot" style="background:#fbbf24"></span>Lato</span>
+                <span><span class="sdot" style="background:#f87171"></span>Jesień</span>
+                <span><span class="sdot" style="background:#8aa098"></span>Cały rok</span>
+            </div>
+        </div>
+
+        <!-- Category nav -->
+        <nav class="cat-nav" id="catNav">
+            <button class="cat-btn active" data-cat="all">🍀 Wszystkie</button>
+            <button class="cat-btn" data-cat="pierogi">🥟 Pierogi</button>
+            <button class="cat-btn" data-cat="zupy">🥣 Zupy</button>
+            <button class="cat-btn" data-cat="ryz">🍚 Ryż & Kasze</button>
+            <button class="cat-btn" data-cat="makarony">🍝 Makarony</button>
+            <button class="cat-btn" data-cat="salatki">🥗 Sałatki</button>
+            <button class="cat-btn" data-cat="ciasta">🎂 Ciasta & Wypieki</button>
+            <button class="cat-btn" data-cat="napoje">🍵 Napoje & Syropy</button>
+            <button class="cat-btn" data-cat="sosy">🫙 Sosy & Przetwory</button>
+        </nav>
+
+        <!-- ===== PIEROGI ===== -->
+        <h2 class="section-title" id="sec-pierogi">🥟 Pierogi i kluski</h2>
+        <div class="recipes-grid" id="grid">
+
+            <!-- 1 -->
+            <div class="rcard" data-cat="pierogi" data-season="wiosna" data-plants="pokrzywa" onclick="openRecipe(0)">
+                <div class="rcard-img">
+                    <img src="media/food-pierogi.jpg" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🥟</div>'">
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span><span class="badge badge-season" style="background:rgba(109,194,109,.2);color:var(--accent)">wiosna</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Pierogi z pokrzywą i twarogiem</div>
+                    <div class="rcard-sub">Klasyczne polskie pierogi ze szpinakiem zastąpionym młodą pokrzywą</div>
+                    <div class="rcard-meta"><span>⏱ 60 min</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">pokrzywa</span><span class="plant-tag">twaróg</span><span class="plant-tag">cebula</span></div>
+                </div>
+            </div>
+
+            <!-- 2 -->
+            <div class="rcard" data-cat="pierogi" data-season="wiosna" data-plants="szczaw" onclick="openRecipe(1)">
+                <div class="rcard-img">
+                    <img src="media/food-pierogi.jpg" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🥟</div>'">
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-season" style="background:rgba(109,194,109,.2);color:var(--accent)">wiosna</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Pierogi ze szczawiem i jajkiem</div>
+                    <div class="rcard-sub">Kwaskowate nadzienie ze świeżego szczawiu z jajkiem i masłem</div>
+                    <div class="rcard-meta"><span>⏱ 55 min</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">szczaw łąkowy</span><span class="plant-tag">jajko</span><span class="plant-tag">masło</span></div>
+                </div>
+            </div>
+
+            <!-- 3 -->
+            <div class="rcard" data-cat="pierogi" data-season="wiosna" data-plants="pokrzywa mniszek" onclick="openRecipe(2)">
+                <div class="rcard-img">
+                    <img src="media/food-kopytka.jpg" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🥟</div>'">
+                    <div class="rcard-badges"><span class="badge badge-med">średnie</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Kluski kopytka z zieleniną</div>
+                    <div class="rcard-sub">Zielone kopytka ziemniaczane z dodatkiem pokrzywy lub mniszka</div>
+                    <div class="rcard-meta"><span>⏱ 45 min</span><span>👥 3 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">pokrzywa</span><span class="plant-tag">ziemniak</span><span class="plant-tag">mąka</span></div>
+                </div>
+            </div>
+
+            <!-- ===== ZUPY ===== -->
+            <!-- 4 -->
+            <div class="rcard" data-cat="zupy" data-season="wiosna" data-plants="szczaw" onclick="openRecipe(3)">
+                <div class="rcard-img">
+                    <div class="no-img">🥣</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-season" style="background:rgba(109,194,109,.2);color:var(--accent)">wiosna</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Zupa szczawiowa z jajkiem</div>
+                    <div class="rcard-sub">Tradycyjna polska zupa szczawiowa na bulionie z jajkiem na twardo</div>
+                    <div class="rcard-meta"><span>⏱ 30 min</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">szczaw łąkowy</span><span class="plant-tag">bulion</span><span class="plant-tag">śmietana</span></div>
+                </div>
+            </div>
+
+            <!-- 5 -->
+            <div class="rcard" data-cat="zupy" data-season="wiosna" data-plants="pokrzywa" onclick="openRecipe(4)">
+                <div class="rcard-img">
+                    <div class="no-img">🥣</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Krem z pokrzywy z grzankami</div>
+                    <div class="rcard-sub">Aksamitny zielony krem z młodych liści pokrzywy z chrupiącymi grzankami</div>
+                    <div class="rcard-meta"><span>⏱ 25 min</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">pokrzywa</span><span class="plant-tag">cebula</span><span class="plant-tag">śmietanka</span></div>
+                </div>
+            </div>
+
+            <!-- 6 -->
+            <div class="rcard" data-cat="zupy" data-season="lato" data-plants="mniszek pokrzywa" onclick="openRecipe(5)">
+                <div class="rcard-img">
+                    <div class="no-img">🥣</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Chłodnik z ogórkiem i ziołami łąkowymi</div>
+                    <div class="rcard-sub">Orzeźwiający letni chłodnik z młodymi liśćmi mniszka i miętą</div>
+                    <div class="rcard-meta"><span>⏱ 15 min</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">mniszek</span><span class="plant-tag">mięta</span><span class="plant-tag">ogórek</span></div>
+                </div>
+            </div>
+
+            <!-- 7 -->
+            <div class="rcard" data-cat="zupy" data-season="jesień" data-plants="dzika roza" onclick="openRecipe(6)">
+                <div class="rcard-img">
+                    <img src="media/13-2.jpg" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🥣</div>'" loading="lazy">
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-season" style="background:rgba(248,113,113,.2);color:var(--danger)">jesień</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Zupa krem z owoców dzikiej róży</div>
+                    <div class="rcard-sub">Słodko-kwaśna zupa deserowa bogata w witaminę C</div>
+                    <div class="rcard-meta"><span>⏱ 35 min</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">dzika róża</span><span class="plant-tag">jabłko</span><span class="plant-tag">cynamon</span></div>
+                </div>
+            </div>
+
+            <!-- ===== RYŻ & KASZE ===== -->
+            <!-- 8 -->
+            <div class="rcard" data-cat="ryz" data-season="wiosna" data-plants="pokrzywa szczaw" onclick="openRecipe(7)">
+                <div class="rcard-img">
+                    <div class="no-img">🍚</div>
+                    <div class="rcard-badges"><span class="badge badge-med">średnie</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Risotto z dziką zieleniną</div>
+                    <div class="rcard-sub">Kremowe risotto z młodą pokrzywą, szczawiem i komosą białą</div>
+                    <div class="rcard-meta"><span>⏱ 40 min</span><span>👥 2 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">pokrzywa</span><span class="plant-tag">szczaw</span><span class="plant-tag">komosa</span><span class="plant-tag">parmezan</span></div>
+                </div>
+            </div>
+
+            <!-- 9 -->
+            <div class="rcard" data-cat="ryz" data-season="lato" data-plants="poziomka mieta" onclick="openRecipe(8)">
+                <div class="rcard-img">
+                    <div class="no-img">🍓</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span><span class="badge badge-season" style="background:rgba(251,191,36,.2);color:var(--warn)">lato</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Ryż z poziomkami i świeżą miętą</div>
+                    <div class="rcard-sub">Letni ryż na zimno z leśnymi poziomkami, miodem i listkami mięty</div>
+                    <div class="rcard-meta"><span>⏱ 20 min</span><span>👥 2 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">poziomka leśna</span><span class="plant-tag">mięta</span><span class="plant-tag">miód</span></div>
+                </div>
+            </div>
+
+            <!-- 10 -->
+            <div class="rcard" data-cat="ryz" data-season="wiosna" data-plants="pokrzywa" onclick="openRecipe(9)">
+                <div class="rcard-img">
+                    <div class="no-img">🍚</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Kasza jaglana ze szpinakiem pokrzywowym</div>
+                    <div class="rcard-sub">Pożywna kasza jaglana z pesto z pokrzywy i prażonymi orzechami</div>
+                    <div class="rcard-meta"><span>⏱ 30 min</span><span>👥 2 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">pokrzywa</span><span class="plant-tag">kasza jaglana</span><span class="plant-tag">orzechy</span></div>
+                </div>
+            </div>
+
+            <!-- 11 -->
+            <div class="rcard" data-cat="ryz" data-season="jesień" data-plants="jeżyna glog" onclick="openRecipe(10)">
+                <div class="rcard-img">
+                    <div class="no-img">🍚</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-season" style="background:rgba(248,113,113,.2);color:var(--danger)">jesień</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Pudding ryżowy z jeżynami i głogiem</div>
+                    <div class="rcard-sub">Kremowy pudding z jesiennymi owocami polnych krzewów</div>
+                    <div class="rcard-meta"><span>⏱ 35 min</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">jeżyna</span><span class="plant-tag">głóg</span><span class="plant-tag">mleko</span></div>
+                </div>
+            </div>
+
+            <!-- ===== MAKARONY ===== -->
+            <!-- 12 -->
+            <div class="rcard" data-cat="makarony" data-season="wiosna" data-plants="pokrzywa" onclick="openRecipe(11)">
+                <div class="rcard-img">
+                    <img src="media/food-pesto.jpg" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🍝</div>'">
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Pesto z pokrzywy do makaronu</div>
+                    <div class="rcard-sub">Intensywnie zielone pesto z blanszowanej pokrzywy, orzechów i parmezanu</div>
+                    <div class="rcard-meta"><span>⏱ 15 min</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">pokrzywa</span><span class="plant-tag">parmezan</span><span class="plant-tag">orzechy piniowe</span></div>
+                </div>
+            </div>
+
+            <!-- 13 -->
+            <div class="rcard" data-cat="makarony" data-season="lato" data-plants="dzika roza" onclick="openRecipe(12)" style="display:none">
+                <div class="rcard-img">
+                    <div class="no-img">🍝</div>
+                    <div class="rcard-badges"><span class="badge badge-med">średnie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Makaron z sosem z dzikiej róży i kurczakiem</div>
+                    <div class="rcard-sub">Słodko-kwaśny sos z płatków lub owoców róży do makaronu z kurczakiem</div>
+                    <div class="rcard-meta"><span>⏱ 35 min</span><span>👥 2 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">dzika róża</span><span class="plant-tag">kurczak</span><span class="plant-tag">śmietana</span></div>
+                </div>
+            </div>
+
+            <!-- 14 -->
+            <div class="rcard" data-cat="makarony" data-season="lato" data-plants="macierzanka tymianek" onclick="openRecipe(13)">
+                <div class="rcard-img">
+                    <img src="media/food-pesto.jpg" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🍝</div>'">
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Spaghetti aglio e olio z macierzanką</div>
+                    <div class="rcard-sub">Klasyczne włoskie spaghetti aromatyzowane świeżą dziką macierzanką</div>
+                    <div class="rcard-meta"><span>⏱ 20 min</span><span>👥 2 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">macierzanka polna</span><span class="plant-tag">czosnek</span><span class="plant-tag">oliwa</span></div>
+                </div>
+            </div>
+
+            <!-- ===== SAŁATKI ===== -->
+            <!-- 15 -->
+            <div class="rcard" data-cat="salatki" data-season="wiosna" data-plants="mniszek" onclick="openRecipe(14)" style="display:none">
+                <div class="rcard-img">
+                    <img src="media/02-1.jpg" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🥗</div>'" loading="lazy">
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-season" style="background:rgba(109,194,109,.2);color:var(--accent)">wiosna</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Sałatka z mniszka z boczkiem i jajkiem</div>
+                    <div class="rcard-sub">Francuska pissenlits au lard — tradycja w polskim wydaniu z mniszkiem</div>
+                    <div class="rcard-meta"><span>⏱ 20 min</span><span>👥 2 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">mniszek</span><span class="plant-tag">boczek</span><span class="plant-tag">jajko</span></div>
+                </div>
+            </div>
+
+            <!-- 16 -->
+            <div class="rcard" data-cat="salatki" data-season="lato" data-plants="koniczyna poziomka" onclick="openRecipe(15)">
+                <div class="rcard-img">
+                    <div class="no-img">🥗</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Sałatka z kwiatami koniczyny i poziomkami</div>
+                    <div class="rcard-sub">Letnia sałatka z dziką zieleniną, poziomkami i dressingiem z miodu</div>
+                    <div class="rcard-meta"><span>⏱ 10 min</span><span>👥 2 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">koniczyna łąkowa</span><span class="plant-tag">poziomka</span><span class="plant-tag">miód</span></div>
+                </div>
+            </div>
+
+            <!-- 17 -->
+            <div class="rcard" data-cat="salatki" data-season="wiosna" data-plants="pokrzywa babka" onclick="openRecipe(16)">
+                <div class="rcard-img">
+                    <div class="no-img">🥗</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Tabouleh z dziką zieleniną</div>
+                    <div class="rcard-sub">Bliskowschodni tabouleh z kaszą bulgur i liśćmi łąkowych chwastów</div>
+                    <div class="rcard-meta"><span>⏱ 25 min</span><span>👥 3 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">pokrzywa</span><span class="plant-tag">babka</span><span class="plant-tag">bulgur</span></div>
+                </div>
+            </div>
+
+            <!-- ===== CIASTA ===== -->
+            <!-- 18 -->
+            <div class="rcard" data-cat="ciasta" data-season="lato" data-plants="czarny bez" onclick="openRecipe(17)">
+                <div class="rcard-img">
+                    <img src="media/10-1.jpg" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🎂</div>'" loading="lazy">
+                    <div class="rcard-badges"><span class="badge badge-med">średnie</span><span class="badge badge-season" style="background:rgba(251,191,36,.2);color:var(--warn)">lato</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Ciasto drożdżowe z kwiatami czarnego bzu</div>
+                    <div class="rcard-sub">Puszyste ciasto z aromatyczną polewą z kwiatów bzu</div>
+                    <div class="rcard-meta"><span>⏱ 2 h</span><span>👥 10 porcji</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">czarny bez (kwiat)</span><span class="plant-tag">mąka</span><span class="plant-tag">masło</span></div>
+                </div>
+            </div>
+
+            <!-- 19 -->
+            <div class="rcard" data-cat="ciasta" data-season="lato" data-plants="poziomka" onclick="openRecipe(18)">
+                <div class="rcard-img">
+                    <div class="no-img">🎂</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Tarta z kremem waniliowym i poziomkami</div>
+                    <div class="rcard-sub">Krucha tarta z aksamitnym kremem i świeżymi leśnymi poziomkami</div>
+                    <div class="rcard-meta"><span>⏱ 1,5 h</span><span>👥 8 porcji</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">poziomka leśna</span><span class="plant-tag">śmietanka</span><span class="plant-tag">wanilia</span></div>
+                </div>
+            </div>
+
+            <!-- 20 -->
+            <div class="rcard" data-cat="ciasta" data-season="lato" data-plants="koniczyna" onclick="openRecipe(19)">
+                <div class="rcard-img">
+                    <div class="no-img">🎂</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Muffiny z kwiatami koniczyny</div>
+                    <div class="rcard-sub">Delikatne muffiny z suszonymi kwiatami koniczyny czerwonej i miodem</div>
+                    <div class="rcard-meta"><span>⏱ 40 min</span><span>👥 12 sztuk</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">koniczyna łąkowa</span><span class="plant-tag">miód</span><span class="plant-tag">mąka</span></div>
+                </div>
+            </div>
+
+            <!-- 21 -->
+            <div class="rcard" data-cat="ciasta" data-season="wiosna" data-plants="mniszek" onclick="openRecipe(20)">
+                <div class="rcard-img">
+                    <img src="media/02-2.jpg" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🎂</div>'" loading="lazy">
+                    <div class="rcard-badges"><span class="badge badge-med">średnie</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Naleśniki z polewą z mniszka</div>
+                    <div class="rcard-sub">Klasyczne naleśniki z syropem z kwiatów mniszka — „miód majowy"</div>
+                    <div class="rcard-meta"><span>⏱ 45 min</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">mniszek</span><span class="plant-tag">mleko</span><span class="plant-tag">cytryna</span></div>
+                </div>
+            </div>
+
+            <!-- 22 -->
+            <div class="rcard" data-cat="ciasta" data-season="jesień" data-plants="jeżyna" onclick="openRecipe(21)">
+                <div class="rcard-img">
+                    <div class="no-img">🎂</div>
+                    <div class="rcard-badges"><span class="badge badge-med">średnie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Crumble z jeżynami i jabłkiem</div>
+                    <div class="rcard-sub">Angielski crumble z jesiennymi jeżynami i jabłkami pod chrupiącą kruszonką</div>
+                    <div class="rcard-meta"><span>⏱ 50 min</span><span>👥 6 porcji</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">jeżyna</span><span class="plant-tag">jabłko</span><span class="plant-tag">płatki owsiane</span></div>
+                </div>
+            </div>
+
+            <!-- ===== NAPOJE ===== -->
+            <!-- 23 -->
+            <div class="rcard" data-cat="napoje" data-season="lato" data-plants="czarny bez" onclick="openRecipe(22)">
+                <div class="rcard-img">
+                    <img src="media/10-1.jpg" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🥤</div>'" loading="lazy">
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Lemoniada z kwiatami bzu i cytryną</div>
+                    <div class="rcard-sub">Orzeźwiająca letnia lemoniada z aromatem kwiatów czarnego bzu</div>
+                    <div class="rcard-meta"><span>⏱ 20 min + naciąganie</span><span>👥 6 porcji</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">czarny bez (kwiat)</span><span class="plant-tag">cytryna</span><span class="plant-tag">cukier</span></div>
+                </div>
+            </div>
+
+            <!-- 24 -->
+            <div class="rcard" data-cat="napoje" data-season="wiosna" data-plants="mniszek" onclick="openRecipe(23)">
+                <div class="rcard-img">
+                    <img src="media/02-1.jpg" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🍯</div>'" loading="lazy">
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Syrop z kwiatów mniszka (miód majowy)</div>
+                    <div class="rcard-sub">Tradycyjny polski „miód" z żółtych kwiatów mniszka z cytryną</div>
+                    <div class="rcard-meta"><span>⏱ 2 dni</span><span>👥 ~500 ml</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">mniszek</span><span class="plant-tag">cukier</span><span class="plant-tag">cytryna</span></div>
+                </div>
+            </div>
+
+            <!-- 25 -->
+            <div class="rcard" data-cat="napoje" data-season="jesień" data-plants="dzika roza" onclick="openRecipe(24)">
+                <div class="rcard-img">
+                    <div class="no-img">🍵</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Syrop z owoców dzikiej róży</div>
+                    <div class="rcard-sub">Syrop bogaty w wit. C — do herbaty, na odporność zimą</div>
+                    <div class="rcard-meta"><span>⏱ 1,5 h</span><span>👥 ~1 litr</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">dzika róża</span><span class="plant-tag">cukier</span><span class="plant-tag">woda</span></div>
+                </div>
+            </div>
+
+            <!-- 26 -->
+            <div class="rcard" data-cat="napoje" data-season="lato" data-plants="mieta" onclick="openRecipe(25)">
+                <div class="rcard-img">
+                    <img src="media/09-1.jpg" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🍵</div>'" loading="lazy">
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Herbata mrożona z miętą i limonką</div>
+                    <div class="rcard-sub">Orzeźwiająca mrożona herbata z gałązkami świeżej mięty pieprzowej</div>
+                    <div class="rcard-meta"><span>⏱ 10 min + chłodzenie</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">mięta pieprzowa</span><span class="plant-tag">limonka</span><span class="plant-tag">miód</span></div>
+                </div>
+            </div>
+
+            <!-- ===== SOSY & PRZETWORY ===== -->
+            <!-- 27 -->
+            <div class="rcard" data-cat="sosy" data-season="jesień" data-plants="dzika roza" onclick="openRecipe(26)">
+                <div class="rcard-img">
+                    <div class="no-img">🫙</div>
+                    <div class="rcard-badges"><span class="badge badge-med">średnie</span><span class="badge badge-season" style="background:rgba(248,113,113,.2);color:var(--danger)">jesień</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Dżem z dzikiej róży</div>
+                    <div class="rcard-sub">Aromatyczny dżem z owoców dzikiej róży do pieczywa i mięs</div>
+                    <div class="rcard-meta"><span>⏱ 1,5 h</span><span>👥 ~3 słoiki</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">dzika róża</span><span class="plant-tag">cukier</span><span class="plant-tag">cytryna</span></div>
+                </div>
+            </div>
+
+            <!-- 28 -->
+            <div class="rcard" data-cat="sosy" data-season="jesień" data-plants="jeżyna glog" onclick="openRecipe(27)">
+                <div class="rcard-img">
+                    <div class="no-img">🫙</div>
+                    <div class="rcard-badges"><span class="badge badge-med">średnie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Dżem z jeżyn i głogu</div>
+                    <div class="rcard-sub">Jesienny dżem z dzikich jeżyn i głogu — doskonały do mięs i serów</div>
+                    <div class="rcard-meta"><span>⏱ 1 h</span><span>👥 ~4 słoiki</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">jeżyna</span><span class="plant-tag">głóg</span><span class="plant-tag">cukier</span></div>
+                </div>
+            </div>
+
+            <!-- 29 -->
+            <div class="rcard" data-cat="sosy" data-season="wiosna" data-plants="pokrzywa" onclick="openRecipe(28)">
+                <div class="rcard-img">
+                    <img src="media/01-1.jpg" onerror="this.parentElement.innerHTML='<div class=\'no-img\'>🫙</div>'" loading="lazy">
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span><span class="badge badge-veg">wegetariańskie</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Kremowy sos z pokrzywy</div>
+                    <div class="rcard-sub">Kremowy sos ze świeżej pokrzywy — idealny do makaronu, pieczywa i warzyw</div>
+                    <div class="rcard-meta"><span>⏱ 20 min</span><span>👥 4 porcje</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">pokrzywa</span><span class="plant-tag">śmietana</span><span class="plant-tag">czosnek</span></div>
+                </div>
+            </div>
+
+            <!-- 30 -->
+            <div class="rcard" data-cat="sosy" data-season="lato" data-plants="cykoria" onclick="openRecipe(29)">
+                <div class="rcard-img">
+                    <div class="no-img">🫙</div>
+                    <div class="rcard-badges"><span class="badge badge-easy">łatwe</span></div>
+                </div>
+                <div class="rcard-body">
+                    <div class="rcard-title">Ocet z kwiatów cykorii</div>
+                    <div class="rcard-sub">Delikatny aromatyczny ocet do sałatek z niebieskich kwiatów cykorii</div>
+                    <div class="rcard-meta"><span>⏱ 5 min + 2 tygodnie</span><span>👥 ~250 ml</span></div>
+                    <div class="rcard-plant"><span class="plant-tag">cykoria</span><span class="plant-tag">ocet winny</span></div>
+                </div>
+            </div>
+
+        </div><!-- /grid -->
+
+        <div class="nav-bottom">
+            <a href="index.html">← Strona główna</a>
+            <a href="przepisy.html">🩺 Przepisy lecznicze →</a>
+        </div>
+    </div>
+
+    <!-- ===== RECIPE MODAL ===== -->
+    <div class="rov" id="recipeOverlay" onclick="handleOverlayClick(event)">
+        <div class="rbox" id="recipeBox">
+            <div class="rbox-img" id="rboxImg"></div>
+            <div class="rbox-head">
+                <div class="rbox-title" id="rboxTitle"></div>
+                <button class="rbox-close" onclick="closeRecipe()">✕</button>
+            </div>
+            <div class="rbox-body" id="rboxBody"></div>
+        </div>
+    </div>
+
+    <script>
+    // ============================================================
+    // RECIPE DATA
+    // ============================================================
+    const recipes = [
+
+    // 0 — Pierogi z pokrzywą
+    {
+        title:"Pierogi z pokrzywą i twarogiem",
+        emoji:"🥟", img:"media/food-pierogi.jpg",
+        time:"60 min", portions:"4 porcje (ok. 40 sztuk)", level:"łatwe", veg:true,
+        season:"Wiosna (V – VI)",
+        plants:["Pokrzywa zwyczajna","Taraxacum officinale"],
+        plantLinks:[{name:"Pokrzywa",href:"01-pokrzywa.html"}],
+        ingredients:[
+            "500 g mąki pszennej",
+            "1 jajko + 1 do smarowania",
+            "ok. 220 ml ciepłej wody",
+            "szczypta soli",
+            "— Nadzienie —",
+            "200 g młodych liści pokrzywy (pobrane w rękawiczkach!)",
+            "300 g twarogu półtłustego",
+            "1 duża cebula",
+            "2 ząbki czosnku",
+            "2 łyżki masła",
+            "sól, pieprz, gałka muszkatołowa"
+        ],
+        steps:[
+            "Zagotuj duży garnek osolonej wody. Wrzuć pokrzywę i blanszuj 2–3 min — straci parzące właściwości. Odcedź, ostudź i dokładnie odciśnij wodę. Posiekaj drobno.",
+            "Cebulę i czosnek podsmaż na maśle na złoto. Dodaj pokrzywę, smaż 2 min. Zdejmij z ognia, ostudź.",
+            "Wymieszaj masę pokrzywową z twarogiem. Dopraw solą, pieprzem i gałką muszkatołową.",
+            "Ciasto: zagnieć mąkę z jajkiem, wodą i solą na gładką elastyczną kulę (ok. 8 min). Owiń folią, odstaw na 20 min.",
+            "Wałkuj ciasto cienko (2–3 mm). Wykrawaj kółka o ∅ 6–7 cm (szklanka).",
+            "Na każde kółko kładź łyżeczkę nadzienia, składaj na pół i zlepiaj brzegi dokładnie, formując pieroga.",
+            "Gotuj partiami w osolonym wrzątku 4–5 min od wypłynięcia. Podawaj z okrasą ze smażonej cebulki i kwaśną śmietaną."
+        ],
+        tip:"Blanszowana pokrzywa jest całkowicie bezpieczna i nie parzy — śmiało mieszaj ją rękami po obróbce. Najlepsza jest pokrzywa zebrana przed kwitnieniem (kwiecień–maj), tylko wierzchołki pędów.",
+        warn:null
+    },
+
+    // 1 — Pierogi ze szczawiem
+    {
+        title:"Pierogi ze szczawiem i jajkiem",
+        emoji:"🥟", img:"media/food-pierogi.jpg",
+        time:"55 min", portions:"4 porcje", level:"łatwe", veg:true,
+        season:"Wiosna–Lato (V – VII)",
+        plants:["Szczaw zwyczajny (Rumex acetosa)"],
+        plantLinks:[],
+        ingredients:[
+            "500 g mąki pszennej",
+            "1 jajko + ciepła woda (ok. 200 ml)",
+            "sól",
+            "— Nadzienie —",
+            "300 g świeżych liści szczawiu łąkowego",
+            "3 jajka ugotowane na twardo",
+            "2 łyżki masła",
+            "1 cebula",
+            "sól, pieprz biały",
+            "opcjonalnie: 1 łyżka śmietany 18%"
+        ],
+        steps:[
+            "Szczaw umyj, usuń ogonki, posiekaj grubo. Podsmaż na maśle z cebulą przez 3–4 min aż zmięknie i wytraci sok.",
+            "Posiekaj jajka i wymieszaj ze szczawiem. Dopraw solą i pieprzem. Jeśli masa jest za kwaśna — dodaj śmietanę.",
+            "Przygotuj ciasto jak na zwykłe pierogi. Formuj i lepi pierogi z łyżeczką nadzienia.",
+            "Gotuj 4 min od wypłynięcia w osolonej wodzie.",
+            "Podawaj polane roztopionym masłem z tartą bułką lub okraszone skwarkami."
+        ],
+        tip:"Szczaw zawiera szczawiany — nie gotuj go w garnku żeliwnym ani aluminiowym (ciemnieje i gorzknieje). Używaj stali nierdzewnej lub emaliowanego. Osoby z kamicą nerkową powinny ograniczyć spożycie szczawiu.",
+        warn:"Szczaw zawiera dużo kwasu szczawiowego — nie spożywać w nadmiarze. Nie zalecany dla osób z kamicą nerkową i dną moczanową."
+    },
+
+    // 2 — Kopytka z zieleniną
+    {
+        title:"Kluski kopytka z łąkową zieleniną",
+        emoji:"🥟", img:"media/food-kopytka.jpg",
+        time:"45 min", portions:"3 porcje", level:"średnie", veg:true,
+        season:"Wiosna (V – VI)",
+        plants:["Pokrzywa zwyczajna","Mniszek lekarski"],
+        plantLinks:[{name:"Pokrzywa",href:"01-pokrzywa.html"},{name:"Mniszek",href:"02-mniszek-lekarski.html"}],
+        ingredients:[
+            "600 g ugotowanych ziemniaków (przestudzonych)",
+            "200–220 g mąki pszennej",
+            "1 jajko",
+            "sól",
+            "— Zieleń —",
+            "100 g młodych liści pokrzywy (zblanszowanych)",
+            "lub 60 g drobno posiekanego mniszka",
+            "opcjonalnie: 1 łyżka masła, por do podania"
+        ],
+        steps:[
+            "Blanszuj pokrzywę 2 min we wrzącej wodzie. Odciśnij, posiekaj i osusz papierowym ręcznikiem.",
+            "Ugotowane ziemniaki przepuść przez praskę lub zetrzyj na tarce. Całkowicie ostudź.",
+            "Wymieszaj ziemniaki z mąką, jajkiem, solą i posiekaną zieleniną. Ciasto powinno być zwarte, ale lekkie.",
+            "Na obsypanej mąką desce formuj wałki grubości 2 cm i kroić ukośnie na kopytka 3 cm.",
+            "Gotuj partiami w osolonej wodzie ok. 3 min od wypłynięcia.",
+            "Podawaj okraszone masłem z prażoną bułką lub ze śmietaną."
+        ],
+        tip:"Użycie pokrzywy zamiast szpinaku daje intensywnie zielony kolor bez barwników. Możesz zblendować pokrzywę z odrobiną wody i dodać do ciasta — kopytka będą pięknie zielone.",
+        warn:null
+    },
+
+    // 3 — Zupa szczawiowa
+    {
+        title:"Zupa szczawiowa z jajkiem na twardo",
+        emoji:"🥣", img:null,
+        time:"30 min", portions:"4 porcje", level:"łatwe", veg:true,
+        season:"Wiosna–Lato (V – VII)",
+        plants:["Szczaw zwyczajny (Rumex acetosa)"],
+        plantLinks:[],
+        ingredients:[
+            "300 g świeżych liści szczawiu",
+            "1,5 l bulionu warzywnego",
+            "2 ziemniaki (pokrojone w kostkę)",
+            "1 cebula",
+            "200 ml śmietany 18%",
+            "2 łyżki masła",
+            "4 jajka ugotowane na twardo",
+            "sól, pieprz, cukier (szczypta do zbalansowania kwasowości)"
+        ],
+        steps:[
+            "Ziemniaki ugotuj w bulionie do miękkości (ok. 15 min).",
+            "Cebulę zeszklij na maśle. Szczaw umyj i posiekaj na grube paski.",
+            "Dodaj cebulę i szczaw do bulionu, gotuj 5–7 min aż szczaw zmieni kolor na oliwkowy.",
+            "Zahartuj śmietanę: wlej do niej kilka łyżek gorącej zupy, wymieszaj, dopiero wlej do garnka. Dopraw.",
+            "Na talerze wyłóż pokrojone jajka na twardo, zalej gorącą zupą."
+        ],
+        tip:"Szczaw zmienia kolor z jasno-zielonego na oliwkowy podczas gotowania — to normalne. Nie gotuj zbyt długo, by zachować smak. Możesz użyć też blendera na część zupy dla kremowej konsystencji.",
+        warn:null
+    },
+
+    // 4 — Krem z pokrzywy
+    {
+        title:"Krem z pokrzywy z chrupiącymi grzankami",
+        emoji:"🥣", img:"media/01-1.jpg",
+        time:"25 min", portions:"4 porcje", level:"łatwe", veg:true,
+        season:"Wiosna (IV – VI)",
+        plants:["Pokrzywa zwyczajna"],
+        plantLinks:[{name:"Pokrzywa",href:"01-pokrzywa.html"}],
+        ingredients:[
+            "300 g młodych liści pokrzywy (tylko czubki, w rękawiczkach)",
+            "1 cebula",
+            "2 ząbki czosnku",
+            "1 ziemniak",
+            "1 l bulionu warzywnego",
+            "150 ml śmietanki 30%",
+            "2 łyżki masła",
+            "sól, pieprz, gałka muszkatołowa",
+            "— Grzanki —",
+            "4 kromki chleba razowego, oliwa, sól morska"
+        ],
+        steps:[
+            "Cebulę i czosnek zeszklij na maśle w dużym garnku. Dodaj pokrojony w kostkę ziemniak.",
+            "Wlej bulion, gotuj 10 min aż ziemniak będzie miękki.",
+            "Dodaj pokrzywę (bez blanszowania — zupa zagotuje ją), gotuj 3 min.",
+            "Zblenduj na gładki krem. Wlej śmietankę, zagrzej, dopraw.",
+            "Chleb pokrój w kostkę, smaż na oliwie aż złociste. Posyp solą morską.",
+            "Podawaj krem gorący z grzankami i kroplą oliwy z oliwek."
+        ],
+        tip:"Krem ma piękny szmaragdowy kolor — by go zachować, nie gotuj po dodaniu pokrzywy dłużej niż 3 min i natychmiast blenduj.",
+        warn:null
+    },
+
+    // 5 — Chłodnik z mniszkiem
+    {
+        title:"Letni chłodnik z ogórkiem i mniszkiem",
+        emoji:"🥣", img:null,
+        time:"15 min", portions:"4 porcje", level:"łatwe", veg:true,
+        season:"Lato (VI – VIII)",
+        plants:["Mniszek lekarski","Mięta pieprzowa"],
+        plantLinks:[{name:"Mniszek",href:"02-mniszek-lekarski.html"},{name:"Mięta",href:"09-mieta.html"}],
+        ingredients:[
+            "500 ml maślanki",
+            "200 ml jogurtu naturalnego",
+            "2 ogórki gruntowe",
+            "2 garście młodych liści mniszka (bez łodyżek)",
+            "10 listków mięty pieprzowej",
+            "1 ząbek czosnku",
+            "sok z 1 cytryny",
+            "sól, biały pieprz",
+            "lód do podania"
+        ],
+        steps:[
+            "Ogórki obierz (lub nie — zależy od preferencji) i zetrzyj na tarce o grubych oczkach. Posól i odczekaj 5 min, odciśnij sok.",
+            "Mniszek (tylko młode liście!) i miętę drobno posiekaj. Czosnek zetrzyj na tarce.",
+            "Wymieszaj maślankę z jogurtem, ogórkiem, zieleniną, czosnkiem i sokiem z cytryny.",
+            "Dopraw solą i pieprzem. Schłódź w lodówce min. 30 min.",
+            "Podawaj z kostkami lodu, udekoruj świeżymi listkami mięty."
+        ],
+        tip:"Młode liście mniszka wiosną są najmniej gorzkie. Latem możesz użyć bladoróżowych lub żółtych liści z zacienionego miejsca — mniej goryczkowe.",
+        warn:null
+    },
+
+    // 6 — Zupa z dzikiej róży
+    {
+        title:"Zupa krem z owoców dzikiej róży",
+        emoji:"🥣", img:"media/13-2.jpg",
+        time:"35 min", portions:"4 porcje", level:"łatwe", veg:true,
+        season:"Jesień (IX – XI)",
+        plants:["Dzika róża (Rosa canina)"],
+        plantLinks:[],
+        ingredients:[
+            "500 g świeżych owoców dzikiej róży (lub 200 g suszonych)",
+            "2 jabłka",
+            "1 l wody",
+            "3 łyżki miodu (lub cukru)",
+            "1 laska cynamonu",
+            "2 goździki",
+            "skórka z 1 cytryny",
+            "200 ml śmietany do ubijania",
+            "opcjonalnie: łyżeczka mąki ziemniaczanej do zagęszczenia"
+        ],
+        steps:[
+            "Owoce dzikiej róży umyj, przekrój i usuń nasiona oraz szorstkie włoski wewnętrzne (to ważne!).",
+            "Jabłka obierz i pokrój w kawałki. Gotuj razem z owocami róży, cynamonem i goździkami 20 min.",
+            "Usuń goździki i cynamon, zblenduj zupę na gładki krem.",
+            "Dodaj miód i sok z cytryny, dopraw do smaku. Jeśli za rzadka — zagęść mąką ziemniaczaną.",
+            "Śmietanę ubij i podawaj jako krem na gorącej zupie-deserze."
+        ],
+        tip:"To zupa-deser w stylu Europy Środkowej. Owoce dzikiej róży mają 20× więcej witaminy C niż pomarańcze — doskonała na jesienno-zimową odporność. Możesz podawać ją zarówno gorącą jak i zimną.",
+        warn:"Koniecznie usuń szorstkie włoski i nasiona z wnętrza owoców — mogą podrażniać jelita."
+    },
+
+    // 7 — Risotto z zieleniną
+    {
+        title:"Risotto z dziką zieleniną łąkową",
+        emoji:"🍚", img:null,
+        time:"40 min", portions:"2 porcje", level:"średnie", veg:true,
+        season:"Wiosna (V – VI)",
+        plants:["Pokrzywa zwyczajna","Szczaw łąkowy","Komosa biała"],
+        plantLinks:[{name:"Pokrzywa",href:"01-pokrzywa.html"}],
+        ingredients:[
+            "200 g ryżu do risotto (Arborio lub Carnaroli)",
+            "1 l ciepłego bulionu warzywnego",
+            "1 szalotka",
+            "100 ml białego wina wytrawnego",
+            "2 łyżki masła + 1 do wykończenia",
+            "50 g parmezanu",
+            "— Zieleń —",
+            "100 g blanszowanych liści pokrzywy",
+            "50 g liści szczawiu",
+            "50 g liści komosy (lub szpinaku)",
+            "2 ząbki czosnku, oliwa, sól, pieprz"
+        ],
+        steps:[
+            "Blanszuj pokrzywę 2 min. Odciśnij. Posiekaj pokrzywę, szczaw i komosę. Podsmaż wszystko na oliwie z czosnkiem 3 min.",
+            "Szalotkę zeszklij na maśle. Wrzuć ryż, mieszaj 2 min aż ziarenka staną się przejrzyste.",
+            "Wlej wino, mieszaj aż wchłonięte. Dolewaj bulion chochlą, mieszając, przez 18–20 min.",
+            "Na ostatnie 5 min dodaj zieloną masę i wymieszaj — risotto będzie pięknie zielone.",
+            "Zdejmij z ognia, wmieszaj zimne masło i starty parmezan. Dopraw. Nakryj na 2 min."
+        ],
+        tip:"Kluczem jest dolewanie ciepłego bulionu partiami i ciągłe mieszanie — to uwalnia skrobię z ryżu i tworzy kremową konsystencję.",
+        warn:null
+    },
+
+    // 8 — Ryż z poziomkami
+    {
+        title:"Ryż z poziomkami leśnymi i świeżą miętą",
+        emoji:"🍓", img:null,
+        time:"20 min", portions:"2 porcje", level:"łatwe", veg:true,
+        season:"Lato (VI – VIII)",
+        plants:["Poziomka leśna","Mięta pieprzowa"],
+        plantLinks:[{name:"Mięta",href:"09-mieta.html"}],
+        ingredients:[
+            "200 g ryżu długoziarnistego",
+            "200 g świeżych poziomek leśnych",
+            "2 łyżki miodu (lipowy lub akacjowy)",
+            "8 świeżych listków mięty",
+            "sok z 1 limonki",
+            "szczypta soli",
+            "opcjonalnie: 2 łyżki jogurtu greckiego lub ricotty"
+        ],
+        steps:[
+            "Ugotuj ryż według instrukcji, lekko osolony. Ostudź lub podawaj ciepły.",
+            "Poziomki delikatnie opłucz i osusz. Połowę rozgnieć widelcem z miodem i sokiem z limonki.",
+            "Listki mięty drobno posiekaj (kilka zostaw do dekoracji).",
+            "Wymieszaj ryż z sosem poziomkowym i posiekaną miętą.",
+            "Ułóż na talerzach, udekoruj całymi poziomkami i listkami mięty. Dodaj łyżkę jogurtu greckiego."
+        ],
+        tip:"Poziomki leśne są intensywniejsze w smaku niż ogrodowe — nawet kilka sztuk wystarczy by aromatyzować całą porcję. Zbieraj je rano, gdy są najsłodsze.",
+        warn:null
+    },
+
+    // 9 — Kasza z pokrzywą
+    {
+        title:"Kasza jaglana z pesto z pokrzywy",
+        emoji:"🍚", img:null,
+        time:"30 min", portions:"2 porcje", level:"łatwe", veg:true,
+        season:"Wiosna (IV – VI)",
+        plants:["Pokrzywa zwyczajna"],
+        plantLinks:[{name:"Pokrzywa",href:"01-pokrzywa.html"}],
+        ingredients:[
+            "200 g kaszy jaglanej",
+            "— Pesto z pokrzywy —",
+            "100 g młodych liści pokrzywy (zblanszowanych)",
+            "30 g orzechów włoskich lub nerkowców",
+            "2 ząbki czosnku",
+            "4 łyżki oliwy z oliwek",
+            "2 łyżki soku z cytryny",
+            "30 g parmezanu lub nutritional yeast (wersja wegańska)",
+            "sól, pieprz",
+            "Do podania: prażone pestki dyni, plasterki cytryny"
+        ],
+        steps:[
+            "Kaszę jaglaną przepłucz zimną wodą. Ugotuj w stosunku 1:2 (kasza:woda) z odrobiną soli.",
+            "Blanszuj pokrzywę 2 min, odciśnij dokładnie.",
+            "Wszystkie składniki pesto zblenduj na gładką pastę. Dopraw do smaku.",
+            "Gorącą kaszę wymieszaj z 2–3 łyżkami pesto.",
+            "Podawaj posypane prażonymi pestkami dyni. Resztę pesto przechowuj w lodówce (do 5 dni)."
+        ],
+        tip:"Pesto z pokrzywy działa tak samo jak bazyliowe, ale ma bardziej ziemisty, mineralny smak. Pasuje do kaszy, makaronu, pieczywa i jako dip do warzyw.",
+        warn:null
+    },
+
+    // 10 — Pudding ryżowy
+    {
+        title:"Pudding ryżowy z jesiennymi owocami",
+        emoji:"🍚", img:null,
+        time:"35 min", portions:"4 porcje", level:"łatwe", veg:true,
+        season:"Jesień (IX – X)",
+        plants:["Jeżyna właściwa","Głóg jednoszyjkowy"],
+        plantLinks:[],
+        ingredients:[
+            "200 g ryżu do puddingu (okrągłoziarnisty)",
+            "700 ml mleka",
+            "150 ml śmietanki",
+            "3 łyżki cukru",
+            "1 laska wanilii",
+            "— Kompot owocowy —",
+            "200 g jeżyn",
+            "150 g owoców głogu (bez pestek)",
+            "2 łyżki cukru trzcinowego",
+            "szczypta cynamonu"
+        ],
+        steps:[
+            "Ryż ugotuj w mleku ze śmietanką, cukrem i wanilią na małym ogniu ok. 25 min, mieszając.",
+            "Jeżyny i głóg (przepołowiony, wypestkowany) duś z cukrem i cynamonem 10 min.",
+            "Pudding wyłóż do miseczek, polej ciepłym kompotem owocowym.",
+            "Podawaj ciepły lub schłodzony — oba warianty są pyszne."
+        ],
+        tip:"Owoce głogu mają twarde pestki — koniecznie je usuń przed użyciem. Możesz zastąpić głóg żurawiną lub tarniną.",
+        warn:"Owoce głogu należy poddać obróbce cieplnej. Nie jedz ich na surowo w dużych ilościach."
+    },
+
+    // 11 — Pesto do makaronu
+    {
+        title:"Makaron z pesto z pokrzywy",
+        emoji:"🍝", img:"media/food-pesto.jpg",
+        time:"15 min", portions:"4 porcje", level:"łatwe", veg:true,
+        season:"Wiosna (IV – VI)",
+        plants:["Pokrzywa zwyczajna"],
+        plantLinks:[{name:"Pokrzywa",href:"01-pokrzywa.html"}],
+        ingredients:[
+            "400 g makaronu (spaghetti lub penne)",
+            "— Pesto —",
+            "150 g liści pokrzywy (zblanszowanych 2 min)",
+            "40 g orzeszków piniowych lub pestek dyni",
+            "2 ząbki czosnku",
+            "80 ml dobrej oliwy z oliwek",
+            "50 g parmezanu (startego)",
+            "sok z ½ cytryny",
+            "sól morska, pieprz",
+            "Do serwowania: płatki parmezanu, prażone orzeszki"
+        ],
+        steps:[
+            "Ugotuj makaron al dente, zachowaj szklankę wody z gotowania.",
+            "Zblanszowaną pokrzywę, orzeszki, czosnek i oliwę zblenduj na gładko. Dodaj parmezan, cytrynę, sól i pieprz.",
+            "Gorący makaron wymieszaj z pesto — rozcieńczaj wodą z gotowania do pożądanej konsystencji.",
+            "Podawaj natychmiast z płatkami parmezanu."
+        ],
+        tip:"Pesto z pokrzywy ma intensywnie zielony kolor i nieco bardziej wyrazisty smak niż bazyliowe. Smakuje też świetnie na chlebie jako pasta kanapkowa.",
+        warn:null
+    },
+
+    // 12 — Makaron z dzika roza
+    {
+        title:"Makaron z kremowym sosem z dzikiej róży",
+        emoji:"🍝", img:null,
+        time:"35 min", portions:"2 porcje", level:"średnie", veg:false,
+        season:"Lato–Jesień (VIII – X)",
+        plants:["Dzika róża (Rosa canina)"],
+        plantLinks:[],
+        ingredients:[
+            "200 g makaronu (tagliatelle lub pappardelle)",
+            "300 g piersi z kurczaka",
+            "150 g owoców lub płatków dzikiej róży",
+            "150 ml śmietany 30%",
+            "1 cebula",
+            "100 ml białego wina",
+            "2 łyżki masła",
+            "sól, pieprz, tymianek"
+        ],
+        steps:[
+            "Kurczaka pokrój w paski, dopraw i obsmaż na maśle. Odłóż.",
+            "Na tym samym patelni zeszklij cebulę, wlej wino i odparuj połowę.",
+            "Dodaj owoce dzikiej róży (obrane z pestek i włosków), śmietanę i tymianek. Duś 10 min.",
+            "Przejdź przez sitko lub zostaw kawałki — według gustu. Dodaj kurczaka.",
+            "Wymieszaj z ugotowanym makaronem."
+        ],
+        tip:"Płatki kwiatów dzikiej róży (zebrane wiosną/latem) dają delikatny kwiatowy smak. Owoce (jesień) — kwaśno-słodki, owocowy.",
+        warn:"Nasiona i włoski wewnętrzne owoców róży muszą zostać usunięte — podrażniają błony śluzowe."
+    },
+
+    // 13 — Spaghetti z macierzanką
+    {
+        title:"Spaghetti aglio e olio z macierzanką polną",
+        emoji:"🍝", img:"media/food-pesto.jpg",
+        time:"20 min", portions:"2 porcje", level:"łatwe", veg:true,
+        season:"Lato (VI – IX)",
+        plants:["Macierzanka piaskowa (Thymus serpyllum)"],
+        plantLinks:[],
+        ingredients:[
+            "200 g spaghetti",
+            "6 ząbków czosnku (cienko pokrojone)",
+            "6–8 łyżek oliwy extra virgin",
+            "2–3 gałązki świeżej macierzanki polnej",
+            "szczypta chili",
+            "sól morska, pieprz",
+            "opcjonalnie: tarty parmezan"
+        ],
+        steps:[
+            "Ugotuj spaghetti al dente. Zachowaj szklankę wody z gotowania.",
+            "Na patelni rozgrzej oliwę na małym ogniu. Wrzuć czosnek i smaż powoli aż złoty (nie przypal!).",
+            "Dodaj listki macierzanki zerwane z gałązek i chili. Smaż 30 sekund.",
+            "Dodaj makaron i kilka łyżek wody z gotowania. Mieszaj energicznie aż sos połączy się z makaronem.",
+            "Dopraw solą i pieprzem. Podawaj natychmiast."
+        ],
+        tip:"Macierzanka polna to dziki brat tymianku — intensywniejsza w aromacie. Zbieraj wierzchołki gałązek w czasie kwitnienia (VI–IX), suszone też działają świetnie.",
+        warn:null
+    },
+
+    // 14 — Sałatka z mniszka
+    {
+        title:"Sałatka z mniszka z boczkiem i jajkiem",
+        emoji:"🥗", img:"media/02-1.jpg",
+        time:"20 min", portions:"2 porcje", level:"łatwe", veg:false,
+        season:"Wiosna (IV – V)",
+        plants:["Mniszek lekarski"],
+        plantLinks:[{name:"Mniszek",href:"02-mniszek-lekarski.html"}],
+        ingredients:[
+            "150 g młodych liści mniszka (tylko rozetka, bez łodyg)",
+            "100 g wędzonego boczku (lub pancetty)",
+            "2 jajka",
+            "1 łyżka musztardy Dijon",
+            "2 łyżki octu winnego",
+            "4 łyżki oliwy",
+            "sól, pieprz",
+            "opcjonalnie: grzanki z bagietki"
+        ],
+        steps:[
+            "Liście mniszka opłucz, osusz i ułóż w salaterce.",
+            "Boczek pokrój w kostkę i smaż na suchej patelni aż chrupiący. Odłóż skwarki, zostaw łyżkę tłuszczu.",
+            "Na tym samym tłuszczu smaż ocet winny i musztardę 30 sekund. Wlej oliwę, wymieszaj.",
+            "Jajka usmaż na osobnej patelni w koszulce (lub ugotuj miękko).",
+            "Sałatkę polej ciepłym dressingiem, posyp skwarkami, na wierzch połóż jajko. Podawaj natychmiast."
+        ],
+        tip:"To klasyczne danie z Burgundii — pissenlit au lard. Ciepły dressing lekko podwędza liście mniszka i zmniejsza ich goryczkę. Najlepszy wiosną z bardzo młodych liści przed kwitnieniem.",
+        warn:null
+    },
+
+    // 15 — Sałatka z kwiatami
+    {
+        title:"Letnia sałatka z kwiatami koniczyny i poziomkami",
+        emoji:"🥗", img:null,
+        time:"10 min", portions:"2 porcje", level:"łatwe", veg:true,
+        season:"Lato (VI – VII)",
+        plants:["Koniczyna łąkowa","Poziomka leśna"],
+        plantLinks:[],
+        ingredients:[
+            "150 g mieszanej sałaty",
+            "1 garść świeżych kwiatów koniczyny czerwonej",
+            "100 g poziomek leśnych",
+            "50 g koziego sera lub twarożku",
+            "— Dressing —",
+            "2 łyżki miodu",
+            "2 łyżki octu balsamicznego",
+            "3 łyżki oliwy",
+            "sól, pieprz"
+        ],
+        steps:[
+            "Sałatę umyj i osusz. Kwiaty koniczyny oderwij od łodyczek.",
+            "Wymieszaj składniki dressingu.",
+            "Ułóż sałatę na talerzu, rozsyp poziomki, kwiaty i pokruszony ser.",
+            "Polej dressingiem tuż przed podaniem."
+        ],
+        tip:"Kwiaty koniczyny są jadalne — mają delikatny, lekko słodkawy smak i pięknie wyglądają w sałatce. Zbieraj świeże, ledwo otwarte kwiaty.",
+        warn:null
+    },
+
+    // 16 — Tabouleh
+    {
+        title:"Zielony tabouleh z łąkową zieleniną",
+        emoji:"🥗", img:null,
+        time:"25 min", portions:"3 porcje", level:"łatwe", veg:true,
+        season:"Wiosna (V – VI)",
+        plants:["Pokrzywa zwyczajna","Babka lancetowata"],
+        plantLinks:[{name:"Pokrzywa",href:"01-pokrzywa.html"},{name:"Babka",href:"03-babka-lancetowata.html"}],
+        ingredients:[
+            "150 g kaszy bulgur (drobnej)",
+            "200 ml wrzątku",
+            "— Zieleń —",
+            "50 g zblanszowanych liści pokrzywy",
+            "20 g młodych liści babki (bez żyłek)",
+            "20 g listków mięty",
+            "3 pomidory koktajlowe",
+            "½ ogórka",
+            "— Dressing —",
+            "4 łyżki oliwy",
+            "sok z 1 cytryny",
+            "sól, pieprz, szczypta cynamonu"
+        ],
+        steps:[
+            "Bulgur zalej wrzątkiem, przykryj na 20 min. Rozluźnij widelcem.",
+            "Zblanszowaną pokrzywę i babkę posiekaj bardzo drobno. Miętę posiekaj.",
+            "Pomidory i ogórek pokrój w drobną kostkę.",
+            "Wymieszaj wszystko z bulgur i dressingiem. Odstaw 10 min by smaki się połączyły.",
+            "Podawaj w temperaturze pokojowej lub lekko schłodzone."
+        ],
+        tip:"Babka lancetowata (Plantago lanceolata) ma mleczno-ziołowy smak i jest bogata w aukubozyd — w małych ilościach jest smacznym dodatkiem do sałatek.",
+        warn:null
+    },
+
+    // 17 — Ciasto drożdżowe z bzem
+    {
+        title:"Ciasto drożdżowe z aromatem kwiatów bzu",
+        emoji:"🎂", img:"media/10-1.jpg",
+        time:"2 godziny", portions:"10 porcji", level:"średnie", veg:true,
+        season:"Lato (VI – VII)",
+        plants:["Czarny bez (kwiat)"],
+        plantLinks:[{name:"Czarny bez",href:"10-czarny-bez.html"}],
+        ingredients:[
+            "500 g mąki pszennej",
+            "25 g drożdży świeżych (lub 7 g suchych)",
+            "250 ml ciepłego mleka",
+            "80 g masła",
+            "3 jajka",
+            "80 g cukru",
+            "szczypta soli",
+            "— Polewa bzowa —",
+            "6–8 baldachimów kwiatów czarnego bzu",
+            "200 ml wody",
+            "150 g cukru pudru",
+            "sok z 1 cytryny"
+        ],
+        steps:[
+            "Drożdże wymieszaj z łyżką cukru i ¼ mleka, odstaw 10 min do aktywacji.",
+            "Mąkę przesiej z solą, dodaj jajka, roztopione masło, cukier i drożdżowy rozczyn. Wyrabiaj 10 min.",
+            "Odstaw pod ściereczką w ciepłe miejsce na 1 h (do podwojenia objętości).",
+            "Uformuj ciasto w formie keksówki lub placka. Piecz 35 min w 180°C.",
+            "Polewa: kwiaty bzu zalej gorącą wodą z cukrem, gotuj 5 min, przecedź przez sitko. Dodaj sok cytryny.",
+            "Gorące ciasto polej polewą bzową."
+        ],
+        tip:"Kwiatów bzu nigdy nie gotuj zbyt długo — tracą aromat. Wystarczy krótkie zanurzenie we wrzącej wodzie. Smak polewa polewą jest delikatny, kwiatowy i musujący.",
+        warn:"Używaj tylko kwiatów — zielone części bzu czarnego są trujące. Nie używaj surowych owoców do jedzenia (wymagają gotowania)."
+    },
+
+    // 18 — Tarta z poziomkami
+    {
+        title:"Tarta z kremem waniliowym i poziomkami leśnymi",
+        emoji:"🎂", img:null,
+        time:"1,5 h + chłodzenie", portions:"8 porcji", level:"łatwe", veg:true,
+        season:"Lato (VI – VIII)",
+        plants:["Poziomka leśna"],
+        plantLinks:[],
+        ingredients:[
+            "— Kruche ciasto —",
+            "200 g mąki",
+            "100 g zimnego masła",
+            "50 g cukru pudru",
+            "1 żółtko",
+            "2 łyżki zimnej wody",
+            "— Krem waniliowy —",
+            "400 ml mleka",
+            "4 żółtka",
+            "3 łyżki cukru",
+            "2 łyżki mąki pszennej",
+            "1 łyżka mąki ziemniaczanej",
+            "1 laska wanilii",
+            "— Wierzch —",
+            "250–300 g poziomek leśnych"
+        ],
+        steps:[
+            "Kruche ciasto: zagnieć mąkę z masłem (kruszonka), dodaj żółtko i wodę, szybko wymieszaj. Schłodź 30 min.",
+            "Ciasto wylep formę do tarty (∅ 24 cm). Nakłuj widelcem, przykryj papierem z obciążeniem. Piecz 15 min w 200°C, zdejmij papier, piecz 10 min.",
+            "Krem: mleko z wanilią zagrzej do wrzenia. Żółtka utrzyj z cukrem, dodaj mąki. Wlej gorące mleko cienką strużką, mieszając. Gotuj na małym ogniu aż zgęstnieje.",
+            "Krem wylej na wystudzone ciasto, schłódź 2 h.",
+            "Przed podaniem ułóż poziomki na wierzchu."
+        ],
+        tip:"Leśne poziomki są kruche i nie nadają się do gotowania — układaj je surowe tuż przed podaniem. Możesz posmarować je podgrzaną konfiturą morelową dla połysku.",
+        warn:null
+    },
+
+    // 19 — Muffiny z koniczynką
+    {
+        title:"Muffiny z suszonymi kwiatami koniczyny i miodem",
+        emoji:"🎂", img:null,
+        time:"40 min", portions:"12 sztuk", level:"łatwe", veg:true,
+        season:"Lato (VI – VIII)",
+        plants:["Koniczyna łąkowa"],
+        plantLinks:[],
+        ingredients:[
+            "300 g mąki pszennej",
+            "2 łyżeczki proszku do pieczenia",
+            "szczypta soli",
+            "2 jajka",
+            "150 ml mleka",
+            "100 ml oleju",
+            "4 łyżki miodu (lipowego lub akacjowego)",
+            "3 łyżki suszonych kwiatów koniczyny czerwonej",
+            "skórka z 1 cytryny"
+        ],
+        steps:[
+            "Suszone kwiaty koniczyny rozdrobnij w palcach lub moździerzu.",
+            "Suche składniki wymieszaj w misce. Mokre w osobnej.",
+            "Połącz mokre z suchymi — mieszaj tylko do połączenia (grudki są OK).",
+            "Wlej do foremek muffinkowych (¾ wysokości).",
+            "Piecz 20–22 min w 180°C aż patyczek wychodzi suchy.",
+            "Po wyciągnięciu smaruj miodem — błyszczące i aromatyczne."
+        ],
+        tip:"Suszone kwiaty koniczyny mają intensywniejszy aromat niż świeże. Suszone możesz też parzyć jako herbatę — łagodna, lekko słodkawa.",
+        warn:null
+    },
+
+    // 20 — Naleśniki z syropem z mniszka
+    {
+        title:"Naleśniki z syropem z kwiatów mniszka",
+        emoji:"🎂", img:"media/02-2.jpg",
+        time:"45 min (+ 1 dzień na syrop)", portions:"4 porcje", level:"średnie", veg:true,
+        season:"Wiosna (IV – V)",
+        plants:["Mniszek lekarski"],
+        plantLinks:[{name:"Mniszek",href:"02-mniszek-lekarski.html"}],
+        ingredients:[
+            "— Naleśniki —",
+            "250 g mąki",
+            "2 jajka",
+            "500 ml mleka",
+            "szczypta soli",
+            "masło do smażenia",
+            "— Syrop (miód majowy) —",
+            "200 główek kwiatów mniszka (same żółte płatki!)",
+            "500 ml wody",
+            "500 g cukru",
+            "2 cytryny (plasterki)",
+            "1 pomarańcza (plasterki)"
+        ],
+        steps:[
+            "Syrop (dzień wcześniej): zalej kwiaty wrzącą wodą z cytrusami, odstaw 24 h.",
+            "Przecedź przez płótno, odciśnij. Dodaj cukier, gotuj 40–60 min aż syrop będzie gęsty jak miód.",
+            "Przelej do słoika (pasteryzuj 15 min lub przechowuj w lodówce do 3 miesięcy).",
+            "Naleśniki: wymieszaj ciasto, odstaw 20 min. Smaż na maśle cienkie naleśniki.",
+            "Podawaj z syropem i ewentualnie twarogiem lub owocami."
+        ],
+        tip:"Do syropu używaj tylko żółtych płatków — zielone części dają gorycz. Mniszek musi być zebrany z daleka od drogi i niesyconego pestycydami terenu.",
+        warn:null
+    },
+
+    // 21 — Crumble
+    {
+        title:"Crumble z jesiennymi jeżynami i jabłkiem",
+        emoji:"🎂", img:null,
+        time:"50 min", portions:"6 porcji", level:"średnie", veg:true,
+        season:"Jesień (VIII – X)",
+        plants:["Jeżyna właściwa"],
+        plantLinks:[],
+        ingredients:[
+            "400 g jeżyn",
+            "2 jabłka (pokrojone w kostkę)",
+            "2 łyżki cukru trzcinowego",
+            "1 łyżka soku z cytryny",
+            "1 łyżeczka cynamonu",
+            "— Kruszonka —",
+            "150 g płatków owsianych",
+            "100 g mąki",
+            "80 g masła (zimnego, pokrojonego)",
+            "60 g cukru",
+            "szczypta soli",
+            "Do podania: lody waniliowe lub śmietanka"
+        ],
+        steps:[
+            "Piekarnik nagrzej do 190°C.",
+            "Wymieszaj owoce z cukrem, cytryną i cynamonem. Wyłóż do żaroodpornego naczynia.",
+            "Kruszonka: wymieszaj mąkę z płatkami i cukrem. Wtrzyj masło palcami do uzyskania grudek.",
+            "Rozsyp kruszonkę równomiernie na owocach.",
+            "Piecz 35–40 min aż kruszonka złota, a owoce bulgoczą."
+        ],
+        tip:"Jeżyny z dziką miętą — dodaj garść posiekanej mięty do owoców przed przykryciem kruszonką — nadaje świeżości.",
+        warn:null
+    },
+
+    // 22 — Lemoniada z bzem
+    {
+        title:"Lemoniada z kwiatami czarnego bzu",
+        emoji:"🥤", img:"media/10-1.jpg",
+        time:"20 min + naciąganie", portions:"6 porcji", level:"łatwe", veg:true,
+        season:"Lato (VI – VII)",
+        plants:["Czarny bez (kwiat)"],
+        plantLinks:[{name:"Czarny bez",href:"10-czarny-bez.html"}],
+        ingredients:[
+            "8–10 baldachimów kwiatów czarnego bzu",
+            "1,5 l wody",
+            "200 g cukru",
+            "3 cytryny",
+            "1 limonka",
+            "lód, listki mięty do podania"
+        ],
+        steps:[
+            "Kwiaty bzu otrzep z owadów (nie myj — zmyjesz aromat). Oderwij od grubych łodyżek.",
+            "Wodę zagotuj z cukrem na syrop. Ostudź do ok. 60°C.",
+            "Dodaj kwiaty bzu i plasterki cytrusów. Przykryj, odstaw 24–48 h w lodówce.",
+            "Przecedź przez gazę lub sitko.",
+            "Rozlej do szklanek z lodem, uzupełnij wodą gazowaną. Udekoruj miętą."
+        ],
+        tip:"Im dłużej mocza się kwiaty (do 48 h), tym intensywniejszy smak. Nie gotuj kwiatów — tracą delikatny aromat muskatowy.",
+        warn:"Używaj tylko kwiatów bzu czarnego — nie krzewu bzu lilaka (Syringa). Nie stosuj zielonych, niedojrzałych kwiatostanów."
+    },
+
+    // 23 — Syrop z mniszka
+    {
+        title:"Syrop z kwiatów mniszka — „Miód majowy"",
+        emoji:"🍯", img:"media/02-1.jpg",
+        time:"2 dni", portions:"~500 ml", level:"łatwe", veg:true,
+        season:"Wiosna (IV – V)",
+        plants:["Mniszek lekarski"],
+        plantLinks:[{name:"Mniszek",href:"02-mniszek-lekarski.html"}],
+        ingredients:[
+            "200–250 główek kwiatów mniszka",
+            "500 ml wody",
+            "500 g cukru lub 350 g miodu",
+            "2 cytryny",
+            "1 pomarańcza (opcjonalnie)"
+        ],
+        steps:[
+            "Kwiaty zbierz w słoneczny dzień (południe — są najbardziej otwarte). Sprawdź czy nie ma owadów.",
+            "Odetnij zielone kielichy — można zostawić trochę dla koloru, ale zbyt dużo daje gorycz.",
+            "Zalej kwiaty i plastry cytrusów wrzącą wodą. Przykryj, odstaw 24 h.",
+            "Przecedź przez gazę lub bawełnianą ścierkę. Odciśnij dokładnie.",
+            "Płyn z cukrem gotuj 40–60 min na małym ogniu aż zgęstnieje.",
+            "Gorący przelej do wyparzonych słoiczków i zamknij lub schowaj w lodówce."
+        ],
+        tip:"Gotowy syrop ma złoty kolor i aromat zbliżony do miodu akacjowego. Trwałość: lodówka 3 miesiące, pasteryzowany do roku. Używaj jako alternatywa dla miodu — do herbaty, naleśników, jogurtu.",
+        warn:null
+    },
+
+    // 24 — Syrop z dzikiej róży
+    {
+        title:"Syrop z owoców dzikiej róży",
+        emoji:"🍵", img:null,
+        time:"1,5 h", portions:"~1 litr", level:"łatwe", veg:true,
+        season:"Jesień (IX – XI)",
+        plants:["Dzika róża (Rosa canina)"],
+        plantLinks:[],
+        ingredients:[
+            "500 g dojrzałych owoców dzikiej róży (po mrozie — słodsze)",
+            "1 l wody",
+            "400 g cukru",
+            "sok z 1 cytryny (dla koloru i trwałości)"
+        ],
+        steps:[
+            "Owoce umyj, odetnij końcówki. Przekrój i usuń nasiona + włoski (ważne!).",
+            "Gotuj 20 min w wodzie aż miękkie. Zblenduj lub rozgnieć.",
+            "Przecedź przez gęste sitko lub gazę — kilka razy, aż płyn będzie klarowny.",
+            "Dodaj cukier i gotuj 10–15 min. Dodaj sok cytryny.",
+            "Gorący przelej do słoików i pasteryzuj 15 min."
+        ],
+        tip:"1 łyżka syropu = ok. 400 mg witaminy C. Dodawaj do herbaty lub rozcieńczaj z wodą gazowaną jako napój. Owoce po mrozie są słodsze — najlepsze od listopada.",
+        warn:"Koniecznie usuń nasiona i włoski — powodują podrażnienie jelit. Nigdy nie jedz surowych nasion."
+    },
+
+    // 25 — Mrożona herbata z miętą
+    {
+        title:"Mrożona herbata zielona z miętą i limonką",
+        emoji:"🍵", img:"media/09-1.jpg",
+        time:"10 min + chłodzenie", portions:"4 porcje", level:"łatwe", veg:true,
+        season:"Lato",
+        plants:["Mięta pieprzowa"],
+        plantLinks:[{name:"Mięta",href:"09-mieta.html"}],
+        ingredients:[
+            "4 torebki zielonej herbaty lub 4 łyżeczki luźnej",
+            "800 ml wrzątku (70°C, nie 100°C!)",
+            "6 gałązek świeżej mięty pieprzowej",
+            "2 limonki",
+            "2 łyżki miodu",
+            "lód do podania"
+        ],
+        steps:[
+            "Herbatę zaparz w 70°C przez 3 min (wyższa temperatura gorzeje).",
+            "Do gorącej herbaty dodaj 4 gałązki mięty i miód. Wymieszaj, ostudź.",
+            "Schłódź w lodówce min. 1 h lub użyj lodu.",
+            "Przelej do szklanek z lodem, dodaj plasterki limonki i świeże gałązki mięty."
+        ],
+        tip:"Mięta po pogniesieniu w palcach (muddling) uwalnia więcej olejków eterycznych — intensywniejszy smak.",
+        warn:null
+    },
+
+    // 26 — Dżem z dzikiej róży
+    {
+        title:"Dżem z dzikiej róży",
+        emoji:"🫙", img:null,
+        time:"1,5 h", portions:"~3 słoiki (300 ml)", level:"średnie", veg:true,
+        season:"Jesień (IX – XI)",
+        plants:["Dzika róża (Rosa canina)"],
+        plantLinks:[],
+        ingredients:[
+            "700 g owoców dzikiej róży",
+            "350 g cukru żelującego 2:1",
+            "sok z 1 cytryny",
+            "opcjonalnie: łyżeczka wanilii lub kardamonu"
+        ],
+        steps:[
+            "Owoce umyj, przekrój, usuń WSZYSTKIE nasiona i włoski wewnątrz.",
+            "Gotuj w małej ilości wody 20 min aż miękkie. Zblenduj.",
+            "Przecedź przez sitko o drobnych oczkach (kilka razy).",
+            "Dodaj cukier żelujący i cytrynę. Gotuj wg instrukcji na opakowaniu cukru (zwykle 4 min od wrzenia).",
+            "Przelej do wyparzonych słoiczków, zamknij i odwróć do góry dnem na 10 min."
+        ],
+        tip:"Dżem z dzikiej róży pasuje do: pieczywa, tostów, jogurtu, sera owczego, dziczyzny (sos), naleśników. Trwałość: 12 miesięcy w chłodnym miejscu.",
+        warn:"Dokładne usunięcie nasion i włosków jest konieczne — mogą powodować podrażnienie jelit."
+    },
+
+    // 27 — Dżem z jeżyny i głogu
+    {
+        title:"Jesienny dżem z jeżyn i głogu",
+        emoji:"🫙", img:null,
+        time:"1 h", portions:"~4 słoiki", level:"średnie", veg:true,
+        season:"Jesień (VIII – X)",
+        plants:["Jeżyna właściwa","Głóg jednoszyjkowy"],
+        plantLinks:[],
+        ingredients:[
+            "400 g jeżyn",
+            "300 g owoców głogu (po usunięciu pestek i szypułek)",
+            "400 g cukru żelującego 1:1",
+            "sok z 1 cytryny",
+            "szczypta cynamonu"
+        ],
+        steps:[
+            "Głóg umyj, odetnij końcówki, przekrój i usuń pestki. Jeżyny umyj.",
+            "Gotuj owoce 15 min z 100 ml wody aż miękkie. Rozgnieć lub zblenduj.",
+            "Opcjonalnie: przepuść przez sitko.",
+            "Dodaj cukier, cynamon i cytrynę. Gotuj wg instrukcji na cukrze.",
+            "Przelej do słoiczków i pasteryzuj."
+        ],
+        tip:"Głóg sam z siebie ma niewiele smaku — dopiero połączony z jeżyną, śliwką lub jabłkiem tworzy kompleksowy aromat. Dżem doskonały do serów pleśniowych i do pieczeni.",
+        warn:"Pestki głogu zawierają glikozydy cyjanogenne — zawsze usuwaj je przed gotowaniem."
+    },
+
+    // 28 — Sos z pokrzywy do mięsa
+    {
+        title:"Kremowy sos z pokrzywy",
+        emoji:"🫙", img:"media/01-1.jpg",
+        time:"20 min", portions:"4 porcje", level:"łatwe", veg:true,
+        season:"Wiosna (IV – VI)",
+        plants:["Pokrzywa zwyczajna"],
+        plantLinks:[{name:"Pokrzywa",href:"01-pokrzywa.html"}],
+        ingredients:[
+            "150 g młodych liści pokrzywy",
+            "200 ml śmietany 18% lub 30%",
+            "2 ząbki czosnku",
+            "1 szalotka",
+            "1 łyżka masła",
+            "100 ml bulionu warzywnego",
+            "sól, pieprz, gałka muszkatołowa",
+            "opcjonalnie: łyżka mąki do zagęszczenia"
+        ],
+        steps:[
+            "Pokrzywę blanszuj 2 min, odciśnij i posiekaj lub zblenduj.",
+            "Szalotkę i czosnek zeszklij na maśle. Dodaj pokrzywę, smaż 2 min.",
+            "Wlej bulion, duś 5 min. Dodaj śmietanę, gotuj 3 min.",
+            "Zblenduj na gładko lub zostaw z kawałkami.",
+            "Dopraw solą, pieprzem i gałką. Podawaj do makaronu, pieczywa lub jako dip do warzyw."
+        ],
+        tip:"Sos z pokrzywy to polska alternatywa dla sosu béarnaise — zielony, kremowy i niedrogi. Pasuje też jako dip do pieczywa.",
+        warn:null
+    },
+
+    // 29 — Ocet z cykorii
+    {
+        title:"Aromatyczny ocet z kwiatów cykorii",
+        emoji:"🫙", img:null,
+        time:"5 min + 2 tygodnie", portions:"~250 ml", level:"łatwe", veg:true,
+        season:"Lato (VII – IX)",
+        plants:["Cykoria podróżnik"],
+        plantLinks:[],
+        ingredients:[
+            "10–15 świeżych kwiatów cykorii (niebieskie!)",
+            "250 ml octu winnego białego",
+            "opcjonalnie: gałązka tymianku, ziarna pieprzu"
+        ],
+        steps:[
+            "Kwiaty zbierz rano, osusz delikatnie ręcznikiem (nie myj).",
+            "Umieść w czystym słoiku z octem i opcjonalnie ziołami.",
+            "Zamknij, odstaw w ciemne, chłodne miejsce na 2 tygodnie.",
+            "Przecedź. Gotowy ocet ma niebieskofioletowy kolor, delikatny kwiatowy aromat."
+        ],
+        tip:"Ocet z cykorii jest pięknie niebiesko-fioletowy. Dodaj kilka kropli soku cytryny — zmieni kolor na różowy (reakcja antocyjanów z kwasem). Idealna dekoracja do sałatek.",
+        warn:null
+    }
+
+    ]; // end recipes array
+
+    // ============================================================
+    // UI LOGIC
+    // ============================================================
+    const overlay = document.getElementById('recipeOverlay');
+    const rboxImg = document.getElementById('rboxImg');
+    const rboxTitle = document.getElementById('rboxTitle');
+    const rboxBody = document.getElementById('rboxBody');
+    const searchInput = document.getElementById('recipeSearch');
+
+    function openRecipe(idx) {
+        const r = recipes[idx];
+        // Image
+        if (r.img) {
+            rboxImg.innerHTML = `<img src="${r.img}" alt="${r.title}" onerror="this.parentElement.innerHTML='<div class=\\'no-img\\'>${r.emoji}</div>'">`;
+        } else {
+            rboxImg.innerHTML = `<div class="no-img">${r.emoji}</div>`;
+        }
+        rboxTitle.textContent = r.title;
+        // Body
+        const levelClass = r.level === 'łatwe' ? 'badge-easy' : r.level === 'średnie' ? 'badge-med' : 'badge-hard';
+        rboxBody.innerHTML = `
+            <div class="rbox-meta">
+                <span>⏱ <strong>${r.time}</strong></span>
+                <span>👥 <strong>${r.portions}</strong></span>
+                <span><span class="badge ${levelClass}">${r.level}</span></span>
+                ${r.veg ? '<span>🌿 wegetariańskie</span>' : ''}
+                <span>📅 <strong>${r.season}</strong></span>
+            </div>
+            <div class="rbox-section">
+                <h3>🌿 Używane rośliny</h3>
+                <p style="font-size:.9rem;color:var(--text-muted)">${r.plants.map(p=>`<em>${p}</em>`).join(', ')}</p>
+                ${r.plantLinks.length ? '<div class="plant-links">'+r.plantLinks.map(l=>`<a href="${l.href}">→ ${l.name}</a>`).join('')+'</div>' : ''}
+            </div>
+            <div class="rbox-section">
+                <h3>🛒 Składniki</h3>
+                <ul>${r.ingredients.map(i=>i.startsWith('—') ? `<li style="list-style:none;color:var(--accent);font-weight:600;margin:8px 0 4px">${i}</li>` : `<li>${i}</li>`).join('')}</ul>
+            </div>
+            <div class="rbox-section">
+                <h3>👨‍🍳 Przygotowanie</h3>
+                <ol>${r.steps.map(s=>`<li>${s}</li>`).join('')}</ol>
+            </div>
+            ${r.tip ? `<div class="rbox-tip">💡 <strong>Wskazówka:</strong> ${r.tip}</div>` : ''}
+            ${r.warn ? `<div class="rbox-warn">⚠️ <strong>Uwaga:</strong> ${r.warn}</div>` : ''}
+        `;
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeRecipe() {
+        overlay.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
+    function handleOverlayClick(e) {
+        if (e.target === overlay) closeRecipe();
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeRecipe();
+    });
+
+    // Category filter
+    document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const cat = btn.dataset.cat;
+            document.querySelectorAll('.rcard').forEach(card => {
+                const matches = cat === 'all' || card.dataset.cat === cat;
+                card.classList.toggle('hidden', !matches && !matchesSearch(card));
+            });
+            applySearch();
+        });
+    });
+
+    // Search
+    function matchesSearch(card) {
+        const q = searchInput.value.toLowerCase().trim();
+        if (!q) return true;
+        const text = (card.querySelector('.rcard-title')?.textContent + ' ' +
+                      card.querySelector('.rcard-sub')?.textContent + ' ' +
+                      [...card.querySelectorAll('.plant-tag')].map(t=>t.textContent).join(' ')).toLowerCase();
+        return text.includes(q);
+    }
+
+    function applySearch() {
+        const activeCat = document.querySelector('.cat-btn.active')?.dataset.cat || 'all';
+        document.querySelectorAll('.rcard').forEach(card => {
+            const catOK = activeCat === 'all' || card.dataset.cat === activeCat;
+            const searchOK = matchesSearch(card);
+            card.classList.toggle('hidden', !(catOK && searchOK));
+        });
+    }
+
+    searchInput.addEventListener('input', applySearch);
+    </script>
+</body>
+</html>

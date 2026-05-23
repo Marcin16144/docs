@@ -73,7 +73,9 @@ pre code{color:var(--text-muted)}
 <div class="toc">
 <div class="toc-title">Spis treści</div>
 <ul>
-    <li><a href="#kontekst">1. Kontekst — co to jest creator stron i kiedy go pisać samemu</a></li>
+    <li><a href="#kontekst">1. Kontekst — co to jest creator stron i kiedy go pisać samemu</a>
+        <ul><li><a href="#inne-hostingi">1a. Inne hostingi — nie tylko nazwa.pl i home.pl</a></li></ul>
+    </li>
     <li><a href="#ograniczenia">2. Co dają (i czego NIE dają) hostingi typu nazwa.pl / home.pl</a></li>
     <li><a href="#stack">3. Dobór stacku PHP + JS dla shared hostingu</a></li>
     <li><a href="#architektura">4. Architektura creatora — moduły i odpowiedzialności</a></li>
@@ -83,10 +85,16 @@ pre code{color:var(--text-muted)}
     <li><a href="#renderowanie">8. Render bloków — server-side w PHP</a></li>
     <li><a href="#multi-tenant">9. Multi-tenant (jedna instalacja, wiele stron klientów)</a></li>
     <li><a href="#deployment">10. Deployment bez SSH/Node — build lokalnie, wgraj FTP</a></li>
-    <li><a href="#bezpieczenstwo">11. Bezpieczeństwo na shared hostingu</a></li>
-    <li><a href="#wydajnosc">12. Wydajność: cache, CDN, lazy loading</a></li>
-    <li><a href="#model-biznesowy">13. Model biznesowy: SaaS vs licencja vs custom</a></li>
-    <li><a href="#alternatywy">14. Kiedy NIE pisać samemu — alternatywy</a></li>
+    <li><a href="#pluginy">11. System pluginów i automatyczne aktualizacje</a>
+        <ul>
+            <li><a href="#plugin-struktura">11a. Struktura i ładowanie pluginów</a></li>
+            <li><a href="#auto-update-mechanizm">11b. Mechanizm self-update krok po kroku</a></li>
+        </ul>
+    </li>
+    <li><a href="#bezpieczenstwo">12. Bezpieczeństwo na shared hostingu</a></li>
+    <li><a href="#wydajnosc">13. Wydajność: cache, CDN, lazy loading</a></li>
+    <li><a href="#model-biznesowy">14. Model biznesowy: SaaS vs licencja vs custom</a></li>
+    <li><a href="#alternatywy">15. Kiedy NIE pisać samemu — alternatywy</a></li>
 </ul>
 </div>
 
@@ -107,6 +115,56 @@ pre code{color:var(--text-muted)}
 </table>
 
 <div class="tip">💡 Realny scenariusz w 2026: <strong>agencja web</strong> obsługująca 50–500 stron lokalnych firm. Klienci są na nazwa.pl/home.pl bo "tak ich kuzyn poradził 10 lat temu". Własny creator pozwala wyceniać tańsze pakiety i mieć kontrolę nad UX.</div>
+
+<h3 id="inne-hostingi">Inne hostingi — nie tylko nazwa.pl i home.pl</h3>
+
+<p>nazwa.pl i home.pl to <strong>najpopularniejsze</strong>, ale wcale nie najlepsze dla developera. Rynek 2026 oferuje hostingi, które mają dokładnie to, czego brakuje „klasykom" — <strong>SSH, Composer, Git, a czasem nawet Node.js</strong>. Warto je znać, bo wybór hostingu <em>zmienia architekturę całego projektu</em> (rozdziały 3 i 10 zakładają najgorszy przypadek — brak SSH).</p>
+
+<h4>Polskie hostingi współdzielone — developer-friendly</h4>
+
+<table>
+<tr><th>Hosting</th><th>SSH</th><th>Composer / Git</th><th>Node.js / inne języki</th><th>Dla kogo</th></tr>
+<tr><td><strong>MyDevil.net</strong> <span class="tag green">TOP dla dev</span></td><td>✅ standardowo</td><td>✅ Composer, ✅ Git</td><td>✅ Node.js, Python, Ruby, Perl — wybór wersji z panelu</td><td>Developer chcący pełnej swobody; cron co minutę, własne demony, nawet WebSocket</td></tr>
+<tr><td><strong>zenbox.pl</strong></td><td>✅ większość planów</td><td>✅ Composer, ✅ Git, WP-CLI</td><td>❌ Node.js (PHP 8.x, LiteSpeed)</td><td>Nowoczesny panel, dobry support, szybkie WordPressy</td></tr>
+<tr><td><strong>LH.pl</strong></td><td>✅</td><td>✅ Composer, ✅ Git</td><td>⚠️ Node.js na wybranych planach</td><td>Hosting „pod programistę", deploy z Git</td></tr>
+<tr><td><strong>dhosting.pl</strong></td><td>✅ na Cloud/wyższych</td><td>✅ na wyższych planach</td><td>❌</td><td>Stabilny cloud hosting, skalowalne zasoby</td></tr>
+<tr><td><strong>hostido.pl</strong></td><td>✅ na wyższych</td><td>✅ na wyższych</td><td>❌</td><td>Bardzo dobry support, sensowna cena</td></tr>
+<tr><td><strong>cyber_Folks</strong> <span class="tag">grupa</span></td><td>✅ (większość)</td><td>✅ na Cloud</td><td>❌</td><td>Grupa właścicielska wielu marek (m.in. cal.pl, kei.pl) — patrz tabela w rozdz. 2</td></tr>
+</table>
+
+<div class="tip">💡 <strong>MyDevil.net łamie cały „najgorszy scenariusz" tego przewodnika.</strong> Jeśli klient nie jest przywiązany do nazwa.pl/home.pl — przeniesienie na MyDevil daje SSH, Composera, Git i Node.js. Wtedy możesz robić normalny pipeline (<code>git pull</code> + <code>composer install</code> na serwerze), a nawet SSR w Node. Rozdział 10 (deploy bez SSH) staje się wtedy zbędny.</div>
+
+<h4>Hostingi międzynarodowe</h4>
+
+<table>
+<tr><th>Hosting</th><th>Charakterystyka</th><th>SSH / Composer</th><th>Uwagi 2026</th></tr>
+<tr><td><strong>Hostinger</strong> <span class="tag green">tani</span></td><td>Bardzo niska cena, panel hPanel, serwery LiteSpeed, datacenter też w UE</td><td>✅ SSH i Composer od planu Premium wzwyż</td><td>Świetny stosunek ceny do możliwości; Node.js brak na shared</td></tr>
+<tr><td><strong>OVHcloud</strong></td><td>Francuski gigant, Web Hosting (Perso / Pro / Performance) + VPS + dedyki, datacenter także w Polsce (Warszawa)</td><td>✅ SSH na Pro/Performance, Composer OK</td><td>Solidny, ale panel mniej intuicyjny; łatwa ścieżka migracji shared → VPS u tego samego dostawcy</td></tr>
+<tr><td><strong>Hetzner</strong></td><td>Niemiecki, znany z tanich VPS/dedyków; ma też webhosting (panel Konsoleh)</td><td>⚠️ Webhosting ograniczony; pełnia możliwości dopiero na Cloud/VPS</td><td>Najlepszy gdy i tak myślisz o VPS — patrz niżej</td></tr>
+</table>
+
+<h4>VPS jako alternatywa dla shared</h4>
+
+<p>Jeśli creator ma być <strong>SaaS-em multi-tenant</strong> (rozdział 9) albo potrzebuje queue workerów, Redisa czy WebSocketów — shared hosting zawsze będzie kompromisem. Tani VPS rozwiązuje to raz na zawsze:</p>
+
+<table>
+<tr><th>VPS</th><th>Cena orientacyjna</th><th>Dla kogo</th></tr>
+<tr><td><strong>mikr.us</strong> <span class="tag green">PL, mikro</span></td><td>od ~5–20 zł/mc</td><td>Polski mikro-VPS, kultowy wśród hobbystów; idealny do nauki, małych projektów, crona i botów</td></tr>
+<tr><td><strong>Hetzner Cloud</strong></td><td>od ~4 €/mc</td><td>Najlepszy stosunek mocy do ceny w Europie; pełen root, snapshoty, API</td></tr>
+<tr><td><strong>OVH VPS</strong></td><td>od ~4–6 €/mc</td><td>Gdy chcesz zostać w jednym ekosystemie z hostingiem OVH</td></tr>
+<tr><td><strong>DigitalOcean / Contabo</strong></td><td>od ~4–6 $/€/mc</td><td>DO — świetna dokumentacja i tutoriale; Contabo — dużo RAM/dysku za małe pieniądze</td></tr>
+</table>
+
+<div class="warn">⚠️ VPS = <strong>sam administrujesz</strong> serwerem (aktualizacje, firewall, backupy, certyfikaty). To dodatkowa praca i odpowiedzialność. Na shared hostingu robi to za Ciebie dostawca. Jeśli nie czujesz się pewnie w Linuksie — zostań na shared developer-friendly (MyDevil/zenbox) albo użyj panelu (CloudPanel, aaPanel, Coolify) na VPS.</div>
+
+<div class="note">📋 <strong>Jak wybrać — szybka decyzja:</strong>
+<ul>
+<li><strong>Klient już ma nazwa.pl/home.pl i nie chce migrować</strong> → akceptujesz ograniczenia, build lokalnie + FTP (reszta przewodnika).</li>
+<li><strong>Klient jest elastyczny, chcesz wygody dev</strong> → MyDevil.net lub zenbox.pl (SSH + Composer + Git).</li>
+<li><strong>Budujesz SaaS multi-tenant, potrzebujesz workerów/Redis/WS</strong> → VPS (Hetzner Cloud / mikr.us na start).</li>
+<li><strong>Liczy się głównie cena dla wielu małych stron</strong> → Hostinger albo pakiet reseller u polskiego dostawcy.</li>
+</ul>
+</div>
 
 <h2 id="ograniczenia">2. Co dają (i czego NIE dają) hostingi typu nazwa.pl / home.pl</h2>
 
@@ -839,7 +897,299 @@ php artisan migrate --pretend &gt; migrations/2026_05_21_release.sql
 
 <div class="bad">❌ <strong>Nie commituj <code>vendor/</code> i <code>node_modules/</code> do gita.</strong> Buduj lokalnie / w CI, deployuj tylko skompilowane.</div>
 
-<h2 id="bezpieczenstwo">11. Bezpieczeństwo na shared hostingu</h2>
+<h2 id="pluginy">11. System pluginów i automatyczne aktualizacje</h2>
+
+<p>Jeśli creator ma żyć dłużej niż jeden projekt — potrzebujesz dwóch rzeczy: <strong>rozszerzalności</strong> (dodawanie funkcji bez dotykania rdzenia) i <strong>aktualizacji</strong> (poprawki i nowe wersje u klientów bez ręcznego FTP do każdego z 200 hostingów). Oba są trudniejsze na shared hostingu — ale wykonalne.</p>
+
+<h3 id="plugin-czym-jest">Czym jest plugin w creatorze stron</h3>
+
+<p>„Plugin" w page builderze to nie jedno pojęcie. W praktyce rozszerzasz creator na cztery sposoby:</p>
+
+<table>
+<tr><th>Typ rozszerzenia</th><th>Co dodaje</th><th>Przykład</th></tr>
+<tr><td><strong>Blok</strong> <span class="tag green">najczęstsze</span></td><td>Nowy element drag &amp; drop w edytorze + jego render w PHP</td><td>Galeria, mapa Google, formularz, slider, cennik</td></tr>
+<tr><td><strong>Integracja</strong></td><td>Połączenie z usługą zewnętrzną</td><td>Przelewy24, InPost, Allegro, Mailchimp, GA4</td></tr>
+<tr><td><strong>Motyw / skórka</strong></td><td>Zestaw stylów, presetów kolorów, fontów</td><td>„Restauracja", „Fryzjer", „Kancelaria"</td></tr>
+<tr><td><strong>Pole / typ danych</strong></td><td>Nowy typ contentu lub pole formularza</td><td>Rezerwacje, kalendarz, opinie z gwiazdkami</td></tr>
+</table>
+
+<div class="tip">💡 Zacznij od <strong>jednego</strong> typu — pluginu-bloku. Jest najprostszy (rejestruje się w systemie bloków z rozdziału 8) i pokrywa 80% potrzeb. Integracje i motywy dorzucisz później na tym samym mechanizmie ładowania.</div>
+
+<h3 id="plugin-struktura">Struktura pluginu</h3>
+
+<p>Plugin to <strong>katalog</strong> z manifestem i kodem PHP. Bez Composera w runtime — czysty PHP, żeby działał na nazwa.pl/home.pl.</p>
+
+<pre><code>plugins/
+  gallery/
+    plugin.json          ← manifest (metadane, wersja, wymagania)
+    GalleryPlugin.php     ← klasa główna (implementuje PluginInterface)
+    blocks/
+      GalleryBlock.php    ← definicja bloku
+    views/
+      gallery.php         ← szablon renderujący (server-side)
+    assets/
+      gallery.css         ← style (kopiowane do public/ przy aktywacji)
+      gallery.js          ← mały skrypt (lightbox)
+    migrations/
+      001_create_gallery_items.sql
+</code></pre>
+
+<h4>plugin.json — manifest</h4>
+
+<pre><code>{
+  "slug": "gallery",
+  "name": "Galeria zdjęć",
+  "version": "1.2.0",
+  "author": "Twoja Agencja",
+  "description": "Blok galerii z lightboxem",
+  "type": "block",
+  "requires": {
+    "core": "&gt;=2.0.0",
+    "php": "&gt;=8.1"
+  },
+  "entry": "GalleryPlugin.php",
+  "class": "Plugins\\Gallery\\GalleryPlugin",
+  "assets": ["assets/gallery.css", "assets/gallery.js"],
+  "update_url": "https://updates.twojadomena.pl/plugins/gallery"
+}</code></pre>
+
+<h3 id="plugin-ladowanie">Ładowanie i rejestracja pluginów</h3>
+
+<p>Rdzeń ma <strong>PluginManager</strong>: skanuje katalog <code>plugins/</code>, czyta manifesty, sprawdza zgodność wersji i ładuje aktywne pluginy. Komunikacja przez <strong>system hooków</strong> (event bus) — plugin nie modyfikuje rdzenia, tylko „podpina się" do zdarzeń.</p>
+
+<pre><code>&lt;?php
+// Kontrakt każdego pluginu
+interface PluginInterface {
+    public function register(HookBus $hooks): void;  // podpięcie pod zdarzenia
+    public function activate(): void;                 // jednorazowo: migracje, kopiowanie assetów
+    public function deactivate(): void;               // sprzątanie
+}
+
+// Prosty event bus — zero zależności, działa wszędzie
+class HookBus {
+    private array $listeners = [];
+    public function on(string $event, callable $cb): void {
+        $this->listeners[$event][] = $cb;
+    }
+    public function emit(string $event, mixed $payload = null): mixed {
+        foreach ($this->listeners[$event] ?? [] as $cb) {
+            $payload = $cb($payload) ?? $payload;   // filtry mogą zmieniać payload
+        }
+        return $payload;
+    }
+}
+
+// Manager — skanuje, waliduje, ładuje
+class PluginManager {
+    public function __construct(
+        private string $dir,           // ścieżka do plugins/
+        private string $coreVersion,   // np. "2.3.1"
+        private array  $enabled        // sluginy aktywne (z DB)
+    ) {}
+
+    public function loadAll(HookBus $hooks): void {
+        foreach (glob($this->dir.'/*/plugin.json') as $manifestPath) {
+            $m = json_decode(file_get_contents($manifestPath), true);
+            if (!$m || !in_array($m['slug'], $this->enabled, true)) continue;
+
+            // Walidacja wymagań
+            if (!$this->satisfies($this->coreVersion, $m['requires']['core'] ?? '*')) {
+                error_log("Plugin {$m['slug']}: wymaga core {$m['requires']['core']}");
+                continue;
+            }
+            if (version_compare(PHP_VERSION, ltrim($m['requires']['php'] ?? '0', '&gt;=v'), '&lt;')) {
+                continue;
+            }
+
+            require_once dirname($manifestPath).'/'.$m['entry'];
+            /** @var PluginInterface $plugin */
+            $plugin = new $m['class']();
+            $plugin->register($hooks);
+        }
+    }
+
+    private function satisfies(string $version, string $constraint): bool {
+        // uproszczone: obsługa ">=X.Y.Z" i "*"
+        if ($constraint === '*') return true;
+        if (str_starts_with($constraint, '&gt;=')) {
+            return version_compare($version, trim(substr($constraint, 2)), '&gt;=');
+        }
+        return $version === $constraint;
+    }
+}</code></pre>
+
+<p>Plugin-blok podpina się do systemu bloków z rozdziału 8:</p>
+
+<pre><code>&lt;?php
+namespace Plugins\Gallery;
+
+class GalleryPlugin implements \PluginInterface {
+    public function register(\HookBus $hooks): void {
+        // Rejestracja nowego typu bloku w edytorze i rendererze
+        $hooks->on('blocks.register', function(array $blocks) {
+            $blocks['gallery'] = [
+                'label'    => 'Galeria',
+                'icon'     => 'image',
+                'renderer' => [GalleryBlock::class, 'render'],
+                'schema'   => GalleryBlock::schema(),  // pola edytowalne
+            ];
+            return $blocks;
+        });
+        // Dorzucenie CSS tylko gdy blok jest na stronie
+        $hooks->on('page.assets', fn($a) => $a);
+    }
+    public function activate(): void {
+        // uruchom migrations/*.sql, skopiuj assets/ do public/plugins/gallery/
+    }
+    public function deactivate(): void { /* opcjonalne sprzątanie */ }
+}</code></pre>
+
+<div class="tip">💡 Zdarzenia, które warto wystawić w rdzeniu: <code>blocks.register</code>, <code>page.assets</code>, <code>page.render.before/after</code>, <code>admin.menu</code>, <code>form.submit</code>, <code>cron.run</code>. To wystarcza na większość pluginów.</div>
+
+<h3 id="plugin-bezpieczenstwo">Bezpieczeństwo pluginów</h3>
+
+<div class="warn">⚠️ <strong>Na shared hostingu nie ma realnego sandboxa.</strong> Plugin to PHP wykonywany z pełnymi prawami Twojej aplikacji — może czytać DB, pliki, wysyłać maile. <code>disable_functions</code> coś ogranicza, ale to nie izolacja.</div>
+
+<p>Model zaufania w praktyce:</p>
+<ul>
+<li><strong>Pluginy tylko od Ciebie / zweryfikowanych autorów</strong> — żadnego „marketplace" z kodem od obcych, jeśli nie robisz review.</li>
+<li><strong>Podpisuj pakiety</strong> (sekcja o aktualizacjach niżej) — instalujesz tylko podpisane.</li>
+<li><strong>Code review</strong> przed dodaniem do repozytorium pluginów — szukaj <code>eval</code>, <code>system</code>, <code>base64_decode</code>, dynamicznych <code>require</code> z URL.</li>
+<li><strong>Manifest deklaruje uprawnienia</strong> (np. <code>"permissions": ["db", "mail", "http"]</code>) — przynajmniej widać, co plugin robi.</li>
+<li><strong>Multi-tenant:</strong> plugin jednego klienta nie może widzieć danych innego — patrz rozdział 9.</li>
+</ul>
+
+<h3 id="plugin-multitenant">Multi-tenant a pluginy</h3>
+
+<p>Przy jednej instalacji obsługującej wiele stron (rozdział 9) pliki pluginów są <strong>wspólne</strong>, ale <strong>aktywacja jest per-tenant</strong>:</p>
+
+<pre><code>-- Które pluginy ma włączone dana strona klienta
+CREATE TABLE tenant_plugins (
+    tenant_id   INT NOT NULL,
+    plugin_slug VARCHAR(64) NOT NULL,
+    enabled     TINYINT(1) DEFAULT 1,
+    settings    JSON,                  -- konfiguracja per-tenant
+    PRIMARY KEY (tenant_id, plugin_slug)
+);</code></pre>
+
+<p>Dzięki temu możesz sprzedawać pluginy jako <strong>dodatki płatne</strong> — klient w tańszym pakiecie ma 5 bloków, w droższym 30.</p>
+
+<h3 id="auto-update-wyzwanie">Automatyczna aktualizacja — wyzwanie shared hostingu</h3>
+
+<p>Masz 200 stron klientów na 200 hostingach. Wychodzi krytyczna poprawka bezpieczeństwa. <strong>Ręczny FTP do każdej = kilka dni pracy.</strong> Potrzebujesz auto-update — modelu, który zna każdy użytkownik WordPressa.</p>
+
+<p>Ograniczenia z rozdziału 2 utrudniają sprawę:</p>
+<ul>
+<li>❌ Brak SSH / Composera → aktualizacja musi działać <strong>z poziomu PHP</strong> (sam się aktualizuje).</li>
+<li>❌ Brak <code>git pull</code> → pobierasz <strong>spakowany pakiet</strong> (ZIP) po HTTPS.</li>
+<li>⚠️ Cron jest, ale rzadki → sprawdzanie wersji co kilka godzin, nie co minutę.</li>
+<li>⚠️ Prawa do plików → PHP musi mieć prawo nadpisać własne pliki (zwykle ma, bo właściciel ten sam).</li>
+</ul>
+
+<h3 id="auto-update-mechanizm">Mechanizm self-update krok po kroku</h3>
+
+<p>Serwer aktualizacji (Twój — np. <code>updates.twojadomena.pl</code>) wystawia dwa zasoby: <strong>endpoint wersji</strong> (JSON) i <strong>pakiety ZIP</strong>. Aplikacja klienta odpytuje go z crona.</p>
+
+<table>
+<tr><th>Krok</th><th>Co się dzieje</th><th>Zabezpieczenie</th></tr>
+<tr><td>1. Sprawdzenie</td><td>Cron odpytuje <code>/version?current=2.3.1&amp;key=LICENCJA</code></td><td>Klucz licencyjny — tylko klienci dostają update</td></tr>
+<tr><td>2. Pobranie</td><td>Jest nowsza → pobierz <code>core-2.4.0.zip</code> + <code>core-2.4.0.zip.sig</code></td><td>HTTPS (TLS) — brak MITM</td></tr>
+<tr><td>3. Weryfikacja</td><td>Sprawdź podpis pakietu kluczem publicznym wbudowanym w aplikację</td><td><strong>Podpis cyfrowy</strong> — sednem bezpieczeństwa</td></tr>
+<tr><td>4. Backup</td><td>Spakuj obecne pliki + dump DB do <code>storage/backups/</code></td><td>Rollback jeśli coś padnie</td></tr>
+<tr><td>5. Maintenance</td><td>Włącz tryb serwisowy (plik-flaga → strona pokazuje „chwilowa przerwa")</td><td>Brak ruchu w trakcie podmiany</td></tr>
+<tr><td>6. Rozpakowanie</td><td>Rozpakuj ZIP do katalogu tymczasowego, potem podmień pliki</td><td>Atomowo na ile się da</td></tr>
+<tr><td>7. Migracje</td><td>Uruchom nowe pliki <code>migrations/*.sql</code></td><td>Wersjonowane, idempotentne</td></tr>
+<tr><td>8. Finał</td><td>Zapisz nową wersję, wyczyść cache, wyłącz maintenance</td><td>—</td></tr>
+</table>
+
+<pre><code>&lt;?php
+// Uruchamiane z crona: php cron/update.php
+class SelfUpdater {
+    private string $updateServer = 'https://updates.twojadomena.pl';
+
+    public function run(string $currentVersion, string $licenseKey): void {
+        // 1. Sprawdź dostępność nowej wersji
+        $info = json_decode(file_get_contents(
+            "{$this->updateServer}/version?current={$currentVersion}&amp;key={$licenseKey}"
+        ), true);
+        if (!$info || version_compare($info['latest'], $currentVersion, '&lt;=')) {
+            return; // aktualny
+        }
+
+        $tmp = sys_get_temp_dir().'/update_'.$info['latest'];
+        @mkdir($tmp, 0755, true);
+
+        // 2. Pobierz pakiet + podpis
+        $zip = $tmp.'/core.zip';
+        file_put_contents($zip, file_get_contents($info['package_url']));
+        $sig = file_get_contents($info['signature_url']);
+
+        // 3. Weryfikacja podpisu (klucz publiczny wbudowany w aplikację)
+        if (!$this->verifySignature($zip, $sig)) {
+            error_log('UPDATE: zły podpis pakietu — przerwano!');
+            return;
+        }
+
+        // 4. Backup (pliki + baza)
+        $this->backup();
+
+        // 5. Tryb serwisowy
+        touch(__DIR__.'/../storage/MAINTENANCE');
+
+        try {
+            // 6. Rozpakuj i podmień
+            $archive = new ZipArchive();
+            $archive->open($zip);
+            $archive->extractTo($tmp.'/files');
+            $archive->close();
+            $this->replaceFiles($tmp.'/files', __DIR__.'/..');
+
+            // 7. Migracje DB
+            $this->runMigrations($tmp.'/files/migrations');
+
+            // 8. Finał
+            file_put_contents(__DIR__.'/../storage/version', $info['latest']);
+            $this->clearCache();
+        } catch (\Throwable $e) {
+            error_log('UPDATE failed: '.$e->getMessage());
+            $this->rollback();          // przywróć z backupu
+        } finally {
+            @unlink(__DIR__.'/../storage/MAINTENANCE');  // wyłącz serwis
+        }
+    }
+
+    private function verifySignature(string $file, string $sig): bool {
+        $pubKey = file_get_contents(__DIR__.'/update_public.pem');
+        return openssl_verify(
+            file_get_contents($file), base64_decode($sig), $pubKey,
+            OPENSSL_ALGO_SHA256
+        ) === 1;
+    }
+    // backup(), replaceFiles(), runMigrations(), rollback(), clearCache() — analogicznie
+}</code></pre>
+
+<div class="tip">💡 <strong>Tryb serwisowy = jeden plik.</strong> Front-controller na starcie sprawdza <code>if (file_exists('storage/MAINTENANCE')) { http_response_code(503); echo '...'; exit; }</code>. Zero zależności, działa na każdym hostingu.</div>
+
+<h3 id="auto-update-pluginy">Aktualizacja pluginów</h3>
+
+<p>Ten sam mechanizm, ale per-plugin. Każdy <code>plugin.json</code> ma <code>update_url</code> — manager okresowo sprawdza wersje i pokazuje w panelu admina „Dostępne aktualizacje (3)", jak w WordPressie. Aktualizacja pluginu = pobranie ZIP-a, weryfikacja podpisu, podmiana katalogu <code>plugins/&lt;slug&gt;/</code>, uruchomienie jego migracji.</p>
+
+<h3 id="auto-update-bezpieczenstwo">Bezpieczeństwo aktualizacji — krytyczne</h3>
+
+<div class="bad">❌ <strong>Auto-update bez podpisu cyfrowego to backdoor.</strong> Jeśli ktoś przejmie Twój serwer aktualizacji albo podmieni DNS — wgra dowolny kod na 200 stron klientów naraz. HTTPS chroni transmisję, ale nie źródło. <strong>Podpis (klucz prywatny u Ciebie, publiczny w aplikacji) jest obowiązkowy.</strong></div>
+
+<ul>
+<li><strong>Podpisuj każdy pakiet</strong> kluczem prywatnym trzymanym offline (nie na serwerze update!).</li>
+<li><strong>Klucz publiczny</strong> wbudowany w aplikację — aktualizacja odrzucana, gdy podpis się nie zgadza.</li>
+<li><strong>Zawsze backup przed</strong> — i przetestowany rollback. Update, który się wywali w połowie, nie może zostawić martwej strony.</li>
+<li><strong>Wersjonuj migracje</strong> i rób je idempotentnymi (<code>CREATE TABLE IF NOT EXISTS</code>, sprawdzaj kolumny przed <code>ALTER</code>).</li>
+<li><strong>Kanał stabilny vs beta</strong> — nie wypychaj wszystkim naraz; najpierw 5% stron, obserwuj logi, potem reszta.</li>
+<li><strong>Log aktualizacji</strong> — kto, kiedy, z jakiej na jaką wersję; przy problemie wiesz gdzie szukać.</li>
+</ul>
+
+<div class="note">📋 <strong>Minimalna wersja na start:</strong> nie buduj od razu marketplace pluginów i kanałów beta. Wystarczy: (1) pluginy-bloki ładowane z katalogu, (2) self-update rdzenia z podpisem i backupem, uruchamiany z crona raz dziennie. Resztę dołożysz, gdy liczba klientów to uzasadni.</div>
+
+<h2 id="bezpieczenstwo">12. Bezpieczeństwo na shared hostingu</h2>
 
 <h3>Krytyczne ustawienia .htaccess</h3>
 
@@ -942,7 +1292,7 @@ foreach (glob("$dir/*-{*-*-*}.{sql.gz,tar.gz}", GLOB_BRACE) as $f) {
 
 <div class="warn">⚠️ Na nazwa.pl/home.pl <code>shell_exec()</code> czasem jest <strong>disabled</strong> w php.ini (sprawdź <code>disable_functions</code>). Zamiennik: <strong>PHP-only mysqldump</strong> — gotowa biblioteka <code>ifsnop/mysqldump-php</code>.</div>
 
-<h2 id="wydajnosc">12. Wydajność: cache, CDN, lazy loading</h2>
+<h2 id="wydajnosc">13. Wydajność: cache, CDN, lazy loading</h2>
 
 <h3>Cache piętrowy</h3>
 
@@ -1001,7 +1351,7 @@ foreach ($sizes as $name =&gt; $width) {
     $resized-&gt;toWebp(quality: 80)-&gt;save("uploads/{$id}-{$name}.webp");
 }</code></pre>
 
-<h2 id="model-biznesowy">13. Model biznesowy: SaaS vs licencja vs custom</h2>
+<h2 id="model-biznesowy">14. Model biznesowy: SaaS vs licencja vs custom</h2>
 
 <table>
 <tr><th>Model</th><th>Jak działa</th><th>Twoje koszty</th><th>Przychód</th></tr>
@@ -1013,7 +1363,7 @@ foreach ($sizes as $name =&gt; $width) {
 
 <div class="tip">💡 Najmniejsza inwestycja czasowa, największy upside: <strong>SaaS niche'owy</strong> — np. "creator stron tylko dla salonów fryzjerskich w Polsce" z integracją Booksy i Allegro. Mała grupa = wąskie wymagania = mniej feature creep.</div>
 
-<h2 id="alternatywy">14. Kiedy NIE pisać samemu — alternatywy</h2>
+<h2 id="alternatywy">15. Kiedy NIE pisać samemu — alternatywy</h2>
 
 <table>
 <tr><th>Co potrzebujesz</th><th>Rozważ zamiast pisać</th></tr>

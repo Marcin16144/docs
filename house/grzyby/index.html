@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grzyby jadalne — Polska, Słowacja, Czechy</title>
+    <style>
+        :root{--bg:#0f130a;--surface:#1a1e12;--surface-hi:#23281a;--border:#2e3820;--text:#efe8d8;--text-muted:#a09878;--accent:#c8943c;--accent-hover:#e0aa52;--warn:#fbbf24;--danger:#f87171;--earth:#6b4020}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;min-height:100vh}
+
+        .hero{text-align:center;padding:52px 20px 36px;background:linear-gradient(135deg,#1e180c 0%,#0f130a 50%,#1a1a0a 100%);border-bottom:1px solid var(--border)}
+        .hero h1{font-size:2.4rem;font-weight:700;margin-bottom:10px;background:linear-gradient(135deg,var(--accent),var(--earth));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .hero p{color:var(--text-muted);font-size:1rem;max-width:600px;margin:0 auto}
+        .quick-tools{max-width:900px;margin:20px auto 0;padding:0 20px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+        .quick-tools a{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);color:var(--accent);text-decoration:none;padding:7px 14px;border-radius:20px;font-size:0.85rem;font-weight:500;transition:all .15s}
+        .quick-tools a:hover{background:rgba(200,148,60,.1);border-color:var(--accent);transform:translateY(-2px)}
+
+        .container{max-width:1080px;margin:0 auto;padding:36px 20px 80px}
+        .plant-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+        .plant-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;color:var(--text);transition:all .2s}
+        .plant-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.3)}
+        .plant-photo{background:var(--surface-hi);height:170px;overflow:hidden;position:relative}
+        .plant-photo img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+        .plant-card:hover .plant-photo img{transform:scale(1.05)}
+        .plant-info{padding:14px 16px}
+        .plant-info h2{font-size:1rem;font-weight:600;color:var(--accent);margin-bottom:3px}
+        .plant-info .latin{color:var(--text-muted);font-size:.75rem;font-style:italic;margin-bottom:7px}
+        .plant-info p{color:var(--text-muted);font-size:.82rem;margin-bottom:7px}
+        .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+        .tag{display:inline-block;font-size:.65rem;padding:2px 7px;border-radius:4px;font-weight:600}
+        .tag-leaf{background:rgba(200,148,60,.15);color:var(--accent)}
+        .tag-flower{background:rgba(251,191,36,.15);color:var(--warn)}
+        .tag-root{background:rgba(107,64,32,.25);color:#c88a50}
+        .tag-fruit{background:rgba(167,139,250,.15);color:#a78bfa}
+        .tag-warn{background:rgba(248,113,113,.15);color:var(--danger)}
+
+        .intro-note{background:linear-gradient(135deg,rgba(248,113,113,.08),rgba(251,191,36,.05));border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:14px 18px;margin-bottom:22px;font-size:.88rem;color:var(--text-muted)}
+        .intro-note strong{color:var(--danger)}
+        .section-head{color:var(--accent);margin-bottom:14px;font-size:1.4rem}
+        footer{text-align:center;padding:28px;color:var(--text-muted);font-size:.82rem;border-top:1px solid var(--border)}
+
+        .modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.78);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .2s}
+        .modal-overlay.open{opacity:1;pointer-events:all}
+        .modal{background:var(--surface);border:1px solid var(--border);border-radius:18px;max-width:740px;width:100%;max-height:92vh;overflow-y:auto;position:relative;transform:translateY(24px) scale(.97);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:0 32px 80px rgba(0,0,0,.65)}
+        .modal-overlay.open .modal{transform:translateY(0) scale(1)}
+
+        .modal-gallery{position:relative;height:280px;background:var(--surface-hi);border-radius:18px 18px 0 0;overflow:hidden;flex-shrink:0}
+        .gallery-img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;transition:opacity .35s;opacity:0}
+        .gallery-img.active{opacity:1}
+
+        .modal-top-nav{position:absolute;top:0;left:0;right:0;z-index:4;display:flex;align-items:center;justify-content:space-between;padding:10px 50px 10px 12px;background:linear-gradient(to bottom,rgba(0,0,0,.65) 0%,transparent 100%)}
+        .top-nav-btn{background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:38px;height:38px;cursor:pointer;font-size:1.15rem;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+        .top-nav-btn:hover:not(:disabled){background:rgba(200,148,60,.7);border-color:var(--accent)}
+        .top-nav-btn:disabled{opacity:.25;cursor:default}
+        .top-nav-counter{color:#fff;font-size:.82rem;font-weight:700;background:rgba(0,0,0,.45);padding:4px 12px;border-radius:20px;letter-spacing:.03em}
+
+        .gal-btn{position:absolute;top:50%;transform:translateY(-50%);z-index:3;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:1.05rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .gal-btn:hover:not(:disabled){background:rgba(200,148,60,.6)}
+        .gal-btn:disabled{opacity:.2;cursor:default}
+        .gal-prev{left:8px}
+        .gal-next{right:8px}
+
+        .gal-dots{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:3}
+        .gal-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.45);border:none;cursor:pointer;transition:all .15s;padding:0}
+        .gal-dot.active{background:#fff;transform:scale(1.3)}
+
+        .modal-close{position:absolute;top:10px;right:10px;z-index:5;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .modal-close:hover{background:rgba(248,113,113,.5);border-color:var(--danger)}
+
+        .modal-body{padding:20px 24px 24px}
+        .modal-header{margin-bottom:14px}
+        .modal-header h2{font-size:1.5rem;font-weight:700;color:var(--accent);margin-bottom:3px}
+        .modal-header .latin{color:var(--text-muted);font-size:.87rem;font-style:italic}
+        .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+        .modal-info-box{background:var(--surface-hi);border:1px solid var(--border);border-radius:8px;padding:9px 13px}
+        .modal-info-box .label{font-size:.68rem;color:var(--text-muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em}
+        .modal-info-box .value{font-size:.88rem;font-weight:600}
+        .modal-uses{margin:14px 0}
+        .modal-uses h3{font-size:.78rem;color:var(--text-muted);margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+        .modal-uses ul{list-style:none;display:flex;flex-wrap:wrap;gap:5px}
+        .modal-uses li{background:rgba(200,148,60,.1);border:1px solid rgba(200,148,60,.25);border-radius:6px;padding:3px 10px;font-size:.8rem;color:var(--accent)}
+        .modal-warn{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:10px 13px;margin:10px 0;font-size:.82rem;color:var(--danger)}
+        .modal-footer{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);gap:10px;flex-wrap:wrap}
+        .modal-nav-bottom{display:flex;gap:7px;align-items:center}
+        .nav-bottom-btn{background:var(--surface-hi);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 13px;cursor:pointer;font-size:.85rem;transition:all .15s;display:flex;align-items:center;gap:5px}
+        .nav-bottom-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+        .nav-bottom-btn:disabled{opacity:.3;cursor:default}
+        .modal-counter-bottom{color:var(--text-muted);font-size:.78rem;min-width:44px;text-align:center}
+        .modal-cta{display:inline-flex;align-items:center;gap:7px;background:var(--accent);color:#0f130a;padding:9px 18px;border-radius:9px;font-weight:700;text-decoration:none;font-size:.87rem;transition:all .15s}
+        .modal-cta:hover{background:var(--accent-hover);transform:translateY(-1px)}
+
+        .sidebar-toggle{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:500;background:var(--accent);color:#0f130a;border:none;border-radius:10px 0 0 10px;padding:12px 8px;cursor:pointer;font-size:.72rem;font-weight:700;letter-spacing:.08em;writing-mode:vertical-rl;line-height:1;transition:all .2s;box-shadow:-2px 0 12px rgba(0,0,0,.3)}
+        .sidebar-toggle:hover{background:var(--accent-hover);padding-right:12px}
+        .sidebar-overlay{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s}
+        .sidebar-overlay.open{opacity:1;pointer-events:all}
+        .sidebar{position:fixed;top:0;right:0;z-index:700;width:300px;max-width:90vw;height:100vh;background:var(--surface);border-left:1px solid var(--border);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.4)}
+        .sidebar.open{transform:translateX(0)}
+        .sidebar-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);background:var(--surface-hi)}
+        .sidebar-head h3{font-size:.95rem;font-weight:700;color:var(--accent)}
+        .sidebar-close-btn{background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+        .sidebar-close-btn:hover{border-color:var(--danger);color:var(--danger)}
+        .sidebar-search{margin:10px 14px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:.83rem;width:calc(100% - 28px);outline:none;transition:border-color .15s}
+        .sidebar-search:focus{border-color:var(--accent)}
+        .sidebar-nav{flex:1;overflow-y:auto}
+        .sidebar-nav a{display:flex;align-items:center;gap:10px;padding:9px 14px;text-decoration:none;color:var(--text);border-bottom:1px solid rgba(46,56,32,.5);transition:all .15s;font-size:.84rem}
+        .sidebar-nav a:hover{background:var(--surface-hi);color:var(--accent)}
+        .sidebar-nav a.active{background:rgba(200,148,60,.1);color:var(--accent);border-left:3px solid var(--accent)}
+        .sthumb{width:38px;height:38px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--surface-hi)}
+        .sinfo{flex:1;min-width:0}
+        .sname{font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .slatin{font-style:italic;color:var(--text-muted);font-size:.71rem;display:block}
+        .snum{background:var(--surface-hi);color:var(--text-muted);border-radius:4px;min-width:22px;height:22px;font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .sidebar-links{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:6px}
+        .sidebar-links a{flex:1;text-align:center;background:var(--surface-hi);border:1px solid var(--border);border-radius:8px;padding:7px 4px;color:var(--accent);text-decoration:none;font-size:.76rem;font-weight:600;transition:all .15s}
+        .sidebar-links a:hover{border-color:var(--accent)}
+        .sidebar-nav::-webkit-scrollbar{width:4px}
+        .sidebar-nav::-webkit-scrollbar-track{background:transparent}
+        .sidebar-nav::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+        @media(max-width:600px){
+            .modal-grid{grid-template-columns:1fr}
+            .modal-body{padding:16px 16px 20px}
+            .modal-gallery{height:220px}
+            .modal-header h2{font-size:1.2rem}
+            .modal-footer{flex-direction:column-reverse;align-items:stretch}
+            .modal-cta{justify-content:center}
+            .hero h1{font-size:1.8rem}
+        }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <h1>🍄 Grzyby — Polska, Słowacja, Czechy</h1>
+    <p>Kompendium grzybów jadalnych i niebezpiecznych środkowej Europy — rozpoznawanie, zbiór, kulinaria i bezpieczeństwo.</p>
+    <div class="quick-tools">
+        <a href="galeria.html">🖼️ Galeria</a>
+        <a href="przepisy.html">📋 Przepisy kulinarne</a>
+        <a href="trujace.html">☠ Grzyby trujące</a>
+        <a href="huby.html">🌲 Huby na drzewach</a>
+        <a href="#lista">📖 Wszystkie grzyby</a>
+    </div>
+</div>
+
+<div class="container">
+    <div class="intro-note">
+        <strong>☠ Bezpieczeństwo przede wszystkim:</strong> Zbieraj TYLKO grzyby, które rozpoznajesz ze 100% pewnością. Przy najmniejszej wątpliwości — zostaw w lesie. Żadna książka ani strona internetowa nie zastąpi doświadczenia. Pomyłka może kosztować życie — zwłaszcza przy muchomorze sromotnikowym, który nie ma smaku ani zapachu ostrzegawczego.
+    </div>
+
+    <h2 id="lista" class="section-head">🍄 Wszystkie grzyby</h2>
+
+    <div class="plant-grid" id="plantGrid">
+
+        <div class="plant-card" data-plant="0" tabindex="0">
+            <div class="plant-photo"><img src="media/01-1.jpg" alt="Borowik szlachetny" loading="eager"></div>
+            <div class="plant-info"><h2>Borowik szlachetny</h2><div class="latin">Boletus edulis</div><p>Król polskich grzybów. Orzechowy aromat potęguje się przy suszeniu. Lasy iglaste i mieszane.</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-flower">rurkowiec</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="1" tabindex="0">
+            <div class="plant-photo"><img src="media/02-1.jpg" alt="Kurka pieprznik jadalny" loading="eager"></div>
+            <div class="plant-info"><h2>Kurka (Pieprznik jadalny)</h2><div class="latin">Cantharellus cibarius</div><p>Złota kurka — owocowy aromat, fałdowiec. Słowacja i Czechy: tradycja kulinarna.</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-flower">fałdowiec</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="2" tabindex="0">
+            <div class="plant-photo"><img src="media/03-1.jpg" alt="Podgrzybek brunatny" loading="eager"></div>
+            <div class="plant-info"><h2>Podgrzybek brunatny</h2><div class="latin">Imleria badia</div><p>Najpospolitszy rurkowiec. Sinieje po przekrojeniu — charakterystyczna cecha.</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-flower">rurkowiec</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="3" tabindex="0">
+            <div class="plant-photo"><img src="media/04-1.jpg" alt="Maślak zwyczajny" loading="lazy"></div>
+            <div class="plant-info"><h2>Maślak zwyczajny</h2><div class="latin">Suillus luteus</div><p>Śluzowaty kapelusz pod sosnami. Zawsze obieraj skórkę! Doskonały do marynaty.</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-flower">rurkowiec</span><span class="tag tag-warn">obierz skórkę</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="4" tabindex="0">
+            <div class="plant-photo"><img src="media/05-1.jpg" alt="Koźlarz babka" loading="lazy"></div>
+            <div class="plant-info"><h2>Koźlarz babka</h2><div class="latin">Leccinum scabrum</div><p>Pod brzozami, łuskowaty trzon. Masowy grzyb jesienny — doskonały do zupy.</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-flower">rurkowiec</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="5" tabindex="0">
+            <div class="plant-photo"><img src="media/06-1.jpg" alt="Opieńka miodowa" loading="lazy"></div>
+            <div class="plant-info"><h2>Opieńka miodowa</h2><div class="latin">Armillaria mellea</div><p>Kępy na pniakach. Idealna do marynaty. Bezwzględnie gotuj — surowa jest toksyczna!</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-root">blaszkowy</span><span class="tag tag-warn">gotuj!</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="6" tabindex="0">
+            <div class="plant-photo"><img src="media/07-1.jpg" alt="Rydz" loading="lazy"></div>
+            <div class="plant-info"><h2>Rydz</h2><div class="latin">Lactarius deliciosus</div><p>Pomarańczowe mleczko, sosnowe lasy. Skarb Słowacji i Czech — smażony na maśle.</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-root">blaszkowy</span><span class="tag tag-fruit">mleczny</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="7" tabindex="0">
+            <div class="plant-photo"><img src="media/08-1.jpg" alt="Czubajka kania" loading="lazy"></div>
+            <div class="plant-info"><h2>Czubajka kania</h2><div class="latin">Macrolepiota procera</div><p>Olbrzymi kapelusz do 30 cm — smażona jak kotlet. Tylko dobrze rozwinięta!</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-root">blaszkowy</span><span class="tag tag-warn">nie surowa!</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="8" tabindex="0">
+            <div class="plant-photo"><img src="media/09-1.jpg" alt="Smardz jadalny" loading="lazy"></div>
+            <div class="plant-info"><h2>Smardz jadalny</h2><div class="latin">Morchella esculenta</div><p>Pierwszy grzyb wiosny — siateczkowaty kapelusz. TYLKO gotowany, surowy trujący!</p><div class="tags"><span class="tag tag-fruit">wiosenny</span><span class="tag tag-leaf">jadalny</span><span class="tag tag-warn">gotuj!</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="9" tabindex="0">
+            <div class="plant-photo"><img src="media/10-1.jpg" alt="Pieczarka łąkowa" loading="lazy"></div>
+            <div class="plant-info"><h2>Pieczarka łąkowa</h2><div class="latin">Agaricus campestris</div><p>Dzika pieczarka z łąk i pastwisk. Różowe blaszki = bezpieczna. Białe = NIEBEZPIECZEŃSTWO!</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-root">blaszkowy</span><span class="tag tag-warn">różowe blaszki!</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="10" tabindex="0">
+            <div class="plant-photo"><img src="media/11-1.jpg" alt="Boczniak ostrygowaty" loading="lazy"></div>
+            <div class="plant-info"><h2>Boczniak ostrygowaty</h2><div class="latin">Pleurotus ostreatus</div><p>Całoroczny grzyb na drzewach. Łatwy do rozpoznania, brak groźnych sobowtórów.</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-root">blaszkowy</span><span class="tag tag-fruit">całoroczny</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="11" tabindex="0">
+            <div class="plant-photo"><img src="media/12-1.jpg" alt="Muchomor sromotnikowy" loading="lazy"></div>
+            <div class="plant-info"><h2>Muchomor sromotnikowy</h2><div class="latin">Amanita phalloides</div><p>☠ ŚMIERTELNIE TRUJĄCY. Odpowiada za 90% zgonów. Naucz się go rozpoznawać!</p><div class="tags"><span class="tag tag-warn">☠ ŚMIERTELNY</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="12" tabindex="0">
+            <div class="plant-photo"><img src="media/13-1.jpg" alt="Żółciak siarkowy" loading="lazy"></div>
+            <div class="plant-info"><h2>Żółciak siarkowy</h2><div class="latin">Laetiporus sulphureus</div><p>Jaskrawopomarańczowa huba na drzewach — „las-kurczak". Jadalna gdy młoda i miękka.</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-fruit">huba</span><span class="tag tag-warn">tylko młode!</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="13" tabindex="0">
+            <div class="plant-photo"><img src="media/14-1.jpg" alt="Szmaciak gałęzisty" loading="lazy"></div>
+            <div class="plant-info"><h2>Szmaciak gałęzisty</h2><div class="latin">Sparassis crispa</div><p>Grzyb jak kalafior u podstawy sosen — znakomity smak, absolutnie brak sobowtórów.</p><div class="tags"><span class="tag tag-leaf">jadalny</span><span class="tag tag-fruit">koralowy</span></div></div>
+        </div>
+
+        <div class="plant-card" data-plant="14" tabindex="0">
+            <div class="plant-photo"><img src="media/15-1.jpg" alt="Lakownica lśniąca Reishi" loading="lazy"></div>
+            <div class="plant-info"><h2>Lakownica lśniąca (Reishi)</h2><div class="latin">Ganoderma lucidum</div><p>Lakierowana huba — słynny grzyb leczniczy. Nie jadalna, ale herbata i nalewka.</p><div class="tags"><span class="tag tag-root">leczniczy</span><span class="tag tag-fruit">huba</span><span class="tag tag-flower">całoroczny</span></div></div>
+        </div>
+
+    </div>
+</div>
+
+<footer>Grzyby jadalne · Polska, Słowacja, Czechy · Kompendium 2026 · Zdjęcia: Wikimedia Commons (CC)</footer>
+
+<div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-label="Informacje o grzybie">
+    <div class="modal" id="modal">
+        <button class="modal-close" id="modalClose" aria-label="Zamknij">&times;</button>
+        <div class="modal-gallery" id="modalGallery">
+            <div class="modal-top-nav">
+                <button class="top-nav-btn" id="topPrev" aria-label="Poprzedni grzyb">&#8592;</button>
+                <span class="top-nav-counter" id="topCounter"></span>
+                <button class="top-nav-btn" id="topNext" aria-label="Następny grzyb">&#8594;</button>
+            </div>
+            <button class="gal-btn gal-prev" id="galPrev" aria-label="Poprzednie zdjęcie">&#8249;</button>
+            <button class="gal-btn gal-next" id="galNext" aria-label="Następne zdjęcie">&#8250;</button>
+            <div class="gal-dots" id="galDots"></div>
+        </div>
+        <div class="modal-body">
+            <div class="modal-header">
+                <h2 id="modalName"></h2>
+                <div class="latin" id="modalLatin"></div>
+            </div>
+            <div class="modal-grid" id="modalGrid"></div>
+            <div class="modal-uses"><h3>Zastosowania kulinarne</h3><ul id="modalUses"></ul></div>
+            <div class="modal-warn" id="modalWarn" style="display:none"></div>
+            <div class="modal-footer">
+                <div class="modal-nav-bottom">
+                    <button class="nav-bottom-btn" id="botPrev">&#8592; Poprzedni</button>
+                    <div class="modal-counter-bottom" id="botCounter"></div>
+                    <button class="nav-bottom-btn" id="botNext">Następny &#8594;</button>
+                </div>
+                <a class="modal-cta" id="modalCta" href="#">Czytaj więcej &rarr;</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button class="sidebar-toggle" id="sidebarToggle" aria-label="Lista grzybów">🍄 Grzyby</button>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="sidebar" id="sidebar" aria-label="Panel nawigacji">
+    <div class="sidebar-head">
+        <h3>🍄 Grzyby</h3>
+        <button class="sidebar-close-btn" id="sidebarClose" aria-label="Zamknij panel">&times;</button>
+    </div>
+    <input type="search" class="sidebar-search" id="sidebarSearch" placeholder="🔍 Szukaj grzyba...">
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-links">
+        <a href="galeria.html">🖼️ Galeria</a>
+        <a href="przepisy.html">📋 Przepisy</a>
+        <a href="trujace.html">☠ Trujące</a>
+        <a href="huby.html">🌲 Huby</a>
+    </div>
+</div>
+
+<script>
+const plants = [
+    {
+        name:"Borowik szlachetny", latin:"Boletus edulis · rodzina borowikowate",
+        photos:["media/01-1.jpg","media/01-2.jpg","media/01-3.jpg"],
+        alts:["Borowik - widok ogólny","Borowik - kapelusz z bliska","Borowik - trzon z siateczką"],
+        info:[{l:"Sezon",v:"VII – X"},{l:"Kapelusz",v:"5–25 cm, brązowy"},{l:"Typ",v:"Rurkowiec"},{l:"Zapach",v:"Orzechowy, intensywny"}],
+        uses:["Suszenie (smak!)","Zupy grzybowe","Sos do makaronu","Risotto","Marynata","Farsz do pierogów"],
+        warn:null, href:"01-borowik.html"
+    },{
+        name:"Kurka (Pieprznik jadalny)", latin:"Cantharellus cibarius · rodzina pieprznikowate",
+        photos:["media/02-1.jpg","media/02-2.jpg","media/02-3.jpg"],
+        alts:["Kurki w lesie","Kurka z bliska","Kurki - fałdowce"],
+        info:[{l:"Sezon",v:"VI – X"},{l:"Kapelusz",v:"2–12 cm, złoty"},{l:"Typ",v:"Fałdowiec"},{l:"Zapach",v:"Owocowy, morelowy"}],
+        uses:["Kurki z jajkiem","Sos kurkowy","Zupa z kurek","Kurki w śmietanie","Marynata","Risotto z kurkami"],
+        warn:null, href:"02-kurka.html"
+    },{
+        name:"Podgrzybek brunatny", latin:"Imleria badia · rodzina borowikowate",
+        photos:["media/03-1.jpg","media/03-2.jpg","media/03-3.jpg"],
+        alts:["Podgrzybek - kapelusz","Podgrzybek - rurki","Podgrzybek - sinienie po przekrojeniu"],
+        info:[{l:"Sezon",v:"VI – X"},{l:"Kapelusz",v:"4–15 cm, kasztanowy"},{l:"Typ",v:"Rurkowiec"},{l:"Cecha",v:"Sinieje po cięciu"}],
+        uses:["Zupy grzybowe","Sosy","Suszenie","Marynata","Farsz","Smażone z cebulą"],
+        warn:null, href:"03-podgrzybek.html"
+    },{
+        name:"Maślak zwyczajny", latin:"Suillus luteus · rodzina maślakowate",
+        photos:["media/04-1.jpg","media/04-2.jpg","media/04-3.jpg"],
+        alts:["Maślak - śluzowaty kapelusz","Maślak - rurki","Maślak - pierścień na trzonie"],
+        info:[{l:"Sezon",v:"VIII – XI"},{l:"Kapelusz",v:"5–12 cm, śluzowaty"},{l:"Typ",v:"Rurkowiec"},{l:"Ważne",v:"Obierz skórkę!"}],
+        uses:["Marynata w occie","Zupy","Sosy","Smażenie","Suszenie","Farsz"],
+        warn:"⚠ Śluzowata skórka kapelusza może powodować biegunkę — zawsze obieraj przed gotowaniem.",
+        href:"04-maslak.html"
+    },{
+        name:"Koźlarz babka", latin:"Leccinum scabrum · rodzina borowikowate",
+        photos:["media/05-1.jpg","media/05-2.jpg","media/05-3.jpg"],
+        alts:["Koźlarz - kapelusz","Koźlarz - łuskowaty trzon","Koźlarz - miąższ ciemniejący"],
+        info:[{l:"Sezon",v:"VII – X"},{l:"Kapelusz",v:"5–15 cm, szaro-brązowy"},{l:"Typ",v:"Rurkowiec"},{l:"Siedlisko",v:"Pod brzozami"}],
+        uses:["Zupy grzybowe","Sosy","Smażenie","Suszenie","Marynata","Farsz do pierogów"],
+        warn:null, href:"05-kozlarz.html"
+    },{
+        name:"Opieńka miodowa", latin:"Armillaria mellea · rodzina opienkiowate",
+        photos:["media/06-1.jpg","media/06-2.jpg","media/06-3.jpg"],
+        alts:["Opienki - kępa na pniaku","Opieńka - kapelusz z łuskami","Opieńka - pierścień"],
+        info:[{l:"Sezon",v:"VIII – XI"},{l:"Kapelusz",v:"3–10 cm, miodowy"},{l:"Typ",v:"Blaszkowy"},{l:"Siedlisko",v:"Kępy na pniakach"}],
+        uses:["Marynata (idealna!)","Zupy","Sauté z cebulą","Krokiety","Farsz","Smażone z masłem"],
+        warn:"⚠ SUROWE TRUJĄCE — bezwzględnie gotuj min. 20 minut! Nie jeść na surowo.",
+        href:"06-opienka.html"
+    },{
+        name:"Rydz", latin:"Lactarius deliciosus · rodzina gołąbkowate",
+        photos:["media/07-1.jpg","media/07-2.jpg","media/07-3.jpg"],
+        alts:["Rydz - widok górny","Rydz - blaszki z pomarańczowym mleczkiem","Rydz - profil"],
+        info:[{l:"Sezon",v:"VIII – X"},{l:"Kapelusz",v:"5–15 cm, pomarańczowy"},{l:"Typ",v:"Blaszkowy, mleczny"},{l:"Siedlisko",v:"Lasy sosnowe"}],
+        uses:["Smażenie na maśle","Grillowanie","Marynata","Peklowanie","Zupa rydzkowa","Suszenie"],
+        warn:null, href:"07-rydz.html"
+    },{
+        name:"Czubajka kania", latin:"Macrolepiota procera · rodzina pieczarkowate",
+        photos:["media/08-1.jpg","media/08-2.jpg","media/08-3.jpg"],
+        alts:["Kania - kapelusz rozwinięty","Kania - 'bębenek' = młody","Kania - łuski na kapeluszu"],
+        info:[{l:"Sezon",v:"VII – X"},{l:"Kapelusz",v:"10–30 cm, olbrzymi"},{l:"Typ",v:"Blaszkowy"},{l:"Siedlisko",v:"Polany, skraje lasów"}],
+        uses:["Smażona jak kotlet","Panierowana","Nadziewana","Pizzetta","Jajecznica z kanią","Suszony proszek"],
+        warn:"⚠ Nie jeść surowej. Używaj tylko kapelusza — trzon jest twardy i niestrawny.",
+        href:"08-kania.html"
+    },{
+        name:"Smardz jadalny", latin:"Morchella esculenta · rodzina smardzowate",
+        photos:["media/09-1.jpg","media/09-2.jpg","media/09-3.jpg"],
+        alts:["Smardz - siateczkowy kapelusz","Smardz - kształt","Smardz w sadzie"],
+        info:[{l:"Sezon",v:"III – V (wiosna!)"},{l:"Kapelusz",v:"3–10 cm, siateczka"},{l:"Typ",v:"Workowiec"},{l:"Siedlisko",v:"Sady, parki, liściaste"}],
+        uses:["Sos śmietanowy","Risotto","Farsz","Zupa","Marynata (po obróbce)","Suszenie"],
+        warn:"⚠ SUROWY SILNIE TRUJĄCY — bezwzględnie gotuj min. 15 min. Surowy zawiera substancje hemolityczne!",
+        href:"09-smardz.html"
+    },{
+        name:"Pieczarka łąkowa", latin:"Agaricus campestris · rodzina pieczarkowate",
+        photos:["media/10-1.jpg","media/10-2.jpg","media/10-3.jpg"],
+        alts:["Pieczarka - widok górny","Pieczarka - różowe blaszki","Pieczarka - łąka"],
+        info:[{l:"Sezon",v:"V – X"},{l:"Kapelusz",v:"5–12 cm, biały/kremowy"},{l:"Typ",v:"Blaszkowy"},{l:"Blaszki",v:"Różowe → czekoladowe"}],
+        uses:["Smażenie","Zupy","Krem z pieczarek","Sos","Suszenie","Marynata"],
+        warn:"⚠ BLASZKI MUSZĄ BYĆ RÓŻOWE LUB BRĄZOWE — białe blaszki to cecha muchomora, nie pieczarki!",
+        href:"10-pieczarka.html"
+    },{
+        name:"Boczniak ostrygowaty", latin:"Pleurotus ostreatus · rodzina bocznikowate",
+        photos:["media/11-1.jpg","media/11-2.jpg","media/11-3.jpg"],
+        alts:["Boczniaki - grono na pniu","Boczniak - kapelusz","Boczniaki na buku"],
+        info:[{l:"Sezon",v:"IX – IV (całoroczny!)"},{l:"Kapelusz",v:"5–25 cm, szaro-kremowy"},{l:"Typ",v:"Blaszkowy"},{l:"Siedlisko",v:"Na pniach liściastych"}],
+        uses:["Smażenie na maśle","Grillowanie","Zupy","Stir-fry","Marynata","Suszenie"],
+        warn:null, href:"11-bocziak.html"
+    },{
+        name:"Muchomor sromotnikowy", latin:"Amanita phalloides · rodzina muchomorowate",
+        photos:["media/12-1.jpg","media/12-2.jpg","media/12-3.jpg"],
+        alts:["Muchomor sromotnikowy - widok","Muchomor - pochwa u podstawy","Muchomor - pierścień i kapelusz"],
+        info:[{l:"Sezon",v:"VII – XI"},{l:"Kapelusz",v:"5–12 cm, bladozielony"},{l:"Typ",v:"Blaszkowy"},{l:"STATUS",v:"☠ ŚMIERTELNIE TRUJĄCY"}],
+        uses:["NIE ZBIERAĆ","NIE JEŚĆ","ROZPOZNAJ — OMIJAJ","Ucz rozpoznawania","Bez smaku ostrzegawczego","Bez zapachu ostrzegawczego"],
+        warn:"☠ ŚMIERTELNY — odpowiada za 90% zgonów po grzybach. Brak antidotum. Objawy po 6–24h gdy jest już za późno.",
+        href:"12-muchomor.html"
+    },{
+        name:"Żółciak siarkowy", latin:"Laetiporus sulphureus · rodzina żółciakowate",
+        photos:["media/13-1.jpg","media/13-2.jpg","media/13-3.jpg","media/13-4.jpg","media/13-5.jpg"],
+        alts:["Żółciak na drzewie","Żółciak - wachlarze z bliska","Żółciak - pory od spodu","Żółciak - detal hymenoforu","Żółciak siarkowy - inny okaz"],
+        info:[{l:"Sezon",v:"V – X"},{l:"Wielkość",v:"10–40 cm"},{l:"Typ",v:"Huba"},{l:"Siedlisko",v:"Na drzewach liściastych"}],
+        uses:["Smażony jak kurczak","W panierce","Curry z żółciaka","Zupa kremowa","Grillowanie","Suszenie (proszek umami)"],
+        warn:"⚠ Zbieraj TYLKO młode, miękkie okazy. Stare są niestrawne. Zacznij od małej porcji — ok. 5–10% osób wykazuje nadwrażliwość.",
+        href:"13-zolciak.html"
+    },{
+        name:"Szmaciak gałęzisty", latin:"Sparassis crispa · rodzina szmaciakowate",
+        photos:["media/14-1.jpg","media/14-2.jpg","media/14-3.jpg","media/14-4.jpg","media/14-5.jpg"],
+        alts:["Szmaciak - kalafiorowy kształt","Szmaciak - rozgałęzienia","Szmaciak u podstawy sosny","Szmaciak - faliste płatki z bliska","Szmaciak gałęzisty - dojrzały okaz"],
+        info:[{l:"Sezon",v:"VIII – X"},{l:"Wielkość",v:"20–50 cm"},{l:"Typ",v:"Koralowy"},{l:"Siedlisko",v:"U podstawy sosen"}],
+        uses:["Smażony z masłem","W tempurze","Makaron ze szmaciakiem","Zupa krem","Stir-fry","Suszenie"],
+        warn:null, href:"14-szmaciak.html"
+    },{
+        name:"Lakownica lśniąca (Reishi)", latin:"Ganoderma lucidum · rodzina ganodermatowate",
+        photos:["media/15-1.jpg","media/15-2.jpg","media/15-3.jpg","media/15-4.jpg","media/15-5.jpg"],
+        alts:["Lakownica na drzewie","Lakownica - lśniąca powierzchnia","Lakownica - spód z porami","Lakownica - detal struktury","Lakownica lśniąca - pełny okaz"],
+        info:[{l:"Sezon",v:"Całoroczna"},{l:"Wielkość",v:"5–30 cm"},{l:"Typ",v:"Huba z trzonkiem"},{l:"Zastosowanie",v:"Lecznicze"}],
+        uses:["Herbata Reishi","Nalewka lecznicza","Kawa Reishi","Proszek w kapsułkach","Suplement odporności","Adaptogen"],
+        warn:null, href:"15-lakownica.html"
+    }
+];
+
+let pIdx=0, phIdx=0;
+const overlay=document.getElementById('modalOverlay'),gallery=document.getElementById('modalGallery'),galDots=document.getElementById('galDots'),galPrev=document.getElementById('galPrev'),galNext=document.getElementById('galNext'),topPrev=document.getElementById('topPrev'),topNext=document.getElementById('topNext'),topCounter=document.getElementById('topCounter'),botPrev=document.getElementById('botPrev'),botNext=document.getElementById('botNext'),botCounter=document.getElementById('botCounter'),modalClose=document.getElementById('modalClose'),modalName=document.getElementById('modalName'),modalLatin=document.getElementById('modalLatin'),modalGrid=document.getElementById('modalGrid'),modalUses=document.getElementById('modalUses'),modalWarn=document.getElementById('modalWarn'),modalCta=document.getElementById('modalCta');
+
+function buildGallery(p){
+    gallery.querySelectorAll('.gallery-img').forEach(e=>e.remove());
+    galDots.innerHTML='';
+    p.photos.forEach((src,i)=>{
+        const img=document.createElement('img');
+        img.className='gallery-img'+(i===0?' active':'');
+        img.src=src;img.alt=p.alts[i]||p.name;img.loading='lazy';
+        gallery.insertBefore(img,gallery.querySelector('.modal-top-nav'));
+        const dot=document.createElement('button');
+        dot.className='gal-dot'+(i===0?' active':'');
+        dot.setAttribute('aria-label',`Zdjęcie ${i+1}`);
+        dot.addEventListener('click',()=>setPhoto(i));
+        galDots.appendChild(dot);
+    });
+    setPhotoUI(0);
+}
+function setPhoto(i){
+    phIdx=i;
+    gallery.querySelectorAll('.gallery-img').forEach((el,j)=>el.classList.toggle('active',j===i));
+    galDots.querySelectorAll('.gal-dot').forEach((el,j)=>el.classList.toggle('active',j===i));
+    setPhotoUI(i);
+}
+function setPhotoUI(i){
+    const n=plants[pIdx].photos.length;
+    galPrev.disabled=i===0;galNext.disabled=i===n-1;
+}
+function openModal(idx){pIdx=idx;phIdx=0;renderModal();overlay.classList.add('open');document.body.style.overflow='hidden';}
+function closeModal(){overlay.classList.remove('open');document.body.style.overflow='';}
+function renderModal(){
+    const p=plants[pIdx];
+    buildGallery(p);
+    modalName.textContent=p.name;modalLatin.textContent=p.latin;modalCta.href=p.href;
+    modalGrid.innerHTML=p.info.map(i=>`<div class="modal-info-box"><div class="label">${i.l}</div><div class="value">${i.v}</div></div>`).join('');
+    modalUses.innerHTML=p.uses.map(u=>`<li>${u}</li>`).join('');
+    if(p.warn){modalWarn.textContent=p.warn;modalWarn.style.display='block';}else modalWarn.style.display='none';
+    const c=`${pIdx+1} / ${plants.length}`;
+    topCounter.textContent=c;botCounter.textContent=c;
+    topPrev.disabled=botPrev.disabled=pIdx===0;
+    topNext.disabled=botNext.disabled=pIdx===plants.length-1;
+    document.getElementById('modal').scrollTop=0;
+}
+document.querySelectorAll('.plant-card').forEach(c=>{
+    c.addEventListener('click',()=>openModal(+c.dataset.plant));
+    c.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openModal(+c.dataset.plant);}});
+});
+function goPlant(dir){pIdx=Math.max(0,Math.min(plants.length-1,pIdx+dir));phIdx=0;renderModal();}
+topPrev.addEventListener('click',()=>goPlant(-1));topNext.addEventListener('click',()=>goPlant(1));
+botPrev.addEventListener('click',()=>goPlant(-1));botNext.addEventListener('click',()=>goPlant(1));
+galPrev.addEventListener('click',()=>setPhoto(Math.max(0,phIdx-1)));
+galNext.addEventListener('click',()=>setPhoto(Math.min(plants[pIdx].photos.length-1,phIdx+1)));
+modalClose.addEventListener('click',closeModal);
+overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});
+document.addEventListener('keydown',e=>{
+    if(!overlay.classList.contains('open'))return;
+    if(e.key==='Escape')closeModal();
+    if(e.key==='ArrowLeft'){if(e.shiftKey)goPlant(-1);else setPhoto(Math.max(0,phIdx-1));}
+    if(e.key==='ArrowRight'){if(e.shiftKey)goPlant(1);else setPhoto(Math.min(plants[pIdx].photos.length-1,phIdx+1));}
+});
+
+const sidebar=document.getElementById('sidebar'),sidebarOverlay=document.getElementById('sidebarOverlay'),sidebarToggle=document.getElementById('sidebarToggle'),sidebarClose=document.getElementById('sidebarClose'),sidebarSearch=document.getElementById('sidebarSearch'),sidebarNav=document.getElementById('sidebarNav');
+function buildSidebar(){
+    sidebarNav.innerHTML=plants.map((p,i)=>`
+        <a href="${p.href}" data-idx="${i}">
+            <span class="snum">${i+1}</span>
+            <img class="sthumb" src="${p.photos[0]}" alt="${p.name}" loading="lazy">
+            <span class="sinfo"><span class="sname">${p.name}</span><span class="slatin">${p.latin.split('·')[0].trim()}</span></span>
+        </a>`).join('');
+}
+buildSidebar();
+function filterSidebar(q){
+    const lq=q.toLowerCase();
+    sidebarNav.querySelectorAll('a').forEach(a=>{
+        const name=a.querySelector('.sname').textContent.toLowerCase();
+        const latin=a.querySelector('.slatin').textContent.toLowerCase();
+        a.style.display=(!q||name.includes(lq)||latin.includes(lq))?'':'none';
+    });
+}
+function openSidebar(){sidebar.classList.add('open');sidebarOverlay.classList.add('open');document.body.style.overflow='hidden';}
+function closeSidebar(){sidebar.classList.remove('open');sidebarOverlay.classList.remove('open');document.body.style.overflow='';}
+sidebarToggle.addEventListener('click',openSidebar);
+sidebarClose.addEventListener('click',closeSidebar);
+sidebarOverlay.addEventListener('click',closeSidebar);
+sidebarSearch.addEventListener('input',e=>filterSidebar(e.target.value));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&sidebar.classList.contains('open'))closeSidebar();});
+</script>
+</body>
+</html>

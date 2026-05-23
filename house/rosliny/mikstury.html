@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mikstury ziołowe — mieszanki ziół na konkretne dolegliwości</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* ─── page header ─── */
+        .page-header{margin-bottom:28px}
+        .page-header h1{font-size:2rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--earth));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+        .page-header p{color:var(--text-muted);font-size:1rem}
+
+        /* ─── sticky cat nav ─── */
+        .cat-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:32px;position:sticky;top:57px;z-index:9;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--border)}
+        .cat-nav a{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:var(--surface);border:1px solid var(--border);color:var(--text-muted);text-decoration:none;font-size:.82rem;font-weight:500;transition:all .15s;white-space:nowrap}
+        .cat-nav a:hover,.cat-nav a.active{background:rgba(109,194,109,.12);border-color:var(--accent);color:var(--accent)}
+
+        /* ─── intro principles box ─── */
+        .principles{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:36px}
+        .principles h2{color:var(--accent);font-size:1.1rem;margin:0 0 14px;border:none;padding:0}
+        .principles ul{margin:0;padding-left:20px;display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}
+        .principles li{font-size:.88rem;color:var(--text-muted);margin:0}
+        .principles li strong{color:var(--text)}
+
+        /* ─── section ─── */
+        .cat-section{margin-bottom:52px}
+        .cat-title{display:flex;align-items:center;gap:10px;font-size:1.3rem;color:var(--accent);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        .cat-title span{font-size:1.5rem}
+        .count-badge{background:var(--surface-hi);color:var(--text-muted);font-size:.75rem;padding:2px 8px;border-radius:10px;font-weight:500;margin-left:auto}
+
+        /* ─── mix grid & card ─── */
+        .mix-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+        .mcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s}
+        .mcard:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+
+        /* card head */
+        .mcard-head{padding:13px 16px 10px}
+        .mcat{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 9px;border-radius:4px;margin-bottom:8px}
+        .mcat-imm{background:rgba(109,194,109,.15);color:var(--accent)}
+        .mcat-resp{background:rgba(56,189,248,.12);color:#7dd3fc}
+        .mcat-dig{background:rgba(251,191,36,.12);color:var(--warn)}
+        .mcat-nerv{background:rgba(167,139,250,.15);color:#a78bfa}
+        .mcat-det{background:rgba(52,211,153,.12);color:#6ee7b7}
+        .mcat-wom{background:rgba(244,114,182,.12);color:#f9a8d4}
+        .mcat-pain{background:rgba(248,113,113,.12);color:var(--danger)}
+        .mcat-skin{background:rgba(201,160,106,.15);color:var(--earth)}
+
+        .mcard-title{font-size:.97rem;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.35}
+        .mcard-target{font-size:.78rem;color:var(--text-muted);margin-bottom:8px}
+
+        /* ingredient tags */
+        .mcard-herbs{display:flex;flex-wrap:wrap;gap:5px;padding:10px 16px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:rgba(15,26,20,.3)}
+        .herb-tag{display:inline-flex;align-items:center;gap:3px;background:rgba(109,194,109,.08);border:1px solid rgba(109,194,109,.2);border-radius:6px;padding:2px 8px;font-size:.75rem;color:var(--text-muted)}
+        .herb-tag em{color:var(--accent);font-style:normal;font-weight:600;font-size:.68rem;margin-left:2px}
+
+        /* card body */
+        .mcard-body{padding:12px 16px 14px}
+        .mcard-prep{font-size:.84rem;color:var(--text-muted);margin-bottom:8px;line-height:1.55}
+        .mcard-prep strong{color:var(--text);display:block;margin-bottom:3px;font-size:.8rem;text-transform:uppercase;letter-spacing:.03em}
+        .mcard-dose{background:rgba(109,194,109,.07);border-left:3px solid var(--accent);padding:6px 11px;font-size:.79rem;color:var(--text-muted);border-radius:0 6px 6px 0;margin-top:8px}
+        .mcard-warn{background:rgba(251,191,36,.07);border-left:3px solid var(--warn);padding:6px 11px;font-size:.79rem;color:var(--text-muted);border-radius:0 6px 6px 0;margin-top:6px}
+        .mcard-danger{background:rgba(248,113,113,.07);border-left:3px solid var(--danger);padding:6px 11px;font-size:.79rem;color:var(--text-muted);border-radius:0 6px 6px 0;margin-top:6px}
+
+        /* diff tags */
+        .diff{display:inline-block;font-size:.65rem;font-weight:700;padding:1px 6px;border-radius:3px;margin-left:5px;vertical-align:middle}
+        .diff-easy{background:rgba(109,194,109,.15);color:var(--accent)}
+        .diff-med{background:rgba(251,191,36,.15);color:var(--warn)}
+
+        /* proportion hint */
+        .prop-hint{font-size:.71rem;color:var(--text-muted);margin-bottom:6px}
+        .prop-hint strong{color:var(--text-muted)}
+
+        @media(max-width:640px){.mix-grid{grid-template-columns:1fr}.principles ul{grid-template-columns:1fr}.cat-nav{gap:5px}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">← Strona główna</a>
+        <span class="sep">/</span>
+        <a href="przepisy.html">🩺 Przepisy</a>
+        <span class="sep">/</span>
+        <a href="laka.html">🌾 Łąka</a>
+        <span class="sep">/</span>
+        <a href="kosmetyki.html">🧴 Kosmetyki</a>
+        <span class="sep">/</span>
+        <span class="title">⚗️ Mikstury ziołowe</span>
+    </div>
+
+    <div class="container" style="max-width:1100px">
+        <div class="page-header">
+            <h1>⚗️ Mikstury ziołowe</h1>
+            <p>34 sprawdzone mieszanki ziołowych na konkretne dolegliwości — proporcje składników, przepisy, dawkowanie i ostrzeżenia. Zioła wzajemnie wzmacniają swoje działanie (synergia) lub je uzupełniają.</p>
+        </div>
+
+        <!-- ZASADY MIESZANIA -->
+        <div class="principles">
+            <h2>📏 Zasady bezpiecznego mieszania ziół</h2>
+            <ul>
+                <li><strong>Maks. 4–5 ziół naraz</strong> — więcej składników ≠ silniejsze działanie, trudniej przewidzieć efekty</li>
+                <li><strong>Zacznij od jednego zioła</strong> — poznaj jego działanie i tolerancję zanim stworzysz mieszankę</li>
+                <li><strong>Proporcje: „cz." = części</strong> — objętościowo; 2 cz. = 2× więcej niż 1 cz.</li>
+                <li><strong>Dziurawiec = interakcje</strong> — leki, antykoncepcja, SSRI; konsultacja obowiązkowa</li>
+                <li><strong>Ciąża i dzieci</strong> — wiele ziół jest przeciwwskazanych; stosuj tylko sprawdzone</li>
+                <li><strong>Kuracje max 3–4 tygodnie</strong>, potem przerwa tygodniowa; wyjątek — herbatki łagodne</li>
+                <li><strong>Przechowuj suche mieszanki</strong> w szczelnych słoikach z dala od światła i wilgoci</li>
+                <li><strong>Właściwa temperatura parzenia</strong> — wrzące 95–100°C na twarde surowce, 80°C na delikatne kwiaty</li>
+            </ul>
+        </div>
+
+        <nav class="cat-nav">
+            <a href="#odpornosc">🛡️ Odporność</a>
+            <a href="#oddychanie">🫁 Oddychanie</a>
+            <a href="#trawienie">🫖 Trawienie</a>
+            <a href="#nerwy">🧠 Nerwy i sen</a>
+            <a href="#oczyszczanie">🌿 Oczyszczanie</a>
+            <a href="#kobiety">🌸 Dla kobiet</a>
+            <a href="#bol">💪 Ból i stawy</a>
+            <a href="#skora">✨ Skóra i włosy</a>
+        </nav>
+
+
+        <!-- ===================== ODPORNOŚĆ ===================== -->
+        <section class="cat-section" id="odpornosc">
+            <h2 class="cat-title"><span>🛡️</span> Na odporność i przeziębienie <span class="count-badge">5</span></h2>
+            <div class="mix-grid">
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-imm">🛡️ Odporność</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Herbatka napotna zimowa — klasyczna</div>
+                        <div class="mcard-target">Przeziębienie z gorączką, grypa, dreszcze</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <div class="prop-hint">Proporcje składników:</div>
+                        <span class="herb-tag">🌳 lipa kwiat <em>2 cz.</em></span>
+                        <span class="herb-tag">🍇 czarny bez kwiat <em>2 cz.</em></span>
+                        <span class="herb-tag">🫐 malina liście <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 tymianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Wymieszaj suche zioła. 1 łyżkę mieszanki zalej 250 ml wrzątku, przykryj, parzy 12–15 min. Przecedź.
+                        </div>
+                        <div class="mcard-dose">💡 Pij gorący 3× dziennie. Po wypiciu połóż się pod kołdrę — silne pocenie zwalcza infekcję. Słodź miodem i sokiem z cytryny.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-imm">🛡️ Odporność</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka na wzmocnienie odporności — profilaktyczna</div>
+                        <div class="mcard-target">Jesień/zima: prewencja infekcji, wzmocnienie układu immunologicznego</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🍇 czarny bez kwiat <em>2 cz.</em></span>
+                        <span class="herb-tag">🌹 dzika róża (owoc) <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 tymianek <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Owoce dzikiej róży rozkrusz lekko w moździerzu przed mieszaniem. 1 łyżkę mieszanki zalej 250 ml wrzątku, parzy 15 min pod przykryciem.
+                        </div>
+                        <div class="mcard-dose">💡 Pij 1–2 szklanki dziennie przez cały sezon jesienno-zimowy. Dzika róża dostarcza wyjątkowo dużo witaminy C.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-imm">🛡️ Odporność</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Napar antywirusowy — na pierwsze objawy</div>
+                        <div class="mcard-target">Zaczyna się choroba, ból gardła, osłabienie</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🍇 czarny bez kwiat <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 szałwia liście <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 tymianek <em>1 cz.</em></span>
+                        <span class="herb-tag">☀️ dziurawiec <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            1 łyżkę mieszanki zalej 250 ml wrzątku, przykryj, parzy 15 min. Pij gorący — możesz płukać gardło przed połknięciem.
+                        </div>
+                        <div class="mcard-warn">⚠ Dziurawiec — interakcje z lekami. Szałwia — nie stosować w ciąży i przy padaczce.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-imm">🛡️ Odporność</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Herbatka napotna dla dzieci</div>
+                        <div class="mcard-target">Przeziębienie u dzieci od 2 roku życia, gorączka, katar</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌳 lipa kwiat <em>2 cz.</em></span>
+                        <span class="herb-tag">🍇 czarny bez kwiat <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            ½ łyżeczki mieszanki na 200 ml wrzątku, parzy 8–10 min (nie dłużej). Ostudź do temperatury ciepłego mleka.
+                        </div>
+                        <div class="mcard-dose">💡 Dawka dziecięca: ½ szklanki 2–3× dziennie. Słodź miodem (dzieci powyżej 1 roku). Brak szałwii, tymianku i dziurawca — bezpieczny skład.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-imm">🛡️ Odporność</span><span class="diff diff-med">średnia</span></div>
+                        <div class="mcard-title">Syrop wielozłożony na odporność zimową</div>
+                        <div class="mcard-target">Ochrona w sezonie, po chorobie — rekonwalescencja</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🍇 czarny bez owoc <em>2 cz.</em></span>
+                        <span class="herb-tag">🌹 dzika róża owoc <em>2 cz.</em></span>
+                        <span class="herb-tag">🫐 głóg owoc <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 tymianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Owoce gotuj z 500 ml wody 30 min, przecedź. Dodaj tymianek i parzy 10 min. Przecedź, dodaj cukier 1:1 wagowo, gotuj do zgęstnienia. Przelej do słoika.
+                        </div>
+                        <div class="mcard-dose">💡 1 łyżka dziennie rano (dorośli), 1 łyżeczka dla dzieci. Surowe owoce czarnego bzu są trujące — gotowanie obowiązkowe!</div>
+                        <div class="mcard-warn">⚠ Surowe owoce czarnego bzu trujące. Zawsze po obróbce termicznej.</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ===================== ODDYCHANIE ===================== -->
+        <section class="cat-section" id="oddychanie">
+            <h2 class="cat-title"><span>🫁</span> Na układ oddechowy <span class="count-badge">5</span></h2>
+            <div class="mix-grid">
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-resp">🫁 Oddychanie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka na suchy, drażniący kaszel</div>
+                        <div class="mcard-target">Kaszel bez wydzieliny, podrażnione gardło, chrypka</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 babka lancetowata <em>2 cz.</em></span>
+                        <span class="herb-tag">🌼 podbiał liście <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 prawoślaz korzeń <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Parzy <strong>na zimno</strong>: 1 łyżkę mieszanki zalej 250 ml zimnej wody, odczekaj 4–8 h (lodówka). Lub: 1 łyżkę zalej wodą 70°C (nie wrzątkiem), parzy 20 min — woda gorąca niszczy śluz.
+                        </div>
+                        <div class="mcard-dose">💡 Pij małymi łykami, ciepły, 3–4× dziennie. Śluz babki i prawoślazu powleka podrażnione gardło.</div>
+                        <div class="mcard-warn">⚠ Podbiał — max 3 tygodnie kuracji. Nie stosować przy chorobach wątroby.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-resp">🫁 Oddychanie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka na kaszel mokry i wykrztuśny</div>
+                        <div class="mcard-target">Kaszel z zalegającą wydzieliną, zapalenie oskrzeli</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 tymianek <em>2 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 mięta <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 babka lancetowata <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            1 łyżkę mieszanki zalej 250 ml wrzątku, przykryj szczelnie, parzy 12 min. Możesz też stosować jako inhalację — pochyl głowę nad miską z naparem.
+                        </div>
+                        <div class="mcard-dose">💡 Pij 3× dziennie po 250 ml. Tymianek rozluźnia wydzielinę, mięta udrażnia nos, rumianek łagodzi stan zapalny.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-resp">🫁 Oddychanie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Płukanka na gardło — antyseptyczna</div>
+                        <div class="mcard-target">Ból gardła, angina, zapalenie migdałków, aftki</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 szałwia liście <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 babka lancetowata <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 tymianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            2 łyżki mieszanki zalej 400 ml wrzątku, przykryj, parzy 15 min. Ostudź do ciepłej temperatury (nie zimnej — ciepło lepiej rozluźnia). Płucz gardło co 2–3 h przez 30 s.
+                        </div>
+                        <div class="mcard-dose">💡 Możesz też pić małymi łykami — podwójne działanie. Szałwia i tymianek mają silne działanie antybakteryjne.</div>
+                        <div class="mcard-warn">⚠ Szałwia — nie stosować wewnętrznie w ciąży. Jako płukanka: bezpieczna.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-resp">🫁 Oddychanie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Inhalacja na zatkane zatoki i katar</div>
+                        <div class="mcard-target">Katar zatokowy, niedrożny nos, ból zatok czołowych</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 mięta (liście lub olejek) <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 tymianek <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            2 łyżki mieszanki zalej 1 l wrzątku w misce. Lub: do wrzątku dodaj 3 krople olejku miętowego + 2 krople olejku tymiankowego. Pochyl głowę nad miską (30 cm), przykryj ręcznikiem, inhaluj 10–15 min.
+                        </div>
+                        <div class="mcard-warn">⚠ Nie stosować olejku miętowego u dzieci poniżej 3 lat. Ostrożnie z gorącą parą.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-resp">🫁 Oddychanie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka dla śpiewaków i mówców</div>
+                        <div class="mcard-target">Ochrona głosu, chrypka, nadmierne obciążenie gardła</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 babka lancetowata <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 szałwia <em>1 cz.</em></span>
+                        <span class="herb-tag">🌳 lipa kwiat <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            1 łyżeczkę mieszanki zalej 200 ml wody 75°C (nie wrzątku), parzy 10 min. Pij małymi łykami przez cały dzień. Można stosować jako płukankę.
+                        </div>
+                        <div class="mcard-dose">💡 Babka powleka śluzem struny głosowe, szałwia zmniejsza stan zapalny, lipa nawilża. Idealne przed ważnym wystąpieniem.</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ===================== TRAWIENIE ===================== -->
+        <section class="cat-section" id="trawienie">
+            <h2 class="cat-title"><span>🫖</span> Na układ trawienny <span class="count-badge">5</span></h2>
+            <div class="mix-grid">
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-dig">🫖 Trawienie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Herbatka po ciężkim posiłku</div>
+                        <div class="mcard-target">Przejedzenie, uczucie ciężkości, niestrawność</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌸 rumianek <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 mięta pieprzowa <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 koper włoski (owoc) <em>1 cz.</em></span>
+                        <span class="herb-tag">🌼 melisa <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            1 łyżeczkę mieszanki lekko rozkruszonymi owocami kopru zalej 250 ml wrzątku, przykryj, parzy 8–10 min.
+                        </div>
+                        <div class="mcard-dose">💡 Pij powoli ciepły, nie za gorący, po zakończeniu posiłku. Rozkurczający duet: rumianek + mięta rozluźnia mięśnie gładkie żołądka.</div>
+                        <div class="mcard-warn">⚠ Mięta przy refluksie może nasilać objawy — zastąp dodatkową melisą.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-dig">🫖 Trawienie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka na wzdęcia i kolkę jelitową</div>
+                        <div class="mcard-target">Gazy, kolka, wzdęty brzuch, niemowlęta i dorośli</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 koper włoski (owoc) <em>2 cz.</em></span>
+                        <span class="herb-tag">🌰 kminek (owoc) <em>2 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Owoce rozkrusz w moździerzu przed mieszaniem (uwalniają olejki eteryczne). 1 łyżeczkę zalej 200 ml wrzątku, przykryj, parzy 10 min.
+                        </div>
+                        <div class="mcard-dose">💡 Dorośli: szklanka po posiłku. Niemowlęta od 3 mies.: łyżeczka letniego naparu (słabszego — ½ łyżeczki na 200 ml). To klasyczny „fenykuł dla dzieci".</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-dig">🫖 Trawienie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Herbatka żołądkowa z nadkwasotą i refluksem</div>
+                        <div class="mcard-target">Nadkwasota, zgaga, refluks, ból żołądka</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌸 rumianek <em>2 cz.</em></span>
+                        <span class="herb-tag">🌼 melisa <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 prawoślaz korzeń <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Prawoślaz zalej najpierw zimną wodą na 30 min (wyciąg zimny). Potem dodaj rumianek i melisę, podgrzej do 80°C (nie wrzącą!), parzy 10 min. Śluz prawoślazu traci właściwości przy wrzątku.
+                        </div>
+                        <div class="mcard-dose">💡 Pij 30 min przed posiłkiem, małymi łykami. Prawoślaz osłania śluzówkę żołądka niczym ochronna warstwa.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-dig">🫖 Trawienie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Herbatka wątrobowa i żółciopędna</div>
+                        <div class="mcard-target">Wątroba, woreczek żółciowy, trawienie tłuszczów</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌻 mniszek korzeń <em>2 cz.</em></span>
+                        <span class="herb-tag">🌼 krwawnik <em>1 cz.</em></span>
+                        <span class="herb-tag">☀️ dziurawiec <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 mięta pieprzowa <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Korzeń mniszka gotuj 10 min w 300 ml wody. Dodaj pozostałe zioła, wyłącz ogień, parzy 10 min pod przykryciem. Przecedź.
+                        </div>
+                        <div class="mcard-dose">💡 Pij 1 szklankę 20 min przed posiłkiem. Kuracja 3–4 tygodnie, potem tygodniowa przerwa.</div>
+                        <div class="mcard-warn">⚠ Dziurawiec — interakcje z lekami. Krwawnik — nie w ciąży.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-dig">🫖 Trawienie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka moczopędna i oczyszczająca nerki</div>
+                        <div class="mcard-target">Zapalenie dróg moczowych, kamica (profilaktyka), obrzęki</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌾 skrzyp polny <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 nawłoć pospolita <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 pokrzywa liście <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Skrzyp ugotuj 15 min w 300 ml wody. Dodaj pozostałe zioła, parzy 10 min. Przecedź.
+                        </div>
+                        <div class="mcard-dose">💡 Pij 2–3 szklanki dziennie. Kluczowe: dużo wody! Bez nawodnienia mieszanka nie zadziała. Kuracja 2–3 tygodnie.</div>
+                        <div class="mcard-warn">⚠ Nie stosować przy kamieniach szczawianowych bez konsultacji. Obfite picie wody obowiązkowe.</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ===================== NERWY I SEN ===================== -->
+        <section class="cat-section" id="nerwy">
+            <h2 class="cat-title"><span>🧠</span> Na nerwy i sen <span class="count-badge">4</span></h2>
+            <div class="mix-grid">
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-nerv">🧠 Nerwy</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Klasyczna herbatka na sen — „apteka babci"</div>
+                        <div class="mcard-target">Bezsenność, trudności z zasypianiem, płytki sen</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌳 lipa kwiat <em>2 cz.</em></span>
+                        <span class="herb-tag">🌼 melisa <em>2 cz.</em></span>
+                        <span class="herb-tag">🌾 chmiel (szyszki) <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            1 łyżkę mieszanki zalej 250 ml wrzątku, przykryj szczelnie, parzy 12 min. Pij powoli wieczorem 30–45 min przed snem.
+                        </div>
+                        <div class="mcard-dose">💡 Słodź miodem — miód nasila działanie uspokajające. Chmiel zawiera humulon — jeden z najsilniejszych naturalnych środków nasennych.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-nerv">🧠 Nerwy</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka antystresowa dzienna</div>
+                        <div class="mcard-target">Stres, napięcie nerwowe, rozdrażnienie, wypalenie</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">☀️ dziurawiec <em>2 cz.</em></span>
+                        <span class="herb-tag">🌼 melisa <em>1 cz.</em></span>
+                        <span class="herb-tag">🌳 lipa kwiat <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            1 łyżkę mieszanki zalej 250 ml wrzątku, parzy 15 min. Pij rano i w południe — nie wieczorem! Dziurawiec może być lekko pobudzający.
+                        </div>
+                        <div class="mcard-dose">💡 Efekt dziurawca narasta po 2–4 tygodniach regularnego stosowania. Kuracja min. 6 tygodni na depresję sezonową.</div>
+                        <div class="mcard-warn">⚠ Dziurawiec — silne interakcje z lekami (SSRI, antykoncepcja, antykoagulanty). Fotouczulenie — ogranicz słońce.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-nerv">🧠 Nerwy</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Silna mieszanka na ciężką bezsenność</div>
+                        <div class="mcard-target">Przewlekła bezsenność, silny lęk, stany wyczerpania nerwowego</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 waleriana korzeń <em>2 cz.</em></span>
+                        <span class="herb-tag">🌾 chmiel szyszki <em>2 cz.</em></span>
+                        <span class="herb-tag">🌼 melisa <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Korzeń waleriany gotuj 5 min w 300 ml wody. Dodaj pozostałe zioła, wyłącz ogień, parzy 15 min. Przecedź. Pij 45 min przed snem.
+                        </div>
+                        <div class="mcard-dose">💡 Waleriany nie łącz z alkoholem. Efekt nasenny pojawia się po 2–4 tygodniach regularnego stosowania.</div>
+                        <div class="mcard-warn">⚠ Waleriana — nie prowadzić pojazdów. Dzieci poniżej 12 lat — tylko pod kontrolą lekarza. Nie łączyć z lekami nasennymi.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-nerv">🧠 Nerwy</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Uspokajająca herbatka dla dzieci</div>
+                        <div class="mcard-target">Nadpobudliwość dziecięca, trudności z zasypianiem, lęk separacyjny</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌸 rumianek <em>2 cz.</em></span>
+                        <span class="herb-tag">🌳 lipa kwiat <em>1 cz.</em></span>
+                        <span class="herb-tag">🌼 melisa <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            ½ łyżeczki mieszanki na 200 ml wrzątku, przykryj, parzy 8–10 min. Ostudź do temperatury ciepłego mleka. Pij 30 min przed snem.
+                        </div>
+                        <div class="mcard-dose">💡 Dawka: dzieci 2–6 lat: ½ szklanki. 6–12 lat: ¾ szklanki. Brak waleriany i chmielu — bezpieczny skład dla dzieci od 2 lat.</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ===================== OCZYSZCZANIE ===================== -->
+        <section class="cat-section" id="oczyszczanie">
+            <h2 class="cat-title"><span>🌿</span> Oczyszczające i wzmacniające <span class="count-badge">4</span></h2>
+            <div class="mix-grid">
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-det">🌿 Oczyszczanie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Wiosenna kuracja oczyszczająca — 4-ziołowa</div>
+                        <div class="mcard-target">Wiosenne oczyszczenie organizmu, marzec–maj, zmęczenie zimą</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 pokrzywa liście <em>2 cz.</em></span>
+                        <span class="herb-tag">🌻 mniszek liście/korzeń <em>2 cz.</em></span>
+                        <span class="herb-tag">🌾 skrzyp polny <em>1 cz.</em></span>
+                        <span class="herb-tag">🍂 łopian korzeń <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Skrzyp i łopian gotuj 10 min w 400 ml wody. Dodaj pokrzywę i mniszek, wyłącz, parzy 10 min. Przecedź.
+                        </div>
+                        <div class="mcard-dose">💡 Pij 2 szklanki dziennie przez 3–4 tygodnie. Najlepsza kuracja w marcu-maju ze świeżych roślin. Pij dużo wody!</div>
+                        <div class="mcard-warn">⚠ Silne działanie moczopędne — nie stosować przy chorobach nerek. Dużo pić wody przez cały dzień.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-det">🌿 Oczyszczanie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka oczyszczająca krew i limfę</div>
+                        <div class="mcard-target">Trądzik, łojotok, egzemy, zapalenia skóry od wewnątrz</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🍂 łopian korzeń <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 pokrzywa liście <em>2 cz.</em></span>
+                        <span class="herb-tag">🌻 mniszek korzeń <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Korzenie gotuj 15 min w 300 ml wody. Dodaj pokrzywę, wyłącz, parzy 10 min. Przecedź.
+                        </div>
+                        <div class="mcard-dose">💡 Pij 2× dziennie przez 4 tygodnie. Efekty skórne widoczne po 2–3 tygodniach. Równolegle stosuj mieszankę zewnętrznie jako okład.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-det">🌿 Oczyszczanie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Herbatka wzmacniająca — po chorobie</div>
+                        <div class="mcard-target">Rekonwalescencja, anemia, ogólne osłabienie, niedobory</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 pokrzywa <em>2 cz.</em></span>
+                        <span class="herb-tag">🌹 dzika róża owoc <em>2 cz.</em></span>
+                        <span class="herb-tag">🌻 mniszek liście <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Owoce dzikiej róży rozkrusz. 1 łyżkę mieszanki zalej 250 ml wrzątku, parzy 15 min. Przecedź.
+                        </div>
+                        <div class="mcard-dose">💡 Pokrzywa to bomba żelaza i witamin — idealna na anemię. Dziką różę stosuj przez cały rok. 2–3 szklanki dziennie przez minimum 4 tygodnie.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-det">🌿 Oczyszczanie</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka na włosy — wzmacniająca płukanka</div>
+                        <div class="mcard-target">Wypadające włosy, łupież, słabe paznokcie, łojotok skóry głowy</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 pokrzywa liście <em>2 cz.</em></span>
+                        <span class="herb-tag">🌾 skrzyp polny <em>2 cz.</em></span>
+                        <span class="herb-tag">🍂 łopian korzeń <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie — płukanka</strong>
+                            Gotuj wszystkie składniki 20 min w 1 L wody. Ostudź do ciepłej temperatury. Po umyciu szamponem polej włosy i skórę głowy — nie spłukuj.
+                        </div>
+                        <div class="mcard-dose">💡 Stosuj 2–3× tygodniowo przez 6–8 tygodni. Rób też napar wewnętrzny (2× dziennie szklanka) — podwójne działanie: zewnętrznie + wewnętrznie.</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ===================== DLA KOBIET ===================== -->
+        <section class="cat-section" id="kobiety">
+            <h2 class="cat-title"><span>🌸</span> Dla kobiet <span class="count-badge">4</span></h2>
+            <div class="mix-grid">
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-wom">🌸 Kobiety</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Na bóle miesiączkowe — rozkurczająca</div>
+                        <div class="mcard-target">Bolesna menstruacja, skurcze, napięcie przedmiesiączkowe (PMS)</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌼 krwawnik <em>2 cz.</em></span>
+                        <span class="herb-tag">☀️ dziurawiec <em>1 cz.</em></span>
+                        <span class="herb-tag">🌼 melisa <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            1 łyżkę mieszanki zalej 250 ml wrzątku, przykryj, parzy 15 min. Pij od 2 dni przed miesiączką przez cały czas trwania, 2–3× dziennie.
+                        </div>
+                        <div class="mcard-dose">💡 Krwawnik reguluje napięcie macicy, dziurawiec łagodzi PMS, melisa rozluźnia skurcze. Połóż termofor na brzuch dla wzmocnienia efektu.</div>
+                        <div class="mcard-warn">⚠ Krwawnik i dziurawiec — nie stosować w ciąży! Dziurawiec interaguje z antykoncepcją hormonalną.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-wom">🌸 Kobiety</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Regulacja cyklu — miesiączkowa</div>
+                        <div class="mcard-target">Nieregularny cykl, skąpe miesiączki, brak owulacji (przy braku choroby)</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌼 krwawnik <em>2 cz.</em></span>
+                        <span class="herb-tag">🫐 malina (liście) <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 pokrzywa <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            1 łyżkę mieszanki zalej 250 ml wrzątku, parzy 15 min. Pij 2× dziennie przez 3 tygodnie z 4, robić przerwę na czas miesiączki.
+                        </div>
+                        <div class="mcard-dose">💡 Liście maliny to „zioło kobiece" — zawierają fraginę regulującą macicę. Krwawnik pobudza przepływ, pokrzywa uzupełnia żelazo tracone z krwią.</div>
+                        <div class="mcard-warn">⚠ Nie stosować w ciąży — krwawnik może pobudzać skurcze macicy.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-wom">🌸 Kobiety</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka na klimakterium</div>
+                        <div class="mcard-target">Uderzenia gorąca, nadmierne pocenie nocne, wahania nastroju, menopauza</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">☀️ dziurawiec <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 szałwia liście <em>1 cz.</em></span>
+                        <span class="herb-tag">🌼 melisa <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            1 łyżeczkę mieszanki zalej 250 ml wrzątku, parzy 12 min. Pij 2× dziennie rano i popołudniu — nie wieczorem (dziurawiec może być pobudzający).
+                        </div>
+                        <div class="mcard-dose">💡 Szałwia zmniejsza pocenie i uderzenia gorąca — zawiera fitoestrogeny. Dziurawiec stabilizuje nastrój. Kuracja min. 6 tygodni.</div>
+                        <div class="mcard-warn">⚠ Dziurawiec — interakcje z lekami hormonalnymi i SSRI. Szałwia — zawiera tujon, nie przekraczać zalecanych dawek.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-wom">🌸 Kobiety</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Herbatka wzmacniająca dla kobiet — ogólna</div>
+                        <div class="mcard-target">Ogólne wzmocnienie, skóra, włosy, paznokcie, rekonwalescencja</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 pokrzywa <em>2 cz.</em></span>
+                        <span class="herb-tag">🫐 malina liście <em>1 cz.</em></span>
+                        <span class="herb-tag">🌾 skrzyp <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Skrzyp gotuj 15 min, dodaj pozostałe zioła, parzy 10 min. Lub: zalej wszystko wrzątkiem i parzy 15–20 min (trochę mniej krzemu, ale akceptowalne).
+                        </div>
+                        <div class="mcard-dose">💡 Bezpieczna do codziennego picia. Pokrzywa — żelazo. Skrzyp — krzem na włosy/paznokcie. Malina — fitohormony. Rumianek — skóra.</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ===================== BÓL I STAWY ===================== -->
+        <section class="cat-section" id="bol">
+            <h2 class="cat-title"><span>💪</span> Na ból, stawy i reumatyzm <span class="count-badge">3</span></h2>
+            <div class="mix-grid">
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-pain">💪 Ból</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Mieszanka przeciwzapalna na stawy</div>
+                        <div class="mcard-target">Reumatyzm, artretyzm, bóle stawów, dnawica moczanowa</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 wiązówka błotna <em>2 cz.</em></span>
+                        <span class="herb-tag">🌾 skrzyp polny <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 pokrzywa <em>1 cz.</em></span>
+                        <span class="herb-tag">🌳 liść brzozy <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Skrzyp gotuj 15 min w 400 ml wody. Dodaj wiązówkę, pokrzywę i brzozę, wyłącz ogień, parzy 10 min. Przecedź.
+                        </div>
+                        <div class="mcard-dose">💡 Pij 2–3 szklanki dziennie przez 4–6 tygodni. Wiązówka to „aspiryna ziołowa" — salicylany. Skrzyp i pokrzywa uzupełniają krzem i minerały.</div>
+                        <div class="mcard-warn">⚠ Wiązówka — nie stosować przy alergii na aspirynę i ASA. Nie stosować u dzieci poniżej 12 lat.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-pain">💪 Ból</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Herbatka na migrenę i ból głowy</div>
+                        <div class="mcard-target">Migrena, ból głowy napięciowy, stres jako przyczyna bólu</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 mięta pieprzowa <em>2 cz.</em></span>
+                        <span class="herb-tag">🌳 lipa kwiat <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            1 łyżkę mieszanki zalej 250 ml wrzątku, przykryj, parzy 10 min. Jednocześnie: nasącz watę lub chusteczkę olejkiem miętowym i przyłóż do czoła i skroni.
+                        </div>
+                        <div class="mcard-dose">💡 Pij małymi łykami co 20–30 min przy bólu głowy. Mentol zewnętrznie + mięta wewnętrznie + lipa relaksująca — trójstronne uderzenie w migrenę.</div>
+                        <div class="mcard-warn">⚠ Olejek miętowy na skórę — nie stosować na niemowlęcą twarz. Nie nakładać na powieki ani pod nos u dzieci.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-pain">💪 Ból</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Rozgrzewający napar zimowy z przyprawami</div>
+                        <div class="mcard-target">Marznięcie rąk i nóg, słabe krążenie, rozgrzanie po mrozie</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌿 tymianek <em>2 cz.</em></span>
+                        <span class="herb-tag">🌹 dzika róża owoc <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 imbir (świeży lub suszony) <em>1 cz.</em></span>
+                        <span class="herb-tag">🍯 miód + sok z cytryny <em>do smaku</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Owoce dzikiej róży i imbir gotuj 10 min. Dodaj tymianek, wyłącz, parzy 10 min. Przecedź, dodaj sok z cytryny i miód (po ostudzeniu do 40°C).
+                        </div>
+                        <div class="mcard-dose">💡 Pij gorący natychmiast po powrocie z mrozu. Imbir pobudza krążenie, tymianek antybakteryjnie, dzika róża — witamina C. Idealne na zimowe wieczory.</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ===================== SKÓRA I WŁOSY ===================== -->
+        <section class="cat-section" id="skora">
+            <h2 class="cat-title"><span>✨</span> Na skórę i włosy <span class="count-badge">4</span></h2>
+            <div class="mix-grid">
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-skin">✨ Skóra</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Kąpiel ziołowa — relaksacyjna i kojąca</div>
+                        <div class="mcard-target">Swędząca skóra, atopowe zapalenie skóry (AZS), stres, napięcie mięśniowe</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌸 rumianek <em>2 cz.</em></span>
+                        <span class="herb-tag">🌳 lipa kwiat <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 mięta <em>1 cz.</em></span>
+                        <span class="herb-tag">🌼 krwawnik <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            4 łyżki mieszanki zalej 2 l wrzątku, przykryj, parzy 30 min. Przecedź, wlej do ciepłej wanny. Kąpiel 20–25 min.
+                        </div>
+                        <div class="mcard-dose">💡 Rumianek łagodzi swędzenie, mięta chłodzi, lipa nawilża. Idealna kąpiel wieczorna po ciężkim dniu lub przy egzemach i pokrzywce.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-skin">✨ Skóra</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Okład na trądzik i tłustą skórę — zewnętrzny</div>
+                        <div class="mcard-target">Trądzik pospolity i różowaty, przetłuszczająca się cera, przebarwienia</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🍂 łopian korzeń <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 pokrzywa liście <em>1 cz.</em></span>
+                        <span class="herb-tag">🌸 rumianek <em>1 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie — tonik do twarzy</strong>
+                            Korzenie gotuj 15 min, dodaj pozostałe zioła, parzy 15 min. Ostudź. Przecedź przez 2 warstwy gazy. Przemywaj twarz wacikikiem rano i wieczorem.
+                        </div>
+                        <div class="mcard-dose">💡 Przechowuj w lodówce do 5 dni. W tym samym czasie pij odwar łopianowo-pokrzywowy wewnętrznie — działanie od środka + z zewnątrz daje najlepsze efekty.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-skin">✨ Skóra</span><span class="diff diff-easy">łatwa</span></div>
+                        <div class="mcard-title">Maseczka ziołowa z glinek — oczyszczająca</div>
+                        <div class="mcard-target">Zanieczyszczone pory, tłusta skóra, trądzik, rozszerzone pory</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌸 rumianek (proszek lub mocny napar) <em>2 cz.</em></span>
+                        <span class="herb-tag">🌿 szałwia (proszek) <em>1 cz.</em></span>
+                        <span class="herb-tag">⬜ glinka zielona lub biała <em>3 cz.</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie</strong>
+                            Wymieszaj sproszkowane zioła z glinką. Rozcieńcz mocnym naparem rumiankowym do konsystencji pasty. Nałóż na twarz na 10–15 min, zmyj ciepłą wodą.
+                        </div>
+                        <div class="mcard-dose">💡 Stosuj 1–2× tygodniowo. Po maseczce nałóż kilka kropli olejku z dzikiej róży jako serum — absolutna pielęgnacja prosto z natury.</div>
+                    </div>
+                </div>
+
+                <div class="mcard">
+                    <div class="mcard-head">
+                        <div><span class="mcat mcat-skin">✨ Skóra</span><span class="diff diff-med">średnia</span></div>
+                        <div class="mcard-title">Olejek ziołowy do masażu i regeneracji</div>
+                        <div class="mcard-target">Sucha skóra, blizny, rozstępy, bóle mięśniowe, zmęczone nogi</div>
+                    </div>
+                    <div class="mcard-herbs">
+                        <span class="herb-tag">🌸 rumianek (kwiaty) <em>1 cz.</em></span>
+                        <span class="herb-tag">☀️ dziurawiec (kwiaty) <em>1 cz.</em></span>
+                        <span class="herb-tag">🌿 mięta (liście) <em>½ cz.</em></span>
+                        <span class="herb-tag">🫙 olej słonecznikowy lub migdałowy <em>baza</em></span>
+                    </div>
+                    <div class="mcard-body">
+                        <div class="mcard-prep">
+                            <strong>Przygotowanie — macerat olejowy</strong>
+                            Kwiaty i liście lekko podsusz 24 h. Umieść w słoiku, zalej olejem (kwiaty muszą być przykryte). Postaw na słonecznym parapecie na 4–6 tygodni. Przecedź, przelej do butelki z ciemnego szkła.
+                        </div>
+                        <div class="mcard-dose">💡 Rumianek łagodzi, dziurawiec (czerwony olejek) goi, mięta chłodzi. Stosuj do masażu po kąpieli lub jako serum olejowe na twarz.</div>
+                        <div class="mcard-warn">⚠ Dziurawiec powoduje fotouczulenie — nie stosować na skórę wystawioną na słońce. Tylko wieczorem lub pod ubraniem.</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <div class="nav-bottom">
+            <a href="przepisy.html">← Przepisy ziołowe</a>
+            <a href="laka.html">🌾 Rośliny łąkowe →</a>
+        </div>
+    </div>
+
+    <footer style="text-align:center;padding:28px;color:var(--text-muted);font-size:.82rem;border-top:1px solid var(--border)">
+        Mikstury ziołowe · Informacje mają charakter edukacyjny, nie zastępują porady lekarza · Kompendium 2026
+    </footer>
+
+    <script>
+        // Podświetl aktywną kategorię
+        const sections = document.querySelectorAll('.cat-section');
+        const navLinks = document.querySelectorAll('.cat-nav a');
+        const obs = new IntersectionObserver(entries => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    navLinks.forEach(a => a.classList.remove('active'));
+                    const active = document.querySelector(`.cat-nav a[href="#${e.target.id}"]`);
+                    if (active) active.classList.add('active');
+                }
+            });
+        }, {rootMargin: '-35% 0px -60% 0px'});
+        sections.forEach(s => obs.observe(s));
+    </script>
+</body>
+</html>
