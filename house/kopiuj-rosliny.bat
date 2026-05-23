@@ -1,5 +1,4 @@
 @echo off
-chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 set "BASE=%~dp0"
@@ -7,7 +6,7 @@ set "SRC=!BASE!rosliny"
 
 echo.
 echo  ============================================
-echo    Kopiowanie Przewodnika Roslinnego
+echo   Kopiowanie Przewodnika Roslinnego
 echo  ============================================
 echo.
 
@@ -19,7 +18,7 @@ if not exist "!SRC!\" (
     exit /b 1
 )
 
-set /p "NAZWA=  Podaj nazwe folderu docelowego: "
+set /p "NAZWA=  Nazwa folderu docelowego: "
 echo.
 
 if "!NAZWA!"=="" (
@@ -28,8 +27,8 @@ if "!NAZWA!"=="" (
     exit /b 0
 )
 
-rem  Ustal pelna sciezke: jesli uzytkownik podal litera dysku (np. C:\...) -- uzyj
-rem  wprost, w przeciwnym razie umiesc folder obok skryptu.
+rem  Jesli podano pelna sciezke (np. D:\backup) -- uzyj wprost,
+rem  w przeciwnym razie umiesc folder obok skryptu.
 set "DRUGI=!NAZWA:~1,1!"
 if "!DRUGI!"==":" (
     set "CEL=!NAZWA!"
@@ -37,7 +36,7 @@ if "!DRUGI!"==":" (
     set "CEL=!BASE!!NAZWA!"
 )
 
-rem  Usun ewentualny koncowy backslash
+rem  Usun koncowy backslash jesli wystepuje
 if "!CEL:~-1!"=="\" set "CEL=!CEL:~0,-1!"
 
 echo  Zrodlo:    !SRC!
@@ -45,38 +44,40 @@ echo  Docelowy:  !CEL!
 echo.
 
 if exist "!CEL!\" (
-    echo  Folder [!NAZWA!] juz istnieje -- nadpisuje zmienione pliki.
+    echo  Folder [!NAZWA!] juz istnieje.
+    set /p "CONF=  Nadpisac istniejace pliki? [T/N]: "
     echo.
+    if /i not "!CONF!"=="T" (
+        echo  Anulowano.
+        pause
+        exit /b 0
+    )
 )
 
 echo  Kopiowanie...
 echo.
 
-rem  Robocopy: /E = z podfolderami, bez /PURGE i /MIR -- nie kasuje
-rem  niczego w folderze docelowym, tylko nadpisuje zmienione pliki.
 robocopy "!SRC!" "!CEL!\rosliny" /E /XF CLAUDE.md *.ps1 *.bat /XD .claude /NP /NFL /NDL
 set "RC=%ERRORLEVEL%"
 
-rem  Robocopy zwraca 0-7 przy sukcesie (>= 8 to blad)
 if %RC% geq 8 (
     echo.
-    echo  BLAD robocopy (kod %RC%). Sprawdz czy sciezka jest poprawna.
+    echo  BLAD robocopy ^(kod %RC%^). Sprawdz czy sciezka jest poprawna.
     pause
     exit /b %RC%
 )
 
-echo  [rosliny\]  skopiowano.
+echo  rosliny\ ... OK
 
-rem  Skopiuj rowniez skrot Rosliny.html (jesli istnieje obok skryptu)
 if exist "!BASE!Rosliny.html" (
     copy /Y "!BASE!Rosliny.html" "!CEL!\Rosliny.html" >nul
-    echo  [Rosliny.html]  skopiowano.
+    echo  Rosliny.html ... OK
 )
 
 echo.
 echo  ============================================
-echo    Gotowe!
-echo    Lokalizacja: !CEL!
+echo   Gotowe!
+echo   !CEL!
 echo  ============================================
 echo.
 pause
