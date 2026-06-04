@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02-07 — ANPR — odczyt tablic rejestracyjnych</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">02 Kamery CCTV</a><span class="sep">/</span><span class="title">02-07 ANPR</span>
+</div>
+<div class="container">
+<h1>ANPR — odczyt tablic rejestracyjnych</h1>
+<p class="subtitle">Kamery LPR (License Plate Recognition), dobór parametrów (rozdzielczość, zoom, IR), software (Milesight, Hikvision iVMS, Frigate), integracja z bramą/szlabanem. Aktualizacja: 2026.</p>
+
+<h2>ANPR vs LPR — synonimy</h2>
+<ul>
+<li><strong>ANPR</strong> — Automatic Number Plate Recognition (terminologia europejska/UK)</li>
+<li><strong>LPR</strong> — License Plate Recognition (terminologia amerykańska)</li>
+<li>To samo: technologia rozpoznawania tablic rejestracyjnych z obrazu wideo</li>
+</ul>
+
+<h2>Zastosowania</h2>
+<table>
+<thead><tr><th>Zastosowanie</th><th>Opis</th></tr></thead>
+<tbody>
+<tr><td><strong>Brama posesji</strong></td><td>auto-otwarcie dla domowników, log gości</td></tr>
+<tr><td><strong>Parking firmowy</strong></td><td>kontrola wjazdu pracowników, gości</td></tr>
+<tr><td><strong>Parking płatny</strong></td><td>liczenie czasu, automatyczne fakturowanie</td></tr>
+<tr><td><strong>Stacja paliw</strong></td><td>powiązanie tankowania z autem, ściąganie należności</td></tr>
+<tr><td><strong>Hotel, restauracja</strong></td><td>powiadomienie recepcji o przyjeździe gościa</td></tr>
+<tr><td><strong>Drive-thru (McDonald's)</strong></td><td>powitanie po imieniu klienta z konta</td></tr>
+<tr><td><strong>Magazyn / centrum dystrybucji</strong></td><td>kontrola TIR-ów, powiązanie z systemem WMS</td></tr>
+<tr><td><strong>Bramy SPA, osiedla zamknięte</strong></td><td>auto-otwarcie dla mieszkańców</td></tr>
+<tr><td><strong>Egzekwowanie ZTL/SCT</strong></td><td>kontrola wjazdu do stref niskoemisyjnych (Kraków, Warszawa)</td></tr>
+<tr><td><strong>Policja, ITD</strong></td><td>poszukiwanie pojazdów, kontrola flot</td></tr>
+</tbody>
+</table>
+
+<h2>Wymagania techniczne kamery ANPR</h2>
+
+<h3>Rozdzielczość tablicy w kadrze</h3>
+<p>Tablica polska ma wymiary <strong>520 × 114 mm</strong> (jednorzędowa). Aby OCR działał stabilnie, na szerokości tablicy powinno być:</p>
+<ul>
+<li><strong>Minimum 120 pikseli</strong> — odczyt 80–90% poprawny</li>
+<li><strong>150–200 pikseli</strong> — odczyt &gt;95% poprawny (zalecane)</li>
+<li><strong>250+ pikseli</strong> — odczyt &gt;99% poprawny (premium)</li>
+</ul>
+
+<div class="callout"><strong>Wzór.</strong> Aby uzyskać X px na szerokości tablicy 0,52 m z kamerą 4 MP (2560 px szer.) i HFOV 30°:<br>
+<code>szerokość_kadru = 2560 / X · 0,52</code><br>
+Dla X = 150 px → kadr 8,87 m → odległość kamery przy HFOV 30° = 16,5 m.</div>
+
+<h3>Frame rate i czas migawki</h3>
+<ul>
+<li><strong>Frame rate</strong> — min. 25 fps, lepiej 50 fps dla aut &gt; 30 km/h</li>
+<li><strong>Czas migawki (shutter)</strong> — krytyczny! Auto przy 50 km/h przemieszcza się o 14 m/s. Dla nieostro:
+<ul>
+<li>30 km/h → shutter max 1/250 s</li>
+<li>50 km/h → shutter max 1/500 s</li>
+<li>100 km/h → shutter max 1/1000 s (autostrada)</li>
+</ul>
+</li>
+</ul>
+
+<h3>Oświetlenie i odbicie tablicy</h3>
+<p>Polskie tablice są <strong>retroreflective</strong> — odbijają światło z powrotem do źródła. Stąd kamera z IR LED daje na tablicy bardzo jasny obraz (tablica „świeci"). To zaleta — przy odpowiednim ustawieniu ekspozycji tablica jest czytelna nawet w głębokiej nocy.</p>
+
+<h3>Dedykowane kamery ANPR vs uniwersalne</h3>
+<table>
+<thead><tr><th>Cecha</th><th>Zwykła IP cam</th><th>Dedykowana ANPR</th></tr></thead>
+<tbody>
+<tr><td>Sensor</td><td>1/2.8" Sony Starvis</td><td>1/1.8" lub większy</td></tr>
+<tr><td>Obiektyw</td><td>fixed lub motozoom 2,7–13,5 mm</td><td>motozoom 8–50 mm dedykowany</td></tr>
+<tr><td>Filtr IR</td><td>standard IR-cut</td><td>filtr wzmocniony dla tablic</td></tr>
+<tr><td>Auto-ekspozycja</td><td>cała scena</td><td>tylko strefa tablicy (zachowanie kontrastu)</td></tr>
+<tr><td>Shutter</td><td>auto 1/25–1/1000</td><td>z kontrolą min/max (np. min 1/500)</td></tr>
+<tr><td>Algorytm OCR</td><td>brak lub w VMS</td><td>wbudowany, działa offline</td></tr>
+<tr><td>Cena (2026)</td><td>500–900 zł</td><td>2 500–6 000 zł</td></tr>
+</tbody>
+</table>
+
+<h2>Modele dedykowane ANPR — przykłady 2026</h2>
+<table>
+<thead><tr><th>Model</th><th>Sensor</th><th>Ogniskowa</th><th>Cena</th><th>Cechy</th></tr></thead>
+<tbody>
+<tr><td>Hikvision iDS-2CD7A26G0/P-IZHSY</td><td>1/1.8" 2 MP</td><td>8–32 mm motozoom</td><td>~5 500 zł</td><td>DeepInView ANPR, lista 10 000 tablic</td></tr>
+<tr><td>Hikvision iDS-TCM403-AI</td><td>1/1.8" 4 MP</td><td>10–50 mm</td><td>~6 500 zł</td><td>highway / autostrada do 150 km/h</td></tr>
+<tr><td>Dahua ITC215-PW6M-IRLZF</td><td>1/2.8" 2 MP</td><td>2,7–12 mm</td><td>~3 200 zł</td><td>ANPR + AI klasyfikacja typu pojazdu</td></tr>
+<tr><td>Dahua ITC415-PW6M-IZ</td><td>1/2.7" 4 MP</td><td>8–32 mm</td><td>~4 800 zł</td><td>ITS (Intelligent Transport System)</td></tr>
+<tr><td>Milesight MS-C5365-PD</td><td>1/2.7" 5 MP</td><td>2,7–13,5 mm</td><td>~3 800 zł</td><td>ANPR + LPR-list + REST API do bramy</td></tr>
+<tr><td>BCS-V-DIP55VSR3-Ai2</td><td>1/2.8" 5 MP</td><td>2,7–13,5 mm</td><td>~2 100 zł</td><td>budget ANPR pl, parking</td></tr>
+<tr><td>Uniview IPC2128SR3-DPF60ZW-F</td><td>1/2.8" 8 MP</td><td>2,8–12 mm motozoom</td><td>~3 400 zł</td><td>ANPR + people/vehicle</td></tr>
+</tbody>
+</table>
+
+<h2>Software / silniki ANPR</h2>
+
+<h3>Wbudowane w kamerze (on-camera)</h3>
+<ul>
+<li><strong>Hikvision DeepInView</strong> — silnik w kamerze, listy tablic, integracja z DMP/AMP, biała/czarna lista do 10 000</li>
+<li><strong>Dahua AI (DSS/Express)</strong> — kategoria pojazdów + ANPR, integracja z bramą przez sterownik DH-ARC</li>
+<li><strong>Milesight LPR</strong> — własny silnik z REST API</li>
+<li><strong>Axis License Plate Verifier</strong> — aplikacja ACAP na kamerze Axis</li>
+</ul>
+
+<h3>Serwerowe (post-processing)</h3>
+<table>
+<thead><tr><th>Produkt</th><th>Tryb licencji</th><th>Charakterystyka</th></tr></thead>
+<tbody>
+<tr><td><strong>OpenALPR / OpenLPR</strong></td><td>open-source (community) + komercyjny</td><td>linuxowy, REST API, GPU support</td></tr>
+<tr><td><strong>PlateRecognizer</strong></td><td>SaaS (chmura) + on-prem</td><td>500 odczytów/mies. za darmo, dokładność 99%</td></tr>
+<tr><td><strong>Vaxtor VaxALPR</strong></td><td>komercyjny per kamera</td><td>profesjonalny, integracje z parkingami</td></tr>
+<tr><td><strong>Frigate</strong> + LPR plugin</td><td>open-source</td><td>w Home Assistant, CodeProject.AI</td></tr>
+<tr><td><strong>Genetec AutoVu</strong></td><td>enterprise</td><td>obiekty publiczne, miasta</td></tr>
+<tr><td><strong>Milestone Husky LPR</strong></td><td>enterprise</td><td>integracja z XProtect VMS</td></tr>
+</tbody>
+</table>
+
+<h3>Frigate — open-source dla Home Assistant</h3>
+<pre><code>frigate.yml (fragment):
+cameras:
+  brama:
+    ffmpeg:
+      inputs:
+        - path: rtsp://user:pass@192.168.1.10:554/Streaming/Channels/101
+    detect:
+      width: 1920
+      height: 1080
+    objects:
+      track:
+        - car
+        - motorcycle
+        - truck
+    snapshots:
+      enabled: true
+      retain:
+        default: 30  # dni</code></pre>
+<p>+ plugin CodeProject.AI LPR — automatyczne wyciąganie tekstu z tablicy w Home Assistant, integracja z bramą (np. Shelly Plus 1 jako relay).</p>
+
+<h2>Instalacja kamery ANPR — pozycjonowanie</h2>
+
+<h3>Kąty pochylenia</h3>
+<ul>
+<li><strong>Kąt poziomy (od osi pojazdu)</strong> — max <strong>30°</strong>, optymalnie 15–20°. Większy kąt = trapezowa deformacja tablicy.</li>
+<li><strong>Kąt pionowy</strong> — max <strong>30°</strong>, optymalnie 10–15° (kamera nieznacznie nad poziomem tablicy).</li>
+<li><strong>Wysokość montażu</strong> — 2,5–3,5 m nad nawierzchnią. Wyżej = większy kąt pionowy, gorsze OCR.</li>
+</ul>
+
+<h3>Odległość od linii detekcji</h3>
+<table>
+<thead><tr><th>Prędkość pojazdu</th><th>Optymalna odległość</th><th>Ogniskowa (sensor 1/1.8")</th></tr></thead>
+<tbody>
+<tr><td>do 30 km/h (parking)</td><td>4–8 m</td><td>4–8 mm</td></tr>
+<tr><td>do 60 km/h (brama firmy)</td><td>10–15 m</td><td>8–16 mm</td></tr>
+<tr><td>do 90 km/h (droga)</td><td>15–25 m</td><td>12–25 mm</td></tr>
+<tr><td>do 130 km/h (autostrada)</td><td>20–40 m</td><td>25–50 mm</td></tr>
+</tbody>
+</table>
+
+<div class="warning"><strong>Pozycjonowanie nad pasem.</strong> Najlepiej kamera nad osią pasa (np. nad bramą), nie z boku. Wtedy kąt poziomy 0–10°, idealny do OCR. Boczne montaże (z latarni przy drodze) wymagają droższego dedykowanego sprzętu i większego zooma.</div>
+
+<h2>Integracja z bramą / szlabanem</h2>
+
+<h3>Topologia połączeń</h3>
+<pre><code>[Kamera ANPR] → RTSP → [Server / NVR / HA]
+                              ↓
+                         silnik OCR
+                              ↓
+                    porównanie z whitelist
+                              ↓
+                  [Relay / Shelly / kontroler]
+                              ↓
+                  [Sterownik bramy / szlaban]</code></pre>
+
+<h3>Praktyczne implementacje</h3>
+<ul>
+<li><strong>Hikvision DS-K1T642DWX</strong> + LPR camera + DS-K2602T controller — integracja end-to-end od producenta</li>
+<li><strong>BCS LPR + relay</strong> — wbudowane wyjście relay w kamerze (do bezpośredniego sterowania)</li>
+<li><strong>Frigate + Home Assistant + Shelly Plus 1</strong> — DIY open-source za ~600 zł</li>
+<li><strong>Milesight ANPR + REST API → Tailwind / Nice / Faac</strong> — integracja z popularnymi napędami bram</li>
+</ul>
+
+<h2>Wyzwania i ograniczenia</h2>
+<div class="warning">
+<ul>
+<li><strong>Brudne tablice</strong> — błoto, śnieg, naklejki → OCR &lt;50%. Brak dobrego rozwiązania, oprócz manualnej weryfikacji.</li>
+<li><strong>Tablice nieczytelne</strong> (zniszczone, zardzewiałe) — zwłaszcza w starszych pojazdach</li>
+<li><strong>Reflexive halo w mokrym dniu</strong> — pomocne soczewki polaryzacyjne (rzadko w CCTV)</li>
+<li><strong>Tablice zagraniczne</strong> — wymaga konfiguracji silnika (UE, UK, US — różne formaty)</li>
+<li><strong>Tablice tymczasowe / próbne</strong> — często nie wykrywane (zielone z czarnym tekstem)</li>
+<li><strong>Motocykle</strong> — mniejsza tablica (180 × 130 mm), pionowa, wymaga osobnego profilu</li>
+</ul>
+</div>
+
+<h2>RODO i ANPR</h2>
+<div class="callout">Numer rejestracyjny pojazdu jest <strong>danymi osobowymi</strong> (umożliwia identyfikację właściciela przez CEPiK). Stąd:
+<ul>
+<li>Wymagana <strong>podstawa prawna</strong> (zwykle uzasadniony interes — np. bezpieczeństwo posesji, kontrola dostępu)</li>
+<li>Obowiązek <strong>informowania</strong> (tablica RODO przed wjazdem)</li>
+<li>Retencja jak dla CCTV — zalecane <strong>30 dni</strong>, max 3 miesiące bez szczególnego uzasadnienia</li>
+<li>Zakaz <strong>profilowania</strong> bez dodatkowej podstawy (np. zliczanie wizyt konkretnego pojazdu w celu marketingu)</li>
+<li>Dla obiektów komercyjnych — wpis w rejestrze czynności przetwarzania (RCPD)</li>
+</ul>
+</div>
+
+<h2>Koszt typowej instalacji ANPR (2026)</h2>
+<table>
+<thead><tr><th>Element</th><th>Domowa brama</th><th>Parking firmowy 1 wjazd</th></tr></thead>
+<tbody>
+<tr><td>Kamera ANPR</td><td>BCS-V-DIP55 (~2 100 zł)</td><td>Milesight MS-C5365 (~3 800 zł)</td></tr>
+<tr><td>Server / silnik OCR</td><td>HA + Frigate na N100 PC (~1 500 zł)</td><td>Milesight Network NVR (~2 000 zł)</td></tr>
+<tr><td>Sterownik / relay</td><td>Shelly Plus 1 (~75 zł)</td><td>kontroler dostępu (~600 zł)</td></tr>
+<tr><td>Instalacja, kabel</td><td>500 zł</td><td>1 200 zł</td></tr>
+<tr><td>Robocizna + konfiguracja</td><td>800 zł</td><td>1 500 zł</td></tr>
+<tr><td><strong>RAZEM</strong></td><td><strong>~5 000 zł</strong></td><td><strong>~9 000 zł</strong></td></tr>
+</tbody>
+</table>
+
+<h2>Co dalej</h2>
+<p>Sekcja kamer ukończona. Kolejna część — rejestratory: NVR/DVR/HVR, dyski, RAID, switche PoE.</p>
+
+<div class="nav-bottom">
+<a href="02-06-audio-mikrofony.html">⟵ Audio i mikrofony</a>
+<a href="../03-cctv-rejestratory/index.html">Sekcja 03 — Rejestratory →</a>
+</div>
+</div>
+</body>
+</html>

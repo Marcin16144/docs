@@ -1,0 +1,1903 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoundCloud — SEO + integracja API</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #555;
+    --accent: #ff5500;
+    --code-bg: #f5f5f7;
+    --code-fg: #c7254e;
+    --border: #e3e3e3;
+    --table-head: #fafafa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --fg: #e8e8e8;
+      --muted: #aaa;
+      --accent: #ff7733;
+      --code-bg: #2a2a2a;
+      --code-fg: #ff9999;
+      --border: #3a3a3a;
+      --table-head: #252525;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 4rem;
+  }
+  h1 {
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 0.5rem;
+    margin-top: 0;
+  }
+  h2 {
+    color: var(--accent);
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  h3 { margin-top: 1.75rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.92em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    font-size: 0.88em;
+    line-height: 1.5;
+  }
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    font-size: inherit;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: 0.94em;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--table-head); font-weight: 600; }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.25rem 0; }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2.5rem 0;
+  }
+  blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 0.2rem 1rem;
+    margin: 1rem 0;
+    color: var(--muted);
+    background: var(--code-bg);
+  }
+  .meta {
+    color: var(--muted);
+    font-size: 0.9em;
+    margin-bottom: 2rem;
+  }
+  .toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0 2.5rem;
+  }
+  .toc h3 { margin: 0 0 0.5rem; font-size: 1em; }
+  .toc ol { margin: 0; padding-left: 1.25rem; }
+  strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>SoundCloud — SEO + integracja API</h1>
+<p class="meta">Kompletny przewodnik: optymalizacja SEO i programowy upload przez Public API.</p>
+
+<nav class="toc">
+  <h3>Spis treści</h3>
+  <ol>
+    <li><a href="#seo">SEO na SoundCloud — praktyczne wskazówki</a></li>
+    <li><a href="#access">Dostęp do API</a></li>
+    <li><a href="#auth">Autoryzacja (OAuth 2.1 + PKCE)</a></li>
+    <li><a href="#upload">Upload utworu</a></li>
+    <li><a href="#metadata">Aktualizacja metadanych</a></li>
+    <li><a href="#nodejs">Wzorzec uploadu w Node.js</a></li>
+    <li><a href="#hygiene">Rate limits i higiena integracji</a></li>
+    <li><a href="#case">Case study: Lunar Harmony 2026</a></li>
+    <li><a href="#case2">Case study: Old Love Will Not Be Forgotten</a></li>
+    <li><a href="#case3">Case study: Let's Talk About Music (sunny)</a></li>
+    <li><a href="#case4">Case study: Fantastic World (No More Coffee)</a></li>
+    <li><a href="#case5">Case study: The Journey In the Time and Space</a></li>
+    <li><a href="#case6">Case study: Far Far Away</a></li>
+    <li><a href="#case7">Case study: Summertime Melody MAX 07 (mix!)</a></li>
+    <li><a href="#case8">Case study: Deep Water (Ext. Ver)</a></li>
+    <li><a href="#case9">Case study: Time To Speed Up (Long Version)</a></li>
+    <li><a href="#case10">Case study: The Locomotive (new version)</a></li>
+    <li><a href="#case11">Case study: The Journey (2026 Version) — re-release</a></li>
+    <li><a href="#sources">Źródła</a></li>
+  </ol>
+</nav>
+
+<h2 id="seo">1. SEO na SoundCloud — praktyczne wskazówki</h2>
+
+<h3>Tytuł utworu</h3>
+<ul>
+  <li>Włącz słowo kluczowe + gatunek + rok, np. <code>Summer Deep House Mix 2026</code> zamiast samego <code>Track 03</code>.</li>
+  <li>Unikaj śmieciowych znaków (<code>★</code>, <code>►</code>) — utrudniają indeksowanie wewnątrz SC i w Google.</li>
+  <li>Format <code>Artist Name – Track Title</code> poprawia rozpoznawalność i działa lepiej w wyszukiwarce SC.</li>
+</ul>
+
+<h3>Tagi (kluczowe!)</h3>
+<ul>
+  <li><strong>5–7 trafnych tagów</strong> daje średnio ~35% więcej organicznych odtworzeń niż brak tagów.</li>
+  <li>Mieszaj poziomy szczegółowości: szeroki (<code>techno</code>) + niszowy (<code>melodic techno</code>, <code>peak time techno</code>).</li>
+  <li>Dodawaj tagi: gatunek, podgatunek, nastrój (<code>chill</code>, <code>energetic</code>), instrument (<code>piano</code>, <code>808</code>), kontekst (<code>workout</code>, <code>lofi study</code>), BPM.</li>
+  <li>Tagi wielowyrazowe owijaj w cudzysłów: <code>"deep house"</code>, żeby SC traktował je jako jedną frazę.</li>
+  <li><strong>Nie spamuj</strong> popularnymi tagami bez związku — algorytm degraduje takie ścieżki.</li>
+</ul>
+
+<h3>Opis (description)</h3>
+<ul>
+  <li>Pierwsze 1–2 zdania = haczyk + najważniejsze słowa kluczowe (ten fragment widać w podglądach i wynikach wyszukiwania).</li>
+  <li>Wpleć 3–5 hashtagów naturalnie w tekst, nie listą na końcu — daje wyższe CTR.</li>
+  <li>Dodaj linki do innych profili (kolaboracje), własnej strony, Spotify, Bandcamp — backlinki podbijają autorytet profilu.</li>
+  <li>Tracklisty z timestampami (<code>00:00 Intro / 03:45 …</code>) — wydłużają session time = sygnał jakości dla algorytmu.</li>
+</ul>
+
+<h3>Profil</h3>
+<ul>
+  <li><strong>Display name</strong> = artystyczne imię + ewentualnie gatunek (<code>DJ Nova – House</code>).</li>
+  <li><strong>Permalink/URL</strong> (<code>soundcloud.com/twoja-nazwa</code>) — krótki, z keywordami, bez cyfr.</li>
+  <li><strong>Bio</strong>: lokalizacja, gatunek, kontakt, linki (Instagram, YouTube, e-mail bookingowy).</li>
+  <li>Awatar + header w wysokiej rozdzielczości (min. 1240×260 dla nagłówka, 1000×1000 dla awatara).</li>
+  <li>Spójna <strong>artwork</strong> (3000×3000, JPG/PNG, min. 800×800) — wpływa na CTR w feedzie i playlistach.</li>
+</ul>
+
+<h3>Algorytm (co się liczy)</h3>
+<ul>
+  <li><strong>Pierwsze 24–48 h</strong> — odtworzenia, like'i, reposty i komentarze w tym okienku decydują, czy algorytm zacznie cię polecać.</li>
+  <li>Wskaźnik <strong>completion rate</strong> (czy słuchacze dotrwali do końca) — krótsze utwory bywają tu w lepszej pozycji.</li>
+  <li>Repost-chain — repostowanie cudzych ścieżek skłania innych do odwzajemnienia (zwiększa zasięg).</li>
+  <li>Regularność: 1 utwór tygodniowo &gt; nieregularne wrzutki.</li>
+  <li>Playlisty z własnymi + cudzymi tracks wydłużają czas sesji i pojawiają się jako osobny rezultat w wyszukiwaniu.</li>
+</ul>
+
+<h3>SEO zewnętrzne</h3>
+<ul>
+  <li>Osadzaj odtwarzacz SC na własnej stronie i blogu (oEmbed) — zwrotne linki ze stron HTML pomagają Google indeksować profil.</li>
+  <li>Dodaj profil SoundCloud do <code>sameAs</code> w JSON-LD <code>MusicGroup</code> na własnej stronie — wzmacnia Knowledge Graph.</li>
+</ul>
+
+<h2 id="access">2. Dostęp do API</h2>
+<ul>
+  <li>Wymagane konto <strong>Artist Pro</strong> (płatne).</li>
+  <li>Rejestracja aplikacji: <a href="https://soundcloud.com/you/apps">soundcloud.com/you/apps</a> → otrzymujesz <code>client_id</code> + <code>client_secret</code>.</li>
+  <li>SoundCloud okresowo zamyka nowe rejestracje aplikacji — jeśli formularz jest wyłączony, można dalej używać <strong>oEmbed</strong> (publiczne osadzanie, bez kluczy).</li>
+  <li><strong>API jest non-commercial</strong> — komercyjne case'y (np. odsprzedaż streamingu, generowanie ścieżek z konta klienta jako usługa) wymagają osobnej umowy z SC.</li>
+</ul>
+
+<h2 id="auth">3. Autoryzacja (OAuth 2.1 + PKCE)</h2>
+<p>Token wygasa po ~1 h, refresh token jest <strong>jednorazowego użytku</strong>.</p>
+
+<h3>Flow użytkownika (Authorization Code + PKCE)</h3>
+<pre><code>https://secure.soundcloud.com/authorize
+  ?client_id=YOUR_CLIENT_ID
+  &amp;redirect_uri=YOUR_REDIRECT_URI
+  &amp;response_type=code
+  &amp;code_challenge=CODE_CHALLENGE
+  &amp;code_challenge_method=S256
+  &amp;state=STATE</code></pre>
+
+<p>Wymiana kodu na token:</p>
+<pre><code>curl -X POST "https://secure.soundcloud.com/oauth/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=authorization_code" \
+  --data-urlencode "client_id=..." \
+  --data-urlencode "client_secret=..." \
+  --data-urlencode "redirect_uri=..." \
+  --data-urlencode "code_verifier=..." \
+  --data-urlencode "code=..."</code></pre>
+
+<h3>Client Credentials (tylko publiczne zasoby, bez uploadu)</h3>
+<pre><code>curl -X POST "https://secure.soundcloud.com/oauth/token" \
+  -H "Authorization: Basic &lt;base64(client_id:client_secret)&gt;" \
+  --data-urlencode "grant_type=client_credentials"</code></pre>
+
+<h3>Refresh</h3>
+<pre><code>curl -X POST "https://secure.soundcloud.com/oauth/token" \
+  --data-urlencode "grant_type=refresh_token" \
+  --data-urlencode "client_id=..." \
+  --data-urlencode "client_secret=..." \
+  --data-urlencode "refresh_token=..."</code></pre>
+
+<h2 id="upload">4. Upload utworu</h2>
+<ul>
+  <li><strong>Endpoint:</strong> <code>POST https://api.soundcloud.com/tracks</code></li>
+  <li><strong>Header:</strong> <code>Authorization: OAuth ACCESS_TOKEN</code></li>
+  <li><strong>Content-Type:</strong> <code>multipart/form-data</code></li>
+  <li><strong>Formaty:</strong> AIFF, WAVE, FLAC, OGG, MP2, MP3, AAC, AMR, WMA</li>
+  <li><strong>Limity:</strong> max 4 GB / 24 h audio na utwór.</li>
+</ul>
+
+<h3>Minimalny upload</h3>
+<pre><code>curl -X POST "https://api.soundcloud.com/tracks" \
+  -H "Authorization: OAuth ACCESS_TOKEN" \
+  -F "track[title]=Summer Deep House 2026" \
+  -F "track[asset_data]=@/path/to/track.wav"</code></pre>
+
+<h3>Pełny upload z metadanymi (rekomendowane)</h3>
+<pre><code>curl -X POST "https://api.soundcloud.com/tracks" \
+  -H "Authorization: OAuth ACCESS_TOKEN" \
+  -F "track[title]=Summer Deep House 2026" \
+  -F "track[asset_data]=@track.wav" \
+  -F "track[artwork_data]=@cover.jpg" \
+  -F "track[description]=Melodic deep house single, mastered at -8 LUFS..." \
+  -F 'track[tag_list]=house "deep house" melodic chill summer 2026' \
+  -F "track[genre]=Deep House" \
+  -F "track[sharing]=public" \
+  -F "track[downloadable]=false" \
+  -F "track[license]=all-rights-reserved" \
+  -F "track[commentable]=true"</code></pre>
+
+<blockquote>
+<strong>Uwaga:</strong> <code>tag_list</code> to jeden string oddzielony spacjami; tagi wielowyrazowe w cudzysłowach.<br>
+Po sukcesie utwór trafia do kolejki transkodowania (AAC do streamingu). Plik audio jest <strong>niemodyfikowalny</strong> po uploadzie — możesz później aktualizować tylko metadane i artwork.
+</blockquote>
+
+<h2 id="metadata">5. Aktualizacja metadanych</h2>
+<p><strong>Endpoint:</strong> <code>PUT https://api.soundcloud.com/tracks/{track_id}</code></p>
+
+<h3>JSON (bez plików)</h3>
+<pre><code>curl -X PUT "https://api.soundcloud.com/tracks/123456789" \
+  -H "Authorization: OAuth ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "track": {
+      "title": "Nowy tytuł",
+      "description": "Zaktualizowany opis...",
+      "tag_list": "house \"deep house\" remix",
+      "genre": "Deep House",
+      "sharing": "public"
+    }
+  }'</code></pre>
+
+<h3>Multipart (z nowym artworkiem)</h3>
+<pre><code>curl -X PUT "https://api.soundcloud.com/tracks/123456789" \
+  -H "Authorization: OAuth ACCESS_TOKEN" \
+  -F "track[title]=Nowy tytuł" \
+  -F "track[artwork_data]=@new-cover.jpg"</code></pre>
+
+<h3>Najważniejsze pola obiektu Track</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Opis</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>track[title]</code></td><td>Tytuł (wymagany przy upload)</td></tr>
+    <tr><td><code>track[asset_data]</code></td><td>Plik audio (wymagany przy upload)</td></tr>
+    <tr><td><code>track[description]</code></td><td>Opis — kluczowy dla SEO</td></tr>
+    <tr><td><code>track[tag_list]</code></td><td>Tagi, oddzielone spacjami, wielowyrazowe w <code>"..."</code></td></tr>
+    <tr><td><code>track[genre]</code></td><td>Gatunek (jedno pole tekstowe)</td></tr>
+    <tr><td><code>track[sharing]</code></td><td><code>public</code> / <code>private</code></td></tr>
+    <tr><td><code>track[downloadable]</code></td><td><code>true</code> / <code>false</code></td></tr>
+    <tr><td><code>track[license]</code></td><td>np. <code>all-rights-reserved</code>, <code>cc-by</code>, <code>cc-by-nc</code>…</td></tr>
+    <tr><td><code>track[artwork_data]</code></td><td>Okładka (≥800×800, JPG/PNG)</td></tr>
+    <tr><td><code>track[commentable]</code></td><td>Czy można komentować</td></tr>
+    <tr><td><code>track[label_name]</code></td><td>Wytwórnia</td></tr>
+    <tr><td><code>track[release_date]</code></td><td>Data wydania</td></tr>
+    <tr><td><code>track[isrc]</code></td><td>Kod ISRC (do rozliczeń z DSP)</td></tr>
+    <tr><td><code>track[bpm]</code></td><td>BPM</td></tr>
+    <tr><td><code>track[key_signature]</code></td><td>Tonacja</td></tr>
+  </tbody>
+</table>
+
+<h3>Usuwanie</h3>
+<pre><code>curl -X DELETE "https://api.soundcloud.com/tracks/123456789" \
+  -H "Authorization: OAuth ACCESS_TOKEN"</code></pre>
+
+<h2 id="nodejs">6. Wzorzec uploadu w Node.js (przykład)</h2>
+<pre><code>import fs from 'node:fs';
+import FormData from 'form-data';
+import fetch from 'node-fetch';
+
+async function uploadTrack(accessToken, audioPath, artworkPath, meta) {
+  const form = new FormData();
+  form.append('track[title]', meta.title);
+  form.append('track[description]', meta.description);
+  form.append('track[tag_list]', meta.tags.map(t =&gt;
+    t.includes(' ') ? `"${t}"` : t
+  ).join(' '));
+  form.append('track[genre]', meta.genre);
+  form.append('track[sharing]', 'public');
+  form.append('track[asset_data]', fs.createReadStream(audioPath));
+  if (artworkPath) {
+    form.append('track[artwork_data]', fs.createReadStream(artworkPath));
+  }
+
+  const res = await fetch('https://api.soundcloud.com/tracks', {
+    method: 'POST',
+    headers: { Authorization: `OAuth ${accessToken}` },
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Upload failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}</code></pre>
+
+<h2 id="hygiene">7. Rate limits i higiena integracji</h2>
+<ul>
+  <li>Trzymaj <code>client_secret</code> po stronie serwera, nigdy w frontendzie.</li>
+  <li>Zapisuj refresh token w bezpiecznym magazynie (refresh = jednorazowy → zapisuj nową wartość po każdej wymianie).</li>
+  <li>Przy uploadach masowych — kolejka + backoff na 429.</li>
+  <li>Logging na poziomie endpointu (upload + transcode status) — transkodowanie jest asynchroniczne; status sprawdzasz przez <code>GET /tracks/:id</code> (<code>state: processing | finished | failed</code>).</li>
+</ul>
+
+<h2 id="case">8. Case study: Lunar Harmony 2026</h2>
+<p>Pełna aplikacja powyższych zasad do realnego utworu:<br>
+<a href="https://soundcloud.com/maximummusicmaxx/lunar-harmony-2026">soundcloud.com/maximummusicmaxx/lunar-harmony-2026</a></p>
+
+<h3>Charakterystyka utworu</h3>
+<ul>
+  <li><strong>Gatunek:</strong> ambient electronic</li>
+  <li><strong>BPM:</strong> 125</li>
+  <li><strong>Typ:</strong> instrumental</li>
+  <li><strong>Artwork:</strong> nocna panorama miasta z neonami odbijającymi się w wodzie</li>
+  <li><strong>Stan początkowy:</strong> opis <strong>pusty</strong>, brak struktury tagów</li>
+</ul>
+
+<h3>Tytuł — rekomendacja</h3>
+<p>Zostaw <code>Lunar Harmony 2026</code> lub wzmocnij:</p>
+<ul>
+  <li><code>Lunar Harmony 2026 — Ambient Electronic</code> ✅ (najlepszy SEO)</li>
+  <li><code>Lunar Harmony 2026 (Atmospheric Instrumental)</code></li>
+</ul>
+
+<h3>Opis (bilingual PL/EN) — gotowy do wklejenia</h3>
+<pre><code>Lunar Harmony 2026 — instrumentalny utwór ambient electronic w 125 BPM.
+Miękkie syntezatory, atmosferyczne pady i miarowy puls nocnego miasta —
+soundtrack do pracy, jazdy po zmroku, medytacji i głębokiego skupienia.
+
+Jeśli lubisz cinematic ambient, chillwave, atmospheric electronic
+i downtempo z lekkim pulsem — ten utwór jest dla Ciebie.
+
+— — —
+
+Lunar Harmony 2026 — an instrumental ambient electronic track at 125 BPM.
+Warm synths, atmospheric pads and the steady pulse of a city at night —
+a soundtrack for focus, late night drives, meditation and deep work.
+
+Perfect if you're into cinematic ambient, chillwave, atmospheric electronic
+and pulsing downtempo.
+
+🎧 Best on headphones
+🌙 Follow for more nightscape soundscapes
+💬 Drop a comment with a timestamp where the track hits you most
+
+#ambient #cinematic #chillwave #nightdrive #atmospheric
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx</code></pre>
+
+<h3>Tagi — string do wklejenia</h3>
+<pre><code>ambient "ambient electronic" "cinematic ambient" chillwave atmospheric "night music" downtempo instrumental "ambient 2026"</code></pre>
+
+<p><strong>Logika doboru:</strong></p>
+<table>
+  <thead>
+    <tr><th>Tag</th><th>Funkcja</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>ambient</code></td><td>szeroki, łapie globalne wyszukania</td></tr>
+    <tr><td><code>"ambient electronic"</code></td><td>celne dopasowanie (125 BPM + ambient)</td></tr>
+    <tr><td><code>"cinematic ambient"</code></td><td>niszowy, mocno konwertujący — łapie filmowców</td></tr>
+    <tr><td><code>chillwave</code></td><td>spina się z neonową okładką nocnego miasta</td></tr>
+    <tr><td><code>atmospheric</code></td><td>uniwersalny mood tag</td></tr>
+    <tr><td><code>"night music"</code></td><td>long-tail z Google ("music for night")</td></tr>
+    <tr><td><code>downtempo</code></td><td>łapie wyszukania DJ-skie + playlisty</td></tr>
+    <tr><td><code>instrumental</code></td><td>filtr "no vocals"</td></tr>
+    <tr><td><code>"ambient 2026"</code></td><td>aktualność = wyższe miejsce w sortowaniu nowości</td></tr>
+  </tbody>
+</table>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Ambient</code></td></tr>
+    <tr><td>BPM</td><td><code>125</code></td></tr>
+    <tr><td>Key signature</td><td>wpisz tonację (typowo minor: <code>Am</code>, <code>Dm</code>, <code>F#m</code>)</td></tr>
+    <tr><td>Sharing</td><td><code>public</code></td></tr>
+    <tr><td>Downloadable</td><td><code>true</code> (łapie tag "free download") lub <code>false</code> jeśli release komercyjny</td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code> lub <code>cc-by-nc</code></td></tr>
+    <tr><td>Commentable</td><td><code>true</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista data 2026</td></tr>
+    <tr><td>Label name</td><td><code>Maximum Music</code> (lub własna)</td></tr>
+  </tbody>
+</table>
+
+<h3>Plan pierwszych 48 godzin</h3>
+<ol>
+  <li><strong>Playlista</strong> — <code>Night Vibes 2026 — Ambient Electronic</code>, "Lunar Harmony 2026" na pozycji 2-3 (najwyższy completion rate).</li>
+  <li><strong>Repost</strong> — prośba do 2-3 znajomych producentów ambient z większą publiką.</li>
+  <li><strong>Pinned comment</strong> od autora z timestampem najlepszego momentu — zachęca innych do dodawania własnych.</li>
+  <li><strong>Cross-post</strong> — Instagram Story/Reels z 15-sek fragmentem + tag SC + link w bio.</li>
+  <li><strong>Embed</strong> — iframe SC w poście blogowym z keywordami <code>ambient electronic 125 BPM</code> w meta description.</li>
+</ol>
+
+<h3>Weryfikacja</h3>
+<p>Po zapisaniu zmian odczekaj ~5 minut i wyszukaj w SC:</p>
+<ul>
+  <li><code>"ambient electronic 2026"</code></li>
+  <li><code>"cinematic ambient"</code></li>
+  <li><code>"lunar harmony"</code></li>
+</ul>
+<p>Utwór powinien pojawiać się w wynikach. Jeśli nie — sprawdź czy <code>sharing</code> jest <code>public</code> i czy tagi zostały zapisane (czasem SC wymaga ponownego edit + save).</p>
+
+<h2 id="case2">9. Case study: Old Love Will Not Be Forgotten</h2>
+<p>Drugi utwór z katalogu — z innym mood'em i innym pozycjonowaniem:<br>
+<a href="https://soundcloud.com/maximummusicmaxx/old-love-will-not-be-forgotten-new-version">soundcloud.com/maximummusicmaxx/old-love-will-not-be-forgotten-new-version</a></p>
+
+<h3>Charakterystyka utworu</h3>
+<ul>
+  <li><strong>Gatunek:</strong> melodic / sunset deep house</li>
+  <li><strong>BPM:</strong> typowo 120–124 (uzupełnij dokładnie)</li>
+  <li><strong>Typ:</strong> instrumental</li>
+  <li><strong>Artwork:</strong> tropikalny zachód słońca, palma w sylwetce, refleksy na wodzie</li>
+  <li><strong>Stan początkowy:</strong> opis pusty, brak struktury tagów, <code>(new version)</code> w tytule bez kontekstu</li>
+  <li><strong>Mocna karta:</strong> tytuł + okładka mówią tym samym językiem co Ibiza sunset deep house scene (Lane 8, Yotto, Cafe del Mar)</li>
+</ul>
+
+<h3>Tytuł — rekomendacja</h3>
+<p><strong>Najmocniejszy SEO:</strong></p>
+<pre><code>Old Love Will Not Be Forgotten — Melodic Deep House (2026)</code></pre>
+
+<p><strong>Alternatywy:</strong></p>
+<ul>
+  <li><code>Old Love Will Not Be Forgotten (Sunset Deep House Mix)</code></li>
+  <li><code>Old Love Will Not Be Forgotten — Emotional Deep House 2026</code></li>
+  <li><code>Old Love Will Not Be Forgotten (2026 Mix)</code> — jeśli chcesz zachować ideę "nowej wersji"</li>
+</ul>
+
+<h3>Opis (bilingual PL/EN) — gotowy do wklejenia</h3>
+<pre><code>Old Love Will Not Be Forgotten — instrumentalny melodic deep house
+o miłości, której wspomnienie wraca z każdym zachodem słońca.
+Ciepłe pady, miękkie akordy fortepianu, głęboki bas i puls czterech-na-cztery
+— soundtrack dla zachodów słońca, długich jazd wybrzeżem i wieczornych setów.
+
+Odświeżona wersja jednej z moich osobistych kompozycji,
+inspirowana klimatem Ibizy, terrace sunsetów i nocy nad ciepłym morzem.
+
+Jeśli lubisz melodic deep house, sunset house, emotional house
+i klimaty Lane 8, Yotto, Tinlicker — ten utwór jest dla Ciebie.
+
+— — —
+
+Old Love Will Not Be Forgotten — an instrumental melodic deep house track
+about a love whose memory returns with every sunset. Warm pads, soft piano
+chords, deep bass and a steady four-on-the-floor pulse — a soundtrack for
+sunsets, long coastal drives and evening sets.
+
+A refreshed version of one of my personal compositions, inspired by
+the spirit of Ibiza, terrace sunsets and warm summer nights.
+
+Perfect if you love melodic deep house, sunset house, emotional house
+and the vibes of Lane 8, Yotto and Tinlicker.
+
+🎧 Best at golden hour, on a good system
+🌅 Follow for more sunset deep house
+💬 Drop a comment with the moment that hits you most
+
+#deephouse #melodichouse #sunsethouse #emotionalhouse #ibiza
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx</code></pre>
+
+<h3>Tagi — string do wklejenia</h3>
+<pre><code>"deep house" "melodic deep house" "sunset house" "emotional deep house" "ibiza deep house" instrumental melodic "deep house 2026" cinematic</code></pre>
+
+<p><strong>Logika doboru:</strong></p>
+<table>
+  <thead>
+    <tr><th>Tag</th><th>Funkcja</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>"deep house"</code></td><td>szeroki, najwyższy wolumen wyszukań</td></tr>
+    <tr><td><code>"melodic deep house"</code></td><td>mocno konwertujący, playlisty redaktorskie używają tej frazy</td></tr>
+    <tr><td><code>"sunset house"</code></td><td>dosłowne odbicie okładki — silna synergia wizualna</td></tr>
+    <tr><td><code>"emotional deep house"</code></td><td>spina z tytułem o utraconej miłości</td></tr>
+    <tr><td><code>"ibiza deep house"</code></td><td>location-based, duży ruch turystyczny + DJ</td></tr>
+    <tr><td><code>instrumental</code></td><td>filtr "no vocals"</td></tr>
+    <tr><td><code>melodic</code></td><td>uniwersalny mood + dla playlist</td></tr>
+    <tr><td><code>"deep house 2026"</code></td><td>aktualność = wyższe miejsce w sortowaniu nowości</td></tr>
+    <tr><td><code>cinematic</code></td><td>otwiera sync placements (filmy, reklamy)</td></tr>
+  </tbody>
+</table>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Deep House</code> (lub <code>House</code> dla catalogue consistency — trzymamy się 3 bucketów: Deep House / House / Ambient)</td></tr>
+    <tr><td>BPM</td><td>wpisz dokładnie z DAW (typowo 120–124)</td></tr>
+    <tr><td>Key signature</td><td>typowe dla emotional deep house: <code>Am</code>, <code>Cm</code>, <code>Dm</code>, <code>F#m</code>, <code>Gm</code></td></tr>
+    <tr><td>Sharing</td><td><code>public</code></td></tr>
+    <tr><td>Downloadable</td><td><code>true</code> (silny sygnał + DJ pobierają) lub <code>false</code> jeśli release komercyjny</td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code> (otwiera sync placements)</td></tr>
+    <tr><td>Commentable</td><td><code>true</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista 2026</td></tr>
+    <tr><td>Label name</td><td><code>Maximum Music</code></td></tr>
+    <tr><td>ISRC</td><td>wpisz jeśli masz z dystrybucji</td></tr>
+  </tbody>
+</table>
+
+<h3>Bonus — "(new version)" jako atut</h3>
+<ol>
+  <li><strong>Crosslink z oryginałem</strong> — w opisie dodaj:
+    <pre><code>🎵 Original version: https://soundcloud.com/maximummusicmaxx/[slug-oryginału]</code></pre>
+  </li>
+  <li><strong>Playlist "Versions &amp; Mixes"</strong> — oryginał + nowa wersja + alt mixy w jednej playliście.</li>
+  <li><strong>Pinned comment:</strong> <code>"2026 reimagining of one of my personal tracks — original here: [link]. Which version hits you more?"</code> — generuje porównania i komentarze.</li>
+</ol>
+
+<h3>Plan pierwszych 48 godzin</h3>
+<ol>
+  <li><strong>Playlista</strong> <code>Sunset Deep House 2026 — Melodic Vibes</code> — Twój utwór na pozycji 2-3, plus 4–6 cudzych melodic deep house tracks.</li>
+  <li><strong>DJ promo</strong> — prywatne linki do 3–5 DJ-ów grających melodic deep house (Instagram/TikTok DM).</li>
+  <li><strong>Repost chain</strong> — 2–3 znajomych producentów w pierwszej dobie.</li>
+  <li><strong>Cross-post Instagram Reels / TikTok</strong> — 15-sek loop najmocniejszego dropu + visual zachodu słońca + tag SC + link w bio.</li>
+  <li><strong>Submit do playlist</strong> — SubmitHub / Groover / Playlist Push w kategorii deep house / sunset chillout.</li>
+  <li><strong>Pinned comment</strong> z timestampem najmocniejszego momentu.</li>
+</ol>
+
+<h3>Weryfikacja</h3>
+<p>Po zapisaniu zmian odczekaj ~5 min i wyszukaj w SC:</p>
+<ul>
+  <li><code>"melodic deep house 2026"</code></li>
+  <li><code>"sunset deep house"</code></li>
+  <li><code>"emotional deep house"</code></li>
+  <li><code>"old love will not be forgotten"</code></li>
+</ul>
+<p>Utwór powinien pojawiać się w wynikach.</p>
+
+<h3>Porównanie strategii: Lunar Harmony 2026 vs Old Love Will Not Be Forgotten</h3>
+<table>
+  <thead>
+    <tr><th>Aspekt</th><th>Lunar Harmony 2026</th><th>Old Love Will Not Be Forgotten</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Gatunek</td><td>Ambient electronic</td><td>Melodic deep house</td></tr>
+    <tr><td>BPM</td><td>125 (ambient z pulsem)</td><td>120–124 (4/4 deep house)</td></tr>
+    <tr><td>Mood</td><td>Nocne miasto, neon, kosmos</td><td>Zachód słońca, Ibiza, nostalgia</td></tr>
+    <tr><td>Główny tag SEO</td><td><code>"ambient electronic"</code></td><td><code>"melodic deep house"</code></td></tr>
+    <tr><td>Tag pod okładkę</td><td><code>"night music"</code></td><td><code>"sunset house"</code></td></tr>
+    <tr><td>Tag emocjonalny</td><td><code>cinematic</code></td><td><code>"emotional deep house"</code></td></tr>
+    <tr><td>Główna grupa docelowa</td><td>Słuchacze focus/work, filmowcy</td><td>DJ-e, słuchacze sunset/Ibiza</td></tr>
+    <tr><td>Kanał promocji</td><td>Embed na blogu + playlisty focus</td><td>DJ promo + sunset Reels/TikTok</td></tr>
+  </tbody>
+</table>
+
+<h2 id="case3">10. Case study: Let's Talk About Music (sunny version)</h2>
+<p>Trzeci utwór z katalogu — deep house z letnim, "sunny" twist'em:<br>
+<a href="https://soundcloud.com/maximummusicmaxx/lets-talk-about-music-sunny-version">soundcloud.com/maximummusicmaxx/lets-talk-about-music-sunny-version</a></p>
+
+<h3>Charakterystyka utworu</h3>
+<ul>
+  <li><strong>Gatunek:</strong> sunny tropical / summer deep house</li>
+  <li><strong>BPM:</strong> typowo 100–124 (uzupełnij dokładnie)</li>
+  <li><strong>Typ:</strong> instrumental</li>
+  <li><strong>Artwork:</strong> sylwetka kobiety na plaży o zachodzie słońca, ciepłe pomarańcze</li>
+  <li><strong>Stan początkowy:</strong> opis pusty, brak struktury tagów, tytuł abstrakcyjny bez gatunku</li>
+  <li><strong>Mocna karta:</strong> słowo "sunny" w tytule = wprost zaproszenie dla letnich playlist; cover (plaża + sunset + sylwetka) — uniwersalny match dla summer/holiday/romance kategorii</li>
+  <li><strong>Drugi tropop:</strong> to już druga wersja w katalogu z sufiksem (<code>new version</code>, <code>sunny version</code>) — wzorzec wariantowości do wykorzystania w brandingu</li>
+</ul>
+
+<h3>Tytuł — rekomendacja</h3>
+<p><strong>Najmocniejszy SEO:</strong></p>
+<pre><code>Let's Talk About Music — Tropical Deep House (Sunny Version 2026)</code></pre>
+<p>Gatunek + sygnatura wersji + rok = trzy mocne keywordy w jednym tytule.</p>
+
+<p><strong>Alternatywy:</strong></p>
+<ul>
+  <li><code>Let's Talk About Music (Sunny Summer Mix 2026)</code></li>
+  <li><code>Let's Talk About Music (Sunny Beach Mix)</code></li>
+</ul>
+
+<h3>Opis (bilingual PL/EN) — gotowy do wklejenia</h3>
+<pre><code>Let's Talk About Music (sunny version) — instrumentalny tropical / deep house
+o letniej radości, plażach i tej rozmowie, która zaczyna się od jednej melodii.
+Ciepłe akordy, marimba w tle, miarowy puls i światło popołudnia nad morzem.
+
+Sunny version to lżejsza, jaśniejsza aranżacja mojego utworu —
+gotowa do letnich playlist, podróży i wieczornych spotkań na plaży.
+
+Jeśli kochasz tropical house, summer deep house, sunny chillout
+i klimat Kygo, Robin Schulz, Sam Feldt — ten utwór jest dla Ciebie.
+
+— — —
+
+Let's Talk About Music (sunny version) — an instrumental tropical / deep house
+track about summer joy, beaches and that conversation that starts with
+a single melody. Warm chords, marimba, a steady pulse and afternoon light
+over the sea.
+
+The sunny version is the brighter, lighter arrangement of my track —
+ready for summer playlists, road trips and beachside evenings.
+
+Perfect if you love tropical house, summer deep house, sunny chillout
+and the vibes of Kygo, Robin Schulz, Sam Feldt.
+
+🌞 Best on a sunny afternoon
+🏖️ Follow for more summer instrumentals
+💬 Drop a comment with where this track takes you
+
+#tropicalhouse #summerhouse #sunnyvibes #deephouse #beachmusic
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx</code></pre>
+
+<h3>Tagi — string do wklejenia</h3>
+<pre><code>"tropical house" "summer house" "sunny vibes" "deep house" "summer deep house" "beach music" instrumental melodic "tropical house 2026"</code></pre>
+
+<p><strong>Logika doboru:</strong></p>
+<table>
+  <thead>
+    <tr><th>Tag</th><th>Funkcja</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>"tropical house"</code></td><td>główny gatunkowy, wysoki wolumen</td></tr>
+    <tr><td><code>"summer house"</code></td><td>sezonowy, ogromne playlisty letnie</td></tr>
+    <tr><td><code>"sunny vibes"</code></td><td>dosłowne odbicie z tytułu — silny match</td></tr>
+    <tr><td><code>"deep house"</code></td><td>spina z resztą katalogu, dużo ruchu</td></tr>
+    <tr><td><code>"summer deep house"</code></td><td>niszowy, mocno konwertujący w sezonie</td></tr>
+    <tr><td><code>"beach music"</code></td><td>spina z okładką (kobieta na plaży)</td></tr>
+    <tr><td><code>instrumental</code></td><td>filtr "no vocals"</td></tr>
+    <tr><td><code>melodic</code></td><td>uniwersalny mood, playlisty redaktorskie</td></tr>
+    <tr><td><code>"tropical house 2026"</code></td><td>aktualność</td></tr>
+  </tbody>
+</table>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Deep House</code> (alt: <code>House</code> — trzymamy się 3 bucketów katalogu; "tropical" robią tagi)</td></tr>
+    <tr><td>BPM</td><td>wpisz z DAW (tropical/deep house typowo 100–124)</td></tr>
+    <tr><td>Key signature</td><td>dla "sunny" zwykle major: <code>C</code>, <code>D</code>, <code>F</code>, <code>G</code>, <code>A</code></td></tr>
+    <tr><td>Sharing</td><td><code>public</code></td></tr>
+    <tr><td>Downloadable</td><td><code>true</code> (DJ pobierają — silny sygnał)</td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code></td></tr>
+    <tr><td>Commentable</td><td><code>true</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista 2026, najlepiej maj–sierpień (sezon "summer music")</td></tr>
+    <tr><td>Label name</td><td><code>Maximum Music</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Strategia "wariantów" — wzorzec dla całego katalogu</h3>
+<p>To już drugi utwór z sufiksem wersji (<code>new version</code> w <em>Old Love</em>, <code>sunny version</code> tutaj). Wykorzystaj to świadomie:</p>
+<ol>
+  <li><strong>Crosslink z "non-sunny" wersją</strong> (jeśli istnieje) — dodaj na końcu opisu:
+    <pre><code>🌙 Chill / original version: https://soundcloud.com/maximummusicmaxx/[slug]</code></pre>
+  </li>
+  <li><strong>Playlist "Versions &amp; Mixes"</strong> — wszystkie wersje + ich oryginały. Playlisty rankują osobno w SC search.</li>
+  <li><strong>Branding "versions" w bio profilu</strong> — np. <em>"I release my tracks in moods: sunny, sunset, lunar, rainy. Pick yours."</em> — buduje tożsamość artystyczną.</li>
+</ol>
+
+<h3>Plan pierwszych 48 godzin</h3>
+<ol>
+  <li><strong>Playlista</strong> <code>Sunny Summer 2026 — Tropical Deep House</code> — Twój utwór na pozycji 2-3 + 4–6 cudzych.</li>
+  <li><strong>DJ promo</strong> — sunset/beach DJ-e (sceny Ibiza, Mykonos, Tulum).</li>
+  <li><strong>Cross-post Instagram Reels / TikTok</strong> — 15-sek loop dropu + visual plaży/słońca. <strong>Godziny 16-19 CET</strong> — szczyt myślenia o lecie.</li>
+  <li><strong>Repost chain</strong> — 2–3 znajomych producentów.</li>
+  <li><strong>Pitch do playlist</strong> — SubmitHub / Groover w kategoriach summer / tropical / chillout.</li>
+  <li><strong>Pinned comment</strong>: zaproszenie do dyskusji o muzyce (spina z tytułem!) + timestamp najlepszego momentu.</li>
+  <li><strong>Sezonowy boost</strong> — wrzucaj w okolicach long weekendów i startu sezonu festiwalowego.</li>
+</ol>
+
+<h3>Weryfikacja</h3>
+<p>Po zapisaniu zmian odczekaj ~5 min i wyszukaj w SC:</p>
+<ul>
+  <li><code>"tropical house 2026"</code></li>
+  <li><code>"sunny vibes"</code></li>
+  <li><code>"summer deep house"</code></li>
+  <li><code>"let's talk about music"</code></li>
+</ul>
+
+<h3>Porównanie strategii: wszystkie trzy utwory</h3>
+<table>
+  <thead>
+    <tr><th>Aspekt</th><th>Lunar Harmony 2026</th><th>Old Love Will Not Be Forgotten</th><th>Let's Talk About Music (sunny)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Gatunek</td><td>Ambient electronic</td><td>Melodic deep house</td><td>Sunny tropical / summer deep house</td></tr>
+    <tr><td>BPM</td><td>125</td><td>120–124</td><td>100–124</td></tr>
+    <tr><td>Mood</td><td>Nocne miasto, neon, kosmos</td><td>Zachód słońca, Ibiza, nostalgia</td><td>Plaża, lato, radość</td></tr>
+    <tr><td>Cover</td><td>Skyline nocą + neon</td><td>Tropikalny sunset + palma</td><td>Sylwetka kobiety na plaży</td></tr>
+    <tr><td>Główny tag SEO</td><td><code>"ambient electronic"</code></td><td><code>"melodic deep house"</code></td><td><code>"tropical house"</code> / <code>"summer house"</code></td></tr>
+    <tr><td>Tag pod okładkę</td><td><code>"night music"</code></td><td><code>"sunset house"</code></td><td><code>"beach music"</code></td></tr>
+    <tr><td>Tag mood</td><td><code>cinematic</code></td><td><code>"emotional deep house"</code></td><td><code>"sunny vibes"</code></td></tr>
+    <tr><td>Tonacja</td><td>minor (<code>Am</code>, <code>Dm</code>)</td><td>minor (<code>Am</code>, <code>Cm</code>)</td><td><strong>major</strong> (<code>C</code>, <code>D</code>, <code>F</code>, <code>G</code>)</td></tr>
+    <tr><td>Grupa docelowa</td><td>Focus / work / filmowcy</td><td>DJ-e sunset / Ibiza</td><td>Letnie playlisty / festiwale / sezon</td></tr>
+    <tr><td>Sezonowość</td><td>Całoroczny</td><td>Lato + jesień (sunset vibes)</td><td><strong>Stricte letni</strong> (maj–sierpień)</td></tr>
+    <tr><td>Kanał promocji</td><td>Embed + playlisty focus</td><td>DJ promo + sunset Reels</td><td>Reels/TikTok + summer playlists</td></tr>
+    <tr><td>Nazewnictwo wersji</td><td><code>2026</code> w tytule</td><td><code>(new version)</code> → popraw na <code>(2026 Mix)</code></td><td><code>(sunny version)</code> ✅ trzymać</td></tr>
+  </tbody>
+</table>
+
+<h3>Insight z trzech case study</h3>
+<ol>
+  <li><strong>Konsekwencja sezonowo-emocjonalnego brandingu</strong> — Twój katalog układa się w "moods": lunar (noc), sunset (nostalgia), sunny (lato). To <strong>silna karta</strong> dla profilu. Rozważ uzupełnienie biogramu o ten wzorzec — fani będą szukać kolejnych "wersji".</li>
+  <li><strong>Tonacje pasują do mood'u</strong> — minor dla emocjonalnych/nocnych, major dla sunny. Wpisuj zawsze pole <code>Key signature</code> — to małe pole z dużym znaczeniem dla wyszukiwań DJ-skich i sample producentów.</li>
+  <li><strong>Tagi sezonowe są warte złota w odpowiednim oknie</strong> — <code>summer house</code>, <code>sunny vibes</code> w maju-sierpniu, <code>sunset house</code> przez cały rok, <code>night music</code> zimą. Rotuj tagami jeśli sezon się zmienia, a utwór nadal ma potencjał.</li>
+  <li><strong>Wszystkie 3 utwory mają ten sam fix #1</strong>: pusty opis → bilingual PL/EN z hookiem + keywordami + linkami + CTA. To natychmiastowy boost przy zerowym koszcie.</li>
+</ol>
+
+<h2 id="case4">11. Case study: Fantastic World (No More Coffee)</h2>
+<p>Czwarty utwór z katalogu — jazzy / café downtempo, rozszerzenie deep house w stronę lounge:<br>
+<a href="https://soundcloud.com/maximummusicmaxx/fantastic-world-no-more-coffee">soundcloud.com/maximummusicmaxx/fantastic-world-no-more-coffee</a></p>
+
+<h3>Charakterystyka utworu</h3>
+<ul>
+  <li><strong>Gatunek:</strong> jazzy / café deep house (downtempo / swing, <strong>nie</strong> 4/4)</li>
+  <li><strong>BPM:</strong> typowo 80–110 (uzupełnij dokładnie)</li>
+  <li><strong>Typ:</strong> instrumental</li>
+  <li><strong>Artwork:</strong> close-up cappuccino z latte art (heart pattern) w czarnej filiżance, ciepłe brązy</li>
+  <li><strong>Stan początkowy:</strong> opis pusty, tytuł z asteryskami (<code>*no more coffee</code>), bez gatunku</li>
+  <li><strong>Mocna karta:</strong> cover to wzorcowy visual dla café/lounge music — gigantyczna nisha sync (restauracje, hotele, butiki, retail)</li>
+  <li><strong>Słaba karta:</strong> <code>*no more coffee</code> z asteryskami źle indeksuje się w SC search → poprawić na nawias</li>
+</ul>
+
+<h3>Tytuł — rekomendacja</h3>
+<p><strong>Najmocniejszy SEO:</strong></p>
+<pre><code>Fantastic World (No More Coffee) — Jazzy Café Lounge (2026)</code></pre>
+<p>Gatunek + setting + rok. Asterisk znika, żart broni się w nawiasie.</p>
+
+<h3>Opis (bilingual PL/EN) — gotowy do wklejenia</h3>
+<pre><code>Fantastic World (No More Coffee) — instrumentalny, jazzy café downtempo
+o tym poranku, kiedy świat wygląda dobrze sam z siebie.
+Ciepłe akordy fortepianu, miękki bas, swing'ujący groove
+i atmosfera kawiarni przy oknie z deszczem.
+
+Soundtrack dla café, hotelowego lobby, leniwego niedzielnego śniadania
+i każdego miejsca, w którym czas zwalnia.
+
+Jeśli kochasz jazzy house, café lounge, nu-jazz, downtempo
+i klimat St Germain, Jazzanova, Nicola Conte, Hotel Costes, Buddha Bar
+— ten utwór jest dla Ciebie.
+
+— — —
+
+Fantastic World (No More Coffee) — an instrumental jazzy café downtempo
+about that morning when the world looks just fine on its own.
+Warm piano chords, soft bass, a swinging groove and the atmosphere
+of a café by a rainy window.
+
+A soundtrack for cafés, hotel lobbies, lazy Sunday breakfasts
+and any place where time slows down.
+
+Perfect if you love jazzy house, café lounge, nu-jazz, downtempo
+and the vibes of St Germain, Jazzanova, Nicola Conte, Hotel Costes
+and Buddha Bar.
+
+☕ Best with a cup of something warm
+🎷 Follow for more jazzy café music
+💬 Where would you play this?
+
+#jazzyhouse #cafemusic #lounge #nujazz #downtempo
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx</code></pre>
+
+<h3>Tagi — string do wklejenia</h3>
+<pre><code>"jazzy house" "café music" lounge "jazzy deep house" "nu jazz" downtempo instrumental "café lounge" "lounge 2026" jazzy</code></pre>
+
+<p><strong>Logika doboru:</strong></p>
+<table>
+  <thead>
+    <tr><th>Tag</th><th>Funkcja</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>"jazzy house"</code></td><td>główny gatunkowy, mocny ruch w niszy</td></tr>
+    <tr><td><code>"café music"</code></td><td>dosłownie z okładki + ogromne playlisty</td></tr>
+    <tr><td><code>lounge</code></td><td>klasyczny tag dla tego klimatu, dużo curated playlist</td></tr>
+    <tr><td><code>"jazzy deep house"</code></td><td>spina z resztą katalogu</td></tr>
+    <tr><td><code>"nu jazz"</code></td><td>niszowy, konwertujący do wyrafinowanej publiki</td></tr>
+    <tr><td><code>downtempo</code></td><td>sygnatura rytmiczna — brak 4/4</td></tr>
+    <tr><td><code>instrumental</code></td><td>filtr "no vocals"</td></tr>
+    <tr><td><code>"café lounge"</code></td><td>playlist tag, hotelowy/restauracyjny ruch</td></tr>
+    <tr><td><code>"lounge 2026"</code></td><td>aktualność</td></tr>
+    <tr><td><code>jazzy</code></td><td>uniwersalny mood</td></tr>
+  </tbody>
+</table>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Deep House</code> (catalogue consistency — "jazzy / lounge / café" robią tagi, nie Genre)</td></tr>
+    <tr><td>BPM</td><td>typowo 80–110 (wpisz z DAW)</td></tr>
+    <tr><td>Key signature</td><td>jazzowo: minor 7th są częste — <code>Am</code>, <code>Dm</code>, <code>Em</code>, <code>Cm</code></td></tr>
+    <tr><td>Sharing</td><td><code>public</code></td></tr>
+    <tr><td>Downloadable</td><td><code>true</code> (DJ-e lounge pobierają do setów hotelowych/café)</td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code> — <strong>kluczowe</strong>, café music ma ogromny rynek sync</td></tr>
+    <tr><td>Commentable</td><td><code>true</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista 2026</td></tr>
+    <tr><td>Label name</td><td><code>Maximum Music</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Plan pierwszych 48 godzin</h3>
+<ol>
+  <li><strong>Playlista</strong> <code>Café Lounge 2026 — Jazzy Downtempo</code> — Twój utwór poz. 2-3.</li>
+  <li><strong>Sync potential</strong> — biblioteki Musicbed, Marmoset, Audiosocket, mniejsze sync agencje. Café music to gigantyczna nisha sync (restauracje, hotele, butiki, retail).</li>
+  <li><strong>Submit do lounge curators</strong> — playlisty stylu Hotel Costes / Buddha Bar / Café del Mar (Spotify + SC). SubmitHub w kategorii "lounge / nu-jazz".</li>
+  <li><strong>Café / boutique hotel pitching</strong> — lokalne kawiarnie/butiki, oferuj utwór za kredyt i link na ich social.</li>
+  <li><strong>Cross-post Instagram Reels</strong> — 15-sek loop + visual kawiarni / latte art / deszczu za oknem (matching café aesthetic).</li>
+  <li><strong>Pinned comment:</strong> "What are you drinking right now? ☕🍷🍵" — proste, działające zaangażowanie.</li>
+</ol>
+
+<h3>Weryfikacja</h3>
+<p>Po zapisaniu zmian odczekaj ~5 min i wyszukaj w SC:</p>
+<ul>
+  <li><code>"jazzy house"</code></li>
+  <li><code>"café music"</code></li>
+  <li><code>"lounge 2026"</code></li>
+  <li><code>"fantastic world"</code></li>
+</ul>
+
+<h3>Porównanie strategii: wszystkie cztery utwory</h3>
+<table>
+  <thead>
+    <tr><th>Aspekt</th><th>Lunar Harmony 2026</th><th>Old Love Will Not Be Forgotten</th><th>Let's Talk About Music (sunny)</th><th>Fantastic World (No More Coffee)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Gatunek</td><td>Ambient electronic</td><td>Melodic deep house</td><td>Sunny tropical / summer deep house</td><td>Jazzy café downtempo deep house</td></tr>
+    <tr><td>BPM</td><td>125</td><td>120–124</td><td>100–124</td><td><strong>80–110</strong> (downtempo)</td></tr>
+    <tr><td>Puls</td><td>Pulsujący ambient</td><td>4/4 deep house</td><td>4/4 deep house</td><td><strong>Swing / broken beat</strong></td></tr>
+    <tr><td>Mood</td><td>Nocne miasto, neon, kosmos</td><td>Zachód słońca, Ibiza, nostalgia</td><td>Plaża, lato, radość</td><td>Kawiarnia, leniwy poranek, jazz</td></tr>
+    <tr><td>Cover</td><td>Skyline nocą + neon</td><td>Tropikalny sunset + palma</td><td>Sylwetka kobiety na plaży</td><td>Latte art w czarnej filiżance</td></tr>
+    <tr><td>Główny tag SEO</td><td><code>"ambient electronic"</code></td><td><code>"melodic deep house"</code></td><td><code>"tropical house"</code> / <code>"summer house"</code></td><td><code>"jazzy house"</code> / <code>"café music"</code></td></tr>
+    <tr><td>Tag pod okładkę</td><td><code>"night music"</code></td><td><code>"sunset house"</code></td><td><code>"beach music"</code></td><td><code>"café music"</code> / <code>"café lounge"</code></td></tr>
+    <tr><td>Tag mood</td><td><code>cinematic</code></td><td><code>"emotional deep house"</code></td><td><code>"sunny vibes"</code></td><td><code>"nu jazz"</code> / <code>jazzy</code></td></tr>
+    <tr><td>Tonacja</td><td>minor</td><td>minor</td><td><strong>major</strong></td><td>minor 7th (jazz)</td></tr>
+    <tr><td>Grupa docelowa</td><td>Focus / work / filmowcy</td><td>DJ-e sunset / Ibiza</td><td>Letnie playlisty / festiwale</td><td><strong>Sync (HoReCa)</strong> + lounge DJ</td></tr>
+    <tr><td>Sezonowość</td><td>Całoroczny</td><td>Lato + jesień</td><td>Stricte letni (V–VIII)</td><td><strong>Całoroczny + jesień/zima</strong></td></tr>
+    <tr><td>Kanał promocji</td><td>Embed + playlisty focus</td><td>DJ promo + sunset Reels</td><td>Reels/TikTok + summer playlists</td><td><strong>Sync libraries + café/hotel pitching</strong></td></tr>
+    <tr><td>Nazewnictwo</td><td><code>2026</code> ✅</td><td><code>(new version)</code> → popraw</td><td><code>(sunny version)</code> ✅</td><td><code>*no more coffee</code> → popraw na <code>(No More Coffee)</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Insight rozszerzony (4 utwory)</h3>
+<ol>
+  <li><strong>Katalog rozpięty po 3 osiach gatunkowych z jednym DNA:</strong> ambient (chłodno-kosmiczny) → deep house (Ibiza/sunset emocjonalny) → tropical deep house (letni) → jazzy café deep house (lounge/sync). Wszystkie spina <strong>melodyjność</strong> i <strong>instrumentalność</strong>. To <strong>bardzo zdrowy spread</strong> dla artysty — różne pory roku, różne playlist categories, różne źródła przychodu (streaming + sync).</li>
+  <li><strong>Sync jako osobna ścieżka monetyzacji</strong> — <em>Fantastic World</em> i <em>Lunar Harmony</em> są najmocniejszymi kandydatami do sync placements (café music + cinematic ambient). Rozważ osobną stronę z portfolio sync (jednorazowo Linktree lub mała strona z embeddami SC + opisami "perfect for X scene").</li>
+  <li><strong>Wzorzec nazewnictwa wersji</strong> już istnieje (<code>new version</code>, <code>sunny version</code>, <code>no more coffee</code> jako parenthetical) — <strong>wykorzystaj świadomie</strong>. Bio profilu: <em>"Instrumental music in moods: lunar, sunset, sunny, café. Pick yours."</em></li>
+  <li><strong>Asterisk w tytułach (<code>*no more coffee</code>)</strong> — SC search nie radzi sobie z znakami specjalnymi. Wszędzie zamieniaj na nawiasy: <code>(No More Coffee)</code>. Stosuj zasadę dla całego przyszłego katalogu.</li>
+  <li><strong>Fix #1 dalej obowiązuje</strong> — wszystkie 4 utwory miały opis pusty. To wciąż największa pojedyncza luka SEO.</li>
+  <li><strong>Strategia pola Genre — 3 buckety dla całego katalogu:</strong> <code>Deep House</code> / <code>House</code> / <code>Ambient</code>. Granularność (<code>jazzy house</code>, <code>tropical house</code>, <code>melodic deep house</code>, <code>sunset house</code>, <code>nu jazz</code>, <code>cinematic ambient</code>, <code>progressive deep house</code>) robią <strong>tagi</strong>, nie pole Genre. Korzyści: (a) statystyki profilu układają się czytelnie w 3 kategorie, (b) algorytm SC ma jasny sygnał, w której niszy Cię klasyfikować, (c) playlisty redaktorskie SC w tych 3 bucketach mają największe zasięgi. Mapping:
+    <ul>
+      <li><code>Ambient</code> → <em>Lunar Harmony 2026</em> (i przyszłe ambient electronic / cinematic)</li>
+      <li><code>Deep House</code> → <em>Old Love</em>, <em>Let's Talk About Music</em>, <em>Fantastic World</em>, <em>The Journey In the Time and Space</em> (wszystkie odmiany — melodic / sunset / tropical / jazzy / progressive / cosmic)</li>
+      <li><code>House</code> → zarezerwowane dla bardziej taneczno-klubowych pozycji (4/4, wyższe BPM, mniej downtempo'wych)</li>
+    </ul>
+  </li>
+</ol>
+
+<h2 id="case5">12. Case study: The Journey In the Time and Space (Edition 2025)</h2>
+<p>Piąty utwór z katalogu — progressive / cosmic deep house, kosmiczna osia tematyczna:<br>
+<a href="https://soundcloud.com/maximummusicmaxx/the-journey-in-the-time-and-space-edition-2025">soundcloud.com/maximummusicmaxx/the-journey-in-the-time-and-space-edition-2025</a></p>
+
+<h3>Charakterystyka utworu</h3>
+<ul>
+  <li><strong>Gatunek:</strong> progressive / cosmic / melodic deep house</li>
+  <li><strong>BPM:</strong> typowo 120–125 (uzupełnij dokładnie)</li>
+  <li><strong>Typ:</strong> instrumental</li>
+  <li><strong>Artwork:</strong> fioletowo-purpurowe nocne niebo z gwiazdami i delikatną zorzą, sylwetki sosen — cosmic / Northern Lights visual</li>
+  <li><strong>Stan początkowy:</strong> opis pusty, asterisk w tytule (<code>*edition 2025</code>)</li>
+  <li><strong>Mocna karta:</strong> spójność tytuł + cover jest perfekcyjna — wzorzec wizualny <strong>progressive deep house à la Anjunadeep / Lane 8</strong></li>
+  <li><strong>Słaba karta:</strong> <code>*edition 2025</code> z asteryskiem (ten sam problem co <code>*no more coffee</code>) — popraw na <code>(2025 Edition)</code></li>
+</ul>
+
+<h3>Tytuł — rekomendacja</h3>
+<p><strong>Najmocniejszy SEO:</strong></p>
+<pre><code>The Journey In the Time and Space — Progressive Deep House (2025 Edition)</code></pre>
+<p>Gatunek + numerek edycji + asterisk fix. Możliwy update: <code>(2025/2026 Edition)</code> jeśli wciąż aktualny push.</p>
+
+<h3>Opis (bilingual PL/EN) — gotowy do wklejenia</h3>
+<pre><code>The Journey In the Time and Space (2025 Edition) — instrumentalny
+progressive / cosmic deep house o podróży przez gwiezdne pustkowia,
+ciszę między planetami i światło, które dociera do nas z bardzo daleka.
+
+Głębokie pady, melodyjne syntezatory, miarowy puls — soundtrack
+dla nocnej jazdy, długich spacerów pod gwiazdami, sesji medytacji
+i wszystkich momentów, w których patrzysz w niebo dłużej niż zwykle.
+
+Jeśli kochasz progressive deep house, cosmic house, melodic house &amp; techno
+i klimat Anjunadeep, Lane 8, Yotto, Eli &amp; Fur, ARTBAT
+— ten utwór jest dla Ciebie.
+
+— — —
+
+The Journey In the Time and Space (2025 Edition) — an instrumental
+progressive / cosmic deep house track about a journey through starry
+voids, the silence between planets and the light that reaches us
+from very far away.
+
+Deep pads, melodic synths and a steady pulse — a soundtrack for
+night drives, long walks under the stars, meditation and any moment
+when you look up at the sky longer than usual.
+
+Perfect if you love progressive deep house, cosmic house, melodic house
+&amp; techno and the vibes of Anjunadeep, Lane 8, Yotto,
+Eli &amp; Fur and ARTBAT.
+
+🌌 Best on headphones, under a clear sky
+🪐 Follow for more cosmic deep house
+💬 Where does this track take you?
+
+#progressivedeephouse #cosmichouse #melodichouse #anjunadeep #spacemusic
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx</code></pre>
+
+<h3>Tagi — string do wklejenia</h3>
+<pre><code>"progressive deep house" "cosmic house" "melodic deep house" "space music" "deep house" "melodic house and techno" instrumental "anjunadeep" "deep house 2025" melodic</code></pre>
+
+<p><strong>Logika doboru:</strong></p>
+<table>
+  <thead>
+    <tr><th>Tag</th><th>Funkcja</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>"progressive deep house"</code></td><td>główny gatunkowy, rosnąca nisza</td></tr>
+    <tr><td><code>"cosmic house"</code></td><td>dosłownie z tytułu + cover</td></tr>
+    <tr><td><code>"melodic deep house"</code></td><td>spina z resztą katalogu (<em>Old Love</em>)</td></tr>
+    <tr><td><code>"space music"</code></td><td>long-tail z Google, łapie playlisty stargazing</td></tr>
+    <tr><td><code>"deep house"</code></td><td>szeroki, najwyższy wolumen</td></tr>
+    <tr><td><code>"melodic house and techno"</code></td><td>gigantyczna scena (Afterlife, Anjunadeep), mocno konwertujący</td></tr>
+    <tr><td><code>instrumental</code></td><td>filtr "no vocals"</td></tr>
+    <tr><td><code>"anjunadeep"</code></td><td>label-style tag</td></tr>
+    <tr><td><code>"deep house 2025"</code></td><td>rok edycji</td></tr>
+    <tr><td><code>melodic</code></td><td>uniwersalny mood</td></tr>
+  </tbody>
+</table>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Deep House</code> (catalogue consistency, 3-bucket rule)</td></tr>
+    <tr><td>BPM</td><td>typowo 120–125 (wpisz z DAW)</td></tr>
+    <tr><td>Key signature</td><td>cosmic vibes typowo minor: <code>Am</code>, <code>Cm</code>, <code>Dm</code>, <code>F#m</code></td></tr>
+    <tr><td>Sharing</td><td><code>public</code></td></tr>
+    <tr><td>Downloadable</td><td><code>true</code> (progressive DJ-e pobierają do setów)</td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code></td></tr>
+    <tr><td>Commentable</td><td><code>true</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista 2025 (lub update'u 2026)</td></tr>
+    <tr><td>Label name</td><td><code>Maximum Music</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Plan pierwszych 48 godzin</h3>
+<ol>
+  <li><strong>Playlista</strong> <code>Cosmic Deep House — Stargazing 2026</code> — Twój utwór poz. 2-3 + 4–6 cudzych Lane 8 / Anjunadeep style.</li>
+  <li><strong>DJ promo</strong> — progressive / melodic deep house DJ-e (Anjunadeep submissions, This Never Happened by Lane 8, Afterlife adjacent).</li>
+  <li><strong>Cross-post Instagram Reels / TikTok</strong> — 15-sek loop dropu + visual gwiezdnego nieba / nocnej jazdy / Northern Lights.</li>
+  <li><strong>YouTube cosmic playlists</strong> — wyszukaj kanały "cosmic deep house mix" / "anjunadeep mix" / "starry night deep house" i podeślij link.</li>
+  <li><strong>Pinned comment:</strong> "Looking up at the stars right now? Drop a 🌌 in the comments" — proste, działające w tej niszy.</li>
+  <li><strong>Long format content</strong> — utwór prosi się o <strong>długi mix</strong> (60 min) — stwórz własny "cosmic deep house mix" z tym utworem w środku.</li>
+</ol>
+
+<h3>Weryfikacja</h3>
+<p>Po zapisaniu zmian odczekaj ~5 min i wyszukaj w SC:</p>
+<ul>
+  <li><code>"progressive deep house"</code></li>
+  <li><code>"cosmic house"</code></li>
+  <li><code>"anjunadeep"</code></li>
+  <li><code>"the journey in the time and space"</code></li>
+</ul>
+
+<h3>Porównanie strategii: wszystkie pięć utworów</h3>
+<table>
+  <thead>
+    <tr><th>Aspekt</th><th>Lunar Harmony 2026</th><th>Old Love</th><th>Let's Talk About Music (sunny)</th><th>Fantastic World (No More Coffee)</th><th>The Journey In the Time and Space</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Gatunek</td><td>Ambient electronic</td><td>Melodic deep house</td><td>Sunny tropical deep house</td><td>Jazzy café downtempo deep house</td><td>Progressive / cosmic deep house</td></tr>
+    <tr><td>BPM</td><td>125</td><td>120–124</td><td>100–124</td><td>80–110 (downtempo)</td><td>120–125</td></tr>
+    <tr><td>Puls</td><td>Pulsujący ambient</td><td>4/4</td><td>4/4</td><td>Swing / broken beat</td><td>4/4 progresywny</td></tr>
+    <tr><td>Mood</td><td>Nocne miasto, neon</td><td>Sunset, Ibiza, nostalgia</td><td>Plaża, lato, radość</td><td>Kawiarnia, jazz</td><td>Kosmos, gwiazdy, podróż</td></tr>
+    <tr><td>Cover</td><td>Skyline nocą</td><td>Tropikalny sunset</td><td>Sylwetka na plaży</td><td>Latte art</td><td>Gwiazdy + zorza</td></tr>
+    <tr><td>Główny tag SEO</td><td><code>"ambient electronic"</code></td><td><code>"melodic deep house"</code></td><td><code>"tropical house"</code></td><td><code>"jazzy house"</code> / <code>"café music"</code></td><td><code>"progressive deep house"</code> / <code>"cosmic house"</code></td></tr>
+    <tr><td>Tag pod okładkę</td><td><code>"night music"</code></td><td><code>"sunset house"</code></td><td><code>"beach music"</code></td><td><code>"café music"</code></td><td><code>"space music"</code></td></tr>
+    <tr><td>Tag mood</td><td><code>cinematic</code></td><td><code>"emotional deep house"</code></td><td><code>"sunny vibes"</code></td><td><code>"nu jazz"</code></td><td><code>"melodic house and techno"</code></td></tr>
+    <tr><td>Genre (SC)</td><td><code>Ambient</code></td><td><code>Deep House</code></td><td><code>Deep House</code></td><td><code>Deep House</code></td><td><code>Deep House</code></td></tr>
+    <tr><td>Tonacja</td><td>minor</td><td>minor</td><td>major</td><td>minor 7th (jazz)</td><td>minor</td></tr>
+    <tr><td>Grupa docelowa</td><td>Focus / filmowcy</td><td>DJ-e sunset / Ibiza</td><td>Letnie playlisty</td><td>Sync (HoReCa) + lounge DJ</td><td>Anjunadeep DJ + stargazing</td></tr>
+    <tr><td>Sezonowość</td><td>Całoroczny</td><td>Lato/jesień</td><td>V–VIII</td><td>Całoroczny + jesień/zima</td><td>Całoroczny + <strong>zima (długie noce)</strong></td></tr>
+    <tr><td>Kanał promocji</td><td>Embed + focus playlists</td><td>DJ promo + sunset Reels</td><td>Reels/TikTok + summer</td><td>Sync libraries + café</td><td>Anjunadeep submissions + cosmic Reels</td></tr>
+    <tr><td>Nazewnictwo</td><td><code>2026</code> ✅</td><td><code>(new version)</code> → popraw</td><td><code>(sunny version)</code> ✅</td><td><code>*no more coffee</code> → popraw</td><td><code>*edition 2025</code> → popraw na <code>(2025 Edition)</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Insight z piątego utworu — kosmiczna osia tematyczna</h3>
+<ol>
+  <li><strong>Druga "kosmiczna" wpadka w katalogu</strong> — <em>Lunar Harmony</em> (księżyc) i <em>The Journey</em> (kosmos / gwiazdy) tworzą <strong>subkatalog tematyczny</strong>. Rozważ:
+    <ul>
+      <li>Mini-EP: <code>Cosmos Series</code> zawierający oba utwory + 1-2 nowe ("Solar Eclipse", "Andromeda Drift" — w stylu nazewniczym).</li>
+      <li>Wspólna playlista profilu <code>Cosmos / Space / Night</code> linkująca te utwory.</li>
+      <li>Cross-link w opisach: "🌙 Companion ambient track: <em>Lunar Harmony 2026</em> [link]" w <em>The Journey</em> i odwrotnie.</li>
+    </ul>
+  </li>
+  <li><strong>Asterisk pattern wraca</strong> (<code>*no more coffee</code>, <code>*edition 2025</code>) — to świadoma stylizacja czy artefakt? Jeśli stylizacja, w SC trzeba ją tłumaczyć na nawiasy. Jeśli przypadek, ustal regułę dla całego katalogu: <strong>żadnych asterisków w tytułach</strong>.</li>
+  <li><strong>Kosmiczny vibe = mocna karta zimowa</strong> — <em>The Journey</em> idealnie pasuje do okresu Polar Night (XII-II), Geminids/Perseids meteor showers, Aurora season w Skandynawii. Rozważ targeted push w grudniu (Geminidy) lub sierpniu (Perseidy) — viral potential przy odpowiednim Reels.</li>
+  <li><strong>Anjunadeep ekosystem to oddzielna strategia</strong> — dla <em>The Journey</em> i <em>Old Love</em> (oba melodic / progressive deep house) submituj do <code>Anjunadeep Edition</code> (radio show), Lane 8 <code>Mixtape</code> series, Hi-Lo / All Day I Dream label radars.</li>
+</ol>
+
+<h2 id="case6">13. Case study: Far Far Away</h2>
+<p>Szósty utwór z katalogu — dreamy / sunset deep house z <strong>problemem URL slug</strong> do naprawy:<br>
+<a href="https://soundcloud.com/maximummusicmaxx/maximum-music-maxx-far-far">soundcloud.com/maximummusicmaxx/maximum-music-maxx-far-far</a></p>
+
+<h3>Charakterystyka utworu</h3>
+<ul>
+  <li><strong>Gatunek:</strong> dreamy / sunset / cinematic deep house</li>
+  <li><strong>BPM:</strong> typowo 118–124 (uzupełnij dokładnie)</li>
+  <li><strong>Typ:</strong> instrumental</li>
+  <li><strong>Artwork:</strong> minimalistyczny sunset nad morzem, soft palette pomarańcz/róż</li>
+  <li><strong>Stan początkowy:</strong> opis pusty, <strong>URL slug zepsuty</strong> (<code>maximum-music-maxx-far-far</code> — zduplikowana nazwa artysty + ucięty tytuł)</li>
+  <li><strong>Mocna karta:</strong> tytuł + cover to silna emocjonalna karta; "Far Far Away" jest long-tail keyword z naturalnym wolumenem</li>
+  <li><strong>Słaba karta:</strong> URL slug to artefakt z nazwy pliku — SEO traci</li>
+</ul>
+
+<h3>URL fix (krytyczne, zrób pierwsze!)</h3>
+<p>W SC: edycja utworu → <code>Permalink</code> → zmień na:</p>
+<pre><code>far-far-away</code></pre>
+<p>Final URL: <code>soundcloud.com/maximummusicmaxx/far-far-away</code> ✅ czysty, z keywordem w slug'u.</p>
+<blockquote><strong>Uwaga:</strong> zmiana permalinka łamie istniejące linki. SC zachowuje stare URL-e jako redirect, ale dla pewności wymień linki w głównych miejscach (jeśli były).</blockquote>
+
+<h3>Tytuł — rekomendacja</h3>
+<p><strong>Najmocniejszy SEO:</strong></p>
+<pre><code>Far Far Away — Dreamy Sunset Deep House (2026)</code></pre>
+<p>Gatunek + setting + rok. Tytuł zachowuje emocjonalny rdzeń.</p>
+
+<p><strong>Alternatywy:</strong></p>
+<ul>
+  <li><code>Far Far Away (Sunset Deep House Mix)</code></li>
+  <li><code>Far Far Away — Cinematic Deep House</code></li>
+</ul>
+
+<h3>Opis (bilingual PL/EN) — gotowy do wklejenia</h3>
+<pre><code>Far Far Away — instrumentalny dreamy / sunset deep house o miejscach,
+które istnieją tylko na horyzoncie. Miękkie pady, dalekie melodie,
+głęboki bas i miarowy puls — soundtrack dla samotnych spacerów wzdłuż
+brzegu, wieczornych jazd nad morze i wszystkich momentów,
+w których chcesz być gdzie indziej, daleko stąd.
+
+Jeśli kochasz dreamy deep house, sunset deep house, cinematic house
+i klimat Lane 8, Yotto, Eli &amp; Fur — ten utwór jest dla Ciebie.
+
+— — —
+
+Far Far Away — an instrumental dreamy / sunset deep house track about
+places that exist only on the horizon. Soft pads, distant melodies,
+deep bass and a steady pulse — a soundtrack for solo walks along
+the shore, evening drives to the sea and any moment when you want
+to be somewhere else, far away from here.
+
+Perfect if you love dreamy deep house, sunset deep house, cinematic house
+and the vibes of Lane 8, Yotto, Eli &amp; Fur.
+
+🌅 Best at golden hour, on headphones
+🌊 Follow for more sunset deep house
+💬 Where would you escape to? Drop it in the comments
+
+#dreamydeephouse #sunsetdeephouse #cinematichouse #melodicdeephouse #escapism
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx</code></pre>
+
+<h3>Tagi — string do wklejenia</h3>
+<pre><code>"dreamy deep house" "sunset deep house" "melodic deep house" "cinematic deep house" "deep house" instrumental melodic "sunset music" "deep house 2026" dreamy</code></pre>
+
+<p><strong>Logika doboru:</strong></p>
+<table>
+  <thead>
+    <tr><th>Tag</th><th>Funkcja</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>"dreamy deep house"</code></td><td>dosłownie z mood'u tytułu — niszowy, mocno konwertujący</td></tr>
+    <tr><td><code>"sunset deep house"</code></td><td>spina z okładką + z <em>Old Love</em> w katalogu</td></tr>
+    <tr><td><code>"melodic deep house"</code></td><td>duża nisza, scena Anjunadeep/Lane 8</td></tr>
+    <tr><td><code>"cinematic deep house"</code></td><td>otwiera sync placements</td></tr>
+    <tr><td><code>"deep house"</code></td><td>szeroki, najwyższy wolumen</td></tr>
+    <tr><td><code>instrumental</code></td><td>filtr "no vocals"</td></tr>
+    <tr><td><code>melodic</code></td><td>uniwersalny mood</td></tr>
+    <tr><td><code>"sunset music"</code></td><td>long-tail z Google</td></tr>
+    <tr><td><code>"deep house 2026"</code></td><td>aktualność</td></tr>
+    <tr><td><code>dreamy</code></td><td>uniwersalny mood, łapie playlisty <code>dream</code>, <code>sleep</code>, <code>relax</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Deep House</code> (3-bucket rule)</td></tr>
+    <tr><td>BPM</td><td>typowo 118–124 (wpisz z DAW)</td></tr>
+    <tr><td>Key signature</td><td>dreamy mood typowo major7 lub minor: <code>Cmaj7</code>, <code>Fmaj7</code>, <code>Am</code>, <code>Dm</code></td></tr>
+    <tr><td>Sharing</td><td><code>public</code></td></tr>
+    <tr><td>Downloadable</td><td><code>true</code> (DJ-e sunset/melodic pobierają)</td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code> (sync potential — filmowcy uwielbiają sunset deep house)</td></tr>
+    <tr><td>Commentable</td><td><code>true</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista 2026</td></tr>
+    <tr><td>Label name</td><td><code>Maximum Music</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Plan pierwszych 48 godzin</h3>
+<ol>
+  <li><strong>URL fix</strong> — najpierw zmień permalink na <code>far-far-away</code>.</li>
+  <li><strong>Playlista</strong> <code>Dreamy Sunset Deep House — Far Horizons</code> — Twój utwór poz. 2-3 + cudze sunset deep house tracks.</li>
+  <li><strong>Crosslink z resztą katalogu</strong> — w opisie dodaj:
+    <pre><code>🌅 Sister track: Old Love Will Not Be Forgotten (also sunset deep house)</code></pre>
+  </li>
+  <li><strong>Sync pitching</strong> — tracky o tytułach "Far Far Away" + minimalistyczny sunset cover są idealne do reklam podróżniczych, hoteli, linii lotniczych. Submituj do Musicbed / Marmoset.</li>
+  <li><strong>Reels / TikTok</strong> — 15-sek loop + visual horyzontu/podróży/morza. Tag <code>#farfaraway</code> ma stałe wyszukania.</li>
+  <li><strong>Pinned comment:</strong> "Where would you escape to right now?" — zaproszenie do dyskusji.</li>
+  <li><strong>Audiowizualna sekwencja</strong> — utwór + 30-sek video z timelapsem sunsetu = potencjał viralu na TikTok.</li>
+</ol>
+
+<h3>Weryfikacja</h3>
+<p>Po zapisaniu zmian odczekaj ~5 min i wyszukaj w SC:</p>
+<ul>
+  <li><code>"dreamy deep house"</code></li>
+  <li><code>"sunset deep house"</code></li>
+  <li><code>"far far away"</code></li>
+  <li><code>"cinematic deep house"</code></li>
+</ul>
+
+<h3>Porównanie strategii: wszystkie sześć utworów</h3>
+<table>
+  <thead>
+    <tr><th>Aspekt</th><th>Lunar Harmony</th><th>Old Love</th><th>Let's Talk (sunny)</th><th>Fantastic World (Coffee)</th><th>The Journey (Space)</th><th>Far Far Away</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Gatunek</td><td>Ambient electronic</td><td>Melodic deep house</td><td>Sunny tropical DH</td><td>Jazzy café downtempo DH</td><td>Progressive / cosmic DH</td><td><strong>Dreamy / sunset DH</strong></td></tr>
+    <tr><td>BPM</td><td>125</td><td>120–124</td><td>100–124</td><td>80–110</td><td>120–125</td><td><strong>118–124</strong></td></tr>
+    <tr><td>Puls</td><td>Pulsujący ambient</td><td>4/4</td><td>4/4</td><td>Swing/broken</td><td>4/4 progresywny</td><td>4/4 dreamy</td></tr>
+    <tr><td>Mood</td><td>Neon, kosmos</td><td>Sunset, nostalgia</td><td>Plaża, lato</td><td>Kawiarnia, jazz</td><td>Kosmos, podróż</td><td><strong>Horyzont, marzenia, eskapizm</strong></td></tr>
+    <tr><td>Cover</td><td>Skyline nocą</td><td>Tropical sunset + palma</td><td>Sylwetka na plaży</td><td>Latte art</td><td>Gwiazdy + zorza</td><td><strong>Minimalist sunset nad morzem</strong></td></tr>
+    <tr><td>Główny tag SEO</td><td><code>"ambient electronic"</code></td><td><code>"melodic deep house"</code></td><td><code>"tropical house"</code></td><td><code>"jazzy house"</code></td><td><code>"progressive deep house"</code></td><td><strong><code>"dreamy deep house"</code></strong></td></tr>
+    <tr><td>Tag pod okładkę</td><td><code>"night music"</code></td><td><code>"sunset house"</code></td><td><code>"beach music"</code></td><td><code>"café music"</code></td><td><code>"space music"</code></td><td><code>"sunset music"</code></td></tr>
+    <tr><td>Genre (SC)</td><td><code>Ambient</code></td><td><code>Deep House</code></td><td><code>Deep House</code></td><td><code>Deep House</code></td><td><code>Deep House</code></td><td><code>Deep House</code></td></tr>
+    <tr><td>Tonacja</td><td>minor</td><td>minor</td><td>major</td><td>minor 7th</td><td>minor</td><td><strong>major7 lub minor</strong></td></tr>
+    <tr><td>Grupa docelowa</td><td>Focus / filmowcy</td><td>DJ sunset / Ibiza</td><td>Letnie playlisty</td><td>Sync (HoReCa)</td><td>Anjunadeep DJ</td><td>Sunset playlists + sync</td></tr>
+    <tr><td>Sezonowość</td><td>Całoroczny</td><td>Lato/jesień</td><td>V–VIII</td><td>Całoroczny</td><td>Całoroczny + zima</td><td><strong>Lato/jesień + sync</strong></td></tr>
+    <tr><td>Kanał promocji</td><td>Embed + focus</td><td>DJ promo + Reels</td><td>Reels/TikTok summer</td><td>Sync + café</td><td>Anjunadeep submissions</td><td><strong>Sync libraries + Reels</strong></td></tr>
+    <tr><td>Nazewnictwo</td><td><code>2026</code> ✅</td><td><code>(new version)</code> → popraw</td><td><code>(sunny version)</code> ✅</td><td><code>*no more coffee</code> → popraw</td><td><code>*edition 2025</code> → popraw</td><td>OK ale <strong>URL slug do fix</strong></td></tr>
+  </tbody>
+</table>
+
+<h3>Insight z szóstego utworu — URL slug hygiene + sunset sub-axis</h3>
+<ol>
+  <li><strong>URL slug hygiene — nowa zasada katalogu</strong> — <em>Far Far Away</em> ujawnił pierwszy slug problem (<code>maximum-music-maxx-far-far</code>). SC bierze nazwę pliku WAV jako slug. <strong>Reguła dla całego katalogu:</strong>
+    <ul>
+      <li>Przed uploadem <strong>zmień nazwę pliku audio</strong> na clean slug (<code>far-far-away.wav</code>, nie <code>Maximum Music Maxx - Far Far Away (Final Master v3).wav</code>).</li>
+      <li>Po uploadzie <strong>sprawdź permalink</strong> w SC i edytuj jeśli trzeba (<code>Edit track → Permalink</code>).</li>
+      <li>Reguła: slug = <code>[clean-title-lowercase-with-dashes]</code>, bez nazwy artysty (jest już w URL profilu), bez wersji/masteringu, bez nawiasów.</li>
+    </ul>
+  </li>
+  <li><strong>Sunset axis rośnie do 3 utworów</strong> — <em>Old Love</em> (tropical sunset + palma), <em>Let's Talk About Music</em> (sylwetka kobiety przy sunset), <em>Far Far Away</em> (minimalistyczny horyzont sunset). To <strong>kolejna sub-osia tematyczna</strong> obok cosmic (<em>Lunar Harmony</em> + <em>The Journey</em>). Rozważ playlistę profilu <code>Sunset Series</code> linkującą wszystkie 3 + cross-link w opisach każdego.</li>
+  <li><strong>Dwie osi tematyczne katalogu już widoczne:</strong> Cosmos (2 utwory) + Sunset (3 utwory) + jeden "soliter" (<em>Fantastic World</em>). Naturalna ścieżka rozwoju: kolejny utwór = albo Cosmos #3, albo Sunset #4, albo nowa osia (np. Rain, Forest, City).</li>
+  <li><strong>Sync potential konsoliduje się</strong> — <em>Fantastic World</em> (café), <em>Lunar Harmony</em> (cinematic), <em>Far Far Away</em> (travel/horyzont). Mocne portfolio do sync libraries. Rozważ jednorazową stronę portfolio z embeddami SC + opisami "perfect for [scene type]".</li>
+  <li><strong>Wszystkie 6 utworów mają wciąż ten sam fix #1</strong> — pusty opis. Po wdrożeniu wszystkich case studies — to <strong>6 darmowych boostów</strong> profilu.</li>
+</ol>
+
+<h2 id="case7">14. Case study: Summertime Melody MAX 07 (mix, nie single!)</h2>
+<p><strong>Pierwszy mix/compilation w analizie</strong> — strategia inna niż dla singli:<br>
+<a href="https://soundcloud.com/maximummusicmaxx/summertime-melody-max-07">soundcloud.com/maximummusicmaxx/summertime-melody-max-07</a></p>
+
+<h3>Charakterystyka — co odróżnia od singli</h3>
+<ul>
+  <li><strong>Format:</strong> DJ-style mix / compilation (3 utwory w jednej ścieżce)</li>
+  <li><strong>Seria:</strong> <code>Summertime Melody MAX</code>, episode <strong>#07</strong> → implikuje 6 wcześniejszych</li>
+  <li><strong>BPM/Key:</strong> różne dla 3 utworów (wpisz średnią lub zostaw puste)</li>
+  <li><strong>Artwork:</strong> sunset nad polem zbóż, contrail na niebie — summer rural</li>
+  <li><strong>Stan opisu:</strong> <strong>JEST!</strong> ale minimalistyczny (tylko tracklist bez kontekstu)</li>
+  <li><strong>Tracklist:</strong>
+    <ol>
+      <li>The Summertime Melody 02</li>
+      <li>The Little Man</li>
+      <li>Open Your Mind — Big Heart</li>
+    </ol>
+  </li>
+</ul>
+<p><strong>To pierwszy utwór w analizie z istniejącym opisem.</strong> Mała baza, ale na czym budować.</p>
+
+<h3>Tytuł — rekomendacja</h3>
+<pre><code>Summertime Melody MAX 07 — Summer Deep House Mix (2026)</code></pre>
+<p>Zachowuje nazwę serii + numer + dodaje gatunek + rok.</p>
+
+<p><strong>Alternatywy:</strong></p>
+<ul>
+  <li><code>Summertime Melody MAX #07 (Sunset Deep House Mix)</code></li>
+  <li><code>Summertime Melody MAX — Episode 07 — Summer Deep House</code></li>
+</ul>
+
+<h3>Description (bilingual PL/EN, bez timestamp'ów — gotowy do wklejenia)</h3>
+<pre><code>Summertime Melody MAX — Episode 07
+Letni mix instrumentalnego summer / sunset deep house.
+Trzy własne kompozycje połączone w jeden soundtrack dla zachodów słońca,
+długich letnich wieczorów, plaży i drogi nad morze.
+
+Część serii Summertime Melody MAX — każde wydanie zbiera kilka utworów
+spod tego samego letniego, melodyjnego klimatu.
+
+🎵 Tracklist:
+1. The Summertime Melody 02
+2. The Little Man
+3. Open Your Mind — Big Heart
+
+Jeśli kochasz summer deep house, melodic deep house, sunset house
+i klimat Lane 8, Kygo, Sam Feldt — ten mix jest dla Ciebie.
+
+— — —
+
+Summertime Melody MAX — Episode 07
+An instrumental summer / sunset deep house mix.
+Three of my own compositions tied into one soundtrack for sunsets,
+long summer evenings, beach days and drives to the sea.
+
+Part of the Summertime Melody MAX series — each release gathers a few
+tracks under the same summery, melodic vibe.
+
+🎵 Tracklist:
+1. The Summertime Melody 02
+2. The Little Man
+3. Open Your Mind — Big Heart
+
+Perfect if you love summer deep house, melodic deep house, sunset house
+and the vibes of Lane 8, Kygo, Sam Feldt.
+
+🌅 Best at golden hour
+🌊 Follow the series for more summer mixes
+💬 Which track hits hardest? Drop a comment
+
+#summerdeephouse #melodicdeephouse #sunsethouse #djmix #summer2026
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx
+🎵 Also on hearthis.at: https://hearthis.at/maximummusic/</code></pre>
+
+<h3>Tagi — dwa formaty (SC + hearthis)</h3>
+
+<p><strong>SC (frazy w cudzysłowach, spacja):</strong></p>
+<pre><code>"summer deep house" "deep house mix" "summertime mix" "dj mix" "sunset house" "melodic deep house" "summer house" instrumental "summer 2026" melodic</code></pre>
+
+<p><strong>hearthis.at (przecinek):</strong></p>
+<pre><code>summer deep house, deep house mix, summertime mix, dj mix, sunset house, melodic deep house, summer house, instrumental, summer 2026, melodic</code></pre>
+
+<p><strong>Logika doboru:</strong></p>
+<table>
+  <thead>
+    <tr><th>Tag</th><th>Funkcja</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>"summer deep house"</code></td><td>sezonowy, ogromne playlisty</td></tr>
+    <tr><td><code>"deep house mix"</code></td><td>sygnalizuje format mixu (różnica vs single!)</td></tr>
+    <tr><td><code>"summertime mix"</code></td><td>spina z nazwą serii</td></tr>
+    <tr><td><code>"dj mix"</code></td><td>otwiera odkrycie przez DJ-skich słuchaczy</td></tr>
+    <tr><td><code>"sunset house"</code></td><td>spina z okładką</td></tr>
+    <tr><td><code>"melodic deep house"</code></td><td>spina z catalogue</td></tr>
+    <tr><td><code>"summer house"</code></td><td>uniwersalny letni</td></tr>
+    <tr><td><code>instrumental</code></td><td>filtr</td></tr>
+    <tr><td><code>"summer 2026"</code></td><td>aktualność sezonowa</td></tr>
+    <tr><td><code>melodic</code></td><td>mood</td></tr>
+  </tbody>
+</table>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Deep House</code> (3-bucket rule)</td></tr>
+    <tr><td>BPM</td><td>średnia z 3 utworów (typowo 118–124) lub zostaw puste</td></tr>
+    <tr><td>Key</td><td>tylko jeśli wszystkie 3 w tej samej tonacji</td></tr>
+    <tr><td>Sharing</td><td><code>public</code></td></tr>
+    <tr><td>Downloadable</td><td><code>true</code> (mix DJ-ski)</td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code></td></tr>
+    <tr><td>Commentable</td><td><code>true</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista data ep. 07</td></tr>
+    <tr><td>Label name</td><td><code>Maximum Music</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Najmocniejszy ruch: playlista całej serii</h3>
+<p>To episode <strong>#07</strong> — istnieją episody 01–06. Stwórz playlistę:</p>
+<p><strong>Nazwa:</strong> <code>Summertime Melody MAX — Full Series</code></p>
+
+<p><strong>Description playlisty:</strong></p>
+<pre><code>Pełna seria letnich mixów Maximum Music Maxx.
+Każdy episode = 3 nowe instrumentalne utwory w klimacie
+summer / sunset deep house.
+
+Idealne na: zachody słońca, plażę, długie jazdy, summer playlists.</code></pre>
+
+<p><strong>Dlaczego to natychmiastowy boost:</strong></p>
+<ol>
+  <li>Playlisty rankują <strong>osobno</strong> w SC search.</li>
+  <li>Słuchacz episodu 07 ma natychmiastowy follow-up do 01-06 → wydłuża session time.</li>
+  <li>Algorytm SC podbija profile z curated playlists.</li>
+  <li><strong>Każdy nowy episode automatycznie zwiększa siłę playlisty</strong> (compound effect).</li>
+</ol>
+
+<h3>Bonus: 3 utwory MAX 07 jako standalone single?</h3>
+<p>Każdy z 3 utworów mógłby być <strong>osobnym single</strong> z dedykowanym SEO. Sprawdź czy są na hearthis.at (z 268 tracków). Jeśli tak → mix służy jako <strong>kompilacja-trailer</strong>:</p>
+<pre><code>🎵 Standalone tracks:
+- The Summertime Melody 02: [link]
+- The Little Man: [link]
+- Open Your Mind — Big Heart: [link]</code></pre>
+<p>Mix zamienia się w <strong>funnel</strong> do indywidualnych utworów.</p>
+
+<h3>hearthis.at mirror — Type: <code>Mix</code></h3>
+<p>Mixy to <strong>specjalność hearthis.at</strong>. Tam ustaw <strong>Type: <code>Mix</code></strong> (nie <code>Track</code>), tytuł i opis te same, format tagów przecinek.</p>
+
+<h3>Mix vs Single — kiedy stosować</h3>
+<table>
+  <thead>
+    <tr><th>Aspekt</th><th>Single track</th><th>Mix / Compilation</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Czas trwania</td><td>3–8 min</td><td>10–60+ min</td></tr>
+    <tr><td>Cel SEO</td><td>Indywidualny utwór + sync potential</td><td>Buduje "shelf" serii, długi session time</td></tr>
+    <tr><td>Tagi</td><td>Niche genre + mood</td><td>+ <code>"dj mix"</code>, <code>"compilation"</code>, <code>"deep house mix"</code></td></tr>
+    <tr><td>Title format</td><td><code>Title — Subgenre (Year)</code></td><td><code>Title — Subgenre Mix (Year)</code> lub <code>Series #NN (Genre Mix)</code></td></tr>
+    <tr><td>Tracklist w opisie</td><td>Nie</td><td><strong>TAK</strong> — każdy track = osobny keyword</td></tr>
+    <tr><td>Playlist strategy</td><td>Dołącz do mood-series playlist</td><td><strong>Wymaga osobnej playlisty serii</strong></td></tr>
+    <tr><td>Najlepsza platforma</td><td>SC (algorytm + sync)</td><td><strong>hearthis.at</strong> (brak limitu długości, DJ community)</td></tr>
+    <tr><td>Downloadable</td><td>Czasem</td><td><strong>Zwykle TAK</strong> (DJ-e biorą do setów)</td></tr>
+    <tr><td>Sync potential</td><td>Wysoki</td><td>Niski (sync libraries chcą single tracków)</td></tr>
+    <tr><td>Compound effect</td><td>Brak</td><td><strong>TAK</strong> — każdy nowy episode podbija starsze</td></tr>
+  </tbody>
+</table>
+
+<h3>Weryfikacja</h3>
+<p>Po zapisaniu zmian odczekaj ~5 min i wyszukaj w SC:</p>
+<ul>
+  <li><code>"summer deep house mix"</code></li>
+  <li><code>"summertime"</code></li>
+  <li><code>"deep house mix 2026"</code></li>
+  <li><code>"dj mix sunset"</code></li>
+</ul>
+
+<h3>Insight #6 (nowa kategoria w katalogu): Mix episodes jako format</h3>
+<ol>
+  <li><strong>Katalog ma więcej niż jeden format</strong> — single tracki (6 case studies) + mix series (Summertime Melody MAX 01-07+). Każdy wymaga innej strategii SEO.</li>
+  <li><strong>Series #07 implikuje 6 wcześniejszych episodów</strong> — <em>to jest gotowy do "uruchomienia" subkatalog</em>. Po prostu playlistą całej serii zwiększasz widoczność wszystkich 7 episodów naraz.</li>
+  <li><strong>Mixy są flagshipem hearthis.at</strong> — przekonwertuj wszystkie episody na typ <code>Mix</code> (nie <code>Track</code>) na hearthis.at jeśli jeszcze nie są.</li>
+  <li><strong>Cross-pollination single↔mix</strong> — jeśli <em>The Summertime Melody 02</em> istnieje jako standalone single (sugestia: wrzuć jako single z osobnym SEO), to mix episode 07 staje się <strong>zwiastunem</strong> wszystkich 3 utworów → funnel.</li>
+  <li><strong>Compound growth z serii</strong> — episode 08, 09, 10 będą automatycznie wzmacniać siłę playlisty Full Series → najlepsza inwestycja czasu w długofalową widoczność profilu.</li>
+</ol>
+
+<h2 id="case8">15. Case study: Deep Water (Ext. Ver) — Atmospheric Deep House</h2>
+<p><a href="https://soundcloud.com/maximummusicmaxx/deep-water-ext-ver">soundcloud.com/maximummusicmaxx/deep-water-ext-ver</a></p>
+
+<h3>Charakterystyka</h3>
+<ul>
+  <li><strong>Gatunek:</strong> melancholic / atmospheric / introspective deep house</li>
+  <li><strong>Mood:</strong> głębia, samotność, kontemplacja, zimny błękit, late-night</li>
+  <li><strong>Cover:</strong> drewniany pomost wchodzący w jezioro spowite mgłą, samotna latarnia, deep blue/purple</li>
+  <li><strong>Format:</strong> Extended Version (DJ-friendly 7-10 min)</li>
+  <li><strong>Stan początkowy:</strong> opis pusty, slug <code>deep-water-ext-ver</code> zawiera skróty</li>
+  <li><strong>Mocna karta:</strong> otwiera <strong>nową oś tematyczną w katalogu — Water/Introspection</strong>, najsilniejsza pojedyncza okazja brandingowa</li>
+</ul>
+
+<h3>URL slug fix</h3>
+<p>Aktualnie: <code>deep-water-ext-ver</code> → popraw na:</p>
+<pre><code>deep-water-extended-mix</code></pre>
+<p>lub krócej: <code>deep-water</code> (jeśli nie ma kolizji).</p>
+
+<h3>Tytuł — rekomendacja</h3>
+<pre><code>Deep Water — Atmospheric Deep House (Extended Mix 2026)</code></pre>
+
+<h3>Opis (bilingual PL/EN) — gotowy do wklejenia</h3>
+<pre><code>Deep Water (Extended Mix) — instrumentalny atmospheric / melancholic
+deep house o tym momencie, w którym stoisz na końcu pomostu nad ciemną
+wodą i tracisz poczucie czasu. Głębokie pady, miarowy puls, dalekie
+echo i mgła, która osiada na powierzchni.
+
+Wersja rozszerzona — pełna 7+ minutowa podróż dla DJ-skich setów,
+długich jazd nocą i tych chwil, kiedy nie chcesz, żeby się skończyło.
+
+Jeśli kochasz melancholic deep house, atmospheric deep house,
+introspective house i klimat Stephan Bodzin, Tale of Us, Massano,
+Solomun — ten utwór jest dla Ciebie.
+
+— — —
+
+Deep Water (Extended Mix) — an instrumental atmospheric / melancholic
+deep house track about that moment when you're standing at the end of
+the pier above dark water and you lose track of time. Deep pads,
+a steady pulse, distant echoes and mist settling on the surface.
+
+The extended version — a full 7+ minute journey for DJ sets, late-night
+drives and those moments when you don't want it to end.
+
+Perfect if you love melancholic deep house, atmospheric deep house,
+introspective house and the vibes of Stephan Bodzin, Tale of Us,
+Massano, Solomun.
+
+🌫️ Best on headphones, late at night
+💧 Follow for more atmospheric deep house
+💬 Where does this track take you?
+
+#deepwater #melancholicdeephouse #atmosphericdeephouse #extendedmix #deephouse2026
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx
+🎵 Also on hearthis.at: https://hearthis.at/maximummusic/</code></pre>
+
+<h3>Tagi — dwa formaty</h3>
+<p><strong>SC:</strong></p>
+<pre><code>"deep house" "extended mix" "melancholic deep house" "atmospheric deep house" "introspective house" "late night house" instrumental melodic "deep house 2026" "deep house extended mix"</code></pre>
+<p><strong>hearthis.at:</strong></p>
+<pre><code>deep house, extended mix, melancholic deep house, atmospheric deep house, introspective house, late night house, instrumental, melodic, deep house 2026, deep house extended mix</code></pre>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Deep House</code> (3-bucket rule)</td></tr>
+    <tr><td>BPM</td><td>118–124 typowo</td></tr>
+    <tr><td>Key</td><td>minor (<code>Am</code>, <code>Cm</code>, <code>Dm</code>, <code>F#m</code>, <code>Gm</code>)</td></tr>
+    <tr><td>Downloadable</td><td><strong><code>true</code></strong> (Extended Mix = DJ-friendly)</td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista</td></tr>
+  </tbody>
+</table>
+
+<h3>Bonus — pattern Extended/Original</h3>
+<p>Jeśli istnieje radio edit/regular wersja, crosslinkuj:</p>
+<pre><code>🎵 Original / radio version: https://soundcloud.com/maximummusicmaxx/[slug]</code></pre>
+<p>Jeśli nie ma — wyciągnij standalone radio edit z extended (~3:30) i wrzuć osobno = dwa utwory = dwa razy więcej widoczności.</p>
+
+<h3>Nowa oś tematyczna: Water / Introspection</h3>
+<p>Katalog wzbogaca się o subkatalog z bardzo silnym signature wizualnym:</p>
+<table>
+  <thead>
+    <tr><th>Oś tematyczna</th><th>Utwory</th><th>Cover language</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Sunset</td><td>Old Love, Let's Talk About Music, Far Far Away</td><td>Sunset, plaża, horyzont</td></tr>
+    <tr><td>Cosmos</td><td>Lunar Harmony, The Journey</td><td>Gwiazdy, kosmos, noc</td></tr>
+    <tr><td>Café/Lounge</td><td>Fantastic World</td><td>Kawa, latte art</td></tr>
+    <tr><td>Summer Mix Series</td><td>Summertime Melody MAX 01-07+</td><td>Lato, pole, sunset</td></tr>
+    <tr><td><strong>NEW: Water/Introspection</strong></td><td><strong>Deep Water</strong></td><td>Jezioro, mgła, samotność</td></tr>
+  </tbody>
+</table>
+<p><strong>Sugestia rozwoju:</strong> <code>Still Lake</code>, <code>Morning Fog</code>, <code>Beneath the Surface</code>, <code>River at Dawn</code> — najsilniejsza pojedyncza okazja brandingowa.</p>
+
+<h2 id="case9">16. Case study: Time To Speed Up (Long Version) — Urban Deep House</h2>
+<p><a href="https://soundcloud.com/maximummusicmaxx/time-to-speed-up-long-version">soundcloud.com/maximummusicmaxx/time-to-speed-up-long-version</a></p>
+
+<h3>Charakterystyka</h3>
+<ul>
+  <li><strong>Gatunek:</strong> urban / driving / progressive deep house</li>
+  <li><strong>Mood:</strong> pęd miasta, nocna jazda, urgency, energia</li>
+  <li><strong>Cover:</strong> wnętrze stacji metra, duży zegar BVG Metro, łukowy dach, ludzie na peronie, monochromatyczne fiolety/błękity</li>
+  <li><strong>Format:</strong> Long Version (DJ-friendly extended)</li>
+  <li><strong>Stan początkowy:</strong> opis pusty, <strong>asterisk w tytule</strong> (<code>*long version</code>)</li>
+  <li><strong>Mocna karta:</strong> spójność tytuł + cover (zegar = czas = speed up + urban transit). Druga oś <strong>urban/city/night</strong> (razem z <em>Lunar Harmony</em>)</li>
+</ul>
+
+<h3>Title asterisk fix (powtarzający się problem!)</h3>
+<p>Aktualnie: <code>Time To Speed Up *long version</code></p>
+<p><strong>Reguła katalogu (z sekcji 12):</strong> żadnych asterisków w tytułach. SC search źle indeksuje znaki specjalne.</p>
+
+<h3>Tytuł — rekomendacja</h3>
+<pre><code>Time To Speed Up — Driving Deep House (Long Version 2026)</code></pre>
+
+<h3>Opis (bilingual PL/EN) — gotowy do wklejenia</h3>
+<pre><code>Time To Speed Up (Long Version) — instrumentalny urban / driving
+deep house o tym momencie, kiedy miasto przyspiesza, zegar tyka
+głośniej, a Ty wsiadasz do nocnego pociągu. Pulsujący bas,
+napięte syntezatory i miarowy, nieubłagany rytm.
+
+Wersja rozszerzona — pełna 7+ minutowa podróż dla DJ-skich setów,
+nocnych jazd autostradą i wieczornych energii w klubach.
+
+Jeśli kochasz progressive deep house, driving deep house,
+urban house i klimat Solomun, Adriatique, Innellea, Massano,
+Stephan Bodzin — ten utwór jest dla Ciebie.
+
+— — —
+
+Time To Speed Up (Long Version) — an instrumental urban / driving
+deep house track about that moment when the city accelerates,
+the clock ticks louder and you step onto the night train. A pulsing
+bass, tense synths and a steady, relentless rhythm.
+
+The extended version — a full 7+ minute journey for DJ sets,
+late-night highway drives and club energy.
+
+Perfect if you love progressive deep house, driving deep house,
+urban house and the vibes of Solomun, Adriatique, Innellea, Massano
+and Stephan Bodzin.
+
+🌃 Best at night, full volume
+🚇 Follow for more urban deep house
+💬 Where does this track take you?
+
+#drivingdeephouse #progressivedeephouse #urbanhouse #longversion #deephouse2026
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx
+🎵 Also on hearthis.at: https://hearthis.at/maximummusic/</code></pre>
+
+<h3>Tagi — dwa formaty</h3>
+<p><strong>SC:</strong></p>
+<pre><code>"deep house" "driving deep house" "progressive deep house" "urban house" "long version" "deep house long mix" "night drive" instrumental melodic "deep house 2026"</code></pre>
+<p><strong>hearthis.at:</strong></p>
+<pre><code>deep house, driving deep house, progressive deep house, urban house, long version, deep house long mix, night drive, instrumental, melodic, deep house 2026</code></pre>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Deep House</code> (3-bucket rule)</td></tr>
+    <tr><td>BPM</td><td><strong>122–128</strong> (Speed Up = górny zakres DH)</td></tr>
+    <tr><td>Key</td><td>minor (<code>Am</code>, <code>Cm</code>, <code>Dm</code>, <code>F#m</code>)</td></tr>
+    <tr><td>Downloadable</td><td><strong><code>true</code></strong> (Long Version = DJ-friendly)</td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista</td></tr>
+  </tbody>
+</table>
+
+<h3>Druga oś tematyczna katalogu: Urban / Night / City</h3>
+<table>
+  <thead>
+    <tr><th>Utwór</th><th>Cover</th><th>Signature</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Lunar Harmony 2026</strong></td><td>Skyline nocą + neon</td><td>Statyczny urban (skyscrapers)</td></tr>
+    <tr><td><strong>Time To Speed Up</strong></td><td>Stacja metra + zegar</td><td>Dynamiczny urban (transit, motion)</td></tr>
+  </tbody>
+</table>
+<p><strong>Sugestia rozwoju:</strong> <code>Neon District</code>, <code>Last Train Home</code>, <code>Highway Lights</code>, <code>Underground</code> — kolejny subkatalog z mocną tożsamością wizualną.</p>
+
+<h2>Pełne mapowanie osi tematycznych katalogu (stan na sekcję 16)</h2>
+<table>
+  <thead>
+    <tr><th>Oś</th><th>Utwory case study</th><th>Liczba</th><th>Cover language</th><th>Sezonowość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Sunset</strong></td><td>Old Love, Let's Talk About Music, Far Far Away</td><td>3</td><td>Sunset, plaża, horyzont</td><td>Lato/jesień</td></tr>
+    <tr><td><strong>Cosmos</strong></td><td>Lunar Harmony, The Journey</td><td>2</td><td>Gwiazdy, kosmos, noc</td><td>Zima (długie noce)</td></tr>
+    <tr><td><strong>Urban/Night</strong></td><td>Lunar Harmony (overlap), Time To Speed Up</td><td>2</td><td>Skyline, metro, neon</td><td>Całoroczny</td></tr>
+    <tr><td><strong>Café/Lounge</strong></td><td>Fantastic World</td><td>1</td><td>Kawa, latte art</td><td>Całoroczny</td></tr>
+    <tr><td><strong>Summer Mix Series</strong></td><td>Summertime Melody MAX 07 (+01-06)</td><td>7+</td><td>Lato, pole, sunset</td><td>Stricte letni</td></tr>
+    <tr><td><strong>Water/Introspection</strong></td><td>Deep Water</td><td>1</td><td>Jezioro, mgła, samotność</td><td>Jesień/zima</td></tr>
+  </tbody>
+</table>
+<p><strong>Insight:</strong> <em>Lunar Harmony</em> należy do <strong>dwóch osi naraz</strong> (Cosmos + Urban) — to dobry pattern, można takie utwory używać jako bridges między playlistami serii.</p>
+
+<h2 id="case10">17. Case study: The Locomotive (new version) — Driving Cinematic Deep House</h2>
+<p><a href="https://soundcloud.com/maximummusicmaxx/locomotive">soundcloud.com/maximummusicmaxx/locomotive</a></p>
+
+<h3>Charakterystyka</h3>
+<ul>
+  <li><strong>Gatunek:</strong> driving / cinematic / journey deep house</li>
+  <li><strong>Mood:</strong> pęd pociągu, vintage power, mostek nad doliną, golden hour energy</li>
+  <li><strong>Cover:</strong> vintage parowóz na stalowym moście, golden hour sun-burst, bujny las, różowo-cyjanowe flare'y światła (klimat filmowego plakatu)</li>
+  <li><strong>Stan początkowy:</strong> opis pusty, <code>(new version)</code> w tytule (drugi raz w katalogu po <em>Old Love</em>)</li>
+  <li><strong>Mocna karta:</strong> spójność tytuł + cover na poziomie filmowym — utwór czyta się jako "soundtrack do filmu drogi". Razem z <em>Time To Speed Up</em> otwiera nową oś <strong>Motion/Transit/Journey</strong>.</li>
+</ul>
+
+<h3>Tytuł — rekomendacja</h3>
+<pre><code>The Locomotive — Driving Deep House (2026 Version)</code></pre>
+<p><code>(new version)</code> → <code>(2026 Version)</code> (per reguła sekcji 9 dla <em>Old Love</em>).</p>
+
+<h3>Opis (bilingual PL/EN) — gotowy do wklejenia</h3>
+<pre><code>The Locomotive (2026 Version) — instrumentalny driving / cinematic
+deep house o sile pędzącego pociągu, stalowym moście nad doliną
+i tym momencie, kiedy świat przesuwa się za oknem z prędkością wspomnień.
+Pulsujący bas, melodyjne syntezatory, miarowy rytm — jak stukot kół
+na szynach.
+
+Odświeżona wersja jednej z bardziej dynamicznych kompozycji z mojego
+katalogu — pełna energii podróży i vintage power.
+
+Jeśli kochasz driving deep house, cinematic deep house, journey music
+i klimat Solomun, Adriatique, Stephan Bodzin, ARTBAT, Maceo Plex
+— ten utwór jest dla Ciebie.
+
+— — —
+
+The Locomotive (2026 Version) — an instrumental driving / cinematic
+deep house track about the power of a rushing train, a steel bridge
+over the valley and that moment when the world flashes past the window
+at the speed of memory. A pulsing bass, melodic synths and a steady
+rhythm — like wheels on rails.
+
+A refreshed version of one of the more dynamic compositions in my
+catalogue — full of journey energy and vintage power.
+
+Perfect if you love driving deep house, cinematic deep house, journey
+music and the vibes of Solomun, Adriatique, Stephan Bodzin, ARTBAT
+and Maceo Plex.
+
+🚂 Best on a long road trip
+🌅 Follow for more cinematic deep house
+💬 Where would this take you?
+
+#drivingdeephouse #cinematicdeephouse #journeydeephouse #deephouse #deephouse2026
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx
+🎵 Also on hearthis.at: https://hearthis.at/maximummusic/</code></pre>
+
+<h3>Tagi — dwa formaty</h3>
+<p><strong>SC:</strong></p>
+<pre><code>"deep house" "driving deep house" "cinematic deep house" "journey deep house" "progressive deep house" "deep house 2026" instrumental melodic "deep house version" "train music"</code></pre>
+<p><strong>hearthis.at:</strong></p>
+<pre><code>deep house, driving deep house, cinematic deep house, journey deep house, progressive deep house, deep house 2026, instrumental, melodic, deep house version, train music</code></pre>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Deep House</code> (3-bucket rule)</td></tr>
+    <tr><td>BPM</td><td>typowo 122–126 (wpisz z DAW)</td></tr>
+    <tr><td>Key</td><td>minor (<code>Am</code>, <code>Cm</code>, <code>Dm</code>)</td></tr>
+    <tr><td>Downloadable</td><td><code>true</code></td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista (2026)</td></tr>
+    <tr><td>Label name</td><td><code>Maximum Music</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Nowa oś tematyczna: Motion / Transit / Journey</h3>
+<p>Razem z <em>Time To Speed Up</em> utwór tworzy <strong>trzecią parę osi tematycznej</strong>:</p>
+<table>
+  <thead>
+    <tr><th>Utwór</th><th>Cover</th><th>Tonacja stylistyczna</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Time To Speed Up</strong></td><td>Stacja metra + zegar</td><td>Modern, urban, neon, dynamic</td></tr>
+    <tr><td><strong>The Locomotive</strong></td><td>Vintage parowóz + most</td><td>Organic, vintage, cinematic, nostalgic</td></tr>
+  </tbody>
+</table>
+<p>Razem pokrywają <strong>pełen spektrum transitu</strong> — od cyfrowego/urban do mechanicznego/vintage. To może być <strong>mocne playlistowe combo</strong>:</p>
+
+<p><strong>Sugerowana playlist:</strong> <code>Motion &amp; Journey — Deep House Soundtracks</code></p>
+
+<p><strong>Sugestie rozwoju osi:</strong> <code>Highway Lights</code>, <code>Last Train Home</code>, <code>Tunnel Vision</code>, <code>Coastal Drive</code>, <code>Through the Valley</code>, <code>Speed of Memory</code>.</p>
+
+<h3>YouTube SEO bonus</h3>
+<p>Cover jest <strong>cinematic &amp; dramatic</strong> — idealny visual hook do YouTube thumbnail. Jeden ze zdecydowanie <strong>najlepszych covers w całym katalogu</strong> pod kątem CTR.</p>
+<p>Sugerowany YT title: <code>The Locomotive — Cinematic Deep House Mix (2026 Driving Version) [Instrumental]</code></p>
+
+<h2>Pełne mapowanie osi tematycznych katalogu (stan na sekcję 17)</h2>
+<table>
+  <thead>
+    <tr><th>Oś</th><th>Utwory case study</th><th>Liczba</th><th>Cover language</th><th>Sezonowość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Sunset</strong></td><td>Old Love, Let's Talk About Music, Far Far Away</td><td>3</td><td>Sunset, plaża, horyzont</td><td>Lato/jesień</td></tr>
+    <tr><td><strong>Cosmos</strong></td><td>Lunar Harmony, The Journey</td><td>2</td><td>Gwiazdy, kosmos, noc</td><td>Zima (długie noce)</td></tr>
+    <tr><td><strong>Urban/Night</strong></td><td>Lunar Harmony (overlap)</td><td>1+</td><td>Skyline, neon</td><td>Całoroczny</td></tr>
+    <tr><td><strong>Motion/Transit/Journey</strong></td><td><strong>Time To Speed Up, The Locomotive</strong></td><td><strong>2 (NEW)</strong></td><td>Metro, pociąg, transit</td><td>Całoroczny</td></tr>
+    <tr><td><strong>Café/Lounge</strong></td><td>Fantastic World</td><td>1</td><td>Kawa, latte art</td><td>Całoroczny</td></tr>
+    <tr><td><strong>Summer Mix Series</strong></td><td>Summertime Melody MAX 07 (+01-06)</td><td>7+</td><td>Lato, pole, sunset</td><td>Stricte letni</td></tr>
+    <tr><td><strong>Water/Introspection</strong></td><td>Deep Water</td><td>1</td><td>Jezioro, mgła, samotność</td><td>Jesień/zima</td></tr>
+  </tbody>
+</table>
+<p><strong>Status katalogu:</strong> 7 zidentyfikowanych osi tematycznych, 17 case studies, mocna struktura subkatalogów.</p>
+
+<h2 id="case11">18. Case study: The Journey In the Time and Space (2026 Version) — re-release</h2>
+<p>Druga wersja klasycznego utworu z katalogu — fresh master, nowy cover, clean slug:<br>
+<a href="https://soundcloud.com/maximummusicmaxx/journey-time-and-space-2026">soundcloud.com/maximummusicmaxx/journey-time-and-space-2026</a></p>
+
+<h3>Charakterystyka</h3>
+<ul>
+  <li><strong>Gatunek:</strong> progressive / cosmic / melodic deep house (jak 2025 Edition)</li>
+  <li><strong>Format:</strong> re-release / 2026 version (nowy render w 24-bit/r8brain)</li>
+  <li><strong>Cover:</strong> <strong>NOWY</strong> — widok z okna samolotu, rozgwieżdżone niebo, spadająca gwiazda, sunset horyzont</li>
+  <li><strong>Slug:</strong> <code>journey-time-and-space-2026</code> ✅ <strong>clean</strong> (slug hygiene wdrożone perfekcyjnie!)</li>
+  <li><strong>Stan początkowy:</strong> tytuł = surowy slug (<code>journey-time-and-space-2026</code>), opis pusty</li>
+  <li><strong>Mocna karta:</strong> <strong>cover znacznie mocniej match'uje tytuł niż oryginał</strong> — airplane window = literal "Journey"</li>
+  <li><strong>Słaba karta:</strong> SC wziął nazwę pliku jako tytuł — typowy artefakt świeżego uploadu, do natychmiastowej korekty</li>
+</ul>
+
+<h3>Tytuł — fix (najpilniejsze)</h3>
+<p>Aktualnie SC pokazuje raw slug. Zmień w SC:</p>
+<pre><code>The Journey In the Time and Space — Progressive Deep House (2026 Version)</code></pre>
+<blockquote>Tytuł w SC to <strong>osobne pole</strong> od slug'a — możesz mieć clean slug w URL ORAZ czytelny tytuł.</blockquote>
+
+<h3>Opis (bilingual PL/EN, z crosslinkiem do 2025 Edition) — gotowy do wklejenia</h3>
+<pre><code>The Journey In the Time and Space (2026 Version) — instrumentalny
+progressive / cosmic deep house o podróży przez gwiezdne pustkowia,
+widzianej z okna samolotu sunącego przez świt nad horyzontem.
+Głębokie pady, melodyjne syntezatory, miarowy puls — soundtrack
+dla nocnej jazdy, długich spacerów pod gwiazdami i tych momentów,
+w których patrzysz w niebo dłużej niż zwykle.
+
+Odświeżona wersja jednej z bardziej osobistych kompozycji z mojego
+katalogu — nowy cover, świeży master, ten sam kosmiczny vibe.
+
+Jeśli kochasz progressive deep house, cosmic house, melodic house &amp; techno
+i klimat Anjunadeep, Lane 8, Yotto, Eli &amp; Fur, ARTBAT
+— ten utwór jest dla Ciebie.
+
+🪐 Original / 2025 Edition: https://soundcloud.com/maximummusicmaxx/the-journey-in-the-time-and-space-edition-2025
+
+— — —
+
+The Journey In the Time and Space (2026 Version) — an instrumental
+progressive / cosmic deep house track about a journey through starry
+voids, seen from an airplane window gliding across the dawn horizon.
+Deep pads, melodic synths and a steady pulse — a soundtrack for
+night drives, long walks under the stars and any moment when you look
+up at the sky longer than usual.
+
+A refreshed version of one of my more personal compositions —
+new artwork, fresh master, same cosmic vibe.
+
+Perfect if you love progressive deep house, cosmic house, melodic house
+&amp; techno and the vibes of Anjunadeep, Lane 8, Yotto,
+Eli &amp; Fur and ARTBAT.
+
+🪐 Original / 2025 Edition: https://soundcloud.com/maximummusicmaxx/the-journey-in-the-time-and-space-edition-2025
+
+🌌 Best on headphones, under a clear sky
+🛫 Follow for more cosmic deep house
+💬 Where does this track take you?
+
+#progressivedeephouse #cosmichouse #melodichouse #anjunadeep #spacemusic
+
+▶ More tracks: https://soundcloud.com/maximummusicmaxx
+🎵 Also on hearthis.at: https://hearthis.at/maximummusic</code></pre>
+
+<h3>Tagi — dwa formaty</h3>
+<p><strong>SC (cudzysłowy + spacja):</strong></p>
+<pre><code>"progressive deep house" "cosmic house" "melodic deep house" "space music" "deep house" "melodic house and techno" instrumental "anjunadeep" "deep house 2026" melodic</code></pre>
+<p><strong>hearthis.at (przecinek):</strong></p>
+<pre><code>progressive deep house, cosmic house, melodic deep house, space music, deep house, melodic house and techno, instrumental, anjunadeep, deep house 2026, melodic</code></pre>
+
+<h3>Pozostałe pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Genre</td><td><code>Deep House</code> (3-bucket rule)</td></tr>
+    <tr><td>BPM</td><td>typowo 120–125 (wpisz z DAW)</td></tr>
+    <tr><td>Key</td><td>minor (<code>Am</code>, <code>Cm</code>, <code>Dm</code>, <code>F#m</code>)</td></tr>
+    <tr><td>Sharing</td><td><code>public</code></td></tr>
+    <tr><td>Downloadable</td><td><code>true</code></td></tr>
+    <tr><td>License</td><td><code>all-rights-reserved</code></td></tr>
+    <tr><td>Commentable</td><td><code>true</code></td></tr>
+    <tr><td>Release date</td><td>rzeczywista 2026</td></tr>
+    <tr><td>Label name</td><td><code>Maximum Music</code></td></tr>
+    <tr><td>ISRC</td><td><strong>NOWY ISRC</strong> dla 2026 Version (różny niż 2025 Edition)</td></tr>
+  </tbody>
+</table>
+
+<h3>Strategia: 2 wersje tego samego utworu na profilu</h3>
+<p>Masz teraz <strong>2 utwory pod tym samym tytułem</strong> (2025 Edition + 2026 Version). To <strong>atut</strong>, ale wymaga porządku:</p>
+
+<p><strong>Opcja A — Playlist "Versions &amp; Mixes" (rekomendowana)</strong></p>
+<p>Stwórz playlistę profilu:</p>
+<pre><code>Nazwa: The Journey — All Versions (2025 → 2026)
+Opis: Wszystkie wersje mojego utworu "The Journey In the Time and Space"
+       — od oryginału 2025 po 2026 Remaster. Wybierz swoją ulubioną.</code></pre>
+
+<p><strong>Opcja B — Cross-link pinned comments na obu utworach:</strong></p>
+<p>Na <strong>2026 Version</strong>:</p>
+<pre><code>🛫 2026 Version — new artwork, fresh master, 24-bit r8brain render.
+🪐 Original 2025 Edition: https://soundcloud.com/maximummusicmaxx/the-journey-in-the-time-and-space-edition-2025
+
+💬 Which version do you prefer?</code></pre>
+
+<p>Na <strong>2025 Edition</strong>:</p>
+<pre><code>🪐 2025 Edition — the original version.
+🛫 NEW 2026 Version (refreshed): https://soundcloud.com/maximummusicmaxx/journey-time-and-space-2026
+
+💬 Which version hits harder?</code></pre>
+
+<p>Generuje <strong>dyskusję porównawczą</strong> = silny signal engagement.</p>
+
+<p><strong>Opcja C — Wycofanie 2025 (NIE rekomendowane)</strong> — tracisz historię + komentarze + plays count.</p>
+
+<h3>Porównanie cover'ów 2025 Edition vs 2026 Version</h3>
+<table>
+  <thead>
+    <tr><th>Element</th><th>2025 Edition</th><th>2026 Version</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Visual</td><td>Purple sky + pines + aurora</td><td><strong>Airplane window + stars + dawn horizon + shooting star</strong></td></tr>
+    <tr><td><strong>Match z tytułem "Journey"</strong></td><td>Słaby (sosny = stationary)</td><td><strong>Bardzo silny</strong> (airplane = literal journey)</td></tr>
+    <tr><td><strong>Match z "Time and Space"</strong></td><td>Średni (gwiazdy + zorza)</td><td><strong>Bardzo silny</strong> (gwiazdy + spadająca gwiazda + horyzont)</td></tr>
+    <tr><td><strong>CTR na YouTube</strong></td><td>Średni</td><td><strong>Wysoki</strong> (intymny POV przez okno samolotu)</td></tr>
+    <tr><td><strong>Sync potential</strong></td><td>OK</td><td><strong>Wysoki</strong> (travel content, airlines, documentaries)</td></tr>
+    <tr><td><strong>Cosmiczny mood</strong></td><td>Wprost (kosmos)</td><td>Subtelniejszy (kosmos + przyziemny POV)</td></tr>
+  </tbody>
+</table>
+<p><strong>Cover 2026 jest flagship-tier.</strong> Rekomendacja: użyć jako thumbnail YouTube + pitch do sync libraries z keywordami <strong>travel, journey, dawn, airplane, contemplation, cosmic</strong>.</p>
+
+<h3>Insight: wdrożone rekomendacje z poprzednich case studies</h3>
+<p>Patrząc na 2026 Version, widać <strong>wdrożenie wcześniejszych rekomendacji</strong>:</p>
+<table>
+  <thead>
+    <tr><th>Rekomendacja</th><th>Skąd</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Slug hygiene (clean slug bez nazwy artysty)</td><td>Section 13 (Far Far Away)</td><td>✅ Wdrożone</td></tr>
+    <tr><td>Render 24-bit / r8brain</td><td>Sekcja Render audit</td><td>✅ Wdrożone</td></tr>
+    <tr><td>Filename bez "Maximum Music Maxx" prefix</td><td>Render audit</td><td>✅ Wdrożone</td></tr>
+    <tr><td>Custom cover spójny z tytułem</td><td>Section thumbnail YT</td><td>✅ Wdrożone (nowy cover)</td></tr>
+    <tr><td>Title z gatunkiem + rokiem</td><td>Multiple sections</td><td>❌ <strong>Do zrobienia</strong> (aktualnie raw slug)</td></tr>
+    <tr><td>Bilingual description z hookiem</td><td>Multiple sections</td><td>❌ Do zrobienia</td></tr>
+  </tbody>
+</table>
+<p><strong>3 z 5 rekomendacji wdrożone na poziomie pliku/uploadu. 2 do dokończenia w UI SC.</strong></p>
+
+<h2 id="sources">Źródła</h2>
+<ul>
+  <li><a href="https://developers.soundcloud.com/docs/api/guide">SoundCloud Developers — API Guide</a></li>
+  <li><a href="https://developers.soundcloud.com/">SoundCloud Developers — main portal</a></li>
+  <li><a href="https://developers.soundcloud.com/docs/api/explorer/open-api">SoundCloud Public API Specification (OpenAPI)</a></li>
+  <li><a href="https://help.soundcloud.com/hc/en-us/articles/115003446727-SoundCloud-Public-APIs">SoundCloud Help — Public APIs</a></li>
+  <li><a href="https://help.soundcloud.com/hc/en-us/sections/46633476999451-Track-Upload-Settings-Metadata">SoundCloud Help — Track Upload Settings &amp; Metadata</a></li>
+  <li><a href="https://developers.soundcloud.com/blog/soundclouds-new-api-track-object/">SoundCloud Backstage Blog — New API Track Object</a></li>
+  <li><a href="https://developers.soundcloud.com/blog/api-artist-metadata/">SoundCloud Backstage Blog — Artist Name field</a></li>
+  <li><a href="https://www.famups.com/blog/soundcloud-seo/">Famups — SoundCloud SEO Guide</a></li>
+  <li><a href="https://amworldgroup.com/blog/soundcloud-marketing">AMW — SoundCloud Marketing Strategies</a></li>
+  <li><a href="https://www.updigital.ca/blog/how-to-do-seo-on-soundcloud">UpDigital — How to Do SEO on SoundCloud</a></li>
+  <li><a href="https://musicfy.lol/blog/best-soundcloud-tags">Musicfy — Best SoundCloud Tags</a></li>
+  <li><a href="https://blog.masterchannel.ai/guide-to-uploading-music-to-soundcloud-what-to-know/">Masterchannel — Upload &amp; Optimize Music on SoundCloud</a></li>
+  <li><a href="https://repostexchange.com/-m/blog/8-ways-optimize-your-soundcloud">RepostExchange — 8 Ways to Optimize Your SoundCloud</a></li>
+  <li><a href="https://blog.symphonic.com/2025/07/15/seo-for-musicians-why-it-matters-and-how-to-use-it-2/">Symphonic Blog — SEO for Musicians</a></li>
+</ul>
+
+</body>
+</html>

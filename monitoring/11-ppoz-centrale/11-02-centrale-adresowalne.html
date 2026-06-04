@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11-02 — Centrale SAP adresowalne</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">11 Centrale SAP</a><span class="sep">/</span><span class="title">11-02 Adresowalne</span>
+</div>
+<div class="container">
+<h1>Centrale SAP adresowalne</h1>
+<p class="subtitle">Pętle adresowalne (1–32 pętle × 126 adresów), dokładna lokalizacja konkretnej czujki, integracja z BMS (BACnet, Modbus). Polon-Alfa POLON 6000, Bosch AVENAR, Schrack Integral, ESSER FlexES, Siemens Cerberus.</p>
+
+<h2>Czym różni się adresowalny od konwencjonalnego</h2>
+<p>Centrala adresowalna komunikuje się z każdą czujką <strong>indywidualnie</strong> — wie nie tylko, że gdzieś jest alarm, ale dokładnie <strong>która czujka</strong> i w jakim stanie. Komunikacja odbywa się protokołem cyfrowym (właściwym dla każdego producenta) po dwużyłowej pętli.</p>
+<pre><code>Centrala adresowalna
+  ├── Pętla 1 (do 126 adresów):
+  │     adresy 1-30   → czujki dymu pętla   1.kondygnacja
+  │     adresy 31-60  → czujki dymu pętla   2.kondygnacja
+  │     adresy 61-90  → multisensory pętla  klatka
+  │     adresy 91-100 → ROP-y
+  │     adresy 101-126→ moduły I/O, sygnalizatory adresowalne
+  └── Pętla 2 (do 126 adresów): osobny obwód</code></pre>
+
+<h2>Pętla — topologia i zalety</h2>
+<p><strong>Pętla</strong> (loop) to obwód doprowadzony z centrali, przechodzący przez wszystkie urządzenia i wracający z powrotem do centrali. Najważniejsza cecha: <strong>tolerancja na pojedynczą przerwę</strong>.</p>
+<p>Jak działa zabezpieczenie:</p>
+<ol>
+<li>w normalnym trybie pętla jest zasilana z obu końców równocześnie,</li>
+<li>na każdej czujce (lub co kilka) jest <strong>izolator zwarciowy</strong> (krótki segment) — odcina uszkodzony fragment,</li>
+<li>przy przerwie kabla centrala przełącza zasilanie tak, by dotrzeć z obu stron do pozostałych urządzeń,</li>
+<li>pojedyncza awaria <strong>nie wyłącza całego systemu</strong>, traci się tylko izolowany segment.</li>
+</ol>
+<p>Konwencjonalna linia przy przerwie traci wszystkie czujki za miejscem przerwy → adresowalna jest istotnie bardziej niezawodna.</p>
+
+<div class="callout"><strong>Wymóg PN-EN 54-2:</strong> pojedyncza usterka (przerwa, zwarcie) nie może wyłączyć więcej niż 32 czujki. W praktyce realizowane przez izolatory zwarciowe na pętli co kilka urządzeń.</p></div>
+
+<h2>Adresowanie — DIP, software, auto</h2>
+<table>
+<thead><tr><th>Metoda</th><th>Opis</th><th>Producenci</th></tr></thead>
+<tbody>
+<tr><td><strong>DIP switch</strong></td><td>fizyczne mikroprzełączniki w gnieździe czujki (1–126)</td><td>Polon-Alfa (POLON 6000), Hochiki</td></tr>
+<tr><td><strong>Programowanie elektroniczne</strong></td><td>adres zapisywany do czujki w czasie montażu (programator ręczny lub centrala)</td><td>Bosch, ESSER, Notifier</td></tr>
+<tr><td><strong>Auto-addressing</strong></td><td>centrala automatycznie nadaje adresy w kolejności fizycznej</td><td>Schrack Integral, Siemens Cerberus</td></tr>
+</tbody>
+</table>
+
+<h2>Główne marki na rynku polskim</h2>
+
+<h3>Polon-Alfa POLON 6000</h3>
+<p>Polski lider w obiektach państwowych (szkoły, urzędy, szpitale). Cechy:</p>
+<ul>
+<li>1–4 pętle adresowalne, do 126 adresów na pętlę (czyli max 504 elementy),</li>
+<li>protokół własny POLON, kompatybilność z czujkami serii 4046, 6046,</li>
+<li>moduły rozszerzeń: MIO-400 (4 wejścia/4 wyjścia), MZ-400 (sterowanie syrenami),</li>
+<li>panel ekranowy LCD 7" + dotykowy w wersji POLON 6000T,</li>
+<li>obsługa do 32 obiektów drogą szeregową (rozbudowa magistralą RS-485),</li>
+<li><strong>certyfikat CNBOP-PIB</strong>, w pełnym zgodności z PN-EN 54.</li>
+</ul>
+
+<h3>Bosch AVENAR (dawn. Modular 5000 / 8000)</h3>
+<p>Niemiecka centrala z modułową architekturą. Cechy:</p>
+<ul>
+<li>moduły LSN (Local SecurityNetwork) — pętle do 254 adresów,</li>
+<li>panel dotykowy 5" / 12",</li>
+<li>integracja z BIS (Building Integration System) — pełen BMS,</li>
+<li>typowi partnerzy: czujki Bosch FAP-425 series, FAH-425, ROP-y FMC-300,</li>
+<li>komunikacja BACnet/IP natywnie.</li>
+</ul>
+
+<h3>Schrack Integral EvoxX</h3>
+<p>Austriacka centrala z najmocniejszą integracją BMS. Cechy:</p>
+<ul>
+<li>do 32 pętli × 250 adresów = 8 000 urządzeń (rzadko spotykane),</li>
+<li>czujki Schrack USA 200/USB 200 (multikryterialne),</li>
+<li>protokoły: BACnet, Modbus, KNX, OPC UA,</li>
+<li>auto-addressing fabryczny,</li>
+<li>typowe instalacje: lotniska, centra handlowe, fabryki.</li>
+</ul>
+
+<h3>ESSER FlexES Control / IQ8Control</h3>
+<p>Marka grupy Honeywell, niemiecka, popularna w przemyśle. Cechy:</p>
+<ul>
+<li>protokół essernet — kilka central w sieci redundantnej,</li>
+<li>czujki esserbus / IQ8 (samouczące się, kompensacja zabrudzeń),</li>
+<li>obsługa stałych urządzeń gaszących (gazowe FM-200, Inergen).</li>
+</ul>
+
+<h3>Siemens Cerberus PRO FC72x</h3>
+<p>Stosowane w obiektach klasy premium. Cechy:</p>
+<ul>
+<li>protokół SynoLoop, do 252 elementów na pętlę,</li>
+<li>czujki ASA (Advanced Signal Analysis) — odporne na fałszywe alarmy,</li>
+<li>panel sterowniczy Cerberus PRO Cloud — zdalne zarządzanie.</li>
+</ul>
+
+<h3>Inne marki</h3>
+<ul>
+<li><strong>Notifier ID3000 / Pearl</strong> (Honeywell) — populare w UK i Polsce,</li>
+<li><strong>Hochiki Latitude</strong> — wysokiej klasy japońskie czujniki,</li>
+<li><strong>Inim Previdia Max</strong> — włoska, dobra cena/jakość,</li>
+<li><strong>Kentec Syncro AS</strong> — UK, do specjalnych zastosowań (statki),</li>
+<li><strong>Gent by Honeywell Vigilon</strong> — UK, bardzo niezawodne.</li>
+</ul>
+
+<h2>Integracja z BMS / SCADA</h2>
+<p>Centrale adresowalne komunikują się z systemami zarządzania budynkiem przez:</p>
+<table>
+<thead><tr><th>Protokół</th><th>Typowe zastosowanie</th><th>Centrale obsługujące</th></tr></thead>
+<tbody>
+<tr><td><strong>BACnet/IP</strong> (ISO 16484)</td><td>klimatyzacja, oświetlenie, BMS</td><td>Schrack, Siemens, Bosch AVENAR, ESSER</td></tr>
+<tr><td><strong>Modbus TCP/RTU</strong></td><td>systemy przemysłowe, SCADA</td><td>większość central poprzez moduł</td></tr>
+<tr><td><strong>OPC UA</strong></td><td>Industry 4.0, MES</td><td>Schrack, Siemens (przez serwer)</td></tr>
+<tr><td><strong>SNMP v3</strong></td><td>monitoring IT, NMS</td><td>centrale z modułem TCP/IP</td></tr>
+<tr><td><strong>KNX</strong></td><td>automatyka budynkowa</td><td>Schrack, Bosch (przez brama)</td></tr>
+</tbody>
+</table>
+<p>Przykłady akcji integracyjnych:</p>
+<ul>
+<li>alarm pożarowy → BMS wyłącza klimatyzację, otwiera klapy oddymiające, zjeżdża windą na poziom 0 i blokuje drzwi,</li>
+<li>alarm pożarowy → kontrola dostępu zwalnia wszystkie elektrozaczepy (ucieczka),</li>
+<li>czujka czadu w garażu → wentylacja na full + powiadomienie ochronie.</li>
+</ul>
+
+<h2>Konfiguracja — software</h2>
+<p>Każdy producent ma własne narzędzie:</p>
+<ul>
+<li>Polon-Alfa: <strong>POLON 6000 Designer</strong> — graficzne plany, przypisanie adresów,</li>
+<li>Bosch: <strong>FSP-5000 Programmer</strong> + RPS (Remote Programming Software),</li>
+<li>Schrack: <strong>Integral Designer</strong> — drag-and-drop konfiguracja BMS,</li>
+<li>ESSER: <strong>tools 8000</strong>,</li>
+<li>Siemens: <strong>Cerberus Engineering Tool (CET)</strong>.</li>
+</ul>
+<p>Konfigurację robi licencjonowany serwisant producenta — wymaga szkolenia i certyfikatu. Klient otrzymuje wydruk konfiguracji + plany na ścianie centrali (obowiązek PN-EN 54-14).</p>
+
+<h2>Kiedy wybrać adresowalną</h2>
+<ul>
+<li>obiekt powyżej <strong>500 m²</strong> lub powyżej 4 stref pożarowych,</li>
+<li>obiekty z obowiązkiem SAP (hotele &gt;50 łóżek, szpitale, biurowce &gt;3 kondygnacje, galerie handlowe),</li>
+<li>integracja z BMS / oddymianiem / kontrolą dostępu,</li>
+<li>obiekty z stałymi urządzeniami gaszącymi (SUG — gazowe, mgłowe) — wymagana dokładna lokalizacja,</li>
+<li>obiekty „klasy premium" — szpitale, lotniska, muzea, centra danych.</li>
+</ul>
+
+<div class="warning"><strong>Koszty:</strong> centrala adresowalna 1-pętlowa ~6000–12 000 zł, czujki adresowalne 200–500 zł sztuka (vs konwencjonalne 80–150 zł). Bilans: dla obiektu 200 czujek różnica to ~30 000 zł, ale daje precyzyjną lokalizację + integrację.</p></div>
+
+<div class="nav-bottom">
+<a href="11-01-centrale-konwencjonalne.html">⟵ Centrale konwencjonalne</a>
+<a href="11-03-rop-sygnalizatory.html">ROP i sygnalizatory →</a>
+</div>
+</div>
+</body>
+</html>

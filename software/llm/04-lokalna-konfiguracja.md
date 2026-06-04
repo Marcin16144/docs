@@ -238,10 +238,89 @@ ollama run llama3.2:3b
 ```
 
 ### Krok 5: Integracja z aplikacjami
-- **Claude Code / Cursor** — można skonfigurować na lokalny endpoint
+- **Claude Code** — natywnie, bez proxy (nowsze Ollamy wystawiają API w formacie Anthropic); szczegóły w sekcji „Claude Code z lokalnym modelem (Ollama)" niżej
+- **Cursor** — można skonfigurować na lokalny endpoint
 - **Continue.dev** (VS Code extension) — natywne wsparcie Ollama
 - **OpenWebUI** — GUI webowy z funkcjami ChatGPT
 - Własna aplikacja Python — używaj OpenAI SDK z `base_url="http://localhost:11434/v1"`
+
+## Claude Code z lokalnym modelem (Ollama)
+
+Nowsze wersje Ollamy (zweryfikowano na **0.24**) wystawiają serwer w formacie **Anthropic Messages API** (obok kompatybilnego z OpenAI), więc Claude Code podpinasz **bez żadnego proxy** — dawniej trzeba było stawiać tłumacz (LiteLLM albo claude-code-router). Claude Code steruje się trzema zmiennymi środowiskowymi:
+
+| Zmienna | Wartość | Rola |
+|---|---|---|
+| `ANTHROPIC_BASE_URL` | `http://localhost:11434` | przekierowanie na Ollamę |
+| `ANTHROPIC_AUTH_TOKEN` | `ollama` (dowolny niepusty) | Ollama nie sprawdza, ale CLI wymaga ustawionego |
+| `ANTHROPIC_MODEL` | np. `qwen3-coder:30b` | model główny (silnik agenta) |
+| `ANTHROPIC_SMALL_FAST_MODEL` | np. `llama3.1:8b` | model zadań tła (tytuły, podsumowania) |
+
+### Launcher opt-in (PowerShell)
+
+> **Nie** wstawiaj tych zmiennych do globalnego `~/.claude/settings.json` — przekierowałbyś **wszystkie** sesje Claude Code (również chmurowe) na lokalny model. Lepszy jest osobny launcher i świadomy wybór, kiedy używasz lokalnego modelu.
+
+Funkcja do profilu PowerShell (`$PROFILE`) — wspólny helper + osobna komenda na każdy serwer Ollama:
+
+```powershell
+function Start-ClaudeOllama {
+    param([string]$BaseUrl, [string]$Model, [string]$FastModel, [string[]]$Rest)
+    $base = "$env:APPDATA\Claude\claude-code"
+    $exe = Get-ChildItem $base -Directory -ErrorAction SilentlyContinue |
+           Sort-Object LastWriteTime -Descending |
+           ForEach-Object { Join-Path $_.FullName 'claude.exe' } |
+           Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $exe) { Write-Error "Nie znaleziono claude.exe w $base"; return }
+    $env:ANTHROPIC_BASE_URL         = $BaseUrl
+    $env:ANTHROPIC_AUTH_TOKEN       = 'ollama'
+    $env:ANTHROPIC_MODEL            = $Model
+    $env:ANTHROPIC_SMALL_FAST_MODEL = $FastModel
+    & $exe @Rest
+}
+
+# Lokalna Ollama (ten laptop)
+function claude-local  { Start-ClaudeOllama -BaseUrl 'http://localhost:11434'     -Model 'qwen3-coder:30b' -FastModel 'llama3.1:8b' -Rest $args }
+
+# Zdalna Ollama na innej maszynie w sieci
+function claude-remote { Start-ClaudeOllama -BaseUrl 'http://192.168.43.55:11434' -Model 'qwen3-coder:30b' -FastModel 'llama3.1:8b' -Rest $args }
+```
+
+Uruchomienie: w **nowym** terminalu wpisz `claude-local` (lokalnie) albo `claude-remote` (serwer w sieci). Kolejne serwery dodasz, dopisując następny wrapper. Zwykłe (chmurowe) Claude Code z aplikacji desktop działa dalej bez zmian.
+
+> Aplikacja desktop instaluje `claude.exe` pod wersjonowaną ścieżką (`...\Claude\claude-code\<wersja>\`), której nie ma na PATH — dlatego funkcja sama wybiera najnowszą wersję i przetrwa aktualizacje.
+
+### VS Code (wtyczka `anthropic.claude-code`)
+
+Wtyczka ma wbudowane ustawienie `claudeCode.environmentVariables`, więc endpoint Ollamy podajesz wprost w ustawieniach VS Code — per-workspace (`.vscode/settings.json` w projekcie) albo globalnie (User settings):
+
+```json
+{
+  "claudeCode.disableLoginPrompt": true,
+  "claudeCode.environmentVariables": [
+    { "name": "ANTHROPIC_BASE_URL", "value": "http://192.168.43.55:11434" },
+    { "name": "ANTHROPIC_AUTH_TOKEN", "value": "ollama" },
+    { "name": "ANTHROPIC_DEFAULT_OPUS_MODEL",   "value": "qwen2.5-coder:32b" },
+    { "name": "ANTHROPIC_DEFAULT_SONNET_MODEL", "value": "qwen3-coder:30b" },
+    { "name": "ANTHROPIC_DEFAULT_HAIKU_MODEL",  "value": "llama3.1:8b" }
+  ]
+}
+```
+
+- `disableLoginPrompt: true` — pomija logowanie chmurowe (auth zewnętrzny = token `ollama`); rozwiązuje konflikt z OAuth.
+- Trzy `ANTHROPIC_DEFAULT_*_MODEL` mapują picker Opus/Sonnet/Haiku na realne modele Ollamy.
+- `ANTHROPIC_BASE_URL` podajesz **bez** `/v1` (SDK sam dokłada `/v1/messages`).
+- Po zmianie: **Reload Window** (Ctrl+Shift+P → „Developer: Reload Window") i zaufaj workspace, gdy VS Code zapyta (Workspace Trust). Jeśli wtyczka dalej trzyma chmurę — `/logout` w panelu Claude.
+
+### Pułapki
+
+- **Kontekst** — Claude Code używa endpointu Anthropic, gdzie **nie podasz `num_ctx`**, więc liczy się domyślny kontekst serwera. Sprawdź go: `ollama ps` (kolumna CONTEXT). Prompt systemowy Claude Code (instrukcje + definicje narzędzi) jest duży, więc domyślne ~16K bywa ciasne — zostaje mało miejsca na pliki i rozmowę. Podnieś domyślny kontekst zmienną i **zrestartuj Ollamę**:
+  ```powershell
+  setx OLLAMA_CONTEXT_LENGTH 32768
+  ```
+  > Uwaga (Windows): zmienna zadziała dopiero, gdy **serwer** Ollama wystartuje na nowo z tą zmienną w środowisku. Jeśli Ollama chodzi z podwyższonymi uprawnieniami (proces serwera nie daje się zatrzymać ze zwykłej powłoki), restart też musi być z uprawnieniami admina — albo po prostu zrób reboot. Większy kontekst = większy KV-cache: na 8 GB VRAM część zrzuci się na CPU/RAM i zwolni.
+- **`count_tokens`** — Ollama **nie** implementuje endpointu `/v1/messages/count_tokens` (zwraca 404). Claude Code działa mimo to, ale wskaźnik zużycia kontekstu i auto-kompaktowanie liczą „na oko".
+- **Tool-use wymagany** — Claude Code to agent; model musi umieć wywoływać narzędzia. Sprawdzone, że poprawne bloki `tool_use` zwracają `llama3.1:8b` i `qwen3-coder:30b`. Modele reasoning (`deepseek-r1`) i vision (`llava`, `qwen3-vl`) słabo nadają się jako główny silnik.
+- **Sprzęt** — model główny musi zmieścić się w VRAM, żeby działał szybko. Na 8 GB realny jest `llama3.1:8b`; modele 30B (np. `qwen3-coder:30b`, ~18 GB) zrzucają warstwy na CPU/RAM i chodzą wolno (architektura MoE trochę ratuje, bo aktywne jest tylko ~3B parametrów). Mocniejszą maszynę w sieci podepniesz przez `claude-remote` — wtedy duże modele liczą się tam, a laptop jest tylko klientem.
+- **Zdalny serwer** — żeby Ollama była widoczna w sieci, na maszynie serwera ustaw `OLLAMA_HOST=0.0.0.0:11434` i otwórz port 11434 w firewallu. Dostępność sprawdzisz: `curl http://IP:11434/api/version`. Uwaga: ruch w LAN idzie **nieszyfrowany** — nie wystawiaj tego do internetu bez tunelu/VPN.
 
 ## Wybór modelu
 
@@ -266,9 +345,16 @@ ollama run llama3.2:3b
 - **Gemma 2 2B** — Google, dobra jakość
 
 ### Multimodalne (vision)
-- **Llama 3.2 Vision 11B/90B**
-- **Qwen 2.5 VL**
-- **Pixtral** (Mistral)
+- **Llama 3.2 Vision 11B** — multimodalny model Meta (tekst + obraz), darmowy, Llama Community License. W Ollamie: `ollama pull llama3.2-vision` (~7.9 GB, Q4). Wymaga ~8 GB VRAM (RTX 3060/4060+) lub działa na CPU z 16+ GB RAM (wolno). Kontekst 128K. Dobry do OCR, opisów zdjęć, alt-textów, analizy paragonów/faktur, klasyfikacji obrazów.
+- **Llama 3.2 Vision 90B** — wersja flagowa, znacznie dokładniejsza przy złożonych scenach i drobnych szczegółach. W Ollamie: `ollama pull llama3.2-vision:90b` (~55 GB, Q4). Wymaga ~64 GB VRAM — praktycznie tylko karty serwerowe albo Mac Studio M2/M3 Ultra z dużą unified memory.
+- **Qwen 2.5 VL** — multimodalny Alibaba, wersje 3B / 7B / 72B, Apache 2.0. Mocny w analizie wykresów, tabel i UI.
+- **Pixtral** (Mistral) — 12B, Apache 2.0, dobry w językach europejskich (w tym polski).
+- **LLaVA** (Large Language and Vision Assistant) — otwarty model wizyjno-językowy z 2023 (aktualna wersja: LLaVA 1.6 / LLaVA-NeXT, 2024), kod Apache 2.0, wagi dziedziczą licencję bazowego LLM. Architektura: enkoder CLIP ViT-L/14 + projekcja + LLM. Lżejsza, starsza alternatywa dla Llama 3.2 Vision — dobra na słabszy sprzęt. Słabszy OCR i głównie angielski (polski słaby). Warianty w Ollamie:
+  - `llava` — Vicuna 7B, ~4.7 GB, ~6 GB VRAM (`ollama pull llava`)
+  - `llava:13b` — Vicuna 13B, ~8 GB, ~10 GB VRAM (`ollama pull llava:13b`)
+  - `llava:34b` — Yi 34B, ~20 GB, ~24 GB VRAM (`ollama pull llava:34b`)
+  - `llava-llama3` — Llama 3 8B, ~5.5 GB, ~8 GB VRAM (`ollama pull llava-llama3`)
+  - `llava-phi3` — Phi-3 mini, ~2.9 GB, ~4 GB VRAM — najlżejszy, działa na laptopie bez mocnego GPU (`ollama pull llava-phi3`)
 
 ## Optymalizacja wydajności
 

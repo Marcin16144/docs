@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>08-02 — Moduły komunikacji GSM, IP, dual-path</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">08 Sygnalizatory</a><span class="sep">/</span><span class="title">08-02 Moduły GSM/IP</span>
+</div>
+<div class="container">
+<h1>Moduły komunikacji GSM, IP, dual-path</h1>
+<p class="subtitle">Tory transmisji alarmów do stacji monitorowania (SMA) i powiadomienia użytkownika. Redundancja torów jest wymogiem normy w klasach Grade 2+.</p>
+
+<h2>Po co dodatkowy tor — modem GSM/IP</h2>
+<p>Sama centrala alarmowa zamknięta w obudowie wewnątrz obiektu jest niewidoczna dla świata zewnętrznego — bez modemu nie wyśle alarmu do agencji ochrony, nie powiadomi właściciela SMS-em / push-em, nie zaloguje zdarzenia na serwerze producenta.</p>
+<p>Klasyczne tory:</p>
+<ul>
+<li><strong>PSTN (linia telefoniczna)</strong> — dziś już praktycznie wymarłe (likwidacja sieci miedzianej Orange w 2024–2026), z reguły niezalecane jako jedyny tor</li>
+<li><strong>GSM 2G/3G/4G LTE</strong> — moduł z slotem SIM, transmisja SMS lub pakietowa (GPRS/LTE)</li>
+<li><strong>Ethernet/IP</strong> — przewodowy LAN/Wi-Fi przez router internetowy</li>
+<li><strong>Dual-path</strong> — IP jako tor podstawowy + GSM jako backup (lub odwrotnie)</li>
+<li><strong>NB-IoT / LTE-M</strong> — nowsze, energooszczędne pasma IoT operatorów GSM</li>
+</ul>
+
+<h2>Tory GSM — moduły dla central</h2>
+
+<h3>Satel — rodzina GSM-X / GSM-LT / SHX</h3>
+<table>
+<thead><tr><th>Model</th><th>Pasmo</th><th>Funkcje</th><th>Cena</th></tr></thead>
+<tbody>
+<tr><td><strong>GSM-X</strong></td><td>2G/3G/4G LTE</td><td>uniwersalny, dwa SIM, ethernet add-on, Contact ID/SIA</td><td>700 PLN</td></tr>
+<tr><td><strong>GSM-LT-2</strong></td><td>2G</td><td>podstawowy, SMS i CLIP, do starszych central</td><td>250 PLN</td></tr>
+<tr><td><strong>GSM-4D</strong></td><td>2G</td><td>4 wejścia + 4 wyjścia, autonomiczny power-station</td><td>400 PLN</td></tr>
+<tr><td><strong>SHX-21</strong></td><td>LTE Cat-M1</td><td>nowoczesny, niska transmisja, do Integra</td><td>800 PLN</td></tr>
+</tbody>
+</table>
+
+<h3>DSC — TL/GS/3G/LE</h3>
+<table>
+<thead><tr><th>Model</th><th>Pasmo</th><th>Funkcje</th></tr></thead>
+<tbody>
+<tr><td><strong>GS3125-PL</strong></td><td>3G/4G</td><td>do PowerSeries Neo, AlarmNet, SIA DC-09</td></tr>
+<tr><td><strong>LE9080-PL</strong></td><td>LTE 4G</td><td>nowsza generacja, transmisja PowerNET</td></tr>
+<tr><td><strong>3G2080</strong></td><td>3G</td><td>standardowy, monitoring AlarmNet</td></tr>
+</tbody>
+</table>
+
+<h3>Jablotron, Risco</h3>
+<table>
+<thead><tr><th>Model</th><th>Pasmo</th><th>Cechy</th></tr></thead>
+<tbody>
+<tr><td>Jablotron JA-194Y</td><td>LTE</td><td>do JA-100+, MyJABLOTRON cloud</td></tr>
+<tr><td>Risco LightSYS GSM/3G</td><td>3G</td><td>iRISCO app, dual-path z LAN</td></tr>
+</tbody>
+</table>
+
+<h2>Tory IP — moduły ethernet</h2>
+<p>Modemy IP komunikują się z SMA poprzez serwer producenta lub bezpośrednio (SIA over IP).</p>
+
+<h3>Satel ETHM-1 Plus</h3>
+<ul>
+<li>Ethernet 10/100 Mbps, RJ45</li>
+<li>obsługa Integra od INT-24 do INT-256</li>
+<li>protokoły: SATEL (proprietarny), Contact ID over IP, SIA DC-09</li>
+<li>integracja z GUARDX, INTEGRA Control, INT-GSM</li>
+<li>cena: 350 PLN</li>
+</ul>
+
+<h3>DSC TL280-PL / TL280R</h3>
+<ul>
+<li>Ethernet, integracja z PowerSeries Neo / HS2128</li>
+<li>współpraca z AlarmNet i ConnectAlarm app</li>
+<li>cena: 450 PLN</li>
+</ul>
+
+<h3>Inne moduły IP</h3>
+<table>
+<thead><tr><th>Model</th><th>Centrala</th><th>Cena</th></tr></thead>
+<tbody>
+<tr><td>Jablotron JA-191Y</td><td>JA-100+</td><td>400 PLN</td></tr>
+<tr><td>Risco IP Module</td><td>LightSYS Plus</td><td>500 PLN</td></tr>
+<tr><td>Pyronix DIGI-LAN</td><td>Enforcer, Matrix</td><td>350 PLN</td></tr>
+</tbody>
+</table>
+
+<h2>Dual-path — tor pierwotny + backup</h2>
+<p>Wymóg Grade 3 (PN-EN 50136-1) — system musi mieć <strong>dwa niezależne tory transmisji</strong>. Jeśli jeden zawiedzie (np. cięcie kabla, awaria modemu), drugi przejmuje rolę. Centrale wysyłają na oba lub przełączają fallback.</p>
+
+<table>
+<thead><tr><th>Konfiguracja</th><th>Tor 1</th><th>Tor 2</th><th>Klasa zgodności</th></tr></thead>
+<tbody>
+<tr><td><strong>IP + GSM</strong></td><td>Ethernet (broadband)</td><td>4G LTE SIM</td><td>Grade 2/3, najpopularniejsza</td></tr>
+<tr><td><strong>GSM dual-SIM</strong></td><td>SIM operatora A</td><td>SIM operatora B (np. T-Mobile + Plus)</td><td>Grade 2 (jeden tor, ale dwie sieci)</td></tr>
+<tr><td><strong>IP + PSTN</strong></td><td>Ethernet</td><td>linia analogowa</td><td>przestarzałe</td></tr>
+<tr><td><strong>2× IP</strong></td><td>LAN przewodowy</td><td>LTE backup</td><td>nowoczesne, popularne w korporacjach</td></tr>
+</tbody>
+</table>
+
+<h3>Test poll — utrzymanie żywego łącza</h3>
+<p>System okresowo wysyła komunikat <strong>„żyję"</strong> (test poll, heartbeat) do SMA. Częstotliwość zależy od klasy:</p>
+<ul>
+<li><strong>Grade 1</strong> — test 1× / 24 h</li>
+<li><strong>Grade 2</strong> — test 1× / 25 min (single path) lub 1× / 3 h (dual path)</li>
+<li><strong>Grade 3</strong> — test 1× / 90 s (jeden tor) lub 1× / 25 min (dual)</li>
+<li><strong>Grade 4</strong> — test 1× / 10 s (banki, infrastruktura krytyczna)</li>
+</ul>
+<p>Brak ramki test poll w okienku czasowym = SMA generuje „brak komunikacji" — patrol jedzie sprawdzić obiekt nawet bez „prawdziwego" alarmu.</p>
+
+<h2>Protokoły transmisji</h2>
+
+<h3>Contact ID (DTMF) — klasyk PSTN</h3>
+<p>Format opracowany przez Ademco. Centrala wysyła „tony telefoniczne" DTMF kodujące zdarzenie:</p>
+<pre><code>SSSS QXYZ CC#
+SSSS — numer abonenta (4 cyfry)
+Q    — kwalifikator (1=nowy alarm, 3=restore)
+XYZ  — kod zdarzenia (130=Burglary, 110=Fire, 120=Panic, 301=AC Loss, 302=Low Battery)
+CC   — strefa lub user
+#    — separator</code></pre>
+<p>Przykład: <code>1234 1130 05#</code> = abonent 1234, nowy alarm Burglary w strefie 05.</p>
+
+<h3>SIA DC-09 / DC-05 — standard nowoczesny</h3>
+<p>Format ASCII over IP/GSM, z szyfrowaniem AES-128 i podpisem cyfrowym. Zalecany dla Grade 2+. Obsługiwany przez wszystkie nowsze centrale i SMA.</p>
+<pre><code>"SIA-DCS"0001L0#1234[#1234|Nri1BA01]_22:45:30,03-15-2026
+        ↑    ↑   ↑     ↑   ↑       ↑
+        seq  L   abon  receiver event timestamp</code></pre>
+
+<h3>SMS — backup dla użytkownika</h3>
+<p>Niezalecany jako jedyny tor do SMA (brak potwierdzeń, opóźnienia operatorskie). Dobrze działa jako <strong>powiadomienie właściciela</strong> równolegle do transmisji do agencji.</p>
+<div class="callout">Kod 0% Polski operator SMS A2P (Application-to-Person) ma opóźnienia 5–60 s, w godzinach szczytu nawet kilka minut. Push do aplikacji jest szybszy i tańszy.</div>
+
+<h3>MQTT / push — nowoczesne dla smart home</h3>
+<p>Coraz więcej central wspiera natywnie MQTT broker (Mosquitto, EMQX) lub push do aplikacji producenta (Integra Control, MyJABLOTRON, ConnectAlarm). Dla integracji z Home Assistant / smart home — niezastąpione.</p>
+
+<h2>Wybór operatora i karty SIM</h2>
+<table>
+<thead><tr><th>Czynnik</th><th>Rekomendacja</th></tr></thead>
+<tbody>
+<tr><td>Pasmo / pokrycie</td><td>sprawdź lokalne zasięg 4G LTE (mapy operatorów)</td></tr>
+<tr><td>Abonament M2M</td><td>dedykowana taryfa: Orange Things, Plus M2M (10–25 PLN/mc, 1 GB)</td></tr>
+<tr><td>PIN</td><td>wyłącz w SIM (centrala nie wpisze PIN)</td></tr>
+<tr><td>SMS-y</td><td>upewnij się, że pakiet zawiera 100+ SMS/mc</td></tr>
+<tr><td>Dual-SIM</td><td>dwóch różnych operatorów (np. T-Mobile + Plus) — odporność na awarię BTS</td></tr>
+<tr><td>APN</td><td>poprawnie skonfigurowany w centrali (internet, m2m.plus, lte-m.orange.pl)</td></tr>
+</tbody>
+</table>
+
+<h2>Praktyczne komendy SMS (Satel GSM-X)</h2>
+<pre><code>STATUS#1234         — odczyt stanu obiektu
+ARM#1234            — uzbrojenie
+DISARM#1234         — rozbrojenie
+USTAW STREFA 2#1234 — uzbrojenie strefy 2
+WYJ 5#1234          — aktywacja wyjścia 5 (np. roleta, brama)
+TEMP#1234           — odczyt temperatury</code></pre>
+
+<h2>Bezpieczeństwo transmisji</h2>
+<div class="warning">Atak na tor transmisji = klasyczny GSM jammer (zagłuszacz pasma 900/1800 MHz, do kupienia na chińskich portalach za 200–500 PLN). Dlatego <strong>tor radiowy nie wystarczy</strong> w obiektach o wyższej klasie. Dual-path IP+GSM lub LAN+LTE jest minimum dla Grade 3.</div>
+<ul>
+<li>Stosuj <strong>szyfrowanie AES</strong> (SIA DC-09 obsługuje natywnie)</li>
+<li>Wyłącz <strong>SMS commands</strong> jeśli nie używasz — ograniczasz wektor ataku</li>
+<li>Centrala powinna sygnalizować <strong>jammer detection</strong> (utrata sygnału przez &gt;30 s)</li>
+<li>Tor IP — zalecane <strong>VPN</strong> do SMA lub serwera producenta</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="08-01-syreny.html">⟵ Syreny</a>
+<a href="08-03-monitoring-agencji.html">Monitoring agencji →</a>
+</div>
+</div>
+</body>
+</html>

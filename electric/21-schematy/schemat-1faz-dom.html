@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schemat instalacji 1-fazowej — dom 100 m²</title>
+    <style>
+        :root{
+            --bg:#0f172a;--surface:#1e293b;--surface-hover:#283649;--border:#334155;
+            --text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;
+            --green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;
+            --mod-main:#1e40af;--mod-rcd:#166534;--mod-cb:#7f1d1d;--mod-spd:#78350f;--mod-free:#374151;
+        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+
+        /* ── TOPBAR ── */
+        .topbar{
+            position:sticky;top:0;z-index:100;
+            background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);
+            border-bottom:1px solid var(--border);
+            padding:14px 20px;
+            display:flex;align-items:center;gap:16px;
+        }
+        .topbar a.back{
+            color:var(--text-muted);text-decoration:none;font-size:.85rem;
+            border:1px solid var(--border);border-radius:6px;padding:4px 12px;
+            transition:all .15s;white-space:nowrap;
+        }
+        .topbar a.back:hover{color:var(--accent);border-color:var(--accent)}
+        .topbar h1{font-size:1.25rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .topbar .badge{font-size:.72rem;color:var(--text-muted);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:2px 8px;white-space:nowrap}
+
+        /* ── CONTAINER ── */
+        .container{max-width:1100px;margin:0 auto;padding:28px 20px 80px}
+
+        /* ── INFO GRID ── */
+        .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:28px}
+        .info-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+        .info-box .label{font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+        .info-box .value{font-size:1rem;font-weight:700;color:var(--accent)}
+        .info-box .sub{font-size:.72rem;color:var(--text-muted);margin-top:2px}
+
+        /* ── SECTION TITLE ── */
+        .section-title{font-size:1.05rem;font-weight:700;color:var(--accent);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+
+        /* ── DISTRIBUTION BOARD ── */
+        .board-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+        .board-inner{background:#0d1b2e;border:2px solid #1e40af;border-radius:8px;padding:16px;max-width:820px;margin:0 auto}
+        .board-label{font-size:.7rem;color:var(--text-muted);text-align:center;margin-bottom:12px;letter-spacing:.08em;text-transform:uppercase}
+
+        .rail-row{display:flex;flex-direction:column;margin-bottom:4px}
+        .rail-bar{height:3px;background:linear-gradient(90deg,#475569,#64748b,#475569);border-radius:2px;margin:6px 8px}
+        .modules-row{display:flex;flex-wrap:wrap;gap:4px;padding:0 4px;align-items:flex-end}
+        .module{border-radius:4px;padding:5px 4px;font-size:.60rem;text-align:center;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:default;transition:filter .15s;position:relative}
+        .module:hover{filter:brightness(1.2)}
+        .module .mname{font-size:.62rem;font-weight:700;line-height:1.1}
+        .module .mval{font-size:.55rem;font-weight:400;opacity:.85}
+        .module .mtype{font-size:.52rem;opacity:.7}
+        .mod-w1{min-width:38px;width:38px}
+        .mod-w2{min-width:80px;width:80px}
+        .mod-w3{min-width:122px;width:122px}
+        .mod-w4{min-width:164px;width:164px}
+        .mod-main{background:#1e40af;color:#bfdbfe;border:1px solid #3b82f6}
+        .mod-rcd{background:#166534;color:#bbf7d0;border:1px solid #4ade80}
+        .mod-cb-b{background:#7f1d1d;color:#fecaca;border:1px solid #f87171}
+        .mod-cb-c{background:#7c2d12;color:#fed7aa;border:1px solid #fb923c}
+        .mod-spd{background:#78350f;color:#fde68a;border:1px solid #fbbf24}
+        .mod-free{background:#374151;color:#9ca3af;border:1px solid #4b5563}
+        .rcd-group{border:1px dashed rgba(74,222,128,.3);border-radius:6px;padding:6px;margin:4px 0}
+        .rcd-group-label{font-size:.55rem;color:#4ade80;margin-bottom:4px;padding-left:2px;opacity:.7}
+        .bus-row{display:flex;gap:8px;padding:8px 4px 0;align-items:center}
+        .bus{height:6px;flex:1;border-radius:3px}
+        .bus-n{background:linear-gradient(90deg,#1e40af,#2563eb)}
+        .bus-pe{background:linear-gradient(90deg,#166534,#16a34a)}
+        .bus-label{font-size:.6rem;color:var(--text-muted)}
+
+        /* ── TABLES ── */
+        .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px;overflow-x:auto}
+        table{width:100%;border-collapse:collapse;font-size:.82rem}
+        thead tr{background:#1a2840}
+        th{padding:10px 12px;text-align:left;color:var(--accent);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border)}
+        td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+        tbody tr:nth-child(even){background:rgba(255,255,255,.025)}
+        tbody tr:hover{background:rgba(251,191,36,.04)}
+        .tag{display:inline-block;font-size:.68rem;padding:2px 7px;border-radius:4px;font-weight:600}
+        .tag-b{background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3)}
+        .tag-c{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3)}
+        .tag-rcd{background:rgba(74,222,128,.15);color:#4ade80;border:1px solid rgba(74,222,128,.3)}
+        .tag-phase{display:inline-block;font-size:.65rem;padding:1px 6px;border-radius:3px;font-weight:700}
+        .rcd1{background:rgba(74,222,128,.1);color:#4ade80}
+        .rcd2{background:rgba(96,165,250,.1);color:#60a5fa}
+        .rcd3{background:rgba(251,191,36,.1);color:#fbbf24}
+
+        /* ── POWER BALANCE ── */
+        .balance-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+        .balance-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+        .balance-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#0d1b2e;border-radius:8px;border:1px solid var(--border)}
+        .balance-item .bl{font-size:.83rem;color:var(--text-muted)}
+        .balance-item .br{font-size:.92rem;font-weight:700;color:var(--text)}
+        .balance-item.highlight{border-color:var(--accent);background:rgba(251,191,36,.06)}
+        .balance-item.highlight .br{color:var(--accent)}
+
+        /* ── TN-C-S DIAGRAM ── */
+        .tncs-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+        .tncs-diagram{display:flex;align-items:center;gap:0;padding:16px 0;overflow-x:auto}
+        .tncs-box{background:#0d1b2e;border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-align:center;white-space:nowrap;min-width:110px}
+        .tncs-box .title{font-size:.68rem;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+        .tncs-box .val{font-size:.82rem;font-weight:700;color:var(--text)}
+        .tncs-box.special{border-color:var(--accent)}
+        .tncs-box.special .val{color:var(--accent)}
+        .tncs-arrow{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:50px}
+        .tncs-line{width:100%;height:3px;border-radius:2px}
+        .line-pen{background:#78350f}
+        .line-n{background:#1e40af}
+        .line-pe{background:#166534}
+        .tncs-label{font-size:.58rem;color:var(--text-muted);margin-top:3px}
+        .tncs-split{display:flex;flex-direction:column;gap:8px;justify-content:center}
+        .split-box{display:flex;align-items:center;gap:6px}
+        .wire-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+        .dot-n{background:#3b82f6}
+        .dot-pe{background:#16a34a}
+        .dot-pen{background:#ca8a04}
+        .split-label{font-size:.68rem;font-weight:600}
+
+        /* ── NOTES ── */
+        .notes-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+        .note-list{list-style:none;display:flex;flex-direction:column;gap:8px}
+        .note-list li{display:flex;gap:10px;align-items:flex-start;font-size:.84rem;padding:9px 12px;background:#0d1b2e;border-radius:6px;border-left:3px solid var(--accent)}
+        .note-list li .icon{font-size:1rem;flex-shrink:0;margin-top:1px}
+        .note-list li .text{color:var(--text)}
+        .note-list li strong{color:var(--accent)}
+
+        /* ── NAV BOTTOM ── */
+        .nav-bottom{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-top:1px solid var(--border);margin-top:10px;flex-wrap:wrap;gap:10px}
+        .nav-bottom a{color:var(--text-muted);text-decoration:none;font-size:.87rem;border:1px solid var(--border);border-radius:8px;padding:8px 18px;transition:all .15s;display:flex;align-items:center;gap:6px}
+        .nav-bottom a:hover{color:var(--accent);border-color:var(--accent);background:rgba(251,191,36,.06)}
+
+        /* ── WARNING ── */
+        .warning{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:10px;padding:12px 16px;font-size:.82rem;color:var(--text);margin-bottom:24px}
+        .warning strong{color:#f87171}
+
+        @media(max-width:700px){
+            .topbar h1{font-size:1rem}
+            .balance-grid{grid-template-columns:1fr}
+            .modules-row{gap:3px}
+            .mod-w1{min-width:34px;width:34px}
+            .mod-w2{min-width:72px;width:72px}
+        }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <a class="back" href="../index.html">&#8592; Kompendium</a>
+    <h1>Schemat instalacji 1-fazowej — dom 100 m²</h1>
+    <span class="badge">TN-C-S · 230 V · 50 Hz</span>
+</div>
+
+<div class="container">
+
+    <div class="warning">
+        <strong>&#9888; Uwaga:</strong> Schemat ma charakter poglądowy i dydaktyczny. Wykonanie instalacji elektrycznej wymaga uprawnień SEP G1. Przed pracami odłącz napięcie i sprawdź brak napięcia miernikiem.
+    </div>
+
+    <!-- INFO GRID -->
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="label">Fazy</div>
+            <div class="value">1</div>
+            <div class="sub">L + N + PE</div>
+        </div>
+        <div class="info-box">
+            <div class="label">Moc zainstalowana</div>
+            <div class="value">14 kW</div>
+            <div class="sub">cos&thinsp;&phi;&nbsp;= 0,9</div>
+        </div>
+        <div class="info-box">
+            <div class="label">Obwodów</div>
+            <div class="value">12</div>
+            <div class="sub">3 grupy RCD</div>
+        </div>
+        <div class="info-box">
+            <div class="label">Zabezpieczenie główne</div>
+            <div class="value">S301 C32A</div>
+            <div class="sub">1P+N, char. C</div>
+        </div>
+        <div class="info-box">
+            <div class="label">Kabel zasilający</div>
+            <div class="value">YDY 3×10</div>
+            <div class="sub">mm², do 63A ciągłe</div>
+        </div>
+        <div class="info-box">
+            <div class="label">Układ sieci</div>
+            <div class="value">TN-C-S</div>
+            <div class="sub">PEN → N+PE w rozdzielnicy</div>
+        </div>
+    </div>
+
+    <!-- WIZUALNY SCHEMAT ROZDZIELNICY -->
+    <div class="section-title">&#128268; Wizualny schemat rozdzielnicy (DIN 35 mm)</div>
+    <div class="board-wrap">
+        <div class="board-inner">
+            <div class="board-label">Rozdzielnica mieszkaniowa RH · 3×18 modułów · IP40</div>
+
+            <!-- SZYNA 1: Główny + SPD -->
+            <div class="rail-row">
+                <div class="modules-row">
+                    <div class="module mod-main mod-w2">
+                        <span class="mname">ROZŁ. GŁÓWNY</span>
+                        <span class="mval">S301 1P+N</span>
+                        <span class="mtype">32A · char. C</span>
+                    </div>
+                    <div class="module mod-spd mod-w2">
+                        <span class="mname">SPD typ 2</span>
+                        <span class="mval">DEHNguard / OBO</span>
+                        <span class="mtype">275V · 40kA · 2M</span>
+                    </div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                </div>
+                <div class="rail-bar"></div>
+            </div>
+
+            <!-- SZYNA 2: RCD1 + obwody 1-4 -->
+            <div class="rail-row">
+                <div class="rcd-group">
+                    <div class="rcd-group-label">Grupa RCD-1 · obwody 1–4 · pokoje/salon</div>
+                    <div class="modules-row">
+                        <div class="module mod-rcd mod-w2">
+                            <span class="mname">RCD 1</span>
+                            <span class="mval">2P · 40A · 30mA</span>
+                            <span class="mtype">typ A · 2M</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B10</span>
+                            <span class="mval">obw. 1</span>
+                            <span class="mtype">ośw. salon</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B16</span>
+                            <span class="mval">obw. 2</span>
+                            <span class="mtype">gn. salon</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B16</span>
+                            <span class="mval">obw. 3</span>
+                            <span class="mtype">gn. sypial.</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B16</span>
+                            <span class="mval">obw. 4</span>
+                            <span class="mtype">gn. hall</span>
+                        </div>
+                        <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                        <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                    </div>
+                </div>
+                <div class="rail-bar"></div>
+            </div>
+
+            <!-- SZYNA 3: RCD2 + obwody 5-8 -->
+            <div class="rail-row">
+                <div class="rcd-group">
+                    <div class="rcd-group-label">Grupa RCD-2 · obwody 5–8 · kuchnia / urządzenia ded.</div>
+                    <div class="modules-row">
+                        <div class="module mod-rcd mod-w2">
+                            <span class="mname">RCD 2</span>
+                            <span class="mval">2P · 40A · 30mA</span>
+                            <span class="mtype">typ A · 2M</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B16</span>
+                            <span class="mval">obw. 5</span>
+                            <span class="mtype">gn. kucha</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B20</span>
+                            <span class="mval">obw. 6</span>
+                            <span class="mtype">zmywarka</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B20</span>
+                            <span class="mval">obw. 7</span>
+                            <span class="mtype">lodówka</span>
+                        </div>
+                        <div class="module mod-cb-c mod-w1">
+                            <span class="mname">B32</span>
+                            <span class="mval">obw. 8</span>
+                            <span class="mtype">płyta ind.</span>
+                        </div>
+                        <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                        <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                    </div>
+                </div>
+                <div class="rail-bar"></div>
+            </div>
+
+            <!-- SZYNA 4: RCD3 + obwody 9-12 -->
+            <div class="rail-row">
+                <div class="rcd-group">
+                    <div class="rcd-group-label">Grupa RCD-3 · obwody 9–12 · łazienki / zewnętrzne</div>
+                    <div class="modules-row">
+                        <div class="module mod-rcd mod-w2">
+                            <span class="mname">RCD 3</span>
+                            <span class="mval">2P · 40A · 30mA</span>
+                            <span class="mtype">typ A · 2M</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B10</span>
+                            <span class="mval">obw. 9</span>
+                            <span class="mtype">ośw. łaz.</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B16</span>
+                            <span class="mval">obw. 10</span>
+                            <span class="mtype">gn. łaz.</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B16</span>
+                            <span class="mval">obw. 11</span>
+                            <span class="mtype">zewn.</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1">
+                            <span class="mname">B16</span>
+                            <span class="mval">obw. 12</span>
+                            <span class="mtype">bojler</span>
+                        </div>
+                        <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                        <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rezerwa</span></div>
+                    </div>
+                </div>
+                <div class="rail-bar"></div>
+            </div>
+
+            <!-- SZYNY PE/N -->
+            <div class="bus-row">
+                <span class="bus-label">N:</span>
+                <div class="bus bus-n"></div>
+                <span class="bus-label" style="margin-left:8px">PE:</span>
+                <div class="bus bus-pe"></div>
+            </div>
+
+        </div><!-- board-inner -->
+
+        <!-- Legenda -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-left:4px">
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#1e40af;border:1px solid #3b82f6"></div><span style="font-size:.72rem;color:var(--text-muted)">Rozłącznik główny</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#166534;border:1px solid #4ade80"></div><span style="font-size:.72rem;color:var(--text-muted)">Wyłącznik RCD</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#7f1d1d;border:1px solid #f87171"></div><span style="font-size:.72rem;color:var(--text-muted)">Bezpiecznik nadprądowy B/C</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#78350f;border:1px solid #fbbf24"></div><span style="font-size:.72rem;color:var(--text-muted)">Ogranicznik przepięć SPD</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#374151;border:1px solid #4b5563"></div><span style="font-size:.72rem;color:var(--text-muted)">Miejsce wolne (rezerwa)</span></div>
+        </div>
+    </div>
+
+    <!-- TABELA OBWODÓW -->
+    <div class="section-title">&#128203; Tabela obwodów</div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nr</th>
+                    <th>Oznaczenie</th>
+                    <th>Zabezp.</th>
+                    <th>Przewód</th>
+                    <th>Dług.</th>
+                    <th>Odbiorniki</th>
+                    <th>Grupa</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>1</strong></td>
+                    <td>Oświetlenie salon / pokoje</td>
+                    <td><span class="tag tag-b">B10A</span></td>
+                    <td>YDY 3×1,5&thinsp;mm²</td>
+                    <td>25&thinsp;m</td>
+                    <td>8× LED 10W (80W łącznie)</td>
+                    <td><span class="tag rcd1">RCD-1</span></td>
+                </tr>
+                <tr>
+                    <td><strong>2</strong></td>
+                    <td>Gniazda salon / sypialnia 1</td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5&thinsp;mm²</td>
+                    <td>20&thinsp;m</td>
+                    <td>6 gniazd (maks. 3680W)</td>
+                    <td><span class="tag rcd1">RCD-1</span></td>
+                </tr>
+                <tr>
+                    <td><strong>3</strong></td>
+                    <td>Gniazda sypialnie 2 / 3</td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5&thinsp;mm²</td>
+                    <td>22&thinsp;m</td>
+                    <td>5 gniazd (maks. 3680W)</td>
+                    <td><span class="tag rcd1">RCD-1</span></td>
+                </tr>
+                <tr>
+                    <td><strong>4</strong></td>
+                    <td>Gniazda hall / korytarz</td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5&thinsp;mm²</td>
+                    <td>18&thinsp;m</td>
+                    <td>3 gniazda + odkurzacz</td>
+                    <td><span class="tag rcd1">RCD-1</span></td>
+                </tr>
+                <tr>
+                    <td><strong>5</strong></td>
+                    <td>Gniazda kuchnia (ogólne)</td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5&thinsp;mm²</td>
+                    <td>15&thinsp;m</td>
+                    <td>4 gniazda (ekspres, mikrofala…)</td>
+                    <td><span class="tag rcd2">RCD-2</span></td>
+                </tr>
+                <tr>
+                    <td><strong>6</strong></td>
+                    <td>Zmywarka (dedykowany)</td>
+                    <td><span class="tag tag-b">B20A</span></td>
+                    <td>YDY 3×2,5&thinsp;mm²</td>
+                    <td>12&thinsp;m</td>
+                    <td>Zmywarka 2&thinsp;kW</td>
+                    <td><span class="tag rcd2">RCD-2</span></td>
+                </tr>
+                <tr>
+                    <td><strong>7</strong></td>
+                    <td>Lodówka (dedykowana)</td>
+                    <td><span class="tag tag-b">B20A</span></td>
+                    <td>YDY 3×2,5&thinsp;mm²</td>
+                    <td>10&thinsp;m</td>
+                    <td>Lodówka 200&thinsp;W (ciągła)</td>
+                    <td><span class="tag rcd2">RCD-2</span></td>
+                </tr>
+                <tr>
+                    <td><strong>8</strong></td>
+                    <td>Płyta indukcyjna 1F 7,2&thinsp;kW</td>
+                    <td><span class="tag tag-c">B32A</span></td>
+                    <td>YDY 3×6,0&thinsp;mm²</td>
+                    <td>8&thinsp;m</td>
+                    <td>Płyta indukcyjna 1-faz. (32A maks.)</td>
+                    <td><span class="tag rcd2">RCD-2</span></td>
+                </tr>
+                <tr>
+                    <td><strong>9</strong></td>
+                    <td>Oświetlenie kuchnia + łazienki</td>
+                    <td><span class="tag tag-b">B10A</span></td>
+                    <td>YDY 3×1,5&thinsp;mm²</td>
+                    <td>18&thinsp;m</td>
+                    <td>6× LED (60W łącznie)</td>
+                    <td><span class="tag rcd3">RCD-3</span></td>
+                </tr>
+                <tr>
+                    <td><strong>10</strong></td>
+                    <td>Gniazda łazienka (IP44)</td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5&thinsp;mm²</td>
+                    <td>14&thinsp;m</td>
+                    <td>Suszarka, golarka — strefa 3 (>60cm od wanny)</td>
+                    <td><span class="tag rcd3">RCD-3</span></td>
+                </tr>
+                <tr>
+                    <td><strong>11</strong></td>
+                    <td>Gniazda zewnętrzne / ogród</td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YKY 3×2,5&thinsp;mm²</td>
+                    <td>30&thinsp;m</td>
+                    <td>Gniazdka IP65, kabel ziemny min. 70cm głębokości</td>
+                    <td><span class="tag rcd3">RCD-3</span></td>
+                </tr>
+                <tr>
+                    <td><strong>12</strong></td>
+                    <td>Bojler elektryczny 2&thinsp;kW</td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5&thinsp;mm²</td>
+                    <td>16&thinsp;m</td>
+                    <td>Bojler 80L (grzałka 2&thinsp;kW = 8,7A)</td>
+                    <td><span class="tag rcd3">RCD-3</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- BILANS MOCY -->
+    <div class="section-title">&#9878; Bilans mocy instalacji</div>
+    <div class="balance-wrap">
+        <div class="balance-grid">
+            <div class="balance-item">
+                <span class="bl">Moc zainstalowana (suma)</span>
+                <span class="br">14,5&thinsp;kW</span>
+            </div>
+            <div class="balance-item">
+                <span class="bl">Współczynnik jednoczesności k<sub>j</sub></span>
+                <span class="br">0,60</span>
+            </div>
+            <div class="balance-item">
+                <span class="bl">Moc obliczeniowa P<sub>obl</sub></span>
+                <span class="br">8,7&thinsp;kW</span>
+            </div>
+            <div class="balance-item">
+                <span class="bl">Napięcie zasilania U<sub>n</sub></span>
+                <span class="br">230&thinsp;V AC (50 Hz)</span>
+            </div>
+            <div class="balance-item">
+                <span class="bl">Współczynnik mocy cos&thinsp;&phi;</span>
+                <span class="br">0,9</span>
+            </div>
+            <div class="balance-item">
+                <span class="bl">Prąd obliczeniowy I<sub>obl</sub></span>
+                <span class="br">I = P&thinsp;/&thinsp;(U·cos&thinsp;&phi;) = 37,8&thinsp;A</span>
+            </div>
+            <div class="balance-item highlight">
+                <span class="bl">Dobrane zabezpieczenie główne</span>
+                <span class="br">S301 C32A (I<sub>n</sub>&nbsp;&#8805;&nbsp;I<sub>obl</sub> ✓)</span>
+            </div>
+            <div class="balance-item">
+                <span class="bl">Przekrój kabla zasilającego</span>
+                <span class="br">YDY 3×10&thinsp;mm² (I<sub>z</sub>=57A &gt; 37,8A ✓)</span>
+            </div>
+            <div class="balance-item highlight">
+                <span class="bl">Szacunkowe zużycie roczne</span>
+                <span class="br">~4500&thinsp;kWh/rok</span>
+            </div>
+            <div class="balance-item">
+                <span class="bl">Koszt energii (0,80 zł/kWh)</span>
+                <span class="br">~3600&thinsp;zł/rok</span>
+            </div>
+        </div>
+
+        <div style="margin-top:14px;padding:12px 14px;background:#0d1b2e;border-radius:8px;font-size:.78rem;color:var(--text-muted);border-left:3px solid var(--accent)">
+            <strong style="color:var(--text)">Jak obliczono prąd?</strong><br>
+            I<sub>obl</sub> = P<sub>obl</sub> / (U × cos&thinsp;&phi;) = 8700 W / (230 V × 0,9) = <strong style="color:var(--accent)">37,8&thinsp;A</strong><br>
+            Zabezpieczenie główne: dobieramy najniższy znormalizowany prąd powyżej I<sub>obl</sub> → <strong style="color:var(--accent)">C32A</strong>.<br>
+            Uwaga: C32A jest poniżej prądu obliczeniowego — wynika to z przyjętego k<sub>j</sub>=0,6. Gdyby k<sub>j</sub>=1, potrzebny byłby C40A lub zmiana instalacji na 3-fazową.
+        </div>
+    </div>
+
+    <!-- SCHEMAT TN-C-S -->
+    <div class="section-title">&#127760; Schemat przepływu L-N-PE (układ TN-C-S)</div>
+    <div class="tncs-wrap">
+        <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:16px">
+            W układzie TN-C-S przewód <strong>PEN</strong> (żółto-zielony z niebieską banderą) dochodzi do zacisków
+            głównych w rozdzielnicy, gdzie następuje <em>punkt rozdziału</em> — od tego miejsca N i PE biegną jako
+            oddzielne przewody. Zasada: <strong>rozdzielenia dokonać można tylko raz, tylko w rozdzielnicy głównej</strong>.
+        </p>
+
+        <div class="tncs-diagram">
+            <!-- Zasilanie z sieci -->
+            <div class="tncs-box">
+                <div class="title">Sieć elektroenergetyczna</div>
+                <div class="val">PEN</div>
+                <div style="font-size:.65rem;color:var(--text-muted);margin-top:3px">linia 4-żyłowa:<br>L + PEN</div>
+            </div>
+
+            <!-- Strzałka PEN -->
+            <div class="tncs-arrow">
+                <div class="tncs-line line-pen" style="height:4px"></div>
+                <div class="tncs-label">PEN (żółto-zielony + bł. bander.)</div>
+            </div>
+
+            <!-- Licznik / przyłącze -->
+            <div class="tncs-box">
+                <div class="title">Licznik / złącze kablowe</div>
+                <div class="val">Sk / Lk</div>
+                <div style="font-size:.65rem;color:var(--text-muted);margin-top:3px">opust od operatora</div>
+            </div>
+
+            <!-- Strzałka YDY 3×10 -->
+            <div class="tncs-arrow">
+                <div class="tncs-line line-pen" style="height:4px"></div>
+                <div class="tncs-label">YDY 3×10&thinsp;mm²</div>
+            </div>
+
+            <!-- ROZDZIELNICA - punkt rozdziału -->
+            <div class="tncs-box special" style="padding:14px 18px">
+                <div class="title">Rozdzielnica główna</div>
+                <div class="val">&#9679; PUNKT ROZDZIAŁU PEN</div>
+                <div style="margin-top:8px">
+                    <div class="tncs-split">
+                        <div class="split-box">
+                            <div class="wire-dot dot-n"></div>
+                            <span class="split-label" style="color:#60a5fa">Szyna N (niebieski)</span>
+                        </div>
+                        <div class="split-box">
+                            <div class="wire-dot dot-pe"></div>
+                            <span class="split-label" style="color:#4ade80">Szyna PE (żółto-zielony)</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="font-size:.6rem;color:var(--text-muted);margin-top:6px">Zaciski N i PE połączone ze sobą<br>tylko w tym miejscu!</div>
+            </div>
+
+            <!-- Strzałka N -->
+            <div class="tncs-arrow" style="flex-direction:column;gap:4px">
+                <div style="display:flex;align-items:center;gap:4px;width:100%">
+                    <div class="tncs-line line-n" style="flex:1;height:3px"></div>
+                    <span style="font-size:.58rem;color:#60a5fa;white-space:nowrap">N → obwody</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:4px;width:100%">
+                    <div class="tncs-line line-pe" style="flex:1;height:3px"></div>
+                    <span style="font-size:.58rem;color:#4ade80;white-space:nowrap">PE → obwody</span>
+                </div>
+            </div>
+
+            <!-- Odbiorniki -->
+            <div class="tncs-box">
+                <div class="title">Obwody / odbiorniki</div>
+                <div class="val">3-żyłowe</div>
+                <div style="font-size:.65rem;color:var(--text-muted);margin-top:3px">L + N + PE (osobne)</div>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px">
+            <div style="background:#0d1b2e;border-radius:6px;padding:10px;border-left:3px solid #ca8a04">
+                <div style="font-size:.68rem;font-weight:700;color:#fbbf24;margin-bottom:3px">Przewód PEN</div>
+                <div style="font-size:.72rem;color:var(--text-muted)">Żółto-zielony z niebieską banderolą. Nie wolno go przerywać wyłącznikami jednobiegunowymi. Łączy N z PE do punktu rozdziału.</div>
+            </div>
+            <div style="background:#0d1b2e;border-radius:6px;padding:10px;border-left:3px solid #3b82f6">
+                <div style="font-size:.68rem;font-weight:700;color:#60a5fa;margin-bottom:3px">Przewód N (niebieski)</div>
+                <div style="font-size:.72rem;color:var(--text-muted)">Od szyny N rozdzielnicy do każdego odbiornika. W instalacji TN-C-S nie może być uziomiony ponownie.</div>
+            </div>
+            <div style="background:#0d1b2e;border-radius:6px;padding:10px;border-left:3px solid #16a34a">
+                <div style="font-size:.68rem;font-weight:700;color:#4ade80;margin-bottom:3px">Przewód PE (żółto-ziel.)</div>
+                <div style="font-size:.72rem;color:var(--text-muted)">Ochronny przewód uziemiający. Podłączony do obudów urządzeń, gniazd ochronnych, szyny PE rozdzielnicy.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UWAGI MONTAŻOWE -->
+    <div class="section-title">&#128295; Uwagi montażowe</div>
+    <div class="notes-wrap">
+        <ul class="note-list">
+            <li>
+                <span class="icon">&#127758;</span>
+                <span class="text"><strong>Kolory żył:</strong> Faza (L) — brązowy lub czarny (ewent. szary); Neutralny (N) — niebieski; Ochronny (PE) — żółto-zielony. Kolory muszą być zgodne z PN-HD 60364-5-51.</span>
+            </li>
+            <li>
+                <span class="icon">&#9935;</span>
+                <span class="text"><strong>Bruzdy:</strong> Prowadzenie pionowe i poziome w odległości 15 cm od krawędzi ścian, 30 cm od naroży. Bruzdy poziome maksymalnie 8 cm głębokości, pionowe 6 cm. Kąt skrzyżowania ze stalą zbrojeniową min. 45°.</span>
+            </li>
+            <li>
+                <span class="icon">&#128308;</span>
+                <span class="text"><strong>Puszki rozgałęźne:</strong> Stosować puszki o odpowiedniej głębokości (min. 45 mm). Wszystkie połączenia w puszkach — zaciski sprężynowe lub śrubowe. Puszek nie wolno zamurowywać — muszą pozostać dostępne.</span>
+            </li>
+            <li>
+                <span class="icon">&#128203;</span>
+                <span class="text"><strong>Obwód płyty indukcyjnej (obw. 8):</strong> Kabel YDY 3×6,0 mm² ze względu na prąd 32A. Minimalna odległość od innych kabli układanych razem — zastosować współczynnik korekcyjny Iz. Gniazdo 2P+Z 32A lub podłączenie na stałe.</span>
+            </li>
+            <li>
+                <span class="icon">&#127801;</span>
+                <span class="text"><strong>Instalacja zewnętrzna (obw. 11):</strong> Kabel YKY (żyły Cu, izolacja PE, powłoka PVC) układany w ziemi min. 70 cm głębokości w rurze osłonowej HDPE. Nad kablem taśma ostrzegawcza na głębokości 25 cm.</span>
+            </li>
+            <li>
+                <span class="icon">&#128690;</span>
+                <span class="text"><strong>Łazienka — strefy ochronne:</strong> W strefie 0 i 1 (wanna/prysznic) niedopuszczalne gniazda, wyłączniki i inne urządzenia poza specjalnymi (np. grzałka IPx5). Strefa 2 — gniazda specjalne 230V min. IP45. Strefa 3 — normalne IP44 z RCD 30mA.</span>
+            </li>
+            <li>
+                <span class="icon">&#9889;</span>
+                <span class="text"><strong>Selektywność zabezpieczeń:</strong> Bezpieczniki obwodów (B10-B32) muszą zadziałać przed wyłącznikiem głównym i RCD. Sprawdzić selektywność czasowo-prądową: prąd wyzwolenia magnetycznego B10 = 50-100A, B32 = 160-320A — wyłącznik główny C32A wyzwoli przy ok. 160-320A (5-10×In).</span>
+            </li>
+            <li>
+                <span class="icon">&#128161;</span>
+                <span class="text"><strong>SPD (ogranicznik przepięć):</strong> Montować jak najbliżej wejścia kabla zasilającego do rozdzielnicy. Przewody łączące SPD z szynami L i PE powinny mieć łączną długość max. 50 cm (zasada 50 cm wg IEC 61643-12). Zastosować SPD typ 2, Uc≥275V, Imax≥40kA.</span>
+            </li>
+            <li>
+                <span class="icon">&#128214;</span>
+                <span class="text"><strong>Dokumentacja:</strong> Po wykonaniu instalacji sporządzić schemat powykonawczy, protokół pomiarów (izolacja ≥1 MΩ, ciągłość PE ≤1Ω, pętla zwarcia Zs ≤ Uo/Ia). Protokół podpisuje osoba z uprawnieniami SEP G1 D.</span>
+            </li>
+            <li>
+                <span class="icon">&#128268;</span>
+                <span class="text"><strong>Rezerwa w rozdzielnicy:</strong> Zaplanowano 6 wolnych miejsc modułowych (25-30% rezerwy zgodnie z dobrą praktyką). Umożliwia rozbudowę o ładowarkę EV, klimatyzację, dodatkowe obwody bez wymiany obudowy.</span>
+            </li>
+        </ul>
+    </div>
+
+    <!-- NAWIGACJA -->
+    <div class="nav-bottom">
+        <a href="../index.html">&#8592; Kompendium elektryki</a>
+        <a href="schemat-3faz-dom.html">Schemat instalacji 3-fazowej &#8594;</a>
+    </div>
+
+</div><!-- container -->
+</body>
+</html>

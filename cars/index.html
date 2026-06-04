@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naprawa i serwis samochodów — kompendium</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--surface-hover:#283649;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#fb923c;--accent-hover:#fdba74;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--yellow:#fbbf24;--pink:#f472b6}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+        .header{position:sticky;top:0;z-index:100;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border-bottom:1px solid var(--border);padding:20px 20px 14px;backdrop-filter:blur(10px)}
+        .header-content{max-width:1100px;margin:0 auto}
+        .header-top{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px}
+        .header h1{font-size:1.75rem;font-weight:700;margin-bottom:4px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+        .header .subtitle{color:var(--text-muted);font-size:.9rem;margin-bottom:12px}
+        .search-container{position:relative;max-width:700px}
+        .search-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;font-size:1.1rem}
+        #searchInput{width:100%;padding:12px 18px 12px 48px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:1rem;outline:none;font-family:inherit;transition:all .2s ease}
+        #searchInput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(251,146,60,.15)}
+        #searchInput::placeholder{color:var(--text-muted)}
+        .filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+        .filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);padding:4px 12px;border-radius:14px;font-size:.78rem;cursor:pointer;font-family:inherit;transition:all .15s}
+        .filter-btn:hover{color:var(--text);border-color:var(--accent)}
+        .filter-btn.active{background:rgba(251,146,60,.15);color:var(--accent);border-color:var(--accent)}
+        .container{max-width:1100px;margin:0 auto;padding:24px 20px 80px}
+        .quick-access{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:24px}
+        .quick-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-decoration:none;color:var(--text);transition:all .15s;display:flex;align-items:center;gap:10px;cursor:default}
+        .quick-card:hover{border-color:var(--accent);background:var(--surface-hover);transform:translateY(-2px)}
+        .quick-card-icon{font-size:1.5rem}
+        .quick-card-text{font-size:.85rem;font-weight:500}
+        .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+        .section.hidden{display:none}
+        .section-header{padding:16px 22px;cursor:pointer;display:flex;align-items:center;gap:12px;user-select:none;transition:background .15s}
+        .section-header:hover{background:var(--surface-hover)}
+        .section-toggle{font-size:.9rem;color:var(--text-muted);transition:transform .2s ease;display:inline-block;width:16px}
+        .section.expanded .section-toggle{transform:rotate(90deg)}
+        .section-icon{font-size:1.3rem;min-width:28px}
+        .section-title{font-size:1.1rem;font-weight:600;color:var(--accent);flex:1}
+        .section-meta{font-size:.75rem;color:var(--text-muted);background:rgba(251,146,60,.1);padding:3px 10px;border-radius:12px}
+        .section-description{padding:0 22px 0 50px;color:var(--text-muted);font-size:.85rem;margin-top:-6px;margin-bottom:0;display:none}
+        .section.expanded .section-description{display:block;margin-bottom:10px}
+        .section-body{display:none;padding:0 22px 18px}
+        .section.expanded .section-body{display:block}
+        .items{padding-left:18px}
+        .item{display:flex;align-items:flex-start;gap:10px;padding:7px 12px;border-radius:6px;color:var(--text);transition:all .15s;margin-bottom:2px}
+        .item:hover{background:rgba(251,146,60,.08)}
+        .item.hidden{display:none}
+        .item-icon{color:var(--text-muted);font-size:.85rem;margin-top:2px;min-width:14px}
+        .item-content{flex:1;min-width:0}
+        .item-title{font-size:.88rem;font-weight:500;color:var(--text);margin-bottom:1px}
+        .item-desc{font-size:.74rem;color:var(--text-muted);line-height:1.4}
+        .highlight{background:rgba(251,146,60,.3);color:var(--accent);padding:0 2px;border-radius:2px}
+        footer{text-align:center;padding:30px;color:var(--text-muted);font-size:.85rem;border-top:1px solid var(--border)}
+        footer a{color:var(--accent);text-decoration:none}
+        @media (max-width:600px){.header{padding:14px 14px 12px}.header h1{font-size:1.3rem}.container{padding:16px 14px 60px}.section-header{padding:12px 14px}.section-body{padding:0 14px 14px}.quick-access{grid-template-columns:1fr 1fr}}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-top">
+                <div>
+                    <h1>🚗 Naprawa i serwis samochodów</h1>
+                    <p class="subtitle">Diagnostyka OBD2 · silnik · hamulce · zawieszenie · elektryka · klimatyzacja · przeglądy · 2026</p>
+                </div>
+            </div>
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Wyszukaj temat (np. OBD2, DPF, ABS, rozrząd)... (Ctrl+K)" autocomplete="off" autofocus />
+            </div>
+            <div class="filters" id="filters">
+                <button class="filter-btn active" data-filter="all">Wszystko</button>
+                <button class="filter-btn" data-filter="diagnostyka">🔍 Diagnostyka</button>
+                <button class="filter-btn" data-filter="silnik">🔧 Silnik</button>
+                <button class="filter-btn" data-filter="hamulce">🛑 Hamulce</button>
+                <button class="filter-btn" data-filter="zawieszenie">🔩 Zawieszenie</button>
+                <button class="filter-btn" data-filter="elektryka">⚡ Elektryka</button>
+                <button class="filter-btn" data-filter="chlodzenie">🌡 Chłodzenie</button>
+                <button class="filter-btn" data-filter="naped">⚙ Napęd</button>
+                <button class="filter-btn" data-filter="klimatyzacja">❄ Klimatyzacja</button>
+                <button class="filter-btn" data-filter="opony">🛞 Opony</button>
+                <button class="filter-btn" data-filter="serwis">🗓 Serwis</button>
+                <button class="filter-btn" data-filter="oleje">🛢 Oleje i płyny</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="content">
+
+        <div class="quick-access">
+            <div class="quick-card"><span class="quick-card-icon">🔍</span><span class="quick-card-text">OBD2</span></div>
+            <div class="quick-card"><span class="quick-card-icon">🛑</span><span class="quick-card-text">Hamulce</span></div>
+            <div class="quick-card"><span class="quick-card-icon">🔧</span><span class="quick-card-text">Silnik</span></div>
+            <div class="quick-card"><span class="quick-card-icon">🔩</span><span class="quick-card-text">Zawieszenie</span></div>
+            <div class="quick-card"><span class="quick-card-icon">⚡</span><span class="quick-card-text">Elektryka</span></div>
+            <div class="quick-card"><span class="quick-card-icon">🌡</span><span class="quick-card-text">Chłodzenie</span></div>
+            <div class="quick-card"><span class="quick-card-icon">❄</span><span class="quick-card-text">Klimatyzacja</span></div>
+            <div class="quick-card"><span class="quick-card-icon">🗓</span><span class="quick-card-text">Serwis</span></div>
+            <a class="quick-card" href="oleje-serwis/oleje-i-plyny.html" style="text-decoration:none;color:inherit"><span class="quick-card-icon">🛢</span><span class="quick-card-text">Oleje i płyny →</span></a>
+        </div>
+
+        <!-- SECTION 1: OBD2 i diagnostyka -->
+        <div class="section expanded" data-section="diagnostyka">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">🔍</span>
+                <span class="section-title">01 — OBD2 i diagnostyka</span>
+                <span class="section-meta">6 tematów</span>
+            </div>
+            <div class="section-description">Protokoły, kody błędów, skanery i interpretacja live data</div>
+            <div class="section-body"><div class="items">
+                <div class="item">
+                    <span class="item-icon">🔌</span>
+                    <div class="item-content">
+                        <div class="item-title">Protokoły OBD2 (CAN, ISO 14230, KWP2000)</div>
+                        <div class="item-desc">Standard EOBD w UE od 2001, wyprowadzenie złącza J1962 (pin 16), protokoły po marce</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🏷️</span>
+                    <div class="item-content">
+                        <div class="item-title">Kody błędów DTC</div>
+                        <div class="item-desc">P0xxx/P1xxx (silnik/napęd), B (nadwozie), C (podwozie), U (sieć CAN)</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">⚠️</span>
+                    <div class="item-content">
+                        <div class="item-title">Typowe kody P0</div>
+                        <div class="item-desc">P0300 (misfire), P0420 (katalizator), P0171/P0174 (lean), P0301-P0308</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">📟</span>
+                    <div class="item-content">
+                        <div class="item-title">Skanery OBD2</div>
+                        <div class="item-desc">ELM327 Bluetooth/WiFi, Autel, Launch, VCDS (VAG), ForScan (Ford), ISTA (BMW)</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">📊</span>
+                    <div class="item-content">
+                        <div class="item-title">Live data</div>
+                        <div class="item-desc">MAP, MAF, O2 (lambda), STFT/LTFT, APP, CKP, CMP — interpretacja wartości</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">⚙️</span>
+                    <div class="item-content">
+                        <div class="item-title">Adaptacje i kodowania</div>
+                        <div class="item-desc">VCDS, ISTA, GDS2, IDS — reset serwisowy, adaptacja przepustnicy</div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- SECTION 2: Silnik -->
+        <div class="section expanded" data-section="silnik">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">🔧</span>
+                <span class="section-title">02 — Silnik</span>
+                <span class="section-meta">7 tematów</span>
+            </div>
+            <div class="section-description">Wymiana oleju, rozrząd, głowica, wtrysk, turbo</div>
+            <div class="section-body"><div class="items">
+                <div class="item">
+                    <span class="item-icon">🛢️</span>
+                    <div class="item-content">
+                        <div class="item-title">Wymiana oleju i filtrów</div>
+                        <div class="item-desc">Klasy SAE (5W-40, 0W-20), normy ACEA A3/B4/C3, interwały</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">⚙️</span>
+                    <div class="item-content">
+                        <div class="item-title">Napęd rozrządu</div>
+                        <div class="item-desc">Pasek vs łańcuch, interwały wymiany (pasek: 60–120k km), napinacze</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔩</span>
+                    <div class="item-content">
+                        <div class="item-title">Regulacja luzów zaworów</div>
+                        <div class="item-desc">Pomiar sondami, dobór podkładek, kolejność cylindrów</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">💨</span>
+                    <div class="item-content">
+                        <div class="item-title">Uszczelka głowicy</div>
+                        <div class="item-desc">Objawy (kolor spalin, poziom cieczy, CO w komorze), momentowanie śrub TTY</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">💉</span>
+                    <div class="item-content">
+                        <div class="item-title">Wtryskiwacze bezpośrednie (GDI)</div>
+                        <div class="item-desc">Czyszczenie, ciśnienie Common Rail (200–2500 bar)</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🏭</span>
+                    <div class="item-content">
+                        <div class="item-title">Filtr cząstek stałych DPF/GPF</div>
+                        <div class="item-desc">Regeneracja czynna i bierna, czyszczenie vs wymiana</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🌀</span>
+                    <div class="item-content">
+                        <div class="item-title">Turbosprężarka</div>
+                        <div class="item-desc">Olej turbiny (500°C), wycieki, gra osiowa, serwis intercoolera</div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- SECTION 3: Hamulce -->
+        <div class="section expanded" data-section="hamulce">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">🛑</span>
+                <span class="section-title">03 — Hamulce</span>
+                <span class="section-meta">6 tematów</span>
+            </div>
+            <div class="section-description">Klocki, tarcze, zaciski, płyn, ABS, EPB</div>
+            <div class="section-body"><div class="items">
+                <div class="item">
+                    <span class="item-icon">🔲</span>
+                    <div class="item-content">
+                        <div class="item-title">Klocki hamulcowe</div>
+                        <div class="item-desc">Grubość minimalna (2 mm), materiał (ceramika, semi-met, organic), dobór</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">⭕</span>
+                    <div class="item-content">
+                        <div class="item-title">Tarcze hamulcowe</div>
+                        <div class="item-desc">Grubość minimalna (na tarczy), bicie (maks 0,05 mm), pęknięcia, wymiana</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔧</span>
+                    <div class="item-content">
+                        <div class="item-title">Zaciski</div>
+                        <div class="item-desc">Tłoczek (rdza, kurz), uszczelki, rozciąganie tłoczka (EPB) vs obracanie</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">💧</span>
+                    <div class="item-content">
+                        <div class="item-title">Płyn hamulcowy</div>
+                        <div class="item-desc">DOT3/4/5.1 (glikol), DOT5 (silikonowy), temperatura wrzenia sucha/mokra, test paskiem</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">📡</span>
+                    <div class="item-content">
+                        <div class="item-title">ABS/ESP/TCS</div>
+                        <div class="item-desc">Czujnik pierścienia tonu (sygnał sinusoidalny), błędy diagnoza, czyszczenie czujnika</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🅿️</span>
+                    <div class="item-content">
+                        <div class="item-title">Elektryczny hamulec parkingowy (EPB)</div>
+                        <div class="item-desc">Serwisowanie przez diagnozę, kalibracja po wymianie</div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- SECTION 4: Zawieszenie i kierownica -->
+        <div class="section expanded" data-section="zawieszenie">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">🔩</span>
+                <span class="section-title">04 — Zawieszenie i kierownica</span>
+                <span class="section-meta">6 tematów</span>
+            </div>
+            <div class="section-description">Amortyzatory, łożyska, drążki, geometria, EPS</div>
+            <div class="section-body"><div class="items">
+                <div class="item">
+                    <span class="item-icon">🌊</span>
+                    <div class="item-content">
+                        <div class="item-title">Amortyzatory</div>
+                        <div class="item-desc">Test „bounce", wyciek oleju vs „sweating", dobór (OEM, Bilstein, Monroe, KYB)</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">⚙️</span>
+                    <div class="item-content">
+                        <div class="item-title">Łożyska kół</div>
+                        <div class="item-desc">Brzęczenie/buczenie (zmienne z prędkością), luz (kołyszenie koła), wymiana</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔗</span>
+                    <div class="item-content">
+                        <div class="item-title">Sworzenie, tuleje wahadeł</div>
+                        <div class="item-desc">Guma vs poliuretan, luz, wymiana z dociskiem hydraulicznym</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">↔️</span>
+                    <div class="item-content">
+                        <div class="item-title">Drążki kierownicze, końcówki</div>
+                        <div class="item-desc">Luz, wymiana, geometria po wymianie obowiązkowa</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🕹️</span>
+                    <div class="item-content">
+                        <div class="item-title">Układ EPS</div>
+                        <div class="item-desc">Wspomaganie elektryczne, błędy C00xx, uczenie momentu zerowego</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">📐</span>
+                    <div class="item-content">
+                        <div class="item-title">Geometria kół</div>
+                        <div class="item-desc">Zbieżność, camber, caster — kiedy nastawiać, sprzęt 3D vs sznurek</div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- SECTION 5: Elektryka -->
+        <div class="section expanded" data-section="elektryka">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">⚡</span>
+                <span class="section-title">05 — Elektryka</span>
+                <span class="section-meta">6 tematów</span>
+            </div>
+            <div class="section-description">Akumulator, alternator, rozrusznik, CAN bus, bezpieczniki</div>
+            <div class="section-body"><div class="items">
+                <div class="item">
+                    <span class="item-icon">🔋</span>
+                    <div class="item-content">
+                        <div class="item-title">Akumulator</div>
+                        <div class="item-desc">CCA (zimny rozruch), AH, AGM vs EFB vs zwykły, test napięcia (12,6 V naładowany), ładowanie inteligentne</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔌</span>
+                    <div class="item-content">
+                        <div class="item-title">Alternator</div>
+                        <div class="item-desc">Napięcie ładowania 13,8–14,4 V, test diod prostowniczych, naprawa vs wymiana</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔑</span>
+                    <div class="item-content">
+                        <div class="item-title">Rozrusznik</div>
+                        <div class="item-desc">Pobór prądu (80–300 A), bendiks, szczotki węglowe, serwis czy wymiana</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔲</span>
+                    <div class="item-content">
+                        <div class="item-title">Bezpieczniki i przekaźniki</div>
+                        <div class="item-desc">Skrzynka główna (komora silnika) i kabinowa, tabela, mini/micro/maxi ATO</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔁</span>
+                    <div class="item-content">
+                        <div class="item-title">CAN bus</div>
+                        <div class="item-desc">Topologia High/Low (120 Ω końcówki), oscyloskop na CAN, błędy komunikacji U00xx</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">💡</span>
+                    <div class="item-content">
+                        <div class="item-title">Oświetlenie LED</div>
+                        <div class="item-desc">Ballasty HID, żarówki LED bez homologacji, obwody DRL, diagnostyka</div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- SECTION 6: Chłodzenie -->
+        <div class="section expanded" data-section="chlodzenie">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">🌡</span>
+                <span class="section-title">06 — Chłodzenie</span>
+                <span class="section-meta">5 tematów</span>
+            </div>
+            <div class="section-description">Chłodnica, termostat, pompa wody, płyn, nagrzewnica</div>
+            <div class="section-body"><div class="items">
+                <div class="item">
+                    <span class="item-icon">🧪</span>
+                    <div class="item-content">
+                        <div class="item-title">Płyn chłodzący</div>
+                        <div class="item-desc">G11 (zielony, krzemian), G12 (różowy, karboksylan), G12+ i G13 (fioletowy), mieszanie ZAKAZANE</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🌡️</span>
+                    <div class="item-content">
+                        <div class="item-title">Termostat</div>
+                        <div class="item-desc">Otwiera w 82–92°C, test w garnku z wodą, termostat elektroniczny (mapa temp)</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">💦</span>
+                    <div class="item-content">
+                        <div class="item-title">Pompa wody</div>
+                        <div class="item-desc">Mechaniczna vs elektryczna, obsługiwana z rozrządem, objawy awarii (wyciek, hałas)</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🏗️</span>
+                    <div class="item-content">
+                        <div class="item-title">Chłodnica</div>
+                        <div class="item-desc">Czyszczenie (sprężone powietrze, szampon), lutowanie aluminium, wymiana</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🌬️</span>
+                    <div class="item-content">
+                        <div class="item-title">Nagrzewnica kabinowa</div>
+                        <div class="item-desc">Kran nagrzewnicy, matrix, odpowietrzanie, wyciek (para na szybie)</div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- SECTION 7: Napęd i skrzynia -->
+        <div class="section expanded" data-section="naped">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">⚙</span>
+                <span class="section-title">07 — Napęd i skrzynia</span>
+                <span class="section-meta">5 tematów</span>
+            </div>
+            <div class="section-description">Sprzęgło, skrzynia biegów, półosie, 4x4</div>
+            <div class="section-body"><div class="items">
+                <div class="item">
+                    <span class="item-icon">💿</span>
+                    <div class="item-content">
+                        <div class="item-title">Sprzęgło</div>
+                        <div class="item-desc">Zużycie tarczy (ślizganie, wysoki punkt), komplet 3 elementów + koło dwumasowe DMF</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔢</span>
+                    <div class="item-content">
+                        <div class="item-title">Skrzynia manualna</div>
+                        <div class="item-desc">Olej przekładniowy GL-4 vs GL-5, synchronizatory, cicha skrzynia</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔄</span>
+                    <div class="item-content">
+                        <div class="item-title">Skrzynia automatyczna AT/DSG/CVT</div>
+                        <div class="item-desc">Olej ATF (typ Dexron/ZF/VW), serwis co 60k (zaniedbana = wymiana)</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔗</span>
+                    <div class="item-content">
+                        <div class="item-title">Półosie i przeguby homokinetyczne CV</div>
+                        <div class="item-desc">Strzela w zakrętach (zewnętrzny), wibracje (wewnętrzny), osłony</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🚙</span>
+                    <div class="item-content">
+                        <div class="item-title">Napęd 4x4 i AWD</div>
+                        <div class="item-desc">Mechanizm Haldex (olej!), Torsen, elektroniczny, serwis skrzyni transfer</div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- SECTION 8: Klimatyzacja -->
+        <div class="section expanded" data-section="klimatyzacja">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">❄</span>
+                <span class="section-title">08 — Klimatyzacja</span>
+                <span class="section-meta">4 tematy</span>
+            </div>
+            <div class="section-description">Czynniki R134a i R1234yf, serwis, sprężarka, filtr kabinowy</div>
+            <div class="section-body"><div class="items">
+                <div class="item">
+                    <span class="item-icon">🌡️</span>
+                    <div class="item-content">
+                        <div class="item-title">Czynniki R134a i R1234yf</div>
+                        <div class="item-desc">Ciśnienia serwisowe (LP 1–3 bar, HP 10–20 bar), prawa środowiskowe</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔧</span>
+                    <div class="item-content">
+                        <div class="item-title">Serwis AC</div>
+                        <div class="item-desc">Odzysk, próżniowanie, napełnianie (stacja serwisowa), barwnik UV</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">💨</span>
+                    <div class="item-content">
+                        <div class="item-title">Sprężarka AC</div>
+                        <div class="item-desc">Sprzęgło elektromagnetyczne, olej PAG vs POE, awarie łożysk, klawisz odsprężynowania</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🌿</span>
+                    <div class="item-content">
+                        <div class="item-title">Filtr kabinowy</div>
+                        <div class="item-desc">Standardowy vs węglowy, wymiana (co 15–20k km lub rok), lokalizacja</div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- SECTION 9: Opony i koła -->
+        <div class="section expanded" data-section="opony">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">🛞</span>
+                <span class="section-title">09 — Opony i koła</span>
+                <span class="section-meta">5 tematów</span>
+            </div>
+            <div class="section-description">Oznaczenia, sezony, TPMS, wyważanie</div>
+            <div class="section-body"><div class="items">
+                <div class="item">
+                    <span class="item-icon">📋</span>
+                    <div class="item-content">
+                        <div class="item-title">Oznaczenia opon</div>
+                        <div class="item-desc">225/45 R17 94W: szerokość/profil/felga/nośność/prędkość, DOT data produkcji</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">❄️</span>
+                    <div class="item-content">
+                        <div class="item-title">Opony sezonowe</div>
+                        <div class="item-desc">Letnie (powyżej 7°C), zimowe (poniżej 7°C, płatek śniegu 3PMSF), całoroczne kompromis</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">⚖️</span>
+                    <div class="item-content">
+                        <div class="item-title">Wyważanie i montaż</div>
+                        <div class="item-desc">Balans statyczny i dynamiczny, ciężarki (klej vs szprycha), RDKS/TPMS reset</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">📡</span>
+                    <div class="item-content">
+                        <div class="item-title">TPMS</div>
+                        <div class="item-desc">Czujniki ciśnienia (433 MHz), bateria 5–7 lat, reset po wymianie kół, programowanie</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🔧</span>
+                    <div class="item-content">
+                        <div class="item-title">Koła zapasowe</div>
+                        <div class="item-desc">Dojazdówka T (max 80 km/h, tymczasowa), fullsize, koło serwisowe run-flat</div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- SECTION 10: Serwis i przeglądy -->
+        <div class="section expanded" data-section="serwis">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">🗓</span>
+                <span class="section-title">10 — Serwis i przeglądy</span>
+                <span class="section-meta">5 tematów</span>
+            </div>
+            <div class="section-description">Harmonogram wymiany, check listy, dokumentacja</div>
+            <div class="section-body"><div class="items">
+                <div class="item">
+                    <span class="item-icon">🔟</span>
+                    <div class="item-content">
+                        <div class="item-title">Co 10 000 km</div>
+                        <div class="item-desc">Olej + filtr oleju, kontrola klocków i płynów, filtry powietrza co 20–30k</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">3️⃣</span>
+                    <div class="item-content">
+                        <div class="item-title">Co 30 000 km</div>
+                        <div class="item-desc">Płyn hamulcowy (2 lata), filtr kabinowy, świece (standardowe), pióra wycieraczek</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">6️⃣</span>
+                    <div class="item-content">
+                        <div class="item-title">Co 60 000 km</div>
+                        <div class="item-desc">Pasek rozrządu (benzyna), sprzęgło sprawdzenie, olej skrzyni manualnej</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">💯</span>
+                    <div class="item-content">
+                        <div class="item-title">Co 100 000 km i więcej</div>
+                        <div class="item-desc">Łańcuch rozrządu (sprawdzenie), paliwa (benzyna+guma), wymiana płynu ATF</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <span class="item-icon">🏢</span>
+                    <div class="item-content">
+                        <div class="item-title">ASO vs serwis niezależny</div>
+                        <div class="item-desc">Gwarancja (ASO nie wymagana przy własnych częściach od 2003), historia serwisowa</div>
+                    </div>
+                </div>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="oleje">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="section-toggle">▶</span>
+                <span class="section-icon">🛢</span>
+                <span class="section-title">11 — Oleje i płyny eksploatacyjne</span>
+                <span class="section-meta">pełny przewodnik →</span>
+            </div>
+            <div class="section-description">Oleje silnikowe (SAE, ACEA, API, aprobaty VW/MB/BMW), przekładniowe, płyn hamulcowy, chłodniczy, AdBlue, interwały wymiany i zalecenia.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="oleje-serwis/oleje-i-plyny.html" style="text-decoration:none;color:inherit">
+                    <span class="item-icon">📖</span>
+                    <div class="item-content">
+                        <div class="item-title">Kompletny przewodnik: oleje i płyny eksploatacyjne</div>
+                        <div class="item-desc">10 sekcji — klasyfikacje, dobór, tabele aprobat producentów, interwały, częste błędy</div>
+                    </div>
+                </a>
+                <a class="item" href="oleje-serwis/oleje-i-plyny.html#olej-silnikowy" style="text-decoration:none;color:inherit">
+                    <span class="item-icon">🛢</span>
+                    <div class="item-content">
+                        <div class="item-title">Olej silnikowy — SAE, ACEA, API, aprobaty</div>
+                        <div class="item-desc">5W-40 itp., Low SAPS (C) dla DPF, aprobaty VW 504/507, MB 229.5, BMW LL, dexos — co wybrać</div>
+                    </div>
+                </a>
+                <a class="item" href="oleje-serwis/oleje-i-plyny.html#przekladniowe" style="text-decoration:none;color:inherit">
+                    <span class="item-icon">⚙</span>
+                    <div class="item-content">
+                        <div class="item-title">Oleje przekładniowe — GL-4/GL-5, ATF, CVT, DSG</div>
+                        <div class="item-desc">UWAGA: GL-5 niszczy synchronizatory w manualu; płyn CVT ≠ ATF; dedykowany olej DSG</div>
+                    </div>
+                </a>
+                <a class="item" href="oleje-serwis/oleje-i-plyny.html#hamulcowy" style="text-decoration:none;color:inherit">
+                    <span class="item-icon">🛑</span>
+                    <div class="item-content">
+                        <div class="item-title">Płyn hamulcowy — DOT 3/4/5.1</div>
+                        <div class="item-desc">Higroskopijny → wymiana co 2 lata, temperatura wrzenia, DOT 5 silikonowy NIE miesza się</div>
+                    </div>
+                </a>
+                <a class="item" href="oleje-serwis/oleje-i-plyny.html#chlodniczy" style="text-decoration:none;color:inherit">
+                    <span class="item-icon">🌡</span>
+                    <div class="item-content">
+                        <div class="item-title">Płyn chłodniczy — G11/G12/G13</div>
+                        <div class="item-desc">IAT/OAT/HOAT — NIE mieszać technologii (żelowanie!), proporcje 50/50, ochrona do -37°C</div>
+                    </div>
+                </a>
+                <a class="item" href="oleje-serwis/oleje-i-plyny.html#interwaly" style="text-decoration:none;color:inherit">
+                    <span class="item-icon">📅</span>
+                    <div class="item-content">
+                        <div class="item-title">Interwały wymiany — tabela zbiorcza</div>
+                        <div class="item-desc">Olej 15/30 tys. km, płyn hamulcowy 2 lata, rozrząd 60–120 tys., świece, AdBlue</div>
+                    </div>
+                </a>
+            </div></div>
+        </div>
+
+    </div>
+
+    <footer>
+        Kompendium napraw samochodowych · 2026 · Wszystkie informacje mają charakter edukacyjny
+    </footer>
+
+    <script>
+        function toggleSection(el){el.parentElement.classList.toggle('expanded')}
+        const sections=document.querySelectorAll('.section');
+        const input=document.getElementById('searchInput');
+        const filters=document.querySelectorAll('.filter-btn');
+        let activeFilter='all';
+
+        function applyFilters(){
+            const q=input.value.toLowerCase().trim();
+            sections.forEach(sec=>{
+                const matchesFilter=activeFilter==='all'||sec.dataset.section===activeFilter;
+                let anyVisible=false;
+                sec.querySelectorAll('.item').forEach(it=>{
+                    const txt=it.textContent.toLowerCase();
+                    const match=!q||txt.includes(q);
+                    it.classList.toggle('hidden',!match);
+                    if(match) anyVisible=true;
+                });
+                sec.classList.toggle('hidden',!matchesFilter||(q&&!anyVisible));
+                if(q&&anyVisible) sec.classList.add('expanded');
+            });
+        }
+        input.addEventListener('input',applyFilters);
+        filters.forEach(b=>b.addEventListener('click',()=>{
+            filters.forEach(x=>x.classList.remove('active'));
+            b.classList.add('active');
+            activeFilter=b.dataset.filter;
+            applyFilters();
+        }));
+        document.addEventListener('keydown',e=>{
+            if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();input.focus();input.select();}
+        });
+    </script>
+</body>
+</html>

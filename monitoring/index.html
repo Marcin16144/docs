@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring i zabezpieczenia — kompendium</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--surface-hover:#283649;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--yellow:#fbbf24;--pink:#f472b6}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+        .header{position:sticky;top:0;z-index:100;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border-bottom:1px solid var(--border);padding:20px 20px 14px;backdrop-filter:blur(10px)}
+        .header-content{max-width:1100px;margin:0 auto}
+        .header-top{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px}
+        .header h1{font-size:1.75rem;font-weight:700;margin-bottom:4px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+        .header .subtitle{color:var(--text-muted);font-size:.9rem;margin-bottom:12px}
+        .search-container{position:relative;max-width:700px}
+        .search-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;font-size:1.1rem}
+        #searchInput{width:100%;padding:12px 18px 12px 48px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:1rem;outline:none;font-family:inherit;transition:all .2s ease}
+        #searchInput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(96,165,250,.15)}
+        #searchInput::placeholder{color:var(--text-muted)}
+        .filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+        .filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);padding:4px 12px;border-radius:14px;font-size:.78rem;cursor:pointer;font-family:inherit;transition:all .15s}
+        .filter-btn:hover{color:var(--text);border-color:var(--accent)}
+        .filter-btn.active{background:rgba(96,165,250,.15);color:var(--accent);border-color:var(--accent)}
+        .container{max-width:1100px;margin:0 auto;padding:24px 20px 80px}
+        .quick-access{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:24px}
+        .quick-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-decoration:none;color:var(--text);transition:all .15s;display:flex;align-items:center;gap:10px}
+        .quick-card:hover{border-color:var(--accent);background:var(--surface-hover);transform:translateY(-2px)}
+        .quick-card-icon{font-size:1.5rem}
+        .quick-card-text{font-size:.85rem;font-weight:500}
+        .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+        .section.hidden{display:none}
+        .section-header{padding:16px 22px;cursor:pointer;display:flex;align-items:center;gap:12px;user-select:none;transition:background .15s}
+        .section-header:hover{background:var(--surface-hover)}
+        .section-toggle{font-size:.9rem;color:var(--text-muted);transition:transform .2s ease;display:inline-block;width:16px}
+        .section.expanded .section-toggle{transform:rotate(90deg)}
+        .section-icon{font-size:1.3rem;min-width:28px}
+        .section-title{font-size:1.1rem;font-weight:600;color:var(--accent);flex:1}
+        .section-meta{font-size:.75rem;color:var(--text-muted);background:rgba(96,165,250,.1);padding:3px 10px;border-radius:12px}
+        .section-description{padding:0 22px 0 50px;color:var(--text-muted);font-size:.85rem;margin-top:-6px;margin-bottom:0;display:none}
+        .section.expanded .section-description{display:block;margin-bottom:10px}
+        .section-body{display:none;padding:0 22px 18px}
+        .section.expanded .section-body{display:block}
+        .items{padding-left:18px}
+        .item{display:flex;align-items:flex-start;gap:10px;padding:7px 12px;border-radius:6px;text-decoration:none;color:var(--text);transition:all .15s;margin-bottom:2px}
+        .item:hover{background:rgba(96,165,250,.08)}
+        .item.hidden{display:none}
+        .item-icon{color:var(--text-muted);font-size:.85rem;margin-top:2px;min-width:14px}
+        .item-content{flex:1;min-width:0}
+        .item-title{font-size:.88rem;font-weight:500;color:var(--text);margin-bottom:1px}
+        .item-desc{font-size:.74rem;color:var(--text-muted);line-height:1.4}
+        .item-formats{display:flex;gap:6px;margin-top:3px}
+        .format-link{font-size:.68rem;padding:1px 7px;border-radius:4px;text-decoration:none;font-weight:500;transition:all .15s}
+        .format-html{background:rgba(96,165,250,.15);color:var(--accent)}
+        .format-html:hover{background:rgba(96,165,250,.25)}
+        .format-md{background:rgba(74,222,128,.15);color:var(--green)}
+        .format-md:hover{background:rgba(74,222,128,.25)}
+        .highlight{background:rgba(96,165,250,.3);color:var(--accent);padding:0 2px;border-radius:2px}
+        footer{text-align:center;padding:30px;color:var(--text-muted);font-size:.85rem;border-top:1px solid var(--border)}
+        footer a{color:var(--accent);text-decoration:none}
+        .warning-banner{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:14px 18px;margin-bottom:20px;color:var(--text);font-size:.88rem}
+        .warning-banner strong{color:var(--red)}
+        @media (max-width:600px){.header{padding:14px 14px 12px}.header h1{font-size:1.3rem}.container{padding:16px 14px 60px}.section-header{padding:12px 14px}.section-body{padding:0 14px 14px}.quick-access{grid-template-columns:1fr 1fr}}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-top">
+                <div>
+                    <h1>🛡️ Monitoring i zabezpieczenia — kompendium</h1>
+                    <p class="subtitle">CCTV · alarmy włamaniowe · monitoring ppoż · kontrola dostępu · normy PN-EN 50131/62676/54 · RODO · 2026</p>
+                </div>
+            </div>
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Wyszukaj temat (np. PTZ, PIR, ONVIF, RODO)... (Ctrl+K)" autocomplete="off" autofocus />
+            </div>
+            <div class="filters" id="filters">
+                <button class="filter-btn active" data-filter="all">Wszystko</button>
+                <button class="filter-btn" data-filter="podstawy">🛡️ Podstawy</button>
+                <button class="filter-btn" data-filter="cctv-kamery">📹 Kamery</button>
+                <button class="filter-btn" data-filter="cctv-rejestratory">💾 Rejestratory</button>
+                <button class="filter-btn" data-filter="cctv-instalacja">🔧 Instalacja CCTV</button>
+                <button class="filter-btn" data-filter="cctv-software">🖥️ Software VMS</button>
+                <button class="filter-btn" data-filter="alarmy-centrale">📟 Centrale alarmu</button>
+                <button class="filter-btn" data-filter="alarmy-czujki">📡 Czujki</button>
+                <button class="filter-btn" data-filter="alarmy-sygnalizatory">🔔 Sygnalizatory</button>
+                <button class="filter-btn" data-filter="alarmy-konfiguracja">⚙️ Konfiguracja</button>
+                <button class="filter-btn" data-filter="ppoz-czujki">🔥 Czujki ppoż</button>
+                <button class="filter-btn" data-filter="ppoz-centrale">🚨 Centrale SAP</button>
+                <button class="filter-btn" data-filter="kd-czytniki">🔑 KD czytniki</button>
+                <button class="filter-btn" data-filter="kd-systemy">🚪 KD systemy</button>
+                <button class="filter-btn" data-filter="zasilanie">🔋 Zasilanie</button>
+                <button class="filter-btn" data-filter="normy">📜 Normy</button>
+                <button class="filter-btn" data-filter="przyklady">📚 Przykłady</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="content">
+
+        <div class="warning-banner">
+            <strong>⚠ Uwaga:</strong> dokumentacja ma charakter informacyjny. Instalacja systemów SAP (ppoż.) i alarmów dla obiektów chronionych przez agencje wymaga uprawnień (świadectwo kwalifikacji, koncesja MSWiA, technik ds. zabezpieczeń). Monitoring CCTV podlega RODO — wymagana jest podstawa prawna i informacja dla osób monitorowanych.
+        </div>
+
+        <div class="quick-access">
+            <a class="quick-card" href="01-podstawy/index.html"><span class="quick-card-icon">🛡️</span><span class="quick-card-text">Podstawy</span></a>
+            <a class="quick-card" href="02-cctv-kamery/index.html"><span class="quick-card-icon">📹</span><span class="quick-card-text">Kamery CCTV</span></a>
+            <a class="quick-card" href="03-cctv-rejestratory/index.html"><span class="quick-card-icon">💾</span><span class="quick-card-text">Rejestratory</span></a>
+            <a class="quick-card" href="06-alarmy-centrale/index.html"><span class="quick-card-icon">📟</span><span class="quick-card-text">Centrale alarmów</span></a>
+            <a class="quick-card" href="10-ppoz-czujki/index.html"><span class="quick-card-icon">🔥</span><span class="quick-card-text">Ppoż</span></a>
+            <a class="quick-card" href="12-kd-czytniki-zamki/index.html"><span class="quick-card-icon">🔑</span><span class="quick-card-text">Kontrola dostępu</span></a>
+            <a class="quick-card" href="15-normy-przepisy/index.html"><span class="quick-card-icon">📜</span><span class="quick-card-text">Normy i RODO</span></a>
+            <a class="quick-card" href="16-przyklady-projekty/index.html"><span class="quick-card-icon">📚</span><span class="quick-card-text">Przykłady</span></a>
+        </div>
+
+        <div class="section expanded" data-section="podstawy">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🛡️</span><span class="section-title">01 — Podstawy zabezpieczeń</span><span class="section-meta">4 strony</span></div>
+            <div class="section-description">Warstwy zabezpieczeń, klasy ryzyka SA1-SA4, analiza zagrożeń, koncepcja ochrony.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="01-podstawy/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="01-podstawy/01-01-warstwy-zabezpieczen.html"><span class="item-icon">🧱</span><div class="item-content"><div class="item-title">Warstwy zabezpieczeń (defense in depth)</div><div class="item-desc">Mechaniczne, elektroniczne, organizacyjne — strefy ochrony</div><div class="item-formats"><a class="format-link format-html" href="01-podstawy/01-01-warstwy-zabezpieczen.html">HTML</a><a class="format-link format-md" href="01-podstawy/01-01-warstwy-zabezpieczen.md">MD</a></div></div></a>
+                <a class="item" href="01-podstawy/01-02-klasy-ryzyka-sa.html"><span class="item-icon">🏷️</span><div class="item-content"><div class="item-title">Klasy ryzyka SA1-SA4</div><div class="item-desc">Klasyfikacja obiektów wg PN-EN 50131-1, grade 1-4</div><div class="item-formats"><a class="format-link format-html" href="01-podstawy/01-02-klasy-ryzyka-sa.html">HTML</a><a class="format-link format-md" href="01-podstawy/01-02-klasy-ryzyka-sa.md">MD</a></div></div></a>
+                <a class="item" href="01-podstawy/01-03-analiza-zagrozen.html"><span class="item-icon">🎯</span><div class="item-content"><div class="item-title">Analiza zagrożeń i ryzyka</div><div class="item-desc">Identyfikacja zagrożeń, scoring, dobór środków zabezpieczeń</div><div class="item-formats"><a class="format-link format-html" href="01-podstawy/01-03-analiza-zagrozen.html">HTML</a><a class="format-link format-md" href="01-podstawy/01-03-analiza-zagrozen.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="cctv-kamery">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📹</span><span class="section-title">02 — Kamery CCTV</span><span class="section-meta">8 stron</span></div>
+            <div class="section-description">Typy kamer (IP/analog), obudowy, parametry, optyka, oświetlenie nocne, ANPR.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="02-cctv-kamery/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="02-cctv-kamery/02-01-ip-vs-analog.html"><span class="item-icon">🔌</span><div class="item-content"><div class="item-title">Kamery IP vs analogowe (HD-TVI/AHD/CVI)</div><div class="item-desc">Różnice, jakość, koszty, kiedy co stosować</div><div class="item-formats"><a class="format-link format-html" href="02-cctv-kamery/02-01-ip-vs-analog.html">HTML</a><a class="format-link format-md" href="02-cctv-kamery/02-01-ip-vs-analog.md">MD</a></div></div></a>
+                <a class="item" href="02-cctv-kamery/02-02-typy-obudow.html"><span class="item-icon">📷</span><div class="item-content"><div class="item-title">Typy obudów kamer</div><div class="item-desc">Kopułkowe, bullet, fish-eye, PTZ, ukryte, panoramiczne</div><div class="item-formats"><a class="format-link format-html" href="02-cctv-kamery/02-02-typy-obudow.html">HTML</a><a class="format-link format-md" href="02-cctv-kamery/02-02-typy-obudow.md">MD</a></div></div></a>
+                <a class="item" href="02-cctv-kamery/02-03-parametry.html"><span class="item-icon">📊</span><div class="item-content"><div class="item-title">Parametry kamer</div><div class="item-desc">Rozdzielczość Mpx, sensor CMOS, WDR, HDR, dynamic range</div><div class="item-formats"><a class="format-link format-html" href="02-cctv-kamery/02-03-parametry.html">HTML</a><a class="format-link format-md" href="02-cctv-kamery/02-03-parametry.md">MD</a></div></div></a>
+                <a class="item" href="02-cctv-kamery/02-04-optyka.html"><span class="item-icon">🔭</span><div class="item-content"><div class="item-title">Optyka kamer</div><div class="item-desc">Ogniskowa, kąt widzenia, varifocal, motozoom, IRIS</div><div class="item-formats"><a class="format-link format-html" href="02-cctv-kamery/02-04-optyka.html">HTML</a><a class="format-link format-md" href="02-cctv-kamery/02-04-optyka.md">MD</a></div></div></a>
+                <a class="item" href="02-cctv-kamery/02-05-oswietlenie-nocne.html"><span class="item-icon">🌙</span><div class="item-content"><div class="item-title">Oświetlenie nocne i tryb low-light</div><div class="item-desc">IR LED, Smart IR, Starlight, color night vision</div><div class="item-formats"><a class="format-link format-html" href="02-cctv-kamery/02-05-oswietlenie-nocne.html">HTML</a><a class="format-link format-md" href="02-cctv-kamery/02-05-oswietlenie-nocne.md">MD</a></div></div></a>
+                <a class="item" href="02-cctv-kamery/02-06-audio-mikrofony.html"><span class="item-icon">🎤</span><div class="item-content"><div class="item-title">Audio i mikrofony</div><div class="item-desc">Mikrofony wbudowane, two-way audio, RODO i nagrywanie dźwięku</div><div class="item-formats"><a class="format-link format-html" href="02-cctv-kamery/02-06-audio-mikrofony.html">HTML</a><a class="format-link format-md" href="02-cctv-kamery/02-06-audio-mikrofony.md">MD</a></div></div></a>
+                <a class="item" href="02-cctv-kamery/02-07-anpr-rozpoznawanie.html"><span class="item-icon">🚗</span><div class="item-content"><div class="item-title">ANPR — odczyt tablic rejestracyjnych</div><div class="item-desc">Kamery LPR, parametry, integracja z bramą/szlabanem</div><div class="item-formats"><a class="format-link format-html" href="02-cctv-kamery/02-07-anpr-rozpoznawanie.html">HTML</a><a class="format-link format-md" href="02-cctv-kamery/02-07-anpr-rozpoznawanie.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="cctv-rejestratory">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">💾</span><span class="section-title">03 — Rejestratory CCTV</span><span class="section-meta">5 stron</span></div>
+            <div class="section-description">NVR/DVR/HVR, dyski Surveillance, RAID, kalkulator pojemności, PoE switche.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="03-cctv-rejestratory/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="03-cctv-rejestratory/03-01-nvr-dvr-hvr.html"><span class="item-icon">📦</span><div class="item-content"><div class="item-title">NVR, DVR, HVR — różnice</div><div class="item-desc">Network Video Recorder, Digital, Hybrid — kiedy co</div><div class="item-formats"><a class="format-link format-html" href="03-cctv-rejestratory/03-01-nvr-dvr-hvr.html">HTML</a><a class="format-link format-md" href="03-cctv-rejestratory/03-01-nvr-dvr-hvr.md">MD</a></div></div></a>
+                <a class="item" href="03-cctv-rejestratory/03-02-dyski-hdd.html"><span class="item-icon">💽</span><div class="item-content"><div class="item-title">Dyski HDD Surveillance</div><div class="item-desc">WD Purple, Seagate SkyHawk, kalkulator retencji, MTBF</div><div class="item-formats"><a class="format-link format-html" href="03-cctv-rejestratory/03-02-dyski-hdd.html">HTML</a><a class="format-link format-md" href="03-cctv-rejestratory/03-02-dyski-hdd.md">MD</a></div></div></a>
+                <a class="item" href="03-cctv-rejestratory/03-03-raid-redundancja.html"><span class="item-icon">🗄️</span><div class="item-content"><div class="item-title">RAID i redundancja</div><div class="item-desc">RAID 1/5/6/10 dla CCTV, hot-spare, backup</div><div class="item-formats"><a class="format-link format-html" href="03-cctv-rejestratory/03-03-raid-redundancja.html">HTML</a><a class="format-link format-md" href="03-cctv-rejestratory/03-03-raid-redundancja.md">MD</a></div></div></a>
+                <a class="item" href="03-cctv-rejestratory/03-04-poe-switche.html"><span class="item-icon">🔌</span><div class="item-content"><div class="item-title">PoE switche</div><div class="item-desc">802.3af/at/bt, budżet mocy, klasy PoE, dobór switcha</div><div class="item-formats"><a class="format-link format-html" href="03-cctv-rejestratory/03-04-poe-switche.html">HTML</a><a class="format-link format-md" href="03-cctv-rejestratory/03-04-poe-switche.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="cctv-instalacja">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🔧</span><span class="section-title">04 — Instalacja CCTV</span><span class="section-meta">5 stron</span></div>
+            <div class="section-description">Przewody, PoE pasywne/aktywne, montaż, pozycjonowanie kamer, OSD.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="04-cctv-instalacja/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="04-cctv-instalacja/04-01-przewody.html"><span class="item-icon">🧵</span><div class="item-content"><div class="item-title">Przewody — UTP, koax, światłowód</div><div class="item-desc">Cat5e/6 dla IP, RG-59 dla analog, max długości</div><div class="item-formats"><a class="format-link format-html" href="04-cctv-instalacja/04-01-przewody.html">HTML</a><a class="format-link format-md" href="04-cctv-instalacja/04-01-przewody.md">MD</a></div></div></a>
+                <a class="item" href="04-cctv-instalacja/04-02-poe-pasywne-aktywne.html"><span class="item-icon">⚡</span><div class="item-content"><div class="item-title">PoE pasywne vs aktywne</div><div class="item-desc">802.3af/at/bt, injektory, splittery, kontrola obciążenia</div><div class="item-formats"><a class="format-link format-html" href="04-cctv-instalacja/04-02-poe-pasywne-aktywne.html">HTML</a><a class="format-link format-md" href="04-cctv-instalacja/04-02-poe-pasywne-aktywne.md">MD</a></div></div></a>
+                <a class="item" href="04-cctv-instalacja/04-03-montaz-pozycjonowanie.html"><span class="item-icon">📐</span><div class="item-content"><div class="item-title">Montaż i pozycjonowanie kamer</div><div class="item-desc">Wysokość, kąty, zasięg IR, odbicia, martwe pola</div><div class="item-formats"><a class="format-link format-html" href="04-cctv-instalacja/04-03-montaz-pozycjonowanie.html">HTML</a><a class="format-link format-md" href="04-cctv-instalacja/04-03-montaz-pozycjonowanie.md">MD</a></div></div></a>
+                <a class="item" href="04-cctv-instalacja/04-04-osd-konfiguracja.html"><span class="item-icon">⚙️</span><div class="item-content"><div class="item-title">OSD i konfiguracja kamer</div><div class="item-desc">Menu kamery, ekspozycja, balans bieli, BLC, maskowanie</div><div class="item-formats"><a class="format-link format-html" href="04-cctv-instalacja/04-04-osd-konfiguracja.html">HTML</a><a class="format-link format-md" href="04-cctv-instalacja/04-04-osd-konfiguracja.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="cctv-software">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🖥️</span><span class="section-title">05 — Software VMS</span><span class="section-meta">5 stron</span></div>
+            <div class="section-description">ONVIF/RTSP, Synology Surveillance Station, Frigate, BlueIris, Home Assistant.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="05-cctv-software/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="05-cctv-software/05-01-onvif-rtsp.html"><span class="item-icon">🌐</span><div class="item-content"><div class="item-title">ONVIF i RTSP</div><div class="item-desc">Standardy, profile S/T/G, RTSP URLs, kompatybilność</div><div class="item-formats"><a class="format-link format-html" href="05-cctv-software/05-01-onvif-rtsp.html">HTML</a><a class="format-link format-md" href="05-cctv-software/05-01-onvif-rtsp.md">MD</a></div></div></a>
+                <a class="item" href="05-cctv-software/05-02-synology-surveillance.html"><span class="item-icon">🏠</span><div class="item-content"><div class="item-title">Synology Surveillance Station</div><div class="item-desc">NAS jako NVR, licencje, mobilność (DS cam), Active Insight</div><div class="item-formats"><a class="format-link format-html" href="05-cctv-software/05-02-synology-surveillance.html">HTML</a><a class="format-link format-md" href="05-cctv-software/05-02-synology-surveillance.md">MD</a></div></div></a>
+                <a class="item" href="05-cctv-software/05-03-frigate-blueiris.html"><span class="item-icon">🤖</span><div class="item-content"><div class="item-title">Frigate AI, BlueIris, Shinobi</div><div class="item-desc">Open-source NVR, detekcja AI (Coral TPU), porównanie</div><div class="item-formats"><a class="format-link format-html" href="05-cctv-software/05-03-frigate-blueiris.html">HTML</a><a class="format-link format-md" href="05-cctv-software/05-03-frigate-blueiris.md">MD</a></div></div></a>
+                <a class="item" href="05-cctv-software/05-04-integracja-home-assistant.html"><span class="item-icon">🏡</span><div class="item-content"><div class="item-title">Integracja z Home Assistant</div><div class="item-desc">Karty kamer, automatyzacje, snapshot na ruch</div><div class="item-formats"><a class="format-link format-html" href="05-cctv-software/05-04-integracja-home-assistant.html">HTML</a><a class="format-link format-md" href="05-cctv-software/05-04-integracja-home-assistant.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="alarmy-centrale">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📟</span><span class="section-title">06 — Centrale alarmowe</span><span class="section-meta">5 stron</span></div>
+            <div class="section-description">Satel Integra, DSC PowerSeries Neo, Risco LightSYS, Jablotron 100+, klawiatury.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="06-alarmy-centrale/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="06-alarmy-centrale/06-01-satel-integra.html"><span class="item-icon">🇵🇱</span><div class="item-content"><div class="item-title">Satel Integra</div><div class="item-desc">INT-24/32/64/128, DLOAD X, magistrala, ekspandery</div><div class="item-formats"><a class="format-link format-html" href="06-alarmy-centrale/06-01-satel-integra.html">HTML</a><a class="format-link format-md" href="06-alarmy-centrale/06-01-satel-integra.md">MD</a></div></div></a>
+                <a class="item" href="06-alarmy-centrale/06-02-dsc-power-neo.html"><span class="item-icon">🍁</span><div class="item-content"><div class="item-title">DSC PowerSeries Neo</div><div class="item-desc">HS2016/2032/2064/2128, Corbus, magistrala radio</div><div class="item-formats"><a class="format-link format-html" href="06-alarmy-centrale/06-02-dsc-power-neo.html">HTML</a><a class="format-link format-md" href="06-alarmy-centrale/06-02-dsc-power-neo.md">MD</a></div></div></a>
+                <a class="item" href="06-alarmy-centrale/06-03-risco-lightsys.html"><span class="item-icon">💡</span><div class="item-content"><div class="item-title">Risco LightSYS Plus</div><div class="item-desc">Hybrydowa magistrala, smartphone app, BUS bezprzewodowy</div><div class="item-formats"><a class="format-link format-html" href="06-alarmy-centrale/06-03-risco-lightsys.html">HTML</a><a class="format-link format-md" href="06-alarmy-centrale/06-03-risco-lightsys.md">MD</a></div></div></a>
+                <a class="item" href="06-alarmy-centrale/06-04-jablotron-100.html"><span class="item-icon">🟢</span><div class="item-content"><div class="item-title">Jablotron 100+</div><div class="item-desc">Bezprzewodowy + przewodowy, MyJABLOTRON, sklepy z usługą</div><div class="item-formats"><a class="format-link format-html" href="06-alarmy-centrale/06-04-jablotron-100.html">HTML</a><a class="format-link format-md" href="06-alarmy-centrale/06-04-jablotron-100.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="alarmy-czujki">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📡</span><span class="section-title">07 — Czujki alarmowe</span><span class="section-meta">6 stron</span></div>
+            <div class="section-description">PIR, dual (PIR+MW), kontaktrony, kurtyny zewnętrzne, czujki specjalne.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="07-alarmy-czujki/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="07-alarmy-czujki/07-01-pir-ruchowe.html"><span class="item-icon">👁️</span><div class="item-content"><div class="item-title">Czujki PIR (pasywne ruchu)</div><div class="item-desc">Soczewki Fresnela, zasięg, czułość, anti-mask, pet-immunity</div><div class="item-formats"><a class="format-link format-html" href="07-alarmy-czujki/07-01-pir-ruchowe.html">HTML</a><a class="format-link format-md" href="07-alarmy-czujki/07-01-pir-ruchowe.md">MD</a></div></div></a>
+                <a class="item" href="07-alarmy-czujki/07-02-dual-pir-mw.html"><span class="item-icon">📶</span><div class="item-content"><div class="item-title">Czujki dual PIR + mikrofalowe</div><div class="item-desc">Zmniejszenie fałszywych alarmów, AND/OR logic</div><div class="item-formats"><a class="format-link format-html" href="07-alarmy-czujki/07-02-dual-pir-mw.html">HTML</a><a class="format-link format-md" href="07-alarmy-czujki/07-02-dual-pir-mw.md">MD</a></div></div></a>
+                <a class="item" href="07-alarmy-czujki/07-03-kontaktrony-magnetyczne.html"><span class="item-icon">🧲</span><div class="item-content"><div class="item-title">Kontaktrony magnetyczne</div><div class="item-desc">NC/NO, drzwi/okna, sabotaż, kontaktrony wpustowe</div><div class="item-formats"><a class="format-link format-html" href="07-alarmy-czujki/07-03-kontaktrony-magnetyczne.html">HTML</a><a class="format-link format-md" href="07-alarmy-czujki/07-03-kontaktrony-magnetyczne.md">MD</a></div></div></a>
+                <a class="item" href="07-alarmy-czujki/07-04-kurtyny-zewnetrzne.html"><span class="item-icon">🌳</span><div class="item-content"><div class="item-title">Czujki zewnętrzne i kurtyny</div><div class="item-desc">IP65+, bariery IR, kurtyny PIR, anti-vandal</div><div class="item-formats"><a class="format-link format-html" href="07-alarmy-czujki/07-04-kurtyny-zewnetrzne.html">HTML</a><a class="format-link format-md" href="07-alarmy-czujki/07-04-kurtyny-zewnetrzne.md">MD</a></div></div></a>
+                <a class="item" href="07-alarmy-czujki/07-05-czujki-specjalne.html"><span class="item-icon">💧</span><div class="item-content"><div class="item-title">Czujki specjalne — zalanie, gaz, wibracje</div><div class="item-desc">Czujki wody, CH4/LPG, sejsmiczne, stłuczenia szkła</div><div class="item-formats"><a class="format-link format-html" href="07-alarmy-czujki/07-05-czujki-specjalne.html">HTML</a><a class="format-link format-md" href="07-alarmy-czujki/07-05-czujki-specjalne.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="alarmy-sygnalizatory">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🔔</span><span class="section-title">08 — Sygnalizatory i komunikacja</span><span class="section-meta">4 strony</span></div>
+            <div class="section-description">Syreny wewnętrzne/zewnętrzne, moduły GSM/IP, monitoring przez agencje ochrony.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="08-alarmy-sygnalizatory/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="08-alarmy-sygnalizatory/08-01-syreny.html"><span class="item-icon">📢</span><div class="item-content"><div class="item-title">Syreny wewnętrzne i zewnętrzne</div><div class="item-desc">SPL dB, akumulator wsparcia, lampy stroboskopowe, sabotaż</div><div class="item-formats"><a class="format-link format-html" href="08-alarmy-sygnalizatory/08-01-syreny.html">HTML</a><a class="format-link format-md" href="08-alarmy-sygnalizatory/08-01-syreny.md">MD</a></div></div></a>
+                <a class="item" href="08-alarmy-sygnalizatory/08-02-modul-gsm-ip.html"><span class="item-icon">📱</span><div class="item-content"><div class="item-title">Moduły komunikacji GSM, IP, dual-path</div><div class="item-desc">Satel GSM-X, DSC TL-280, redundancja torów, protokoły</div><div class="item-formats"><a class="format-link format-html" href="08-alarmy-sygnalizatory/08-02-modul-gsm-ip.html">HTML</a><a class="format-link format-md" href="08-alarmy-sygnalizatory/08-02-modul-gsm-ip.md">MD</a></div></div></a>
+                <a class="item" href="08-alarmy-sygnalizatory/08-03-monitoring-agencji.html"><span class="item-icon">🚨</span><div class="item-content"><div class="item-title">Monitoring agencji ochrony</div><div class="item-desc">Stacje monitorowania, Contact ID, SIA, czas reakcji, koszty</div><div class="item-formats"><a class="format-link format-html" href="08-alarmy-sygnalizatory/08-03-monitoring-agencji.html">HTML</a><a class="format-link format-md" href="08-alarmy-sygnalizatory/08-03-monitoring-agencji.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="alarmy-konfiguracja">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">⚙️</span><span class="section-title">09 — Konfiguracja alarmu</span><span class="section-meta">4 strony</span></div>
+            <div class="section-description">Podziały, strefy, scenariusze uzbrojenia, użytkownicy, kody, piloty.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="09-alarmy-konfiguracja/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="09-alarmy-konfiguracja/09-01-strefy-partycje.html"><span class="item-icon">🗺️</span><div class="item-content"><div class="item-title">Strefy i partycje</div><div class="item-desc">Podział obiektu, strefy 24h, strefy z opóźnieniem, nocne</div><div class="item-formats"><a class="format-link format-html" href="09-alarmy-konfiguracja/09-01-strefy-partycje.html">HTML</a><a class="format-link format-md" href="09-alarmy-konfiguracja/09-01-strefy-partycje.md">MD</a></div></div></a>
+                <a class="item" href="09-alarmy-konfiguracja/09-02-scenariusze-uzbrojenia.html"><span class="item-icon">🎬</span><div class="item-content"><div class="item-title">Scenariusze uzbrojenia</div><div class="item-desc">Full arm, stay/home, night, instant, auto-arm</div><div class="item-formats"><a class="format-link format-html" href="09-alarmy-konfiguracja/09-02-scenariusze-uzbrojenia.html">HTML</a><a class="format-link format-md" href="09-alarmy-konfiguracja/09-02-scenariusze-uzbrojenia.md">MD</a></div></div></a>
+                <a class="item" href="09-alarmy-konfiguracja/09-03-uzytkownicy-kody.html"><span class="item-icon">🔢</span><div class="item-content"><div class="item-title">Użytkownicy, kody, piloty</div><div class="item-desc">Master/user/duress, piloty RF, breloki, ograniczenia praw</div><div class="item-formats"><a class="format-link format-html" href="09-alarmy-konfiguracja/09-03-uzytkownicy-kody.html">HTML</a><a class="format-link format-md" href="09-alarmy-konfiguracja/09-03-uzytkownicy-kody.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="ppoz-czujki">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🔥</span><span class="section-title">10 — Czujki pożarowe</span><span class="section-meta">4 strony</span></div>
+            <div class="section-description">Czujki dymowe (optyczne/jonizacyjne), ciepła, plamieniowe, CO, multi-sensor.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="10-ppoz-czujki/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="10-ppoz-czujki/10-01-czujki-dymowe.html"><span class="item-icon">💨</span><div class="item-content"><div class="item-title">Czujki dymowe</div><div class="item-desc">Optyczne (rozpr.), jonizacyjne, liniowe, aspiracyjne (VESDA)</div><div class="item-formats"><a class="format-link format-html" href="10-ppoz-czujki/10-01-czujki-dymowe.html">HTML</a><a class="format-link format-md" href="10-ppoz-czujki/10-01-czujki-dymowe.md">MD</a></div></div></a>
+                <a class="item" href="10-ppoz-czujki/10-02-czujki-ciepla.html"><span class="item-icon">🌡️</span><div class="item-content"><div class="item-title">Czujki ciepła</div><div class="item-desc">Termodyferencjalne, nadmiarowe, klasy A1-G wg PN-EN 54-5</div><div class="item-formats"><a class="format-link format-html" href="10-ppoz-czujki/10-02-czujki-ciepla.html">HTML</a><a class="format-link format-md" href="10-ppoz-czujki/10-02-czujki-ciepla.md">MD</a></div></div></a>
+                <a class="item" href="10-ppoz-czujki/10-03-czujki-co.html"><span class="item-icon">☠️</span><div class="item-content"><div class="item-title">Czujki tlenku węgla (CO)</div><div class="item-desc">Czadu — domowe i przemysłowe, normy CO ppm, integracja z SAP</div><div class="item-formats"><a class="format-link format-html" href="10-ppoz-czujki/10-03-czujki-co.html">HTML</a><a class="format-link format-md" href="10-ppoz-czujki/10-03-czujki-co.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="ppoz-centrale">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🚨</span><span class="section-title">11 — Centrale SAP i sygnalizatory</span><span class="section-meta">4 strony</span></div>
+            <div class="section-description">SAP konwencjonalne i adresowalne, ROP (przyciski), sygnalizatory akustyczne/optyczne.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="11-ppoz-centrale/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="11-ppoz-centrale/11-01-centrale-konwencjonalne.html"><span class="item-icon">📟</span><div class="item-content"><div class="item-title">Centrale SAP konwencjonalne</div><div class="item-desc">Liniowe, do 32 czujek/linia, małe i średnie obiekty</div><div class="item-formats"><a class="format-link format-html" href="11-ppoz-centrale/11-01-centrale-konwencjonalne.html">HTML</a><a class="format-link format-md" href="11-ppoz-centrale/11-01-centrale-konwencjonalne.md">MD</a></div></div></a>
+                <a class="item" href="11-ppoz-centrale/11-02-centrale-adresowalne.html"><span class="item-icon">🔢</span><div class="item-content"><div class="item-title">Centrale SAP adresowalne</div><div class="item-desc">Pętle adresowalne, lokalizacja zagrożenia, integracja BMS</div><div class="item-formats"><a class="format-link format-html" href="11-ppoz-centrale/11-02-centrale-adresowalne.html">HTML</a><a class="format-link format-md" href="11-ppoz-centrale/11-02-centrale-adresowalne.md">MD</a></div></div></a>
+                <a class="item" href="11-ppoz-centrale/11-03-rop-sygnalizatory.html"><span class="item-icon">🟥</span><div class="item-content"><div class="item-title">ROP i sygnalizatory ppoż</div><div class="item-desc">Ręczne ostrzegacze pożarowe, syreny, sygnalizatory świetlne</div><div class="item-formats"><a class="format-link format-html" href="11-ppoz-centrale/11-03-rop-sygnalizatory.html">HTML</a><a class="format-link format-md" href="11-ppoz-centrale/11-03-rop-sygnalizatory.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="kd-czytniki">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🔑</span><span class="section-title">12 — KD: czytniki i zamki</span><span class="section-meta">5 stron</span></div>
+            <div class="section-description">Czytniki RFID, biometria, elektrozaczepy, zamki magnetyczne, przyciski wyjścia.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="12-kd-czytniki-zamki/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="12-kd-czytniki-zamki/12-01-rfid.html"><span class="item-icon">📶</span><div class="item-content"><div class="item-title">Czytniki RFID 125 kHz i 13.56 MHz</div><div class="item-desc">EM4100, Mifare Classic/DESFire, ISO14443, klonowanie</div><div class="item-formats"><a class="format-link format-html" href="12-kd-czytniki-zamki/12-01-rfid.html">HTML</a><a class="format-link format-md" href="12-kd-czytniki-zamki/12-01-rfid.md">MD</a></div></div></a>
+                <a class="item" href="12-kd-czytniki-zamki/12-02-biometria.html"><span class="item-icon">👆</span><div class="item-content"><div class="item-title">Biometria — odcisk i twarz</div><div class="item-desc">Sensory pojemnościowe/optyczne, FAR/FRR, anti-spoof, RODO</div><div class="item-formats"><a class="format-link format-html" href="12-kd-czytniki-zamki/12-02-biometria.html">HTML</a><a class="format-link format-md" href="12-kd-czytniki-zamki/12-02-biometria.md">MD</a></div></div></a>
+                <a class="item" href="12-kd-czytniki-zamki/12-03-elektrozaczepy.html"><span class="item-icon">🔓</span><div class="item-content"><div class="item-title">Elektrozaczepy</div><div class="item-desc">Rewersyjne, standardowe, fail-safe/secure, montaż</div><div class="item-formats"><a class="format-link format-html" href="12-kd-czytniki-zamki/12-03-elektrozaczepy.html">HTML</a><a class="format-link format-md" href="12-kd-czytniki-zamki/12-03-elektrozaczepy.md">MD</a></div></div></a>
+                <a class="item" href="12-kd-czytniki-zamki/12-04-zamki-magnetyczne.html"><span class="item-icon">🧲</span><div class="item-content"><div class="item-title">Zamki magnetyczne (zwory)</div><div class="item-desc">Siła trzymania 280/500/1200 lbs, fail-safe, wymagania ppoż</div><div class="item-formats"><a class="format-link format-html" href="12-kd-czytniki-zamki/12-04-zamki-magnetyczne.html">HTML</a><a class="format-link format-md" href="12-kd-czytniki-zamki/12-04-zamki-magnetyczne.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="kd-systemy">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🚪</span><span class="section-title">13 — KD: systemy i domofony</span><span class="section-meta">4 strony</span></div>
+            <div class="section-description">Kontrolery, software KD, domofony analogowe i cyfrowe, wideodomofony IP.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="13-kd-systemy-domofony/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="13-kd-systemy-domofony/13-01-kontrolery-software.html"><span class="item-icon">🖧</span><div class="item-content"><div class="item-title">Kontrolery i software KD</div><div class="item-desc">Roger, Satel ACCO, Paxton, integracja z alarmem</div><div class="item-formats"><a class="format-link format-html" href="13-kd-systemy-domofony/13-01-kontrolery-software.html">HTML</a><a class="format-link format-md" href="13-kd-systemy-domofony/13-01-kontrolery-software.md">MD</a></div></div></a>
+                <a class="item" href="13-kd-systemy-domofony/13-02-domofony.html"><span class="item-icon">📞</span><div class="item-content"><div class="item-title">Domofony analogowe i cyfrowe</div><div class="item-desc">4+n, 2-żyłowe, dwustronne (intercom), zasilanie</div><div class="item-formats"><a class="format-link format-html" href="13-kd-systemy-domofony/13-02-domofony.html">HTML</a><a class="format-link format-md" href="13-kd-systemy-domofony/13-02-domofony.md">MD</a></div></div></a>
+                <a class="item" href="13-kd-systemy-domofony/13-03-wideodomofony-ip.html"><span class="item-icon">📺</span><div class="item-content"><div class="item-title">Wideodomofony IP i 2-wire</div><div class="item-desc">Hikvision IP, DAHUA, Vidos, integracja smartphone, SIP</div><div class="item-formats"><a class="format-link format-html" href="13-kd-systemy-domofony/13-03-wideodomofony-ip.html">HTML</a><a class="format-link format-md" href="13-kd-systemy-domofony/13-03-wideodomofony-ip.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="zasilanie">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🔋</span><span class="section-title">14 — Zasilanie awaryjne</span><span class="section-meta">3 strony</span></div>
+            <div class="section-description">Akumulatory żelowe/AGM, zasilacze buforowe, podtrzymanie systemów, normy.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="14-zasilanie-awaryjne/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="14-zasilanie-awaryjne/14-01-akumulatory.html"><span class="item-icon">🔋</span><div class="item-content"><div class="item-title">Akumulatory żelowe i AGM</div><div class="item-desc">12 V/7-17 Ah, żywotność, dobór pojemności, wymiana co 3-5 lat</div><div class="item-formats"><a class="format-link format-html" href="14-zasilanie-awaryjne/14-01-akumulatory.html">HTML</a><a class="format-link format-md" href="14-zasilanie-awaryjne/14-01-akumulatory.md">MD</a></div></div></a>
+                <a class="item" href="14-zasilanie-awaryjne/14-02-zasilacze-buforowe.html"><span class="item-icon">⚡</span><div class="item-content"><div class="item-title">Zasilacze buforowe</div><div class="item-desc">PSAC, PSBOC, monitoring akumulatora, Pulsar/Satel APS</div><div class="item-formats"><a class="format-link format-html" href="14-zasilanie-awaryjne/14-02-zasilacze-buforowe.html">HTML</a><a class="format-link format-md" href="14-zasilanie-awaryjne/14-02-zasilacze-buforowe.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="normy">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📜</span><span class="section-title">15 — Normy i przepisy</span><span class="section-meta">4 strony</span></div>
+            <div class="section-description">PN-EN 50131 (alarmy), PN-EN 62676 (CCTV), PN-EN 54 (ppoż), RODO/GIODO, uprawnienia.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="15-normy-przepisy/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="15-normy-przepisy/15-01-pn-en-50131.html"><span class="item-icon">📘</span><div class="item-content"><div class="item-title">PN-EN 50131 — systemy alarmowe</div><div class="item-desc">Grade 1-4, ATS (Alarm Transmission), klasy środowiskowe</div><div class="item-formats"><a class="format-link format-html" href="15-normy-przepisy/15-01-pn-en-50131.html">HTML</a><a class="format-link format-md" href="15-normy-przepisy/15-01-pn-en-50131.md">MD</a></div></div></a>
+                <a class="item" href="15-normy-przepisy/15-02-pn-en-62676.html"><span class="item-icon">📕</span><div class="item-content"><div class="item-title">PN-EN 62676 — systemy CCTV</div><div class="item-desc">Wymagania jakości obrazu, retencja, identyfikacja vs detekcja</div><div class="item-formats"><a class="format-link format-html" href="15-normy-przepisy/15-02-pn-en-62676.html">HTML</a><a class="format-link format-md" href="15-normy-przepisy/15-02-pn-en-62676.md">MD</a></div></div></a>
+                <a class="item" href="15-normy-przepisy/15-03-pn-en-54.html"><span class="item-icon">📙</span><div class="item-content"><div class="item-title">PN-EN 54 — systemy SAP</div><div class="item-desc">Części normy, certyfikacja CNBOP, obowiązki obiektów</div><div class="item-formats"><a class="format-link format-html" href="15-normy-przepisy/15-03-pn-en-54.html">HTML</a><a class="format-link format-md" href="15-normy-przepisy/15-03-pn-en-54.md">MD</a></div></div></a>
+                <a class="item" href="15-normy-przepisy/15-04-rodo-monitoring.html"><span class="item-icon">⚖️</span><div class="item-content"><div class="item-title">RODO i monitoring</div><div class="item-desc">Podstawa prawna, informacja, retencja, kodeks pracy, prywatność</div><div class="item-formats"><a class="format-link format-html" href="15-normy-przepisy/15-04-rodo-monitoring.html">HTML</a><a class="format-link format-md" href="15-normy-przepisy/15-04-rodo-monitoring.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+        <div class="section expanded" data-section="przyklady">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📚</span><span class="section-title">16 — Przykłady projektowe</span><span class="section-meta">5 projektów</span></div>
+            <div class="section-description">Kompletne projekty: dom 100 m², mieszkanie, sklep, biuro, garaż-warsztat.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="16-przyklady-projekty/index.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Spis treści sekcji</div></div></a>
+                <a class="item" href="16-przyklady-projekty/16-01-dom-100m2.html"><span class="item-icon">🏡</span><div class="item-content"><div class="item-title">Dom jednorodzinny 100 m²</div><div class="item-desc">Alarm Satel + 6× kamera IP + KD bramka — kompletny projekt</div><div class="item-formats"><a class="format-link format-html" href="16-przyklady-projekty/16-01-dom-100m2.html">HTML</a><a class="format-link format-md" href="16-przyklady-projekty/16-01-dom-100m2.md">MD</a></div></div></a>
+                <a class="item" href="16-przyklady-projekty/16-02-mieszkanie.html"><span class="item-icon">🏢</span><div class="item-content"><div class="item-title">Mieszkanie 50 m²</div><div class="item-desc">Mini-alarm bezprzewodowy, 1-2 kamery IP, wideodomofon IP</div><div class="item-formats"><a class="format-link format-html" href="16-przyklady-projekty/16-02-mieszkanie.html">HTML</a><a class="format-link format-md" href="16-przyklady-projekty/16-02-mieszkanie.md">MD</a></div></div></a>
+                <a class="item" href="16-przyklady-projekty/16-03-sklep.html"><span class="item-icon">🛒</span><div class="item-content"><div class="item-title">Sklep / mała firma</div><div class="item-desc">CCTV anty-kradzieżowe, alarm z monitoringiem agencji, KD</div><div class="item-formats"><a class="format-link format-html" href="16-przyklady-projekty/16-03-sklep.html">HTML</a><a class="format-link format-md" href="16-przyklady-projekty/16-03-sklep.md">MD</a></div></div></a>
+                <a class="item" href="16-przyklady-projekty/16-04-biuro.html"><span class="item-icon">🏛️</span><div class="item-content"><div class="item-title">Biuro średnie 200-500 m²</div><div class="item-desc">Pełen KD z biometria, alarm Grade 2, CCTV 8-16 kamer, SAP</div><div class="item-formats"><a class="format-link format-html" href="16-przyklady-projekty/16-04-biuro.html">HTML</a><a class="format-link format-md" href="16-przyklady-projekty/16-04-biuro.md">MD</a></div></div></a>
+                <a class="item" href="16-przyklady-projekty/16-05-garaz.html"><span class="item-icon">🔧</span><div class="item-content"><div class="item-title">Garaż / warsztat / magazyn</div><div class="item-desc">CCTV z ANPR (brama), alarm zewnętrzny, czujki zalania/CO</div><div class="item-formats"><a class="format-link format-html" href="16-przyklady-projekty/16-05-garaz.html">HTML</a><a class="format-link format-md" href="16-przyklady-projekty/16-05-garaz.md">MD</a></div></div></a>
+            </div></div>
+        </div>
+
+    </div>
+
+    <footer>
+        Monitoring i zabezpieczenia · kompendium 2026 · <a href="../electric/index.html">⟵ Elektryka</a> · <a href="../electronic/index.html">⟵ Elektronika</a>
+    </footer>
+
+    <script>
+        function toggleSection(el){el.parentElement.classList.toggle('expanded')}
+        const sections=document.querySelectorAll('.section');
+        const items=document.querySelectorAll('.item');
+        const input=document.getElementById('searchInput');
+        const filters=document.querySelectorAll('.filter-btn');
+        let activeFilter='all';
+
+        function applyFilters(){
+            const q=input.value.toLowerCase().trim();
+            sections.forEach(sec=>{
+                const matchesFilter=activeFilter==='all'||sec.dataset.section===activeFilter;
+                let anyVisible=false;
+                sec.querySelectorAll('.item').forEach(it=>{
+                    const txt=it.textContent.toLowerCase();
+                    const match=!q||txt.includes(q);
+                    it.classList.toggle('hidden',!match);
+                    if(match) anyVisible=true;
+                });
+                sec.classList.toggle('hidden',!matchesFilter||(q&&!anyVisible));
+                if(q&&anyVisible) sec.classList.add('expanded');
+            });
+        }
+        input.addEventListener('input',applyFilters);
+        filters.forEach(b=>b.addEventListener('click',()=>{
+            filters.forEach(x=>x.classList.remove('active'));
+            b.classList.add('active');
+            activeFilter=b.dataset.filter;
+            applyFilters();
+        }));
+        document.addEventListener('keydown',e=>{
+            if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();input.focus();input.select();}
+        });
+    </script>
+</body>
+</html>

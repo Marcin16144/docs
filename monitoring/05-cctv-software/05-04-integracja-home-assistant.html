@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05-04 — Integracja z Home Assistant</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:8px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:40px;opacity:.8}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">05 Software VMS</a><span class="sep">/</span><span class="title">05-04 Integracja z Home Assistant</span>
+</div>
+<div class="container">
+<h1>Integracja kamer z Home Assistant</h1>
+<p class="subtitle">Karta picture-glance, generic_camera, integracja MQTT z Frigate, automatyzacje (snapshot na ruch, push notification, włącz światło), TTS na intercom.</p>
+<p class="updated">Aktualizacja: 2026-05</p>
+
+<h2>Trzy sposoby dodania kamery do HA</h2>
+<table>
+<thead><tr><th>Metoda</th><th>Trudność</th><th>Funkcjonalność</th></tr></thead>
+<tbody>
+<tr><td><strong>generic_camera</strong></td><td>łatwa</td><td>snapshot JPG + RTSP stream URL</td></tr>
+<tr><td><strong>ONVIF integration</strong></td><td>średnia</td><td>pełne ONVIF — PTZ, eventy, sensory</td></tr>
+<tr><td><strong>Frigate integration (HACS)</strong></td><td>średnia</td><td>AI events, klasy obiektów, automatyczne tworzenie sensorów</td></tr>
+<tr><td><strong>Producent (Reolink, Tapo, UniFi)</strong></td><td>łatwa</td><td>oficjalna integracja, wszystkie features producenta</td></tr>
+</tbody>
+</table>
+
+<h2>Konfiguracja generic_camera</h2>
+<p>Najprostszy sposób na dowolną kamerę z RTSP — wystarczy URL strumienia. Konfiguracja w <code>configuration.yaml</code> lub przez UI (Settings → Devices → Add Integration → Generic Camera).</p>
+<pre><code>camera:
+  - platform: generic
+    name: Brama wjazdowa
+    still_image_url: http://admin:Pass@192.168.1.64/ISAPI/Streaming/channels/101/picture
+    stream_source: rtsp://admin:Pass@192.168.1.64:554/Streaming/Channels/101
+    verify_ssl: false
+    framerate: 5
+    content_type: image/jpeg
+
+  - platform: generic
+    name: Garaz
+    stream_source: rtsp://admin:Pass@192.168.1.65:554/Streaming/Channels/101
+    still_image_url: http://192.168.1.65/cgi-bin/snapshot.cgi?channel=1</code></pre>
+<div class="warning"><strong>Hasło w plain text</strong> w configuration.yaml — używaj <code>!secret</code> i pliku <code>secrets.yaml</code> dla wrażliwych danych.</div>
+
+<h2>Integracja ONVIF</h2>
+<p>UI-driven: Settings → Devices → Add Integration → ONVIF. HA znajdzie kamerę przez WS-Discovery, poprosi o login/hasło, zaimportuje:</p>
+<ul>
+<li><code>camera.brama_wjazdowa</code> — strumień wideo (multiple profiles)</li>
+<li><code>binary_sensor.brama_wjazdowa_motion</code> — detekcja ruchu z ONVIF events</li>
+<li><code>binary_sensor.brama_wjazdowa_tamper</code> — alarm sabotażu (jeśli kamera ma)</li>
+<li>Sterowanie PTZ przez serwis <code>onvif.ptz</code></li>
+</ul>
+
+<h2>Frigate — pełna integracja AI</h2>
+<p>Po instalacji integracji Frigate przez HACS, HA automatycznie tworzy dla każdej kamery zestaw bytów:</p>
+<table>
+<thead><tr><th>Entity</th><th>Co</th></tr></thead>
+<tbody>
+<tr><td><code>camera.&lt;name&gt;</code></td><td>live stream (sub stream)</td></tr>
+<tr><td><code>camera.&lt;name&gt;_person</code></td><td>snapshot ostatniej osoby wykrytej AI</td></tr>
+<tr><td><code>binary_sensor.&lt;name&gt;_person_occupancy</code></td><td>ON gdy osoba w kadrze</td></tr>
+<tr><td><code>sensor.&lt;name&gt;_person_count</code></td><td>liczba osób w polu widzenia</td></tr>
+<tr><td><code>switch.&lt;name&gt;_recordings</code></td><td>włącz/wyłącz nagrywanie</td></tr>
+<tr><td><code>switch.&lt;name&gt;_motion_detection</code></td><td>włącz/wyłącz detekcję</td></tr>
+<tr><td><code>switch.&lt;name&gt;_snapshots</code></td><td>włącz/wyłącz snapshoty</td></tr>
+</tbody>
+</table>
+
+<h2>Karta picture-glance — dashboard</h2>
+<p>Najpopularniejsza karta do podglądu kamer w Lovelace. Pokazuje obraz (snapshot z auto-odświeżeniem co X sekund) + szybkie kontrolki / status sensorów.</p>
+<pre><code>type: picture-glance
+title: Brama wjazdowa
+camera_image: camera.brama_wjazdowa
+camera_view: live
+entities:
+  - entity: binary_sensor.brama_wjazdowa_motion
+    icon: mdi:run-fast
+  - entity: light.brama_lampa
+    icon: mdi:lightbulb
+  - entity: switch.brama_syrena
+    icon: mdi:bell-alert
+tap_action:
+  action: navigate
+  navigation_path: /dashboard-cctv/brama-pelna</code></pre>
+
+<h3>Karta picture-elements (zaawansowana)</h3>
+<p>Pozwala nakładać ikony, etykiety, suwaki na obraz kamery — np. PTZ controls overlay na live stream.</p>
+<pre><code>type: picture-elements
+camera_image: camera.brama_ptz
+camera_view: live
+elements:
+  - type: icon
+    icon: mdi:arrow-up-bold-circle
+    tap_action:
+      action: call-service
+      service: onvif.ptz
+      service_data:
+        entity_id: camera.brama_ptz
+        tilt: UP
+    style:
+      top: 10%
+      left: 50%</code></pre>
+
+<h2>Automatyzacje — przykłady realne</h2>
+
+<h3>1. Snapshot + push, gdy ktoś podejdzie do drzwi (Frigate AI)</h3>
+<pre><code>alias: Snapshot drzwi gdy osoba
+trigger:
+  - platform: mqtt
+    topic: frigate/events
+condition:
+  - condition: template
+    value_template: "{{ trigger.payload_json['after']['camera'] == 'drzwi_front' }}"
+  - condition: template
+    value_template: "{{ trigger.payload_json['after']['label'] == 'person' }}"
+  - condition: template
+    value_template: "{{ trigger.payload_json['type'] == 'new' }}"
+action:
+  - service: camera.snapshot
+    target:
+      entity_id: camera.drzwi_front
+    data:
+      filename: /config/www/snapshots/drzwi_{{ now().strftime('%Y%m%d_%H%M%S') }}.jpg
+  - service: notify.mobile_app_marcin
+    data:
+      title: "Osoba przy drzwiach"
+      message: "Wykryto osobę przed drzwiami wejściowymi"
+      data:
+        image: /local/snapshots/drzwi_{{ now().strftime('%Y%m%d_%H%M%S') }}.jpg
+        actions:
+          - action: SPEAK_INTERCOM
+            title: "Powiedz coś"</code></pre>
+
+<h3>2. Włącz światło na podjeździe wieczorem, gdy ktoś wchodzi</h3>
+<pre><code>alias: Auto światło podjazd
+trigger:
+  - platform: state
+    entity_id: binary_sensor.podjazd_person_occupancy
+    to: "on"
+condition:
+  - condition: sun
+    after: sunset
+    before: sunrise
+  - condition: state
+    entity_id: light.podjazd_lampa
+    state: "off"
+action:
+  - service: light.turn_on
+    target:
+      entity_id: light.podjazd_lampa
+    data:
+      brightness_pct: 100
+  - delay: "00:05:00"
+  - service: light.turn_off
+    target:
+      entity_id: light.podjazd_lampa</code></pre>
+
+<h3>3. Telegram alert z nagraniem klipu (BlueIris)</h3>
+<pre><code>alias: Telegram alarm intruz noc
+trigger:
+  - platform: webhook
+    webhook_id: blueiris_alert
+condition:
+  - condition: time
+    after: "22:00:00"
+    before: "06:00:00"
+action:
+  - service: notify.telegram_bot
+    data:
+      title: "ALARM nocny"
+      message: "Wykryto ruch w strefie {{ trigger.json.zone }}"
+  - service: rest_command.blueiris_get_clip
+    data:
+      camera: "{{ trigger.json.camera }}"
+      duration: 30
+  - delay: "00:00:35"
+  - service: notify.telegram_bot
+    data:
+      message: "Klip:"
+      data:
+        video: "/config/www/clips/{{ trigger.json.camera }}_latest.mp4"</code></pre>
+
+<h3>4. TTS przez intercom kamery (Reolink z głośnikiem)</h3>
+<pre><code>alias: TTS przez intercom
+trigger:
+  - platform: state
+    entity_id: binary_sensor.kurier_dzwonek
+    to: "on"
+action:
+  - service: tts.cloud_say
+    target:
+      entity_id: media_player.reolink_intercom
+    data:
+      message: "Dzień dobry, paczkę proszę zostawić w skrzynce po prawej. Dziękujemy."
+      language: pl-PL</code></pre>
+
+<h2>Notification z obrazem (mobile app)</h2>
+<p>Krytyczne dla użyteczności — push z miniaturą obrazu pozwala szybko zweryfikować, czy alarm prawdziwy bez otwierania aplikacji.</p>
+<pre><code>notify:
+  - platform: mobile_app_marcin
+  data:
+    title: "Brama wjazdowa"
+    message: "Wykryto auto"
+    data:
+      image: "{{ states.camera.brama_wjazdowa.attributes.entity_picture }}"
+      actions:
+        - action: OTWORZ_BRAME
+          title: "Otwórz bramę"
+        - action: ALARM
+          title: "Włącz alarm"</code></pre>
+
+<h2>Optymalizacja wydajności</h2>
+<ul>
+<li><strong>Sub-stream do podglądu</strong> — w karcie picture-glance użyj sub-streama (640×360), nie main-streama. CPU spadnie 10×.</li>
+<li><strong>Limit snapshot refresh</strong> — <code>still_image_refresh: 30</code> zamiast domyślnych 10 s.</li>
+<li><strong>Recording dziej się w Frigate/SS</strong>, HA tylko podgląd live i automatyzacje.</li>
+<li><strong>HA stream</strong> używa HLS — działa wszędzie, ale daje 5–10 s opóźnienia. Dla low-latency użyj WebRTC (custom card go2rtc).</li>
+<li><strong>go2rtc</strong> jako proxy (od HA 2023.x wbudowany w core) zmniejsza opóźnienie do &lt; 1 s i pozwala dzielić strumień między HA, Frigate, mobile.</li>
+</ul>
+
+<h2>Storage i nagrania w HA</h2>
+<div class="callout">Home Assistant <strong>nie jest VMS</strong> — nie nagrywa 24/7. Do tego są dedykowane systemy (Frigate, BlueIris, Synology SS). HA może zapisywać <strong>snapshoty na eventy</strong> i krótkie klipy (do 30 s) przez serwis <code>camera.record</code>.</div>
+
+<pre><code>service: camera.record
+target:
+  entity_id: camera.brama_wjazdowa
+data:
+  filename: /config/www/clips/brama_{{ now().strftime('%Y%m%d_%H%M%S') }}.mp4
+  duration: 30
+  lookback: 5</code></pre>
+
+<h2>Bezpieczeństwo</h2>
+<ul>
+<li><strong>HTTPS</strong> w HA (Let's Encrypt + reverse proxy NGINX) — nie HTTP w sieci lokalnej, nigdy w internecie.</li>
+<li><strong>Kamery w osobnym VLAN</strong> — HA jako proxy z dwoma interfejsami (VLAN cam + VLAN home).</li>
+<li><strong>Nie udostępniaj Lovelace card z kamerą publicznie</strong> — używaj Nabu Casa lub VPN.</li>
+<li><strong>2FA na koncie HA</strong> — niezbędne przy dostępie z zewnątrz.</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="05-03-frigate-blueiris.html">⟵ Frigate, BlueIris, Shinobi</a>
+<a href="../06-alarmy-centrale/index.html">Sekcja 06 — Centrale alarmowe →</a>
+</div>
+</div>
+</body>
+</html>

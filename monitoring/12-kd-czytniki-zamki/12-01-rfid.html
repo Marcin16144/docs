@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>12-01 — Czytniki RFID</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">12 KD: czytniki i zamki</a><span class="sep">/</span><span class="title">12-01 RFID</span>
+</div>
+<div class="container">
+<h1>Czytniki RFID</h1>
+<p class="subtitle">Częstotliwości 125 kHz (EM4100, klonowalny) i 13,56 MHz (Mifare Classic — złamany, DESFire EV1/EV2/EV3 — bezpieczne). Standard ISO 14443. Dystans odczytu 2–10 cm.</p>
+
+<h2>Jak działa RFID</h2>
+<p><strong>RFID</strong> (Radio-Frequency IDentification) to bezprzewodowa identyfikacja na podstawie pola elektromagnetycznego. Czytnik wytwarza pole magnetyczne, w którym indukuje się prąd w karcie/breloku (karta nie ma własnej baterii — to <em>tag pasywny</em>). Karta odpowiada modulując pole własną cewką.</p>
+<pre><code>Czytnik (pole 125 kHz / 13,56 MHz)
+   ↕ pole EM (zasięg 2-10 cm)
+Karta z układem (EM4100 / Mifare / DESFire)
+   - UID (unique ID)
+   - sektory danych (Mifare)
+   - klucze A/B (Mifare)</code></pre>
+<p>Karta wysyła <strong>UID</strong> (unique identifier) — kod identyfikujący. W tańszych systemach KD wystarczy znajomość UID by autoryzować. W zaawansowanych odbywa się dialog kryptograficzny.</p>
+
+<h2>Częstotliwości i standardy</h2>
+<table>
+<thead><tr><th>Pasmo</th><th>Częstotliwość</th><th>Zasięg</th><th>Standard / chip</th></tr></thead>
+<tbody>
+<tr><td>LF (Low Frequency)</td><td>125 / 134 kHz</td><td>2–10 cm</td><td>EM4100, EM4102, HID Prox, T5577</td></tr>
+<tr><td>HF (High Frequency)</td><td>13,56 MHz</td><td>2–10 cm</td><td>Mifare, DESFire, NFC (ISO 14443A/B)</td></tr>
+<tr><td>UHF</td><td>860–960 MHz</td><td>1–10 m</td><td>EPC Gen2 (logistyka, parking)</td></tr>
+<tr><td>NFC</td><td>13,56 MHz</td><td>&lt;5 cm</td><td>NFC Forum, smartfony (Apple/Google Pay)</td></tr>
+</tbody>
+</table>
+
+<h2>Karty 125 kHz — EM4100 i pochodne</h2>
+<p>Najstarszy i najpopularniejszy typ kart w Polsce — często używany w domofonach i prostych systemach KD.</p>
+<ul>
+<li><strong>EM4100 / EM4102</strong> — tylko odczyt, fabrycznie zaprogramowany 40-bitowy UID,</li>
+<li><strong>T5577 / EM4305</strong> — zapisywalne (R/W) — można przeprogramować na dowolny UID,</li>
+<li>brak kryptografii — karta po prostu wysyła swój UID w czystym tekście,</li>
+<li>format Wieganda 26-bit (najpopularniejszy): 1 b parzystości + 8 b facility code + 16 b card number + 1 b parzystości.</li>
+</ul>
+
+<div class="warning"><strong>Bezpieczeństwo: ZNIKOME.</strong> Karta EM4100 to po prostu liczba w eter. Klonowanie:
+<ul>
+<li>czytnik klonujący (np. <code>Proxmark3</code>, <code>iCopy-X</code>) za 200 zł odczyta UID,</li>
+<li>karta T5577 za <strong>10 zł</strong> umożliwia zapisanie tego UID,</li>
+<li>czas operacji: 30 s. Bez wiedzy ofiary.</li>
+</ul>
+Karty 125 kHz nadają się tylko do <strong>niskoryzykowych zastosowań</strong>: identyfikacja w bibliotece, dostęp do siłowni, baseny — gdzie konsekwencja klonowania jest niewielka.</div>
+
+<h2>Karty 13,56 MHz — Mifare</h2>
+<p>Rodzina chipów NXP (dawniej Philips) — najpopularniejsza w średnich i poważnych instalacjach KD.</p>
+
+<h3>Mifare Classic 1K / 4K</h3>
+<ul>
+<li>pamięć 1 KB lub 4 KB w sektorach po 16 B,</li>
+<li>każdy sektor chroniony parą kluczy A/B (6 B każdy),</li>
+<li>algorytm szyfrowania <strong>Crypto-1</strong> (własność NXP),</li>
+<li><strong>od 2008 r. ZŁAMANE</strong>: opublikowane ataki Nohl/Plötz/Starbug, w 2009 Garcia et al. „Dismantling MIFARE Classic".</li>
+</ul>
+<p>Atak: w 1–5 sekund kontaktu z kartą można <strong>wyciągnąć wszystkie 32 klucze sektorowe</strong>. Implementowane w narzędziach: <code>mfoc</code>, <code>mfcuk</code>, <code>Proxmark3</code>, aplikacjach na telefon (<code>MIFARE Classic Tool</code> na NFC).</p>
+
+<div class="warning">Mifare Classic <strong>nie powinien być stosowany w nowych instalacjach KD</strong>. Niestety nadal masowo używany w Polsce w komunikacji miejskiej (karta MZK, ZTM Warszawa do 2015), wejściach na osiedla. Klonowanie karty w taksówce: 30 zł i 2 minuty pracy.</div>
+
+<h3>Mifare DESFire EV1 / EV2 / EV3</h3>
+<p>Wprowadzone jako odpowiedź na atak na Classic. Cechy:</p>
+<ul>
+<li>algorytm <strong>3DES, AES-128</strong> (EV2/EV3 — silniejsze),</li>
+<li>do 28 aplikacji na karcie, każda z 32 plikami,</li>
+<li>protokół wzajemnego uwierzytelnienia czytnik-karta (3-pass authentication),</li>
+<li>EV2 wprowadził <strong>Secure Messaging</strong> i ochronę przed atakiem relay,</li>
+<li>EV3 (2020) — dodatkowy klucz tranzytowy, lepsza odporność na ataki bocznokanałowe (DPA — Differential Power Analysis).</li>
+</ul>
+<p><strong>Status bezpieczeństwa 2026:</strong> brak praktycznych ataków. DESFire EV2/EV3 to <strong>standard dla średnio-wysokich wymagań</strong> (biurowce, urzędy, banki).</p>
+
+<h3>Mifare Plus</h3>
+<p>„Pomost" między Classic a DESFire — kompatybilność wstecz z infrastrukturą Mifare Classic, ale z silnym szyfrowaniem AES. Stosowane gdy migracja: nowe karty Plus + stare czytniki, potem stopniowa wymiana czytników.</p>
+
+<h2>Inne standardy 13,56 MHz</h2>
+<ul>
+<li><strong>iCLASS / iCLASS SE</strong> (HID Global) — algorytm 3DES, popularny w USA i korporacjach międzynarodowych, certyfikat FIPS 201,</li>
+<li><strong>LEGIC advant / NeXT</strong> (Kaba) — szwajcarski standard, najwyższa klasa bezpieczeństwa, popularny w Niemczech i banków,</li>
+<li><strong>FeliCa</strong> (Sony) — popularny w Azji (Suica, Pasmo), bardzo szybki odczyt,</li>
+<li><strong>NFC ISO 14443A</strong> — telefon jako karta (Apple Pay, Google Pay, też niektóre systemy KD jak HID Mobile Access, Salto KS).</li>
+</ul>
+
+<h2>Format Wieganda i transmisja do kontrolera</h2>
+<p>Czytnik komunikuje się z kontrolerem KD najczęściej protokołem <strong>Wiegand</strong>:</p>
+<ul>
+<li>Wiegand 26-bit — najpopularniejszy, ale ograniczony do 65 536 kart/facility,</li>
+<li>Wiegand 32/34/37 bit — większe pojemności,</li>
+<li>maks. długość kabla 150 m (dwie żyły data0, data1 + GND + zasilanie 12 V),</li>
+<li>protokół „bitstream" — bity przekazywane impulsami niskimi na D0 lub D1.</li>
+</ul>
+<p>Nowocześniejsze alternatywy:</p>
+<ul>
+<li><strong>OSDP</strong> (Open Supervised Device Protocol, SIA) — RS-485, szyfrowanie AES, autoryzacja czytnika, długi kabel (1200 m), sterowanie LED/buzzer z kontrolera,</li>
+<li><strong>RS-485 (Modbus, własne)</strong> — np. Roger RACS5, Satel ABAX,</li>
+<li><strong>TCP/IP / PoE</strong> — czytniki sieciowe (Hikvision, Suprema, ZKTeco) — komunikacja przez sieć.</li>
+</ul>
+
+<div class="callout">Wiegand to przestarzały protokół z lat 80. (brak szyfrowania, podatny na sniffing kabla). Nowe instalacje powinny używać <strong>OSDP v2.2</strong> z włączoną opcją <em>Secure Channel</em> (SCBK — Secure Channel Base Key, AES-128).</div>
+
+<h2>Typy obudów czytników</h2>
+<table>
+<thead><tr><th>Typ</th><th>Zastosowanie</th><th>Przykład</th></tr></thead>
+<tbody>
+<tr><td>Wąski (mullion)</td><td>do framugi szklanej, drzwi przesuwne</td><td>HID iCLASS R10, Roger PRT12LT</td></tr>
+<tr><td>Standardowy (pad)</td><td>obok drzwi, ścianka biurowa</td><td>HID Signo 20, Suprema BioStation</td></tr>
+<tr><td>Wandaloodporny (IK10)</td><td>na zewnątrz, miejsca publiczne</td><td>Roger PRT82MF, Hikvision DS-K1102M</td></tr>
+<tr><td>Z klawiaturą</td><td>2FA — karta + PIN</td><td>Roger PRT64MF, Satel ACCO-KP</td></tr>
+<tr><td>Multi-tech</td><td>obsługa kilku częstotliwości naraz</td><td>HID Signo 40, ELATEC TWN4</td></tr>
+</tbody>
+</table>
+
+<h2>Bezpieczeństwo i dobre praktyki</h2>
+<ul>
+<li><strong>NIE używać 125 kHz EM4100</strong> w nowych instalacjach,</li>
+<li><strong>NIE używać Mifare Classic</strong> tam, gdzie liczy się bezpieczeństwo,</li>
+<li>standardem nowoczesnym jest <strong>DESFire EV2/EV3 + OSDP Secure Channel</strong>,</li>
+<li>2FA dla obiektów wysokiego ryzyka: karta + PIN lub karta + biometria,</li>
+<li>klucze sektorowe DESFire trzymać poza systemem produkcyjnym (HSM — Hardware Security Module),</li>
+<li>rotacja kluczy co 2–3 lata,</li>
+<li>rejestrowanie wszystkich prób dostępu (sukces/błąd), powiadomienia przy podejrzanej aktywności.</li>
+</ul>
+
+<h2>Klonowanie i ochrona</h2>
+<p>Narzędzia ataku:</p>
+<ul>
+<li><strong>Proxmark3</strong> — Szwajcarski kombajn, ~600 zł, obsługa praktycznie wszystkich standardów,</li>
+<li><strong>Flipper Zero</strong> — popularne narzędzie hobbystów, 700 zł,</li>
+<li><strong>iCopy-X</strong> — komercyjny klon-narzędzie z ekranem, ~1500 zł,</li>
+<li><strong>aplikacje NFC na Android</strong> — np. <em>MIFARE Classic Tool</em>, NFC TagInfo (darmo).</li>
+</ul>
+<p>Ochrona przed klonowaniem:</p>
+<ul>
+<li>portfele/etui RFID-blocking (folia metalowa) — zatrzymują skimming z odległości,</li>
+<li>karta z PIN (2FA),</li>
+<li>monitoring nieautoryzowanych prób użycia tej samej karty w różnych miejscach (anti-passback).</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="index.html">⟵ Spis sekcji 12</a>
+<a href="12-02-biometria.html">Biometria →</a>
+</div>
+</div>
+</body>
+</html>

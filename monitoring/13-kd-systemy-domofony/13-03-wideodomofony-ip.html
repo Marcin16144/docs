@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>13-03 — Wideodomofony IP i 2-wire</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:8px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:40px;opacity:.8}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">13 Kontrola dostępu i domofony</a><span class="sep">/</span><span class="title">13-03 Wideodomofony IP i 2-wire</span>
+</div>
+<div class="container">
+<h1>Wideodomofony IP i 2-wire</h1>
+<p class="subtitle">Wideodomofon 2-żyłowy cyfrowy vs IP (LAN/PoE). Integracja ze smartfonem (Hik-Connect, DMSS Dahua), protokół SIP i serwery SIP. Marki: Hikvision (DS-KD/KH/KV), Dahua (VTO/VTH), Vidos Duo, Akuvox, Fanvil, BAS-IP. Nagrywanie gości, integracja z CCTV i KD, otwieranie bramy + furtki.</p>
+<p class="updated">Aktualizacja: 2026-05</p>
+
+<h2>2-wire vs IP — dwie filozofie</h2>
+<p>Współczesne wideodomofony budowane są w dwóch architekturach. <strong>2-wire</strong> (2-żyłowy cyfrowy) to magistrala dwuprzewodowa niosąca zasilanie, wideo, audio i dane — bezpośrednia ewolucja domofonów analogowych, idealna do modernizacji. <strong>IP</strong> to urządzenia sieciowe komunikujące się po LAN (zwykle <strong>PoE</strong>), traktowane jak kamery i monitory w sieci komputerowej.</p>
+<table>
+<thead><tr><th>Cecha</th><th>2-wire (2-żyłowy cyfrowy)</th><th>IP (LAN / PoE)</th></tr></thead>
+<tbody>
+<tr><td>Medium</td><td>2 żyły (magistrala firmowa)</td><td>skrętka Cat5e/6, switch PoE</td></tr>
+<tr><td>Zasilanie</td><td>z magistrali / zasilacza systemu</td><td>PoE (802.3af/at) lub zasilacz</td></tr>
+<tr><td>Skalowalność</td><td>ograniczona (system jednego producenta)</td><td>bardzo wysoka (adresacja IP, sieć)</td></tr>
+<tr><td>Integracja z CCTV/KD</td><td>w obrębie ekosystemu</td><td>natywna (ONVIF, SIP, NVR, VMS)</td></tr>
+<tr><td>Modernizacja istniejących żył</td><td>łatwa (reużycie 2 żył)</td><td>wymaga doprowadzenia skrętki</td></tr>
+<tr><td>Koszt wejścia</td><td>niższy</td><td>wyższy (switch PoE, infrastruktura)</td></tr>
+<tr><td>Najlepsze do</td><td>dom, mała wielorodzinka, remont</td><td>biura, osiedla, integracja z monitoringiem</td></tr>
+</tbody>
+</table>
+<div class="tip">Producenci tacy jak Hikvision i Dahua oferują <strong>oba warianty</strong> i konwertery 2-wire↔IP, więc można zacząć od 2-wire, a później wpiąć system w sieć IP bez wymiany całości.</div>
+
+<h2>Wideodomofony IP — parametry panelu</h2>
+<p>Panel IP (zewnętrzny) to w praktyce kamera sieciowa z interkomem. Najważniejsze parametry:</p>
+<ul>
+<li><strong>Zasilanie PoE</strong> — jeden kabel Cat5e/6 niesie zasilanie i dane; klasa <em>802.3af</em> (do 15,4 W) lub <em>802.3at/PoE+</em> (do 30 W, dla paneli z podgrzewaniem/dużym IR).</li>
+<li><strong>Rozdzielczość kamery</strong> — minimum <strong>2 MP (1080p)</strong>, w lepszych modelach 4 MP; szeroki zakres dynamiki <em>WDR</em> przy ostrym świetle za plecami gościa.</li>
+<li><strong>Praca nocna (IR)</strong> — diody podczerwieni do kilku metrów, by rozpoznać twarz po zmroku.</li>
+<li><strong>Kąt widzenia</strong> — szeroki (np. 120–180°, czasem „rybie oko"), by objąć całą sylwetkę gościa z bliska.</li>
+<li><strong>Wandaloodporność IK</strong> — klasa <strong>IK08–IK10</strong> dla paneli narażonych na uderzenia (klatki, ulica) oraz szczelność <strong>IP65/IP66</strong> na zewnątrz.</li>
+</ul>
+
+<h2>Integracja ze smartfonem</h2>
+<p>Kluczowa zaleta wideodomofonów IP/2-wire nowej generacji — odbiór wizyty na telefonie z dowolnego miejsca. Każdy ekosystem ma własną aplikację:</p>
+<table>
+<thead><tr><th>Producent</th><th>Aplikacja</th><th>Funkcje</th></tr></thead>
+<tbody>
+<tr><td>Hikvision</td><td><strong>Hik-Connect</strong></td><td>powiadomienie push o wywołaniu, rozmowa audio/wideo na żywo, zdalne otwarcie zamka, podgląd kamery panelu, historia wizyt</td></tr>
+<tr><td>Dahua</td><td><strong>DMSS</strong></td><td>j.w. + integracja z urządzeniami Dahua (NVR, alarm), wiele paneli/monitorów</td></tr>
+<tr><td>Akuvox</td><td><strong>Akuvox SmartPlus</strong> (chmura SIP)</td><td>SIP w chmurze, zarządzanie wielomieszkaniowe, czasowe kody/QR dla gości</td></tr>
+<tr><td>BAS-IP</td><td><strong>BAS-IP Intercom / Link</strong></td><td>chmura SIP, zarządzanie osiedlem, integracja z systemami zarządzania budynkiem</td></tr>
+</tbody>
+</table>
+<p>Typowy scenariusz: gość naciska przycisk → panel dzwoni jednocześnie na monitory wewnętrzne <strong>i</strong> na smartfony domowników (push) → odbierasz rozmowę z telefonu, widzisz gościa i naciskasz „otwórz" niezależnie czy jesteś w domu, czy w pracy.</p>
+<div class="callout">Powiadomienia push wymagają działającego internetu i konta w chmurze producenta (Hik-Connect/DMSS są darmowe). Dla niezawodności łącza warto mieć UPS na routerze/switchu PoE — przy zaniku prądu panel i sieć przestaną działać.</div>
+
+<h2>Protokół SIP</h2>
+<p><strong>SIP</strong> (Session Initiation Protocol) to otwarty standard telefonii VoIP wykorzystywany w profesjonalnych wideodomofonach IP. Pozwala uniezależnić się od chmury jednego producenta i zbudować rozproszony system z wieloma monitorami, centralami i telefonami.</p>
+<ul>
+<li><strong>Wiele monitorów / urządzeń</strong> — jedno wywołanie z panelu dzwoni równolegle na wszystkie zarejestrowane „rozszerzenia" SIP (monitory, telefony VoIP, softphone na PC).</li>
+<li><strong>Serwer SIP (PBX)</strong> — np. <em>Asterisk</em>, <em>FreePBX</em>, <em>3CX</em> lub wbudowany w panel/monitor mini-SIP; zarządza rejestracją i zestawianiem połączeń.</li>
+<li><strong>Integracja z centralami</strong> — wideodomofon staje się jednym z numerów wewnętrznych firmowej centrali telefonicznej; recepcja odbiera wizytę na telefonie biurkowym.</li>
+<li><strong>Interoperacyjność</strong> — panele Akuvox, Fanvil, BAS-IP są w pełni SIP-owe, więc mogą współpracować z urządzeniami różnych producentów (w przeciwieństwie do zamkniętych systemów 2-wire).</li>
+</ul>
+<pre><code># Przykład rejestracji panelu IP jako klienta SIP (FreePBX/Asterisk)
+Extension / numer:   201
+Hasło SIP:           ********
+Serwer (PBX):        192.168.1.10
+Transport:           UDP 5060 (lub TLS 5061 dla szyfrowania)
+Wywołanie panelu →   dzwoni 201 -> grupa: 301 (monitor), 302 (telefon), softphone</code></pre>
+
+<h2>Marki — modele i ceny 2026</h2>
+<table>
+<thead><tr><th>Marka / linia</th><th>Przykładowy model</th><th>Opis</th><th>Cena (2026)</th></tr></thead>
+<tbody>
+<tr><td><strong>Hikvision</strong> DS-KD (panel)</td><td>DS-KD8003-IME1</td><td>panel IP modułowy 2 MP, PoE, czytnik Mifare, wandaloodporny</td><td>~950 zł</td></tr>
+<tr><td>Hikvision DS-KH (monitor)</td><td>DS-KH6320-WTE1</td><td>monitor IP 7", dotykowy, Wi-Fi, Hik-Connect</td><td>~780 zł</td></tr>
+<tr><td>Hikvision DS-KV (panel kompakt.)</td><td>DS-KV6113-WPE1(C)</td><td>panel IP jednorodzinny 2 MP, natynkowy, PoE</td><td>~620 zł</td></tr>
+<tr><td><strong>Dahua</strong> VTO (panel)</td><td>VTO2211G-P</td><td>panel IP 2 MP, PoE, czytnik kart, IK08</td><td>~700 zł</td></tr>
+<tr><td>Dahua VTH (monitor)</td><td>VTH2622GW-P</td><td>monitor IP 7" dotykowy, PoE, DMSS</td><td>~720 zł</td></tr>
+<tr><td><strong>Vidos Duo</strong> (2-wire)</td><td>Vidos Duo zestaw S1102D-2 + M1023</td><td>polski system 2-żyłowy, panel + monitor 7"</td><td>~1300 zł (zestaw)</td></tr>
+<tr><td><strong>Akuvox</strong></td><td>R29C / R20B</td><td>panel SIP z czytnikiem (R29) / kompaktowy SIP (R20B)</td><td>~1200–2400 zł</td></tr>
+<tr><td><strong>Fanvil</strong></td><td>i30 / i64</td><td>panele SIP wideo, dobra integracja z PBX</td><td>~900–1600 zł</td></tr>
+<tr><td><strong>BAS-IP</strong></td><td>AV-08FB / AQ-07</td><td>panel SIP + monitor 7" Android, systemy osiedlowe</td><td>~1500–3000 zł</td></tr>
+</tbody>
+</table>
+
+<h2>Funkcje zaawansowane</h2>
+<h3>Nagrywanie gości</h3>
+<ul>
+<li><strong>Snapshot przy wywołaniu</strong> — automatyczne zdjęcie gościa, gdy nikt nie odbierze (zapisane na karcie microSD monitora lub na NVR).</li>
+<li><strong>Wideo na żądanie</strong> — nagranie rozmowy/podglądu na karcie w monitorze lub strumień do rejestratora.</li>
+<li><strong>Zapis na NVR</strong> — panel IP traktowany jak kamera ONVIF i nagrywany 24/7 na rejestratorze sieciowym (ślad zdarzeń przy furtce).</li>
+</ul>
+
+<h3>Integracja z CCTV i KD</h3>
+<ul>
+<li><strong>Podgląd kamer CCTV na monitorze domofonu</strong> — monitory Hikvision/Dahua wyświetlają obraz z kamer IP w sieci (np. brama, podwórko) obok obrazu z panelu.</li>
+<li><strong>Wspólny ekosystem KD</strong> — panel z wbudowanym czytnikiem Mifare pełni rolę przejścia kontroli dostępu; zdarzenia trafiają do platformy producenta.</li>
+<li><strong>Zdarzenie → nagranie</strong> — wywołanie/otwarcie wyzwala znacznik na NVR (jak w rozdz. 13-01).</li>
+</ul>
+
+<h3>Otwieranie bramy i furtki — 2 przekaźniki</h3>
+<p>Większość paneli IP/2-wire ma <strong>dwa wyjścia przekaźnikowe (relay)</strong>, co pozwala niezależnie sterować dwoma elementami: <em>relay 1 → furtka (elektrozaczep)</em>, <em>relay 2 → brama wjazdowa (sterownik napędu)</em>. Na monitorze i w aplikacji pojawiają się wtedy dwa osobne przyciski otwarcia.</p>
+<div class="warning">Wyjścia przekaźnikowe są zwykle <strong>beznapięciowe (suchy styk)</strong> — nie zasilają zaczepu bezpośrednio. Zaczep/zworę zasil z osobnego zasilacza, a przekaźnik użyj tylko do zwarcia obwodu. Sprawdź obciążalność styku (np. 30 V / 2 A) i dobierz odpowiednie napięcie elementu wykonawczego.</div>
+
+<h2>Okablowanie i monitor wewnętrzny</h2>
+<ul>
+<li><strong>Kabel:</strong> dla IP — <strong>skrętka Cat5e/Cat6</strong> (PoE), prowadzenie jak w sieci LAN; dla 2-wire — przewód zalecany przez producenta (często skrętka lub dedykowany 2-żyłowy).</li>
+<li><strong>Switch PoE</strong> — zasila panel i monitory PoE; dla kilku urządzeń wybierz switch z zapasem mocy (budżet PoE) i ewentualnie zarządzalny (VLAN dla domofonu).</li>
+<li><strong>Monitor wewnętrzny</strong> — dotykowy ekran <strong>7"–10"</strong>, montaż natynkowy; funkcje: rozmowa głośnomówiąca, otwieranie 2 wyjść, podgląd kamer, interkom między monitorami, ustawienia push.</li>
+<li><strong>Zasięg:</strong> standard Ethernet to <strong>100 m</strong> na segment skrętki; dla dłuższych tras stosuj switche pośrednie / ekstendery PoE.</li>
+</ul>
+<div class="tip">Dla systemu IP warto wydzielić domofon w osobnym <strong>VLAN-ie</strong> i podać statyczne adresy IP panelom/monitorom — ułatwia to diagnostykę i izoluje ruch od reszty sieci domowej/firmowej.</div>
+
+<div class="nav-bottom">
+<a href="13-02-domofony.html">⟵ 13-02 Domofony</a>
+<a href="index.html">Kontrola dostępu i domofony →</a>
+</div>
+</div>
+</body>
+</html>

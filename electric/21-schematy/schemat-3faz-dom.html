@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schemat instalacji 3-fazowej — dom z pompą ciepła i ładowarką EV</title>
+    <style>
+        :root{
+            --bg:#0f172a;--surface:#1e293b;--surface-hover:#283649;--border:#334155;
+            --text:#e2e8f0;--text-muted:#94a3b8;--accent:#fbbf24;--accent-hover:#fcd34d;
+            --green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;
+            --mod-main:#1e40af;--mod-rcd:#166534;--mod-cb:#7f1d1d;--mod-spd:#78350f;--mod-free:#374151;
+            --l1:#9a3412;--l2:#1e293b;--l3:#374151;
+            --col-l1:#fb923c;--col-l2:#9ca3af;--col-l3:#1e40af;--col-n:#3b82f6;--col-pe:#16a34a;
+        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+
+        /* TOPBAR */
+        .topbar{
+            position:sticky;top:0;z-index:100;
+            background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);
+            border-bottom:1px solid var(--border);
+            padding:14px 20px;
+            display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+        }
+        .topbar a.back{color:var(--text-muted);text-decoration:none;font-size:.85rem;border:1px solid var(--border);border-radius:6px;padding:4px 12px;transition:all .15s;white-space:nowrap}
+        .topbar a.back:hover{color:var(--accent);border-color:var(--accent)}
+        .topbar h1{font-size:1.15rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;flex:1;min-width:200px}
+        .topbar .badge{font-size:.72rem;color:var(--text-muted);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:2px 8px;white-space:nowrap}
+
+        /* CONTAINER */
+        .container{max-width:1100px;margin:0 auto;padding:28px 20px 80px}
+
+        /* SECTION TITLE */
+        .section-title{font-size:1.05rem;font-weight:700;color:var(--accent);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+
+        /* INFO GRID */
+        .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:28px}
+        .info-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+        .info-box .label{font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+        .info-box .value{font-size:1rem;font-weight:700;color:var(--accent)}
+        .info-box .sub{font-size:.72rem;color:var(--text-muted);margin-top:2px}
+
+        /* INFO BOX (kiedy 3F) */
+        .infobox{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:28px}
+        .infobox-header{font-size:.88rem;font-weight:700;color:var(--accent);margin-bottom:10px}
+        .infobox ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+        .infobox ul li{display:flex;gap:8px;align-items:baseline;font-size:.83rem;color:var(--text)}
+        .infobox ul li::before{content:"✦";color:var(--accent);font-size:.65rem;flex-shrink:0;margin-top:3px}
+
+        /* DISTRIBUTION BOARD */
+        .board-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+        .board-inner{background:#0d1b2e;border:2px solid #1e40af;border-radius:8px;padding:16px;max-width:900px;margin:0 auto}
+        .board-label{font-size:.7rem;color:var(--text-muted);text-align:center;margin-bottom:12px;letter-spacing:.08em;text-transform:uppercase}
+
+        .rail-row{display:flex;flex-direction:column;margin-bottom:4px}
+        .rail-bar{height:3px;background:linear-gradient(90deg,#475569,#64748b,#475569);border-radius:2px;margin:6px 8px}
+        .modules-row{display:flex;flex-wrap:wrap;gap:4px;padding:0 4px;align-items:flex-end}
+        .module{border-radius:4px;padding:5px 4px;font-size:.60rem;text-align:center;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:default;transition:filter .15s}
+        .module:hover{filter:brightness(1.2)}
+        .module .mname{font-size:.62rem;font-weight:700;line-height:1.1}
+        .module .mval{font-size:.55rem;font-weight:400;opacity:.85}
+        .module .mtype{font-size:.52rem;opacity:.7}
+        .mod-w1{min-width:38px;width:38px}
+        .mod-w2{min-width:80px;width:80px}
+        .mod-w3{min-width:122px;width:122px}
+        .mod-w4{min-width:164px;width:164px}
+        .mod-main{background:#1e40af;color:#bfdbfe;border:1px solid #3b82f6}
+        .mod-rcd{background:#166534;color:#bbf7d0;border:1px solid #4ade80}
+        .mod-cb-b{background:#7f1d1d;color:#fecaca;border:1px solid #f87171}
+        .mod-cb-c{background:#7c2d12;color:#fed7aa;border:1px solid #fb923c}
+        .mod-spd{background:#78350f;color:#fde68a;border:1px solid #fbbf24}
+        .mod-free{background:#374151;color:#9ca3af;border:1px solid #4b5563}
+        .mod-meter{background:#312e81;color:#c7d2fe;border:1px solid #818cf8}
+        .mod-3p{background:#1e3a5f;color:#bae6fd;border:1px solid #0ea5e9}
+        .rcd-group{border:1px dashed rgba(74,222,128,.3);border-radius:6px;padding:6px;margin:4px 0}
+        .rcd-group-label{font-size:.55rem;color:#4ade80;margin-bottom:4px;padding-left:2px;opacity:.7}
+        .bus-row{display:flex;gap:6px;padding:8px 4px 0;align-items:center;flex-wrap:wrap}
+        .bus{height:6px;flex:1;min-width:40px;border-radius:3px}
+        .bus-l1{background:linear-gradient(90deg,#92400e,#b45309)}
+        .bus-l2{background:linear-gradient(90deg,#374151,#4b5563)}
+        .bus-l3{background:linear-gradient(90deg,#1e3a5f,#1e40af)}
+        .bus-n{background:linear-gradient(90deg,#1e40af,#2563eb)}
+        .bus-pe{background:linear-gradient(90deg,#166534,#16a34a)}
+        .bus-label{font-size:.6rem;color:var(--text-muted);white-space:nowrap}
+
+        /* PHASE LEGEND */
+        .phase-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+        .phase-dot{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--text-muted)}
+        .pdot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+
+        /* TABLES */
+        .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px;overflow-x:auto}
+        table{width:100%;border-collapse:collapse;font-size:.82rem}
+        thead tr{background:#1a2840}
+        th{padding:10px 12px;text-align:left;color:var(--accent);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border)}
+        td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+        tbody tr:nth-child(even){background:rgba(255,255,255,.025)}
+        tbody tr:hover{background:rgba(251,191,36,.04)}
+        .tag{display:inline-block;font-size:.68rem;padding:2px 7px;border-radius:4px;font-weight:600}
+        .tag-b{background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3)}
+        .tag-c{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3)}
+        .tag-3p{background:rgba(14,165,233,.15);color:#38bdf8;border:1px solid rgba(14,165,233,.3)}
+        .ph{display:inline-block;font-size:.65rem;padding:1px 6px;border-radius:3px;font-weight:700}
+        .ph-l1{background:rgba(234,88,12,.15);color:#fb923c}
+        .ph-l2{background:rgba(100,116,139,.15);color:#94a3b8}
+        .ph-l3{background:rgba(30,64,175,.2);color:#60a5fa}
+        .ph-3f{background:rgba(14,165,233,.12);color:#38bdf8}
+
+        /* BALANCE TABLE */
+        .balance-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+        .balance-3f{overflow-x:auto}
+
+        /* BALANCED LOAD SECTION */
+        .balance-explain{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+        .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+        .compare-box{background:#0d1b2e;border-radius:8px;padding:14px}
+        .compare-box .c-title{font-size:.78rem;font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+        .compare-box.bad .c-title{color:#f87171}
+        .compare-box.good .c-title{color:#4ade80}
+        .ph-bar-wrap{display:flex;flex-direction:column;gap:6px}
+        .ph-bar-row{display:flex;align-items:center;gap:8px}
+        .ph-bar-label{font-size:.68rem;width:24px;font-weight:700}
+        .ph-bar-track{flex:1;background:rgba(255,255,255,.05);border-radius:3px;height:14px;overflow:hidden}
+        .ph-bar-fill{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:4px;font-size:.58rem;font-weight:700;color:rgba(255,255,255,.8)}
+        .ph-bar-val{font-size:.68rem;color:var(--text-muted);width:44px;text-align:right}
+        .ph-bar-L1{background:#b45309}
+        .ph-bar-L2{background:#4b5563}
+        .ph-bar-L3{background:#1e40af}
+        .neutral-note{margin-top:10px;font-size:.74rem;color:var(--text-muted);padding:8px;background:rgba(255,255,255,.03);border-radius:4px;border-left:3px solid var(--border)}
+        .neutral-note.bad{border-left-color:#f87171}
+        .neutral-note.good{border-left-color:#4ade80}
+
+        /* WIRING DIAGRAM */
+        .wiring-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+        .wiring-diagram{background:#0d1b2e;border-radius:8px;padding:16px;max-width:720px;margin:0 auto}
+        .wiring-row{display:flex;align-items:center;gap:0;margin:6px 0}
+        .w-box{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:.75rem;text-align:center;white-space:nowrap}
+        .w-box.accent{border-color:var(--accent);color:var(--accent);font-weight:700}
+        .w-box.blue{border-color:#3b82f6;color:#60a5fa;font-weight:700}
+        .w-box.green{border-color:#16a34a;color:#4ade80;font-weight:700}
+        .w-box.orange{border-color:#b45309;color:#fb923c;font-weight:700}
+        .w-box.purple{border-color:#7c3aed;color:#a78bfa;font-weight:700}
+        .w-wire{flex:1;display:flex;flex-direction:column;gap:3px;padding:0 4px}
+        .w-wire-line{height:2px;border-radius:1px}
+        .wl1{background:#b45309}
+        .wl2{background:#4b5563}
+        .wl3{background:#1e40af}
+        .wn{background:#2563eb}
+        .wpe{background:#16a34a}
+        .wlabel{font-size:.55rem;text-align:center;color:var(--text-muted);margin-top:2px}
+
+        /* EV DIAGRAM */
+        .ev-notes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+        .ev-note{background:#0d1b2e;border-radius:6px;padding:10px 12px;font-size:.78rem;border-left:3px solid var(--border)}
+        .ev-note .title{font-size:.7rem;font-weight:700;margin-bottom:4px}
+
+        /* NOTES */
+        .notes-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+        .note-list{list-style:none;display:flex;flex-direction:column;gap:8px}
+        .note-list li{display:flex;gap:10px;align-items:flex-start;font-size:.84rem;padding:9px 12px;background:#0d1b2e;border-radius:6px;border-left:3px solid var(--accent)}
+        .note-list li .icon{font-size:1rem;flex-shrink:0;margin-top:1px}
+        .note-list li .text{color:var(--text)}
+        .note-list li strong{color:var(--accent)}
+
+        /* NAV BOTTOM */
+        .nav-bottom{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-top:1px solid var(--border);margin-top:10px;flex-wrap:wrap;gap:10px}
+        .nav-bottom a{color:var(--text-muted);text-decoration:none;font-size:.87rem;border:1px solid var(--border);border-radius:8px;padding:8px 18px;transition:all .15s;display:flex;align-items:center;gap:6px}
+        .nav-bottom a:hover{color:var(--accent);border-color:var(--accent);background:rgba(251,191,36,.06)}
+
+        /* WARNING */
+        .warning{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:10px;padding:12px 16px;font-size:.82rem;color:var(--text);margin-bottom:24px}
+        .warning strong{color:#f87171}
+
+        @media(max-width:700px){
+            .topbar h1{font-size:.95rem}
+            .compare-grid{grid-template-columns:1fr}
+            .ev-notes{grid-template-columns:1fr}
+            .modules-row{gap:3px}
+            .mod-w1{min-width:34px;width:34px}
+            .mod-w2{min-width:72px;width:72px}
+        }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <a class="back" href="../index.html">&#8592; Kompendium</a>
+    <h1>Schemat instalacji 3-fazowej — dom z pompą ciepła i ładowarką EV</h1>
+    <span class="badge">TN-S · 400 V · 3L+N+PE</span>
+</div>
+
+<div class="container">
+
+    <div class="warning">
+        <strong>&#9888; Uwaga:</strong> Schemat ma charakter poglądowy i dydaktyczny. Instalacje 3-fazowe, szczególnie z ładowarką EV i pompą ciepła, wymagają uprawnień SEP G1. Zawsze sprawdzaj kolejność faz miernikiem przed podłączeniem silników i pomp ciepła.
+    </div>
+
+    <!-- INFO GRID -->
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="label">Fazy</div>
+            <div class="value">3</div>
+            <div class="sub">3L + N + PE (5 żył)</div>
+        </div>
+        <div class="info-box">
+            <div class="label">Moc zainstalowana</div>
+            <div class="value">22 kW</div>
+            <div class="sub">+ rezerwa ~4 kW</div>
+        </div>
+        <div class="info-box">
+            <div class="label">Obwodów</div>
+            <div class="value">16</div>
+            <div class="sub">12 × 1-faz + 4 × 3-faz</div>
+        </div>
+        <div class="info-box">
+            <div class="label">Zabezpieczenie główne</div>
+            <div class="value">S303 C40A</div>
+            <div class="sub">3P+N, char. C, Icn 10kA</div>
+        </div>
+        <div class="info-box">
+            <div class="label">Kabel zasilający</div>
+            <div class="value">YDY 5×16</div>
+            <div class="sub">mm², Iz=80A (w ziemi)</div>
+        </div>
+        <div class="info-box">
+            <div class="label">Układ sieci</div>
+            <div class="value">TN-S</div>
+            <div class="sub">N i PE oddzielone od rozdzielnicy operatora</div>
+        </div>
+    </div>
+
+    <!-- KIEDY INSTALACJA 3F? -->
+    <div class="section-title">&#128161; Kiedy instalacja 3-fazowa?</div>
+    <div class="infobox">
+        <div class="infobox-header">Instalacja 3-fazowa jest wymagana lub wskazana gdy:</div>
+        <ul>
+            <li><strong>Pompa ciepła 3-fazowa 8–15 kW</strong> — większość pomp powyżej 6 kW to silniki trójfazowe; wymóg przyłącza 3F</li>
+            <li><strong>Ładowarka EV 11 kW lub 22 kW (Mode 3, Type 2)</strong> — 11 kW to 3×16A, 22 kW to 3×32A; ładowarka 1-fazowa ogranicza się do ~7,4 kW</li>
+            <li><strong>Piec elektryczny (kotłownia)</strong> — grzałki 3×2 kW = 6 kW bez przeciążania jednej fazy</li>
+            <li><strong>Duży dom lub dom energochłonny</strong> — powierzchnia >130 m², planowane klimatyzatory, jacuzzi, sauna</li>
+            <li><strong>Wyrównanie obciążeń faz</strong> — wiele obwodów 1-fazowych można rozłożyć równomiernie na 3 fazy, zmniejszając prąd neutralny i straty</li>
+            <li><strong>Przyszłe rozbudowy</strong> — inwestycja raz, dostępność 400V na każdej parze faz i 230V L-N</li>
+        </ul>
+    </div>
+
+    <!-- WIZUALNY SCHEMAT ROZDZIELNICY 3F -->
+    <div class="section-title">&#128268; Wizualny schemat rozdzielnicy 3-fazowej (DIN 35 mm)</div>
+    <div class="board-wrap">
+        <div class="board-inner">
+            <div class="board-label">Rozdzielnica 3-fazowa RH-3F · 4×18 modułów · IP40 · TN-S</div>
+
+            <!-- SZYNA 1: Główny 3P+N + SPD T1+T2 + Licznik -->
+            <div class="rail-row">
+                <div class="modules-row">
+                    <div class="module mod-main mod-w3">
+                        <span class="mname">ROZŁ. GŁÓWNY 3P+N</span>
+                        <span class="mval">S303 C40A · Icn 10kA</span>
+                        <span class="mtype">4M · 3-bieg.</span>
+                    </div>
+                    <div class="module mod-spd mod-w3">
+                        <span class="mname">SPD T1+T2 kombin. 3P</span>
+                        <span class="mval">DEHNventil / DEHN M TNC</span>
+                        <span class="mtype">Uc=275V · Iimp=12,5kA · 3M</span>
+                    </div>
+                    <div class="module mod-meter mod-w3">
+                        <span class="mname">LICZNIK ENERGII 3F</span>
+                        <span class="mval">niemodularny (poza szyną)</span>
+                        <span class="mtype">kWh · 3-faz · taryfa</span>
+                    </div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rez.</span></div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rez.</span></div>
+                    <div class="module mod-free mod-w1"><span class="mname">—</span><span class="mtype">rez.</span></div>
+                </div>
+                <div class="rail-bar"></div>
+            </div>
+
+            <!-- SZYNA 2: RCD 4P główny + 1-fazowe L1/L2/L3 -->
+            <div class="rail-row">
+                <div class="rcd-group">
+                    <div class="rcd-group-label">RCD 4P główny + obwody 1-fazowe zrównoważone (L1/L2/L3)</div>
+                    <div class="modules-row">
+                        <div class="module mod-rcd mod-w2">
+                            <span class="mname">RCD GŁÓWNY 4P</span>
+                            <span class="mval">63A · 30mA · typ A</span>
+                            <span class="mtype">4M · 3L+N</span>
+                        </div>
+                        <!-- L1 -->
+                        <div class="module mod-cb-b mod-w1" style="border-color:#b45309">
+                            <span class="mname" style="color:#fb923c">B10</span>
+                            <span class="mval">obw.1</span>
+                            <span class="mtype" style="color:#fb923c">L1 ośw.</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1" style="border-color:#b45309">
+                            <span class="mname" style="color:#fb923c">B16</span>
+                            <span class="mval">obw.2</span>
+                            <span class="mtype" style="color:#fb923c">L1 gn.syp</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1" style="border-color:#b45309">
+                            <span class="mname" style="color:#fb923c">B16</span>
+                            <span class="mval">obw.3</span>
+                            <span class="mtype" style="color:#fb923c">L1 gn.pok</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1" style="border-color:#b45309">
+                            <span class="mname" style="color:#fb923c">B16</span>
+                            <span class="mval">obw.4</span>
+                            <span class="mtype" style="color:#fb923c">L1 bojler</span>
+                        </div>
+                        <!-- L2 -->
+                        <div class="module mod-cb-b mod-w1" style="border-color:#6b7280">
+                            <span class="mname" style="color:#9ca3af">B10</span>
+                            <span class="mval">obw.5</span>
+                            <span class="mtype" style="color:#9ca3af">L2 ośw.</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1" style="border-color:#6b7280">
+                            <span class="mname" style="color:#9ca3af">B16</span>
+                            <span class="mval">obw.6</span>
+                            <span class="mtype" style="color:#9ca3af">L2 gn.kuch</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1" style="border-color:#6b7280">
+                            <span class="mname" style="color:#9ca3af">B20</span>
+                            <span class="mval">obw.7</span>
+                            <span class="mtype" style="color:#9ca3af">L2 zmyw.</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1" style="border-color:#6b7280">
+                            <span class="mname" style="color:#9ca3af">B20</span>
+                            <span class="mval">obw.8</span>
+                            <span class="mtype" style="color:#9ca3af">L2 lodów.</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="rail-bar"></div>
+            </div>
+
+            <!-- SZYNA 3: L3 + łazienka RCD + 3F obwody -->
+            <div class="rail-row">
+                <div class="rcd-group">
+                    <div class="rcd-group-label">L3 (1-faz.) + RCD łazienka + obwody 3-fazowe</div>
+                    <div class="modules-row">
+                        <!-- L3 -->
+                        <div class="module mod-cb-b mod-w1" style="border-color:#3b82f6">
+                            <span class="mname" style="color:#60a5fa">B10</span>
+                            <span class="mval">obw.9</span>
+                            <span class="mtype" style="color:#60a5fa">L3 hall</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1" style="border-color:#3b82f6">
+                            <span class="mname" style="color:#60a5fa">B16</span>
+                            <span class="mval">obw.10</span>
+                            <span class="mtype" style="color:#60a5fa">L3 gn.łaz</span>
+                        </div>
+                        <div class="module mod-cb-b mod-w1" style="border-color:#3b82f6">
+                            <span class="mname" style="color:#60a5fa">B16</span>
+                            <span class="mval">obw.11</span>
+                            <span class="mtype" style="color:#60a5fa">L3 zewn.</span>
+                        </div>
+                        <div class="module mod-free mod-w1">
+                            <span class="mname">—</span>
+                            <span class="mval">obw.12</span>
+                            <span class="mtype">rezerwa</span>
+                        </div>
+                        <!-- RCD łazienka sep. -->
+                        <div class="module mod-rcd mod-w2">
+                            <span class="mname">RCD ŁAZ. 2P</span>
+                            <span class="mval">25A · 30mA · typ A</span>
+                            <span class="mtype">2M · ded. obw.10</span>
+                        </div>
+                        <!-- 3F obwody -->
+                        <div class="module mod-3p mod-w2">
+                            <span class="mname">B20 3P</span>
+                            <span class="mval">obw.13 · płyta 3F</span>
+                            <span class="mtype">11kW · 3×16A</span>
+                        </div>
+                        <div class="module mod-3p mod-w2">
+                            <span class="mname">B16 3P</span>
+                            <span class="mval">obw.14 · pomp. ciepła</span>
+                            <span class="mtype">10kW · 3×10A nom</span>
+                        </div>
+                        <div class="module mod-cb-c mod-w2" style="border-color:#0ea5e9;background:#164e63">
+                            <span class="mname" style="color:#7dd3fc">B32 3P</span>
+                            <span class="mval">obw.15 · EV 11kW</span>
+                            <span class="mtype">3×16A · Type 2</span>
+                        </div>
+                        <div class="module mod-free mod-w2">
+                            <span class="mname">—</span>
+                            <span class="mval">obw.16</span>
+                            <span class="mtype">rezerwa 3F</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="rail-bar"></div>
+            </div>
+
+            <!-- SZYNY L1/L2/L3/N/PE -->
+            <div class="bus-row">
+                <span class="bus-label">L1:</span><div class="bus bus-l1"></div>
+                <span class="bus-label">L2:</span><div class="bus bus-l2"></div>
+                <span class="bus-label">L3:</span><div class="bus bus-l3"></div>
+                <span class="bus-label">N:</span><div class="bus bus-n"></div>
+                <span class="bus-label">PE:</span><div class="bus bus-pe"></div>
+            </div>
+        </div><!-- board-inner -->
+
+        <!-- Legenda -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-left:4px">
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#1e40af;border:1px solid #3b82f6"></div><span style="font-size:.72rem;color:var(--text-muted)">Rozłącznik główny</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#166534;border:1px solid #4ade80"></div><span style="font-size:.72rem;color:var(--text-muted)">Wyłącznik RCD</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#7f1d1d;border:1px solid #f87171"></div><span style="font-size:.72rem;color:var(--text-muted)">Bezpiecznik nadprądowy 1F</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#1e3a5f;border:1px solid #0ea5e9"></div><span style="font-size:.72rem;color:var(--text-muted)">Bezpiecznik nadprądowy 3F</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#78350f;border:1px solid #fbbf24"></div><span style="font-size:.72rem;color:var(--text-muted)">SPD kombinowany T1+T2</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;border-radius:2px;background:#312e81;border:1px solid #818cf8"></div><span style="font-size:.72rem;color:var(--text-muted)">Licznik energii 3F</span></div>
+        </div>
+        <div class="phase-legend" style="margin-top:8px">
+            <div class="phase-dot"><div class="pdot" style="background:#b45309"></div>L1 — przewód brązowy</div>
+            <div class="phase-dot"><div class="pdot" style="background:#4b5563"></div>L2 — przewód czarny</div>
+            <div class="phase-dot"><div class="pdot" style="background:#1e40af"></div>L3 — przewód szary</div>
+            <div class="phase-dot"><div class="pdot" style="background:#2563eb"></div>N — przewód niebieski</div>
+            <div class="phase-dot"><div class="pdot" style="background:#16a34a"></div>PE — żółto-zielony</div>
+        </div>
+    </div>
+
+    <!-- TABELA OBWODÓW -->
+    <div class="section-title">&#128203; Tabela obwodów — 16 obwodów</div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nr</th>
+                    <th>Oznaczenie</th>
+                    <th>Faza</th>
+                    <th>Zabezp.</th>
+                    <th>Przewód</th>
+                    <th>Dług.</th>
+                    <th>Odbiorniki</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>1</strong></td>
+                    <td>Oświetlenie ogólne (sypialnie, hall)</td>
+                    <td><span class="ph ph-l1">L1</span></td>
+                    <td><span class="tag tag-b">B10A</span></td>
+                    <td>YDY 3×1,5</td>
+                    <td>28&thinsp;m</td>
+                    <td>10× LED 10W (100W łącznie)</td>
+                </tr>
+                <tr>
+                    <td><strong>2</strong></td>
+                    <td>Gniazda sypialnie</td>
+                    <td><span class="ph ph-l1">L1</span></td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5</td>
+                    <td>22&thinsp;m</td>
+                    <td>5 gniazd (maks. 3680W)</td>
+                </tr>
+                <tr>
+                    <td><strong>3</strong></td>
+                    <td>Gniazda pokoje dzienne / biuro</td>
+                    <td><span class="ph ph-l1">L1</span></td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5</td>
+                    <td>20&thinsp;m</td>
+                    <td>6 gniazd, RTV, PC</td>
+                </tr>
+                <tr>
+                    <td><strong>4</strong></td>
+                    <td>Bojler elektryczny 2 kW</td>
+                    <td><span class="ph ph-l1">L1</span></td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5</td>
+                    <td>16&thinsp;m</td>
+                    <td>Bojler CWU 80L (grzałka 2kW)</td>
+                </tr>
+                <tr>
+                    <td><strong>5</strong></td>
+                    <td>Oświetlenie kuchnia + schody</td>
+                    <td><span class="ph ph-l2">L2</span></td>
+                    <td><span class="tag tag-b">B10A</span></td>
+                    <td>YDY 3×1,5</td>
+                    <td>20&thinsp;m</td>
+                    <td>6× LED + oświetlenie schodowe</td>
+                </tr>
+                <tr>
+                    <td><strong>6</strong></td>
+                    <td>Gniazda kuchnia (ogólne)</td>
+                    <td><span class="ph ph-l2">L2</span></td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5</td>
+                    <td>15&thinsp;m</td>
+                    <td>Ekspres, mikrofala, toster</td>
+                </tr>
+                <tr>
+                    <td><strong>7</strong></td>
+                    <td>Zmywarka (dedykowany)</td>
+                    <td><span class="ph ph-l2">L2</span></td>
+                    <td><span class="tag tag-b">B20A</span></td>
+                    <td>YDY 3×2,5</td>
+                    <td>12&thinsp;m</td>
+                    <td>Zmywarka 2 kW</td>
+                </tr>
+                <tr>
+                    <td><strong>8</strong></td>
+                    <td>Lodówka (dedykowana)</td>
+                    <td><span class="ph ph-l2">L2</span></td>
+                    <td><span class="tag tag-b">B20A</span></td>
+                    <td>YDY 3×2,5</td>
+                    <td>10&thinsp;m</td>
+                    <td>Lodówka 200W (ciągła)</td>
+                </tr>
+                <tr>
+                    <td><strong>9</strong></td>
+                    <td>Oświetlenie hall / korytarz / ganek</td>
+                    <td><span class="ph ph-l3">L3</span></td>
+                    <td><span class="tag tag-b">B10A</span></td>
+                    <td>YDY 3×1,5</td>
+                    <td>18&thinsp;m</td>
+                    <td>4× LED + czujnik ruchu</td>
+                </tr>
+                <tr>
+                    <td><strong>10</strong></td>
+                    <td>Gniazda łazienka (IP44, sep. RCD)</td>
+                    <td><span class="ph ph-l3">L3</span></td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YDY 3×2,5</td>
+                    <td>14&thinsp;m</td>
+                    <td>Suszarka, IPx4, strefa 2/3</td>
+                </tr>
+                <tr>
+                    <td><strong>11</strong></td>
+                    <td>Gniazda zewnętrzne / ogród</td>
+                    <td><span class="ph ph-l3">L3</span></td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>YKY 3×2,5</td>
+                    <td>35&thinsp;m</td>
+                    <td>IP65, kabel ziemny min. 70 cm</td>
+                </tr>
+                <tr>
+                    <td><strong>12</strong></td>
+                    <td>Rezerwa 1-fazowa (L3)</td>
+                    <td><span class="ph ph-l3">L3</span></td>
+                    <td><span class="tag tag-b">B16A</span></td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>Wolne miejsce (klimatyzacja, etc.)</td>
+                </tr>
+                <tr>
+                    <td><strong>13</strong></td>
+                    <td>Płyta indukcyjna 3F 11 kW</td>
+                    <td><span class="ph ph-3f">3F</span></td>
+                    <td><span class="tag tag-3p">B20A 3P</span></td>
+                    <td>YDY 5×4,0</td>
+                    <td>8&thinsp;m</td>
+                    <td>Płyta indukcyjna 3-faz. 11kW (3×16A)</td>
+                </tr>
+                <tr>
+                    <td><strong>14</strong></td>
+                    <td>Pompa ciepła 3F 10 kW</td>
+                    <td><span class="ph ph-3f">3F</span></td>
+                    <td><span class="tag tag-3p">B16A 3P</span></td>
+                    <td>YDY 5×2,5</td>
+                    <td>20&thinsp;m</td>
+                    <td>Sprężarka 3F, prąd rozr. ~5×In</td>
+                </tr>
+                <tr>
+                    <td><strong>15</strong></td>
+                    <td>Ładowarka EV 11 kW (EVSE Mode 3)</td>
+                    <td><span class="ph ph-3f">3F</span></td>
+                    <td><span class="tag tag-3p">B32A 3P</span></td>
+                    <td>YDY 5×6,0</td>
+                    <td>25&thinsp;m</td>
+                    <td>Wallbox Type 2, 3×16A (11kW maks.)</td>
+                </tr>
+                <tr>
+                    <td><strong>16</strong></td>
+                    <td>Rezerwa 3-fazowa</td>
+                    <td><span class="ph ph-3f">3F</span></td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>Sauny, klimat. 3F, rozbudowy</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- BILANS MOCY 3F -->
+    <div class="section-title">&#9878; Bilans mocy — podział na fazy</div>
+    <div class="balance-wrap">
+        <div class="balance-3f">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Faza</th>
+                        <th>Obwody (1-faz.)</th>
+                        <th>Moc zainstalowana</th>
+                        <th>Moc obliczeniowa (k<sub>j</sub>=0,6)</th>
+                        <th>Prąd obliczeniowy</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="ph ph-l1">L1 — brązowy</span></td>
+                        <td>obw. 1÷4 (ośw.+gn.syp+gn.pok+bojler)</td>
+                        <td>2,0 + 3,7 + 3,7 + 2,0 = <strong>11,4 kW</strong></td>
+                        <td><strong>4,1 kW</strong></td>
+                        <td>~17,8&thinsp;A</td>
+                    </tr>
+                    <tr>
+                        <td><span class="ph ph-l2">L2 — czarny</span></td>
+                        <td>obw. 5÷8 (ośw.kuch+gn.kuch+zmyw+lodów.)</td>
+                        <td>0,1 + 3,7 + 2,0 + 0,5 = <strong>6,3 kW</strong></td>
+                        <td><strong>3,8 kW</strong></td>
+                        <td>~16,5&thinsp;A</td>
+                    </tr>
+                    <tr>
+                        <td><span class="ph ph-l3">L3 — szary</span></td>
+                        <td>obw. 9÷12 (ośw.hall+gn.łaz+zewn+rez.)</td>
+                        <td>0,1 + 3,7 + 3,7 + 0 = <strong>7,5 kW</strong></td>
+                        <td><strong>3,2 kW</strong></td>
+                        <td>~13,9&thinsp;A</td>
+                    </tr>
+                    <tr style="background:rgba(251,191,36,.04)">
+                        <td><span class="ph ph-3f">3F</span></td>
+                        <td>obw. 13÷15 (płyta 3F + PC 3F + EV)</td>
+                        <td>11 + 10 + 11 = <strong>32 kW (suma)</strong><br><em style="font-size:.72rem;color:var(--text-muted)">rozłożona równo po 10,7 kW na fazę</em></td>
+                        <td><strong>6,8 kW/faz.</strong><br><em style="font-size:.72rem;color:var(--text-muted)">k<sub>j</sub>=0,42 — jednocześnie max 1 z 3</em></td>
+                        <td>~29,6&thinsp;A/faz.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:14px">
+            <div style="background:#0d1b2e;border-radius:8px;padding:12px;border:1px solid var(--border)">
+                <div style="font-size:.7rem;color:var(--text-muted)">Łączna moc zainstalowana</div>
+                <div style="font-size:1.1rem;font-weight:700;color:var(--accent);margin-top:2px">~22 kW (1F) + 32 kW (3F)</div>
+            </div>
+            <div style="background:#0d1b2e;border-radius:8px;padding:12px;border:1px solid var(--border)">
+                <div style="font-size:.7rem;color:var(--text-muted)">Moc obliczeniowa łączna</div>
+                <div style="font-size:1.1rem;font-weight:700;color:var(--text);margin-top:2px">~13 kW (realne użytkowanie)</div>
+            </div>
+            <div style="background:#0d1b2e;border-radius:8px;padding:12px;border:1px solid var(--accent);border-width:1px">
+                <div style="font-size:.7rem;color:var(--text-muted)">Prąd na fazę obliczeniowy</div>
+                <div style="font-size:1.1rem;font-weight:700;color:var(--accent);margin-top:2px">~19A → zabezpieczenie C40A</div>
+            </div>
+            <div style="background:#0d1b2e;border-radius:8px;padding:12px;border:1px solid var(--border)">
+                <div style="font-size:.7rem;color:var(--text-muted)">Kabel zasilający</div>
+                <div style="font-size:1.1rem;font-weight:700;color:var(--text);margin-top:2px">YDY 5×16 mm² (Iz=80A ✓)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WYRÓWNANIE OBCIĄŻEŃ FAZ -->
+    <div class="section-title">&#9878; Wyrównanie obciążeń faz — dlaczego to ważne?</div>
+    <div class="balance-explain">
+        <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:16px">
+            W sieci 3-fazowej prąd w przewodzie neutralnym N jest <em>wypadkową</em> prądów fazowych.
+            Gdy obciążenie jest równomiernie rozłożone (symetryczne), prąd neutralny jest bliski zeru.
+            Przy nierównomiernym obciążeniu prąd w N rośnie, co powoduje straty, nagrzewanie przewodu N
+            (o tym samym przekroju co L), a w skrajnych przypadkach — niebezpieczny wzrost napięcia N–PE.
+        </p>
+
+        <div class="compare-grid">
+            <div class="compare-box bad">
+                <div class="c-title">&#10060; Złe — asymetryczne (wszystko na L1)</div>
+                <div class="ph-bar-wrap">
+                    <div class="ph-bar-row">
+                        <span class="ph-bar-label" style="color:#fb923c">L1</span>
+                        <div class="ph-bar-track"><div class="ph-bar-fill ph-bar-L1" style="width:85%">8,5 kW</div></div>
+                        <span class="ph-bar-val" style="color:#fb923c">8,5 kW</span>
+                    </div>
+                    <div class="ph-bar-row">
+                        <span class="ph-bar-label" style="color:#9ca3af">L2</span>
+                        <div class="ph-bar-track"><div class="ph-bar-fill ph-bar-L2" style="width:12%">1,2</div></div>
+                        <span class="ph-bar-val">1,2 kW</span>
+                    </div>
+                    <div class="ph-bar-row">
+                        <span class="ph-bar-label" style="color:#60a5fa">L3</span>
+                        <div class="ph-bar-track"><div class="ph-bar-fill ph-bar-L3" style="width:3%"></div></div>
+                        <span class="ph-bar-val">0,3 kW</span>
+                    </div>
+                </div>
+                <div class="neutral-note bad">
+                    &#9888; Prąd w N ≈ 34A — przewód N przeciążony! Napięcie N‒PE &gt; 0V w odbiorniku.
+                </div>
+            </div>
+
+            <div class="compare-box good">
+                <div class="c-title">&#10003; Dobrze — zrównoważone (ten schemat)</div>
+                <div class="ph-bar-wrap">
+                    <div class="ph-bar-row">
+                        <span class="ph-bar-label" style="color:#fb923c">L1</span>
+                        <div class="ph-bar-track"><div class="ph-bar-fill ph-bar-L1" style="width:40%">4,1 kW</div></div>
+                        <span class="ph-bar-val" style="color:#fb923c">4,1 kW</span>
+                    </div>
+                    <div class="ph-bar-row">
+                        <span class="ph-bar-label" style="color:#9ca3af">L2</span>
+                        <div class="ph-bar-track"><div class="ph-bar-fill ph-bar-L2" style="width:38%">3,8 kW</div></div>
+                        <span class="ph-bar-val">3,8 kW</span>
+                    </div>
+                    <div class="ph-bar-row">
+                        <span class="ph-bar-label" style="color:#60a5fa">L3</span>
+                        <div class="ph-bar-track"><div class="ph-bar-fill ph-bar-L3" style="width:32%">3,2 kW</div></div>
+                        <span class="ph-bar-val">3,2 kW</span>
+                    </div>
+                </div>
+                <div class="neutral-note good">
+                    &#10003; Prąd w N ≈ 2–4A — minimalne straty, stabilne napięcie, brak ryzyka przeciążenia N.
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:14px;padding:12px 14px;background:#0d1b2e;border-radius:8px;font-size:.78rem;color:var(--text-muted);border-left:3px solid var(--accent)">
+            <strong style="color:var(--text)">Zasada:</strong> Rozdzielaj obwody tak, by sumy mocy na L1, L2, L3 były jak najbardziej zbliżone.
+            Obwody 3-fazowe (pompa ciepła, ładowarka EV, płyta 3F) obciążają wszystkie trzy fazy <em>jednakowo</em> — to ich dodatkowa zaleta.
+            Przy planowaniu instalacji zsumuj moc obwodów na każdej fazie i przenoś obwody między fazami w rozdzielnicy.
+        </div>
+    </div>
+
+    <!-- SCHEMAT: POMPA CIEPŁA 3F -->
+    <div class="section-title">&#128268; Schemat podłączenia: pompa ciepła 3-fazowa (obw. 14)</div>
+    <div class="wiring-wrap">
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px">
+            Pompa ciepła 3-fazowa 10 kW zawiera sprężarkę na silniku asynchronicznym 3F.
+            Wymaga sprawdzenia kolejności faz przed uruchomieniem (błędna kolejność = rewers sprężarki → awaria).
+            Prąd rozruchowy sprężarki: 5–7&thinsp;×&thinsp;I<sub>n</sub> → zastosować wyłącznik B-charakterystyki lub rozrusznik elektroniczny (soft-starter).
+        </p>
+
+        <div class="wiring-diagram">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center">
+
+                <!-- Rozdzielnica -->
+                <div class="w-box accent" style="min-width:90px">
+                    <div style="font-size:.65rem;color:var(--text-muted)">Rozdzielnica</div>
+                    <div>B16A 3P</div>
+                    <div style="font-size:.65rem">char. B · Icn 10kA</div>
+                </div>
+
+                <!-- Kable L1/L2/L3 -->
+                <div class="w-wire" style="min-width:60px">
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                        <div class="w-wire-line wl1"></div>
+                        <div class="w-wire-line wl2"></div>
+                        <div class="w-wire-line wl3"></div>
+                        <div class="w-wire-line wpe"></div>
+                    </div>
+                    <div class="wlabel">YDY 5×2,5 mm²<br>L1/L2/L3/N/PE</div>
+                </div>
+
+                <!-- Przekaźnik / puszka -->
+                <div class="w-box orange">
+                    <div style="font-size:.62rem;color:var(--text-muted)">Puszka przyłączna</div>
+                    <div>+ filtr EMC</div>
+                    <div style="font-size:.62rem">IP54 w pobliżu JC</div>
+                </div>
+
+                <!-- Kable krótsze -->
+                <div class="w-wire" style="min-width:40px">
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                        <div class="w-wire-line wl1"></div>
+                        <div class="w-wire-line wl2"></div>
+                        <div class="w-wire-line wl3"></div>
+                        <div class="w-wire-line wpe"></div>
+                    </div>
+                    <div class="wlabel">3L+PE</div>
+                </div>
+
+                <!-- Sterownik pompy / soft-starter -->
+                <div class="w-box purple">
+                    <div style="font-size:.62rem;color:var(--text-muted)">Sterownik JC</div>
+                    <div>soft-starter</div>
+                    <div style="font-size:.62rem">wewnętrzny</div>
+                </div>
+
+                <!-- Silnik -->
+                <div class="w-wire" style="min-width:30px">
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                        <div class="w-wire-line wl1"></div>
+                        <div class="w-wire-line wl2"></div>
+                        <div class="w-wire-line wl3"></div>
+                        <div class="w-wire-line wpe"></div>
+                    </div>
+                    <div class="wlabel">U/V/W+PE</div>
+                </div>
+
+                <div class="w-box green">
+                    <div style="font-size:.62rem;color:var(--text-muted)">Sprężarka</div>
+                    <div>Silnik 3F</div>
+                    <div style="font-size:.62rem">+ obudowa → PE</div>
+                </div>
+            </div>
+
+            <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div style="background:rgba(251,191,36,.06);border-radius:6px;padding:8px;font-size:.72rem;border:1px solid rgba(251,191,36,.2)">
+                    <strong style="color:var(--accent)">Kolejność faz:</strong><br>
+                    Sprawdź miernikiem kolejność faz (L1-L2-L3) przed uruchomieniem.
+                    Błędna kolejność → zmień L1 z L2 w puszce przyłącznej. Nie zmieniaj PE!
+                </div>
+                <div style="background:rgba(74,222,128,.06);border-radius:6px;padding:8px;font-size:.72rem;border:1px solid rgba(74,222,128,.2)">
+                    <strong style="color:#4ade80">PE do obudowy:</strong><br>
+                    Obudowa jednostki zewnętrznej musi być podłączona do PE (żółto-zielony).
+                    Wymagana też szyna wyrównawcza do instalacji grzewczej (rury metalowe).
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCHEMAT: ŁADOWARKA EV -->
+    <div class="section-title">&#128268; Schemat podłączenia: ładowarka EV — Wallbox 11 kW (obw. 15)</div>
+    <div class="wiring-wrap">
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px">
+            Wallbox (EVSE — Electric Vehicle Supply Equipment) Mode 3 komunikuje się z pojazdem protokołem
+            IEC 61851 (pilot signal). Gniazdo Type 2 (Mennekes, 7-pin) umożliwia ładowanie 3-fazowe do 22 kW (3×32A).
+            Instalacja 11 kW = 3×16A → wystarczy B32 3P (z rezerwą), kabel 5×6 mm².
+        </p>
+
+        <div class="wiring-diagram">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center">
+
+                <div class="w-box accent" style="min-width:90px">
+                    <div style="font-size:.65rem;color:var(--text-muted)">Rozdzielnica</div>
+                    <div>B32A 3P</div>
+                    <div style="font-size:.65rem">char. B lub C · Icn 10kA</div>
+                </div>
+
+                <div class="w-wire" style="min-width:70px">
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                        <div class="w-wire-line wl1"></div>
+                        <div class="w-wire-line wl2"></div>
+                        <div class="w-wire-line wl3"></div>
+                        <div class="w-wire-line wn"></div>
+                        <div class="w-wire-line wpe"></div>
+                    </div>
+                    <div class="wlabel">YDY 5×6 mm²<br>L1/L2/L3/N/PE</div>
+                </div>
+
+                <!-- RCD typ B -->
+                <div class="w-box" style="border-color:#a78bfa;color:#a78bfa;min-width:90px">
+                    <div style="font-size:.62rem;color:var(--text-muted)">RCD typ B (wbudowany lub zewn.)</div>
+                    <div style="font-size:.75rem">4P · 40A · 30mA</div>
+                    <div style="font-size:.62rem">wykrywa DC fault</div>
+                </div>
+
+                <div class="w-wire" style="min-width:50px">
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                        <div class="w-wire-line wl1"></div>
+                        <div class="w-wire-line wl2"></div>
+                        <div class="w-wire-line wl3"></div>
+                        <div class="w-wire-line wn"></div>
+                        <div class="w-wire-line wpe"></div>
+                    </div>
+                    <div class="wlabel">5L (3+N+PE)</div>
+                </div>
+
+                <div class="w-box blue">
+                    <div style="font-size:.62rem;color:var(--text-muted)">Wallbox EVSE</div>
+                    <div>11 kW Mode 3</div>
+                    <div style="font-size:.62rem">IP54 · IEC 61851</div>
+                </div>
+
+                <div class="w-wire" style="min-width:30px">
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                        <div class="w-wire-line wl1"></div>
+                        <div class="w-wire-line wl2"></div>
+                        <div class="w-wire-line wl3"></div>
+                        <div class="w-wire-line wn"></div>
+                        <div class="w-wire-line wpe"></div>
+                    </div>
+                    <div class="wlabel">kabel 5-pin</div>
+                </div>
+
+                <div class="w-box green">
+                    <div style="font-size:.62rem;color:var(--text-muted)">Gniazdo Type 2</div>
+                    <div>7-pin Mennekes</div>
+                    <div style="font-size:.62rem">IEC 62196-2</div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="ev-notes">
+            <div class="ev-note" style="border-left-color:#a78bfa">
+                <div class="title" style="color:#a78bfa">RCD typ B — dlaczego wymagany?</div>
+                Ładowarki EV (OBC pojazdu) mogą generować prąd upływu DC do instalacji.
+                Standardowy RCD typ A nie wykrywa składowej stałej — wymagany <strong>RCD typ B</strong> (lub typ F dla falowników 1F).
+                Wiele wallboxów ma RCD typ B wbudowany — sprawdź specyfikację urządzenia.
+            </div>
+            <div class="ev-note" style="border-left-color:#60a5fa">
+                <div class="title" style="color:#60a5fa">Mode 2 vs Mode 3</div>
+                <strong>Mode 2:</strong> Kabel z własnym ICCB (In-Cable Control Box), gniazdo domowe 230V/16A = maks. 3,7 kW. Tymczasowe.<br>
+                <strong>Mode 3:</strong> Wallbox stały (EVSE), komunikacja CP/PP z pojazdem, sterowanie prądem ładowania, maks. 22 kW (3×32A). Zalecany do użytku codziennego.
+            </div>
+            <div class="ev-note" style="border-left-color:#4ade80">
+                <div class="title" style="color:#4ade80">Kabel Type 2 (5-żyłowy)</div>
+                Pin 1: L1 (brązowy), Pin 2: L2 (czarny), Pin 3: L3 (szary),
+                Pin 4: N (niebieski), Pin 5: PE (żółto-zielony), Pin 6: CP (Pilot),
+                Pin 7: PP (Proximity Pilot). Kabel dołączony do wallboxa.
+            </div>
+            <div class="ev-note" style="border-left-color:#fb923c">
+                <div class="title" style="color:#fb923c">Inteligentne zarządzanie mocą</div>
+                Nowoczesne wallboxy obsługują OCPP i mogą dynamicznie ograniczać moc ładowania
+                (DLM — Dynamic Load Management) tak, by nie przekroczyć zabezpieczenia głównego.
+                Integracja z Home Assistant / systemy EMS — optymalizacja pod autokonsumpcję PV.
+            </div>
+        </div>
+    </div>
+
+    <!-- UWAGI PRAKTYCZNE -->
+    <div class="section-title">&#128295; Uwagi praktyczne — instalacja 3-fazowa</div>
+    <div class="notes-wrap">
+        <ul class="note-list">
+            <li>
+                <span class="icon">&#127758;</span>
+                <span class="text"><strong>Kolory żył w instalacji 3F:</strong> L1 = brązowy, L2 = czarny, L3 = szary, N = niebieski, PE = żółto-zielony (wg PN-HD 60364-5-51). W starszych instalacjach spotykane czerwony/żółty/niebieski — zawsze sprawdź miernikiem przed pracami!</span>
+            </li>
+            <li>
+                <span class="icon">&#9889;</span>
+                <span class="text"><strong>Kolejność faz:</strong> Pompa ciepła, silniki wentylatorów i inne maszyny 3F wymagają właściwej kolejności faz (L1-L2-L3). Odwrócenie powoduje rewers i może uszkodzić sprężarkę. Mierz kolejność faz miernikiem wielofunkcyjnym przed uruchomieniem — wymiana dowolnych dwóch faz odwraca kierunek obrotu.</span>
+            </li>
+            <li>
+                <span class="icon">&#128203;</span>
+                <span class="text"><strong>Zabezpieczenie główne S303 C40A:</strong> Wyłącznik 3P+N zapewnia jednoczesne wyłączenie wszystkich faz i N. Charakterystyka C (5-10×In) eliminuje fałszywe wyzwolenia od silników z prądem rozruchowym. Icn ≥ 10 kA — wymagany w instalacjach domów (wyższy prąd zwarciowy z sieci).</span>
+            </li>
+            <li>
+                <span class="icon">&#9881;</span>
+                <span class="text"><strong>SPD T1+T2 kombinowany:</strong> Dla instalacji z przewodem odgromowym wymagany SPD typ 1 (10/350 µs). Jeśli brak LPS — wystarczy T2. Urządzenie kombinowane (T1+T2) spełnia oba wymagania. Montować na L1/L2/L3/N/PE możliwie blisko wejścia kabla, przewody SPD &lt; 50 cm.</span>
+            </li>
+            <li>
+                <span class="icon">&#128308;</span>
+                <span class="text"><strong>Kabel zasilający 5×16 mm²:</strong> Dla 40A zabezpieczenia głównego YDY 5×16 mm² (Iz~80A w powietrzu, ~65A w rurze). Zakończenie przy rozdzielnicy kablowym zestawem końcowym. Przy długości &gt;15m sprawdzić spadek napięcia: ΔU = 2×ρ×l×I/(S) ≤ 3% = 12V.</span>
+            </li>
+            <li>
+                <span class="icon">&#128690;</span>
+                <span class="text"><strong>Pompa ciepła — uziemienie i wyrównanie:</strong> Obudowa jednostki zewnętrznej musi być podłączona do PE. Wymagane połączenie wyrównawcze z metalowymi rurami instalacji grzewczej (wg PN-HD 60364-4-41). Rezystancja pętli wyrównawczej ≤ 1 Ω.</span>
+            </li>
+            <li>
+                <span class="icon">&#128508;</span>
+                <span class="text"><strong>Ładowarka EV — montaż:</strong> Wallbox montować na ścianie garażu lub wiaty (IP54 min.). Kabel zasilający prowadzić w rurze osłonowej. Lokalizacja gniazda Type 2: wysokość 60–150 cm, dostępna dla kabla pojazdu długości ok. 5 m. Zaplanować kabel ładowarki z szufladą lub hakiem.</span>
+            </li>
+            <li>
+                <span class="icon">&#128214;</span>
+                <span class="text"><strong>Dokumentacja instalacji 3F:</strong> Protokół pomiarów powinien zawierać: pomiar kolejności faz, impedancję pętli zwarcia Zs dla każdego obwodu 3F, test RCD 30mA i 300mA (jeśli zastosowany p-poż), rezystancję izolacji (1 MΩ min.), ciągłość PE. Wszystko podpisuje elektryk z uprawnieniami SEP G1 D.</span>
+            </li>
+            <li>
+                <span class="icon">&#128161;</span>
+                <span class="text"><strong>Przyszłe rozbudowy:</strong> Pozostawiono rezerwy: 1×1F (obw. 12 na L3) i 1×3F (obw. 16). Umożliwia to dodanie klimatyzatora 3F, pieca elektrycznego lub sauna bez wymiany rozdzielnicy. Zabezpieczenie główne C40A ma zapas — przy pełnym obciążeniu 22 kW prąd obliczeniowy wynosi 31,7A/fazę (z k<sub>j</sub>=1).</span>
+            </li>
+        </ul>
+    </div>
+
+    <!-- NAV BOTTOM -->
+    <div class="nav-bottom">
+        <a href="schemat-1faz-dom.html">&#8592; Schemat instalacji 1-fazowej</a>
+        <a href="../index.html">Kompendium elektryki &#8594;</a>
+    </div>
+
+</div><!-- container -->
+</body>
+</html>

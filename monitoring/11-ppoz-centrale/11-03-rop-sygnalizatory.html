@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11-03 — ROP i sygnalizatory</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">11 Centrale SAP</a><span class="sep">/</span><span class="title">11-03 ROP i sygnalizatory</span>
+</div>
+<div class="container">
+<h1>ROP i sygnalizatory</h1>
+<p class="subtitle">Ręczne ostrzegacze pożarowe (PN-EN 54-11), sygnalizatory akustyczne (PN-EN 54-3, ~100 dB SPL @ 1 m), optyczne (PN-EN 54-23, flash xenon/LED) i kombinowane.</p>
+
+<h2>ROP — ręczny ostrzegacz pożarowy</h2>
+<p>Czerwona puszka z napisem „POŻAR" / „Pull / Strike" — pozwala każdej osobie wzbudzić alarm pożarowy ręcznie. Norma odniesienia: <strong>PN-EN 54-11</strong>.</p>
+<p>Konstrukcja typowa:</p>
+<ul>
+<li>obudowa z czerwonego tworzywa ABS lub stali malowanej,</li>
+<li><strong>szybka osłonowa</strong> (rezystorowa, ABS lub szkło) — chroni przed przypadkowym wyzwoleniem,</li>
+<li>przycisk (typ A — szyba do stłuczenia, typ B — drzwiczki otwierane) z resetem kluczem,</li>
+<li>kontrolka LED (zwykle bursztynowa) — przy dozorze migocze, przy alarmie świeci stale,</li>
+<li>złącza śrubowe do magistrali (konwencjonalne 2 żyły, adresowalne 2 żyły pętli + ewent. izolator).</li>
+</ul>
+
+<h3>Typy ROP wg PN-EN 54-11</h3>
+<table>
+<thead><tr><th>Typ</th><th>Działanie</th><th>Reset</th></tr></thead>
+<tbody>
+<tr><td><strong>Typ A</strong> (direct)</td><td>natychmiastowe wzbudzenie po stłuczeniu szyby</td><td>wymiana szybki (+ klucz)</td></tr>
+<tr><td><strong>Typ B</strong> (indirect)</td><td>wymaga dwóch akcji: podniesienie klapki + naciśnięcie przycisku</td><td>klucz serwisowy</td></tr>
+</tbody>
+</table>
+<p>Typ A jest standardem polskim — szyba pęka po uderzeniu pięścią / młotkiem (specjalna szyba „break-glass" pęka łatwo, ale nie skaleczy).</p>
+
+<h3>Wymagania montażowe</h3>
+<ul>
+<li><strong>wysokość montażu: 1,2–1,6 m</strong> (środek przycisku ~1,4 m nad podłogą),</li>
+<li>w widocznych miejscach: <strong>przy każdym wyjściu ewakuacyjnym</strong>, w klatkach schodowych, korytarzach,</li>
+<li>maksymalna odległość do najbliższego ROP-a — <strong>30 m</strong> z każdego miejsca obiektu (PN-EN 54-14),</li>
+<li>ROP zewnętrzny (np. na placu, parkingu) — w obudowie IP65 z daszkiem,</li>
+<li>nad ROP-em piktogram „ROP" o min. wymiarach 100 × 100 mm (PN-N-01256),</li>
+<li>oświetlenie nocne — w korytarzach z oświetleniem awaryjnym widoczność z dystansu.</li>
+</ul>
+
+<h3>Modele konwencjonalne / adresowalne</h3>
+<table>
+<thead><tr><th>Model</th><th>Typ</th><th>Komunikacja</th></tr></thead>
+<tbody>
+<tr><td>Polon-Alfa ROP-100</td><td>typ A, konwencjonalny</td><td>2-żyłowa linia</td></tr>
+<tr><td>Polon-Alfa ROP-4001M</td><td>typ A, adresowalny</td><td>pętla POLON</td></tr>
+<tr><td>Bosch FMC-300RW-GSGRD</td><td>typ A IP54</td><td>LSN/konwencjonalny</td></tr>
+<tr><td>Hochiki HCP-E</td><td>typ A, adresowalny</td><td>Hochiki LXP/Latitude</td></tr>
+<tr><td>Schrack MCP010</td><td>typ A, adresowalny</td><td>Integral</td></tr>
+<tr><td>KAC MCP1A-R470SG</td><td>typ A, konwencjonalny EOL 470Ω</td><td>uniwersalny</td></tr>
+</tbody>
+</table>
+
+<div class="callout">Po stłuczeniu szyby ROP zostaje w stanie alarmu do momentu wymiany szybki — serwisant montuje nową (komplet ~5–10 zł), wykonuje reset z centrali.</div>
+
+<h2>Sygnalizatory akustyczne (syreny)</h2>
+<p>Norma odniesienia: <strong>PN-EN 54-3</strong>. Funkcja: generacja sygnału dźwiękowego o poziomie wystarczającym do obudzenia śpiących i alarmowania w hałaśliwym otoczeniu.</p>
+
+<h3>Parametry akustyczne</h3>
+<table>
+<thead><tr><th>Parametr</th><th>Typowa wartość</th></tr></thead>
+<tbody>
+<tr><td>Poziom SPL @ 1 m</td><td>90–110 dB (typowo 100 dB)</td></tr>
+<tr><td>Częstotliwość tonu</td><td>500–1000 Hz (max czułość ucha)</td></tr>
+<tr><td>Typ sygnału</td><td>ciągły, slow-whoop, DIN, ISO 8201</td></tr>
+<tr><td>Pobór prądu</td><td>20–80 mA @ 24 V DC</td></tr>
+<tr><td>Klasa obudowy</td><td>IP21 (wewnętrzny), IP65/66 (zewnętrzny)</td></tr>
+<tr><td>Temperatura pracy</td><td>-10 do +55 °C (zewn. -25 do +70 °C)</td></tr>
+</tbody>
+</table>
+
+<h3>Tłumienie w pomieszczeniu</h3>
+<p>Poziom dźwięku spada z odległością. Reguła kciuka:</p>
+<ul>
+<li><strong>spadek o 6 dB</strong> z każdym podwojeniem odległości (przestrzeń otwarta),</li>
+<li>w zamkniętym pomieszczeniu mniej (echo) — typowo 3–4 dB,</li>
+<li>drzwi i ściany — dodatkowe tłumienie 20–30 dB (przegroda jednorzędowa).</li>
+</ul>
+<p>Wymóg <strong>PN-EN 54-14</strong>: poziom alarmu w każdym punkcie chronionego obiektu min. <strong>65 dB(A)</strong> ogółem lub <strong>75 dB(A)</strong> w sypialniach (tam musimy obudzić ludzi).</p>
+<p>Przykład: sygnalizator 100 dB @ 1 m → na 8 m: 100 - 6·log₂(8) = 100 - 18 = 82 dB. Po dwóch drzwiach: 82 - 25 - 25 = 32 dB → potrzebny dodatkowy sygnalizator w sąsiednim pomieszczeniu.</p>
+
+<h3>Typy sygnałów</h3>
+<ul>
+<li><strong>Ton ciągły 1 kHz</strong> — najprostszy, polskie tradycyjne,</li>
+<li><strong>Slow-whoop</strong> — narastający i opadający ton 0,5–1,5 kHz w cyklu 5 s, szczególnie dobrze budzi,</li>
+<li><strong>DIN 33404</strong> — niemiecki standard, sygnał trójtonowy,</li>
+<li><strong>ISO 8201 / temporal-3</strong> — wzór 0,5 s ton / 0,5 s przerwa × 3 / 1,5 s przerwa (standard amerykański, też w UE),</li>
+<li><strong>Voice alarm</strong> — komunikaty głosowe (DSO/PA) zamiast tonów (galerie, lotniska).</li>
+</ul>
+
+<h3>Modele</h3>
+<table>
+<thead><tr><th>Model</th><th>SPL</th><th>Wykonanie</th><th>Cena</th></tr></thead>
+<tbody>
+<tr><td>Polon-Alfa SAW-6001</td><td>100 dB</td><td>wewnętrzny / IP21</td><td>150 zł</td></tr>
+<tr><td>Polon-Alfa SAZ-Ex</td><td>105 dB</td><td>strefa zagrożenia wybuchem (Ex)</td><td>900 zł</td></tr>
+<tr><td>Klaxon Sonos</td><td>100 dB</td><td>IP65, do strefy zewn.</td><td>250 zł</td></tr>
+<tr><td>Cooper Fulleon Roshni</td><td>97 dB</td><td>wewn., 31 tonów, niski pobór</td><td>180 zł</td></tr>
+<tr><td>Hochiki Banshee</td><td>106 dB</td><td>IP65, wzmocniona</td><td>340 zł</td></tr>
+</tbody>
+</table>
+
+<h2>Sygnalizatory optyczne (VAD — Visual Alarm Device)</h2>
+<p>Norma odniesienia: <strong>PN-EN 54-23:2010</strong>. Funkcja: alarm wzrokowy dla osób z uszkodzeniem słuchu, w hałaśliwym otoczeniu, albo przy zatkanych uszach (np. słuchawkach).</p>
+
+<h3>Technologie</h3>
+<ul>
+<li><strong>Xenon flash</strong> — błysk dużej intensywności, czas ~1 ms, 1 Hz częstotliwość, czerwony lub bezbarwny,</li>
+<li><strong>LED stroboskopowy</strong> — dłuższa żywotność (50 000 h vs 5 000 h xenon), niższy pobór (50 mA vs 200 mA),</li>
+<li><strong>LED ciągły migający</strong> — w niektórych typach.</li>
+</ul>
+
+<h3>Klasy pokrycia VAD wg PN-EN 54-23</h3>
+<table>
+<thead><tr><th>Klasa</th><th>Pokrycie</th><th>Przykład</th></tr></thead>
+<tbody>
+<tr><td><strong>C-3-15</strong></td><td>sufit, sufit 3 m, średnica 15 m</td><td>biura, korytarze</td></tr>
+<tr><td><strong>W-2.4-12</strong></td><td>ścienny, wysokość 2,4 m, kostka 12 × 12 m</td><td>klasy szkolne</td></tr>
+<tr><td><strong>O-...</strong></td><td>otwartej przestrzeni, pole programowane</td><td>hale, magazyny</td></tr>
+</tbody>
+</table>
+<p>Wymóg: <strong>0,4 cd/m²</strong> intensywności światła w każdym punkcie chronionym (PN-EN 54-23).</p>
+
+<h2>Sygnalizatory kombinowane akustyczno-optyczne (S/V)</h2>
+<p>Połączenie syreny i flasher'a w jednej obudowie — wygodne, jeden punkt montażu zamiast dwóch. Spełniają jednocześnie PN-EN 54-3 i PN-EN 54-23.</p>
+<p><strong>Przykłady:</strong></p>
+<ul>
+<li>Klaxon Sonos Pulse — 100 dB + LED 0,4 cd/m², IP66,</li>
+<li>Hochiki Banshee Excel + Beacon — 106 dB + xenon,</li>
+<li>Apollo XP95 Open-Area Sounder Beacon — adresowalny w pętli,</li>
+<li>Bosch FNS-420 — adresowalny LSN, kombinowany,</li>
+<li>Polon-Alfa SAOW — akustyczno-optyczny, 100 dB + LED.</li>
+</ul>
+
+<h2>Sygnalizatory zewnętrzne</h2>
+<p>Na elewacji budynku, montowane wysoko (3–5 m), w obudowie IP54/IP65/IP66. Cechy:</p>
+<ul>
+<li>SPL min. <strong>100 dB</strong> @ 1 m,</li>
+<li>akumulator wsparcia (sabotaż przy odcięciu kabla — własne zasilanie 30 min),</li>
+<li>blokada styków antysabotażowych (otwarcie obudowy = alarm),</li>
+<li>lampa stroboskopowa pomarańczowa lub czerwona widoczna z 100 m,</li>
+<li>częste w połączeniu z systemem alarmowym (włamaniowym), nie tylko SAP.</li>
+</ul>
+
+<h2>Linie sygnalizacyjne — okablowanie</h2>
+<p>Sygnalizatory pożarowe muszą działać <strong>w czasie pożaru</strong> — kable muszą zachować ciągłość:</p>
+<ul>
+<li><strong>HDGs PH30/E30</strong> — kabel ognioodporny, zachowuje funkcjonalność 30 min w temperaturze 842 °C,</li>
+<li><strong>HDGs PH90/E90</strong> — 90 min, dla obiektów wysokich i z długimi drogami ewakuacji,</li>
+<li>mocowanie również ognioodporne (klipsy stalowe, opaski stalowe — nie plastikowe trytytki!).</li>
+</ul>
+<div class="warning"><strong>Najczęstszy błąd:</strong> użycie zwykłego kabla YDY/YnTKSY do sygnalizatorów — w pożarze topi się w 5 minut i syrena milknie. Wymóg PN-EN 54-14 i polskich przepisów: <strong>kabel ognioodporny PH30 lub PH90</strong> w zależności od kategorii obiektu.</div>
+
+<h2>Konserwacja sygnalizatorów</h2>
+<p>Wg PN-EN 54-14 i polskich przepisów ppoż:</p>
+<ol>
+<li>przegląd kwartalny: wizualnie + test funkcjonalny (chwilowe uruchomienie sygnałów),</li>
+<li>przegląd roczny: pomiar poziomu SPL miernikiem klasy 2 w wybranych pomieszczeniach,</li>
+<li>test ROP-ów: <strong>wszystkich ROP-ów raz w roku</strong> (klucz testowy bez stłuczenia szyby — większość ma tryb test),</li>
+<li>wpis do dziennika konserwacji.</li>
+</ol>
+
+<div class="nav-bottom">
+<a href="11-02-centrale-adresowalne.html">⟵ Centrale adresowalne</a>
+<a href="index.html">Spis sekcji 11 ⟶</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03-03 — RAID i redundancja</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:8px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:40px;opacity:.8}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">03 Rejestratory CCTV</a><span class="sep">/</span><span class="title">03-03 RAID i redundancja</span>
+</div>
+<div class="container">
+<h1>RAID i redundancja</h1>
+<p class="subtitle">RAID 1/5/6/10 w monitoringu — kiedy ciągłość zapisu jest ważniejsza niż pojemność. Hot-spare, czas odbudowy macierzy, ryzyko URE przy dużych dyskach i fundamentalna zasada: RAID to NIE backup.</p>
+<p class="updated">Aktualizacja: 2026-05</p>
+
+<h2>Po co RAID w CCTV</h2>
+<p>RAID (Redundant Array of Independent Disks) łączy wiele dysków w jedną logiczną jednostkę, dodając <strong>redundancję</strong> — odporność na awarię dysku bez utraty danych. W monitoringu ma to dwa konkretne cele:</p>
+<ul>
+<li><strong>Ciągłość zapisu</strong> — gdy padnie jeden dysk, system nagrywa dalej z uszkodzonej macierzy (degraded mode). Nie ma luki w archiwum, nie tracisz materiału w momencie awarii.</li>
+<li><strong>Ochrona długiej retencji</strong> — przy 60–90 dniach zapisu na dużych dyskach awaria pojedynczego HDD bez RAID oznacza utratę miesięcy nagrań. RAID pozwala wymienić dysk i odbudować dane.</li>
+</ul>
+<div class="callout">RAID ma sens głównie w <strong>większych systemach</strong> (≥ 4 dyski, długa retencja, obiekty wymagające ciągłości — banki, lotniska, monitoring miejski). Dla domu z 1–2 dyskami prostszy i tańszy jest zwykły zapis + okresowy eksport krytycznych nagrań.</div>
+
+<h2>Poziomy RAID — porównanie</h2>
+<table>
+<thead><tr><th>Poziom</th><th>Min. dysków</th><th>Tolerancja awarii</th><th>Pojemność użyteczna</th><th>Zastosowanie w CCTV</th></tr></thead>
+<tbody>
+<tr><td><strong>RAID 0</strong> (stripe)</td><td>2</td><td><span style="color:var(--red)">0 — brak</span></td><td>100% (N × dysk)</td><td>NIE dla CCTV — awaria 1 dysku = utrata całości; tylko wydajność</td></tr>
+<tr><td><strong>RAID 1</strong> (mirror)</td><td>2</td><td>1 dysk</td><td>50% (N/2)</td><td>małe NVR, 2 dyski — proste lustro, krytyczne nagrania</td></tr>
+<tr><td><strong>RAID 5</strong> (parity)</td><td>3</td><td>1 dysk</td><td>(N−1) × dysk</td><td>średnie macierze 4–6 dysków, dobry kompromis pojemność/ochrona</td></tr>
+<tr><td><strong>RAID 6</strong> (double parity)</td><td>4</td><td>2 dyski</td><td>(N−2) × dysk</td><td>duże macierze ≥ 6 dysków, długa retencja, bezpieczeństwo rebuildu</td></tr>
+<tr><td><strong>RAID 10</strong> (1+0)</td><td>4</td><td>1–2 dyski (po 1 na lustro)</td><td>50% (N/2)</td><td>najwyższa wydajność + odporność, krytyczne systemy o dużym bitrate</td></tr>
+</tbody>
+</table>
+
+<h3>Przykłady pojemności (dyski 12 TB)</h3>
+<table>
+<thead><tr><th>Konfiguracja</th><th>Surowo</th><th>Użyteczne</th><th>Strata na redundancję</th></tr></thead>
+<tbody>
+<tr><td>4× 12 TB RAID 5</td><td>48 TB</td><td>36 TB</td><td>12 TB (1 dysk)</td></tr>
+<tr><td>4× 12 TB RAID 6</td><td>48 TB</td><td>24 TB</td><td>24 TB (2 dyski)</td></tr>
+<tr><td>4× 12 TB RAID 10</td><td>48 TB</td><td>24 TB</td><td>24 TB (lustra)</td></tr>
+<tr><td>6× 12 TB RAID 5</td><td>72 TB</td><td>60 TB</td><td>12 TB (1 dysk)</td></tr>
+<tr><td>6× 12 TB RAID 6</td><td>72 TB</td><td>48 TB</td><td>24 TB (2 dyski)</td></tr>
+<tr><td>8× 12 TB RAID 6</td><td>96 TB</td><td>72 TB</td><td>24 TB (2 dyski)</td></tr>
+</tbody>
+</table>
+
+<h2>RAID 5 vs RAID 6 — kluczowy dylemat dużych macierzy</h2>
+<p>Przy dyskach 12–24 TB różnica między RAID 5 a RAID 6 przestaje być akademicka. Decyduje o niej <strong>czas odbudowy</strong> i <strong>ryzyko URE</strong>.</p>
+
+<h3>Czas odbudowy (rebuild)</h3>
+<p>Po wymianie uszkodzonego dysku macierz musi <strong>odtworzyć dane z parzystości</strong> na nowym dysku. Dla dużych dysków to <em>dni</em>, nie godziny:</p>
+<table>
+<thead><tr><th>Pojemność dysku</th><th>Orientacyjny czas rebuildu</th><th>Stan macierzy podczas rebuildu</th></tr></thead>
+<tbody>
+<tr><td>4 TB</td><td>~8–12 h</td><td>obciążona, wolniejsza</td></tr>
+<tr><td>12 TB</td><td>~20–40 h</td><td>pełne obciążenie I/O wszystkich dysków</td></tr>
+<tr><td>18–22 TB</td><td>~40–90 h</td><td>kilka dni pod stresem — ryzyko kolejnej awarii</td></tr>
+</tbody>
+</table>
+
+<h3>Ryzyko URE</h3>
+<p><strong>URE (Unrecoverable Read Error)</strong> to nieodwracalny błąd odczytu — statystycznie ~1 na 10<sup>14</sup>–10<sup>15</sup> odczytanych bitów dla dysków klasy consumer/surveillance. Podczas rebuildu RAID 5 system musi odczytać <em>wszystkie</em> pozostałe dyski w całości. Przy dużych macierzach prawdopodobieństwo natrafienia na URE rośnie — a w RAID 5 (jedna parzystość, dysk już padł) <strong>URE = przerwany rebuild i utrata danych</strong>.</p>
+<div class="warning"><strong>RAID 5 jest ryzykowny przy dyskach ≥ 8–10 TB.</strong> Jeśli podczas wielogodzinnego rebuildu jeden z pozostałych dysków zwróci URE lub padnie całkowicie (a są pod maksymalnym obciążeniem), tracisz całą macierz. Dlatego dla dużych dysków standardem jest <strong>RAID 6</strong> — toleruje awarię drugiego dysku i URE w trakcie odbudowy.</div>
+<div class="tip"><strong>Reguła doboru:</strong> macierze do ~4 dysków 4–8 TB → RAID 5 akceptowalny. Macierze ≥ 6 dysków lub dyski ≥ 10 TB → <strong>RAID 6</strong> (lub RAID 10 dla wydajności). Im większy dysk i dłuższy rebuild, tym bardziej opłaca się druga parzystość.</div>
+
+<h2>Hot-spare — dysk zapasowy</h2>
+<p><strong>Hot-spare</strong> to dysk wpięty do macierzy, ale nieużywany — czeka w gotowości. Gdy padnie aktywny dysk, kontroler <strong>automatycznie</strong> zaczyna odbudowę na hot-spare, bez czekania na technika. Skraca okno ryzyka (czas w degraded mode), co przy długim rebuildzie dużych dysków jest kluczowe.</p>
+<ul>
+<li><strong>Global hot-spare</strong> — jeden zapas obsługuje wszystkie macierze w urządzeniu.</li>
+<li><strong>Dedicated hot-spare</strong> — przypisany do konkretnej macierzy.</li>
+</ul>
+<div class="callout">Przykład: macierz <strong>RAID 6 (6 dysków) + 1 hot-spare</strong> = 7 zatok. Awaria dysku → automatyczny rebuild na spare → masz znów pełną podwójną parzystość, zanim ktokolwiek pojawi się na obiekcie. Dla zdalnych instalacji (maszt, obiekt bez obsługi) hot-spare jest wręcz obowiązkowy.</div>
+
+<h2>Rejestratory i platformy z RAID</h2>
+<table>
+<thead><tr><th>Urządzenie</th><th>Zatoki</th><th>Obsługiwane RAID</th><th>Cena (2026)</th></tr></thead>
+<tbody>
+<tr><td><strong>Hikvision DS-9664NI-I16</strong></td><td>16 HDD</td><td>RAID 0/1/5/6/10 + hot-spare</td><td>~9 800 zł (bez dysków)</td></tr>
+<tr><td><strong>Hikvision DS-9632NI-I8</strong></td><td>8 HDD</td><td>RAID 0/1/5/6/10 + hot-spare</td><td>~5 200 zł</td></tr>
+<tr><td><strong>Dahua NVR608-32-4KS2 (8-bay)</strong></td><td>8 HDD</td><td>RAID 0/1/5/6/10 + hot-spare</td><td>~6 400 zł</td></tr>
+<tr><td><strong>Synology DVA3221 (Surveillance St.)</strong></td><td>4 HDD</td><td>SHR / RAID 1/5/6/10</td><td>~3 900 zł</td></tr>
+<tr><td><strong>QNAP TS-464 + QVR Pro</strong></td><td>4 HDD</td><td>RAID 1/5/6/10</td><td>~2 700 zł</td></tr>
+</tbody>
+</table>
+
+<h3>NVR z RAID vs NAS jako storage</h3>
+<ul>
+<li><strong>NVR z RAID</strong> (Hikvision I-series, Dahua 8-bay) — dedykowane urządzenie, prosta konfiguracja w GUI rejestratora, wsparcie producenta kamer end-to-end.</li>
+<li><strong>NAS + VMS</strong> (Synology <em>Surveillance Station</em>, QNAP <em>QVR Pro</em>) — elastyczność, te same dyski mogą służyć też innym danym, zaawansowane SHR (Synology Hybrid RAID) pozwala mieszać pojemności dysków. Synology liczy licencje per kamera (2 gratis, kolejne płatne ~kilkadziesiąt zł/kamera).</li>
+</ul>
+<div class="tip">Synology <strong>SHR</strong> (Synology Hybrid RAID) to ich nakładka na RAID, która optymalnie wykorzystuje dyski o <em>różnych pojemnościach</em> i upraszcza rozbudowę (dokładasz większy dysk, system sam realokuje parzystość). Dla mniejszych instalacji bywa wygodniejsza niż klasyczny RAID 5/6 ze sztywnym wymogiem identycznych dysków.</div>
+
+<h2>RAID to NIE backup — zasada 3-2-1</h2>
+<p>Najczęstsze i najgroźniejsze nieporozumienie. RAID chroni przed <strong>awarią sprzętową dysku</strong> — i tylko przed nią. NIE chroni przed:</p>
+<ul>
+<li><strong>Kradzieżą / zniszczeniem rejestratora</strong> — włamywacz zabiera lub niszczy NVR razem z całą macierzą RAID.</li>
+<li><strong>Pożarem / zalaniem</strong> — wszystkie dyski w jednym urządzeniu giną razem.</li>
+<li><strong>Skasowaniem / sabotażem</strong> — ktoś usuwa nagrania, RAID wiernie replikuje usunięcie.</li>
+<li><strong>Awarią kontrolera RAID / ransomware</strong> — uszkodzona macierz lub zaszyfrowane dane to utrata mimo redundancji.</li>
+</ul>
+<div class="warning"><strong>RAID = wysoka dostępność, NIE kopia zapasowa.</strong> Macierz, która przeżyje awarię dysku, nie przeżyje pożaru serwerowni ani złodzieja, który wyniesie rejestrator. To dwa różne problemy i dwa różne rozwiązania.</div>
+
+<h3>Zasada 3-2-1</h3>
+<pre><code>3 kopie danych
+2 różne nośniki / media
+1 kopia poza lokalizacją (offsite)</code></pre>
+<p>W praktyce CCTV pełny backup całego archiwum bywa nierealny (dziesiątki TB), dlatego stosuje się <strong>backup zdarzeń krytycznych</strong>:</p>
+<ul>
+<li><strong>Eksport incydentów</strong> — nagrania alarmów/włamań natychmiast eksportowane na osobny dysk lub do chmury.</li>
+<li><strong>Drugi rejestrator / kamera w chmurze</strong> dla najważniejszych punktów (wejście, kasa) — niezależny od głównego NVR.</li>
+<li><strong>Ukryty NVR zapasowy</strong> — drugi rejestrator schowany w innym miejscu obiektu, równolegle nagrywający kluczowe kamery; gdy złodziej zniszczy główny widoczny rejestrator, materiał zostaje na ukrytym.</li>
+<li><strong>Kopia offsite</strong> — synchronizacja eksportów na NAS w innej lokalizacji lub do chmury (S3, FTP).</li>
+</ul>
+<div class="callout">Klasyczny scenariusz: złodziej wybija drzwi, zrywa widoczny rejestrator i wynosi. Cała macierz RAID 6 — bezużyteczna, bo fizycznie zniknęła. <strong>Ukryty drugi NVR</strong> lub kamera wysyłająca klatki do chmury (P2P/FTP w czasie rzeczywistym) to jedyne, co wtedy ocala materiał dowodowy. Redundancja dysków nic tu nie da.</div>
+
+<div class="nav-bottom">
+<a href="03-02-dyski-hdd.html">⟵ 03-02 Dyski HDD</a>
+<a href="03-04-poe-switche.html">03-04 Switche PoE →</a>
+</div>
+</div>
+</body>
+</html>

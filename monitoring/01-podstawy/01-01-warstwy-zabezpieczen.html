@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01-01 — Warstwy zabezpieczeń (defense in depth)</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">01 Podstawy</a><span class="sep">/</span><span class="title">01-01 Warstwy zabezpieczeń</span>
+</div>
+<div class="container">
+<h1>Warstwy zabezpieczeń (defense in depth)</h1>
+<p class="subtitle">Trójwarstwowa ochrona obiektu: mechaniczna, elektroniczna, organizacyjna. Strefy ochrony 1–4 i zasada redundancji. Aktualizacja: 2026.</p>
+
+<h2>Idea ochrony warstwowej</h2>
+<p><strong>Defense in depth</strong> (DiD) — przeniesione z wojskowości i z dziedziny cyberbezpieczeństwa pojęcie zakłada, że żaden pojedynczy środek nie jest w stanie zatrzymać zdeterminowanego przeciwnika. Skuteczna ochrona to <em>nawarstwianie</em> kolejnych przeszkód, które przeciwnik musi pokonać — każda z nich kupuje czas reakcji służb.</p>
+<p>W zabezpieczeniach obiektowych przyjmuje się trzy podstawowe warstwy:</p>
+<table>
+<thead><tr><th>Warstwa</th><th>Cel</th><th>Przykłady</th></tr></thead>
+<tbody>
+<tr><td><strong>Mechaniczna</strong></td><td>opóźnić sprawcę (delay)</td><td>ogrodzenia, kraty, drzwi klasy RC, zamki, szyby P4A</td></tr>
+<tr><td><strong>Elektroniczna</strong></td><td>wykryć i powiadomić (detect)</td><td>alarm, CCTV, kontrola dostępu, sygnalizacja pożarowa</td></tr>
+<tr><td><strong>Organizacyjna</strong></td><td>zareagować (respond)</td><td>procedury, służby ochrony, monitoring agencji, polityka kluczy</td></tr>
+</tbody>
+</table>
+
+<div class="callout">Klasyczna formuła branżowa: <strong>D + D + R + C</strong> — Deter (odstraszyć) + Detect (wykryć) + Delay (opóźnić) + Respond (zareagować). Każda warstwa realizuje przynajmniej jedną z tych funkcji.</div>
+
+<h2>Warstwa 1 — mechaniczna (fizyczna)</h2>
+<p>Najstarsza i nadal najważniejsza warstwa. Jej zadaniem jest fizyczne <strong>opóźnienie</strong> sprawcy na tyle, by służby zdążyły dotrzeć. Bez tej warstwy alarm jest bezużyteczny — sprawca wejdzie, ukradnie i wyjdzie w 90 sekund.</p>
+
+<h3>Drzwi antywłamaniowe — klasy RC wg PN-EN 1627</h3>
+<table>
+<thead><tr><th>Klasa</th><th>Czas odporności</th><th>Sprawca</th><th>Typowe zastosowanie</th></tr></thead>
+<tbody>
+<tr><td>RC1 N</td><td>brak narzędzi</td><td>okazjonalny, przemoc fizyczna</td><td>drzwi wewnętrzne, piwnice</td></tr>
+<tr><td>RC2</td><td>3 minuty</td><td>kopanie, śrubokręt, klucz</td><td>mieszkanie, dom jednorodzinny</td></tr>
+<tr><td>RC3</td><td>5 minut</td><td>łom, wkrętak udarowy</td><td>dom z wyposażeniem, sklep</td></tr>
+<tr><td>RC4</td><td>10 minut</td><td>elektronarzędzia (młot, piła)</td><td>kasy, magazyny wartościowe</td></tr>
+<tr><td>RC5</td><td>15 minut</td><td>elektronarzędzia o większej mocy</td><td>banki, jubilerzy</td></tr>
+<tr><td>RC6</td><td>20 minut</td><td>narzędzia profesjonalne, palniki</td><td>skarbce, obiekty wojskowe</td></tr>
+</tbody>
+</table>
+
+<h3>Szyby antywłamaniowe — klasy P wg PN-EN 356</h3>
+<table>
+<thead><tr><th>Klasa</th><th>Test</th><th>Odporność</th></tr></thead>
+<tbody>
+<tr><td>P1A–P5A</td><td>uderzenie kuli 4,11 kg z 1,5/3/6/9 m</td><td>rzut kamieniem, wandalizm</td></tr>
+<tr><td>P6B–P8B</td><td>uderzenia siekierą (30/50/70 razy)</td><td>siekiera, łom — minuty</td></tr>
+<tr><td>BR1–BR7</td><td>strzał (PN-EN 1063)</td><td>kuloodporne</td></tr>
+</tbody>
+</table>
+
+<h3>Zamki — klasy A/B/C wg PN-EN 12209</h3>
+<ul>
+<li><strong>Klasa A</strong> — podstawowa, otwarcie wytrychem &lt;3 min (np. wkładki bez stempla, do drzwi wewnętrznych)</li>
+<li><strong>Klasa B</strong> — minimum do drzwi zewnętrznych mieszkania, odporność &gt;10 min</li>
+<li><strong>Klasa C</strong> — zalecane do domów jednorodzinnych, &gt;15 min, anti-bumping, anti-pick (np. EVVA MCS, ABUS Bravus)</li>
+</ul>
+
+<div class="tip"><strong>Praktyka.</strong> Standardowe drzwi zewnętrzne z marketu z wkładką klasy A można otworzyć wytrychem w 30 sekund. Wymiana wkładki na klasę C i nakładka magnetyczna (np. Disec) podnosi czas do kilkunastu minut — w tym czasie alarm zdąży powiadomić agencję i służby zdążą podjechać.</div>
+
+<h2>Warstwa 2 — elektroniczna</h2>
+<p>Tu zaczyna się sedno tego kompendium. Elementy elektroniczne odpowiadają za <strong>wykrycie</strong> próby naruszenia i przesłanie informacji do operatora/agencji/użytkownika.</p>
+
+<h3>Cztery podsystemy elektroniczne</h3>
+<table>
+<thead><tr><th>Podsystem</th><th>Funkcja</th><th>Norma bazowa</th></tr></thead>
+<tbody>
+<tr><td><strong>SSWiN</strong> — sygnalizacja włamania i napadu</td><td>detekcja wtargnięcia (PIR, kontaktrony, wibracje)</td><td>PN-EN 50131</td></tr>
+<tr><td><strong>CCTV</strong> — telewizja dozorowa</td><td>obserwacja, rejestracja, weryfikacja zdarzeń</td><td>PN-EN 62676</td></tr>
+<tr><td><strong>SKD</strong> — system kontroli dostępu</td><td>autoryzacja przejść, rejestracja zdarzeń</td><td>PN-EN 60839-11</td></tr>
+<tr><td><strong>SAP/SSP</strong> — sygnalizacja pożarowa</td><td>wykrycie dymu/ciepła/płomienia</td><td>PN-EN 54</td></tr>
+</tbody>
+</table>
+
+<div class="callout">Te cztery systemy są w nowoczesnym obiekcie zintegrowane — najczęściej na poziomie centrali alarmowej (Satel Integra, Risco, Galaxy) lub osobnego BMS (Building Management System).</div>
+
+<h2>Warstwa 3 — organizacyjna</h2>
+<p>Najlepsza technika nie pomoże, jeśli nie ma kto na nią zareagować. Warstwa organizacyjna obejmuje:</p>
+<ul>
+<li><strong>Procedury</strong> — co robić w razie alarmu, kto jest powiadamiany jako pierwszy, kto ma uprawnienia do rozbrojenia, gdzie są kopie kluczy</li>
+<li><strong>Polityka kluczy i kart</strong> — kto, kiedy, dokąd. Rejestr wydanych nośników i procedura przy zgubieniu/zwolnieniu pracownika</li>
+<li><strong>Stała Ochrona</strong> (SUFO) — pracownicy ochrony fizycznej na obiekcie 24/7 (banki, centra logistyczne)</li>
+<li><strong>Grupa interwencyjna</strong> — agencja ochrony reagująca na alarm (Solid, Konsalnet, Securitas, Seris, Impel)</li>
+<li><strong>Stacja monitorowania alarmów</strong> (SMA/CMA) — całodobowy operator odbierający sygnały Contact ID / SIA</li>
+<li><strong>Szkolenia personelu</strong> — co robić przy napadzie (przyciski napadowe, kod „pod przymusem")</li>
+</ul>
+
+<div class="warning"><strong>Czas reakcji grupy interwencyjnej</strong> wg standardów branżowych w PL: do <strong>15 minut</strong> w miastach, do <strong>30 minut</strong> poza nimi. Stąd minimalna odporność mechaniczna powinna wynosić &gt;15 min (klasa RC3 + zamek klasy C).</div>
+
+<h2>Strefy ochrony 1–4</h2>
+<p>Klasyczny model koncentrycznych stref. Wraz z przechodzeniem do wnętrza obiektu rośnie poziom zabezpieczeń i restrykcji dostępu:</p>
+<table>
+<thead><tr><th>Strefa</th><th>Lokalizacja</th><th>Typowe środki</th></tr></thead>
+<tbody>
+<tr><td><strong>Strefa 1 — perymetryczna</strong></td><td>ogrodzenie posesji, brama</td><td>ogrodzenie 2 m + drut żyletkowy, bariery IR, ANPR przy bramie, oświetlenie z czujnikiem ruchu</td></tr>
+<tr><td><strong>Strefa 2 — zewnętrzna</strong></td><td>elewacja, podjazd, ogród</td><td>kamery IP zewnętrzne (IP66), kurtyny PIR, kontaktrony okienne, wibracyjne</td></tr>
+<tr><td><strong>Strefa 3 — wewnętrzna</strong></td><td>hol, korytarze, pomieszczenia ogólne</td><td>PIR sufitowe, kontrola dostępu kartą RFID, kamery wewnętrzne, kontaktrony drzwi</td></tr>
+<tr><td><strong>Strefa 4 — krytyczna</strong></td><td>serwerownia, kasa, sejf, archiwum</td><td>biometria (odcisk, twarz), KD dwuczynnikowe (karta + PIN), CCTV z analityką, czujki wibracji, sejf w sejfie</td></tr>
+</tbody>
+</table>
+
+<div class="tip"><strong>Zasada:</strong> sprawca musi pokonać <em>każdą</em> strefę osobno. Włamanie do strefy 4 oznacza wcześniejsze wykrycie w strefach 1–3, czyli czas reakcji już biegnie.</div>
+
+<h2>Zasada redundancji (N+1)</h2>
+<p>Pojedyncza droga wykrycia lub komunikacji to <strong>pojedynczy punkt awarii</strong> (SPOF — single point of failure). Profesjonalne systemy stosują redundancję:</p>
+<ul>
+<li><strong>Detekcja</strong> — dwa różne typy czujek na tę samą strefę (np. PIR sufitowy + kontaktron okna). Sprawca uzbrojony w jamer mikrofalowy nie zablokuje obu naraz.</li>
+<li><strong>Komunikacja (ATS)</strong> — dual-path: tor IP (Ethernet/światłowód) + tor GSM/LTE. PN-EN 50136 wymaga dla grade 3: maksymalny czas detekcji awarii toru = 25 godzin; grade 4: 3 minuty.</li>
+<li><strong>Zasilanie</strong> — sieć 230 V + akumulator buforowy (12 V/7–17 Ah) + opcjonalnie UPS dla rejestratora. Norma PN-EN 50131-6: czas podtrzymania min. 12 h (grade 2), 60 h (grade 4).</li>
+<li><strong>Nośnik nagrań</strong> — RAID 1/5/6 na rejestratorze + replikacja na NAS off-site lub do chmury.</li>
+</ul>
+
+<h2>Triada CIA w kontekście zabezpieczeń fizycznych</h2>
+<p>Z cyberbezpieczeństwa pochodzi koncepcja, która ma swój odpowiednik w świecie fizycznym:</p>
+<table>
+<thead><tr><th>Atrybut</th><th>W cyber</th><th>W zabezpieczeniach fizycznych</th></tr></thead>
+<tbody>
+<tr><td><strong>Confidentiality</strong></td><td>kto może czytać dane</td><td>kto może wejść (KD, kody, biometria)</td></tr>
+<tr><td><strong>Integrity</strong></td><td>czy dane nie zostały zmienione</td><td>czy zapis CCTV nie został podmieniony (hash, znak czasu)</td></tr>
+<tr><td><strong>Availability</strong></td><td>czy system jest dostępny</td><td>czy system działa po zaniku zasilania, jamerowaniu, sabotażu</td></tr>
+</tbody>
+</table>
+
+<h2>Najczęstsze błędy projektowe</h2>
+<div class="warning">
+<ul>
+<li><strong>Tylko CCTV bez alarmu</strong> — kamera rejestruje włamanie, ale nikogo o nim nie powiadamia w czasie rzeczywistym</li>
+<li><strong>Alarm bez monitoringu agencji</strong> — syrena bez powiadomienia jest tylko irytacją dla sąsiadów</li>
+<li><strong>Słabe drzwi pod silnym alarmem</strong> — sprawca wyłamie drzwi w 30 s, ukradnie i ucieknie zanim agencja dojedzie</li>
+<li><strong>Brak redundancji komunikacji</strong> — jamer GSM blokuje powiadomienie</li>
+<li><strong>Kamera w polu detekcji własnego PIR</strong> — czujka reaguje na termiczne źródło IR kamery i daje fałszywe alarmy</li>
+<li><strong>Centralka w widocznym miejscu przy wejściu</strong> — sprawca wyrwie ją w pierwszych sekundach (powinna być w strefie 4)</li>
+</ul>
+</div>
+
+<h2>Co dalej</h2>
+<p>Po zrozumieniu warstw, kolejny krok to klasyfikacja — jaki poziom zabezpieczeń jest właściwy dla konkretnego obiektu. Tym zajmie się następna strona o klasach SA1–SA4.</p>
+
+<div class="nav-bottom">
+<a href="index.html">⟵ Spis sekcji 01</a>
+<a href="01-02-klasy-ryzyka-sa.html">Klasy ryzyka SA1–SA4 →</a>
+</div>
+</div>
+</body>
+</html>

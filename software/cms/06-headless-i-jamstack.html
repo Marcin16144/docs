@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06 — Headless i JAMstack</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#2dd4bf;--accent-hover:#5eead4;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--sky:#38bdf8;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--sky));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+a{color:var(--accent)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.82rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+.callout{background:rgba(251,146,60,.1);border-left:3px solid var(--orange);border-radius:6px;padding:12px 16px;margin:16px 0;font-size:.92rem}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<span class="title">06 — Headless i JAMstack</span>
+</div>
+<div class="container">
+<h1>Headless i JAMstack</h1>
+<p class="subtitle">Nowoczesne podejscie API-first — czym sie rozni od tradycyjnego CMS i kiedy ma sens.</p>
+
+<p>Headless CMS i JAMstack to dominujace podejscie w nowoczesnych projektach webowych. Ten rozdzial wyjasnia, czym sie roznia od tradycyjnego CMS, jak dziala renderowanie statyczne i kiedy to podejscie ma sens.</p>
+
+<h2>Czym jest headless CMS?</h2>
+<p><strong>Headless</strong> = „bez glowy". Glowa to warstwa prezentacji (frontend). Headless CMS to system, ktory zarzadza trescia i udostepnia ja przez <strong>API</strong>, ale <strong>nie renderuje</strong> strony — robi to osobny frontend.</p>
+<pre><code>TRADYCYJNY (coupled)                 HEADLESS
+─────────────────────                ─────────────────────
+┌─────────────────┐                  ┌─────────────────┐
+│   Panel admina  │                  │   Panel admina  │
+├─────────────────┤                  ├─────────────────┤
+│   Baza tresci   │                  │   Baza tresci   │
+├─────────────────┤                  ├─────────────────┤
+│  RENDEROWANIE   │ ← polaczone      │   API (JSON)    │ ← tylko dane
+│  (szablony→HTML)│                  └────────┬────────┘
+└────────┬────────┘                           │ REST/GraphQL
+         │ HTML                                ▼
+         ▼                            ┌─────────────────┐
+   Przegladarka                       │  FRONTEND (osob.)│
+                                      │  Next.js / app  │ → HTML
+                                      └────────┬────────┘
+                                               ▼
+                                         Przegladarka</code></pre>
+<p>CMS zwraca tresc jako JSON:</p>
+<pre><code>GET /api/posts/czym-jest-cms
+{
+  "title": "Czym jest CMS",
+  "slug": "czym-jest-cms",
+  "content": "CMS to system zarzadzania trescia...",
+  "author": { "name": "Marcin" },
+  "publishedAt": "2026-06-01"
+}</code></pre>
+<p>Frontend pobiera ten JSON i sam decyduje, jak go wyswietlic — na stronie WWW, w aplikacji mobilnej, na smartwatchu czy ekranie reklamowym.</p>
+
+<h2>Headless vs tradycyjny — porownanie</h2>
+<table>
+<thead><tr><th>Cecha</th><th>Tradycyjny (coupled)</th><th>Headless</th></tr></thead>
+<tbody>
+<tr><td><strong>Renderowanie</strong></td><td>CMS generuje HTML</td><td>Frontend generuje HTML</td></tr>
+<tr><td><strong>Frontend</strong></td><td>Narzucony przez motyw</td><td>Dowolny (React, Vue, mobile)</td></tr>
+<tr><td><strong>Kanaly</strong></td><td>Glownie web</td><td>Omnichannel (web, app, IoT, TV)</td></tr>
+<tr><td><strong>Wydajnosc</strong></td><td>Zalezna od serwera CMS</td><td>Bardzo wysoka (CDN, statyczne)</td></tr>
+<tr><td><strong>Prog wejscia</strong></td><td>Niski (gotowe motywy)</td><td>Wyzszy (trzeba zbudowac front)</td></tr>
+<tr><td><strong>Podglad tresci</strong></td><td>Wbudowany, na zywo</td><td>Wymaga konfiguracji</td></tr>
+<tr><td><strong>Bezpieczenstwo</strong></td><td>Wieksza powierzchnia ataku</td><td>Mniejsza (admin oddzielony)</td></tr>
+<tr><td><strong>Zespol</strong></td><td>Moze byc nietechniczny</td><td>Wymaga developerow</td></tr>
+</tbody>
+</table>
+
+<h2>Czym jest JAMstack?</h2>
+<p><strong>JAMstack</strong> = <strong>J</strong>avaScript + <strong>A</strong>PIs + <strong>M</strong>arkup. Architektura, w ktorej strona to wstepnie zbudowany statyczny <strong>Markup</strong> (HTML), wzbogacony <strong>JavaScriptem</strong>, korzystajacy z uslug przez <strong>API</strong>.</p>
+<pre><code>JAMSTACK — przeplyw
+┌──────────────┐   build   ┌──────────────┐   deploy   ┌──────────────┐
+│ Headless CMS │ ────────► │  Generator   │ ─────────► │     CDN      │
+│ (tresc JSON) │           │  (Next/Astro)│            │ (statyczny   │
+│              │           │  HTML+JS+CSS │            │  HTML)       │
+└──────────────┘           └──────────────┘            └──────┬───────┘
+       │                                                      │
+       │ webhook: "tresc zmieniona → przebuduj"               ▼
+       └──────────────────────────────────────────►    Uzytkownik
+                                                      (blyskawicznie)</code></pre>
+<p>Zasady JAMstack:</p>
+<ul>
+<li><strong>Pre-rendering</strong> — strony budowane z wyprzedzeniem, serwowane jako statyczne pliki.</li>
+<li><strong>Decoupling</strong> — frontend oddzielony od backendu, komunikacja przez API.</li>
+<li><strong>CDN-first</strong> — statyczne pliki blisko uzytkownika = szybkosc i bezpieczenstwo.</li>
+</ul>
+
+<h2>Static Site Generators (SSG)</h2>
+<p>Generatory budujace statyczny HTML z tresci + szablonow:</p>
+<table>
+<thead><tr><th>Generator</th><th>Technologia</th><th>Wyroznik</th></tr></thead>
+<tbody>
+<tr><td><strong>Next.js</strong></td><td>React</td><td>Hybrydowy (SSG+SSR+ISR), najpopularniejszy</td></tr>
+<tr><td><strong>Astro</strong></td><td>Multi-framework</td><td>„Islands", minimum JS, bardzo szybki</td></tr>
+<tr><td><strong>Nuxt</strong></td><td>Vue</td><td>Odpowiednik Next.js dla Vue</td></tr>
+<tr><td><strong>Gatsby</strong></td><td>React + GraphQL</td><td>Bogaty ekosystem pluginow</td></tr>
+<tr><td><strong>Hugo</strong></td><td>Go</td><td>Najszybszy build, swietny do dokumentacji</td></tr>
+<tr><td><strong>Eleventy</strong></td><td>JavaScript</td><td>Prosty, lekki, elastyczny</td></tr>
+<tr><td><strong>SvelteKit</strong></td><td>Svelte</td><td>Wydajny, maly bundle</td></tr>
+</tbody>
+</table>
+
+<h2>Strategie renderowania</h2>
+<p>Kluczowy wybor w nowoczesnym froncie — <strong>kiedy</strong> i <strong>gdzie</strong> powstaje HTML:</p>
+<pre><code>SSG (Static)      build-time:  HTML gotowy podczas budowania
+                  ┌──────┐ build ┌──────┐ request ┌──────┐
+                  │ Tresc│ ────► │ HTML │ ──────► │ User │
+                  └──────┘       └──────┘         └──────┘
+                  ✓ najszybsze  ✗ trzeba przebudowac przy zmianie
+
+SSR (Server)      request-time: HTML generowany przy kazdym zadaniu
+                  ┌──────┐ request ┌────────┐ HTML ┌──────┐
+                  │ User │ ──────► │ Serwer │ ───► │ User │
+                  └──────┘         └────────┘      └──────┘
+                  ✓ zawsze swieze ✗ wolniejsze, obciaza serwer
+
+ISR (Incremental) hybryda: statyczne + odswiezanie co X
+                  ✓ szybkie + w miare swieze (Next.js)
+
+CSR (Client)      przegladarka renderuje JS po pobraniu
+                  ✓ interaktywne ✗ wolny pierwszy render, gorsze SEO</code></pre>
+<table>
+<thead><tr><th>Strategia</th><th>HTML powstaje</th><th>Najlepsze do</th><th>Swiezosc</th></tr></thead>
+<tbody>
+<tr><td><strong>SSG</strong></td><td>Podczas build</td><td>Blogi, docs, landing</td><td>Po przebudowie</td></tr>
+<tr><td><strong>SSR</strong></td><td>Przy zadaniu (serwer)</td><td>Dashboardy, personalizacja</td><td>Zawsze swieze</td></tr>
+<tr><td><strong>ISR</strong></td><td>Build + odswiezanie</td><td>E-commerce, duze portale</td><td>Quasi-swieze</td></tr>
+<tr><td><strong>CSR</strong></td><td>W przegladarce</td><td>Aplikacje SPA, panele</td><td>Dynamiczne</td></tr>
+</tbody>
+</table>
+<p>Nowoczesne frameworki (Next.js, Nuxt) pozwalaja <strong>mieszac</strong> strategie per strona — blog jako SSG, koszyk jako SSR.</p>
+
+<h2>Przykladowy nowoczesny stack</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│  Sanity (headless CMS)  →  tresc jako JSON przez API         │
+│         │                                                     │
+│         ▼                                                     │
+│  Next.js (frontend)     →  pobiera tresc, renderuje (ISR)    │
+│         │                                                     │
+│         ▼                                                     │
+│  Vercel (hosting/CDN)   →  deploy, edge network, podglad     │
+│         │                                                     │
+│         ▼                                                     │
+│  Webhook: zmiana w Sanity → automatyczny rebuild w Vercel    │
+└─────────────────────────────────────────────────────────────┘</code></pre>
+<p>Inne popularne zestawy:</p>
+<ul>
+<li><strong>Contentful + Next.js + Vercel</strong> — enterprise.</li>
+<li><strong>Strapi + Nuxt + wlasny VPS</strong> — pelna kontrola, self-host.</li>
+<li><strong>Decap CMS + Astro + Netlify</strong> — Git-based, w pelni darmowy stack.</li>
+<li><strong>WordPress (headless) + Next.js</strong> — tresc w znanym WP, nowoczesny front.</li>
+</ul>
+
+<h2>Zalety i wady headless/JAMstack</h2>
+<pre><code>ZALETY                              WADY
+──────────────────────────          ──────────────────────────
+✓ Wydajnosc (statyczne + CDN)       ✗ Wyzszy prog wejscia
+✓ Bezpieczenstwo (mniej atakow)     ✗ Trzeba zbudowac frontend
+✓ Omnichannel (web, app, IoT)       ✗ Podglad tresci wymaga pracy
+✓ Skalowalnosc (CDN globalnie)      ✗ Dynamiczne funkcje = wiecej kodu
+✓ Niezalezny rozwoj front/back      ✗ Build przy duzej tresci bywa wolny
+✓ Wolnosc wyboru technologii        ✗ Wiecej uslug do zarzadzania
+✓ Lepsze Core Web Vitals (SEO)      ✗ Koszt SaaS rosnie ze skala</code></pre>
+
+<h2>Kiedy headless ma sens, a kiedy nie?</h2>
+<div class="grid2">
+<div class="card">
+<h3>Wybierz headless/JAMstack, gdy:</h3>
+<ul>
+<li>Masz wiele kanalow (web + aplikacja mobilna + inne).</li>
+<li>Zalezy Ci na maksymalnej wydajnosci i SEO.</li>
+<li>Masz zespol developerski znajacy React/Vue.</li>
+<li>Budujesz produkt, nie tylko strone.</li>
+</ul>
+</div>
+<div class="card">
+<h3>Zostan przy tradycyjnym CMS, gdy:</h3>
+<ul>
+<li>Tresc edytuja osoby nietechniczne i potrzebuja podgladu na zywo.</li>
+<li>Budzet i czas sa ograniczone (gotowe motywy = szybciej).</li>
+<li>Projekt to typowa strona/blog na jednym kanale (web).</li>
+<li>Nie masz zespolu developerskiego do utrzymania frontu.</li>
+</ul>
+</div>
+</div>
+
+<h2>Podsumowanie</h2>
+<p>Headless i JAMstack przesuwaja renderowanie z serwera CMS na build-time i CDN, dajac wydajnosc, bezpieczenstwo i wolnosc technologiczna — kosztem wiekszego nakladu developerskiego. To swietny wybor dla produktow omnichannel z zespolem technicznym, ale nadmiarowy dla prostej strony firmowej, ktora redaguje osoba nietechniczna.</p>
+
+<div class="nav-bottom">
+<a href="05-popularne-rozwiazania.html">&larr; 05 — Popularne rozwiazania</a>
+<a href="07-wybor-i-wdrozenie.html">07 — Wybor i wdrozenie &rarr;</a>
+</div>
+</div>
+</body>
+</html>

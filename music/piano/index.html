@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pianino — nauka gry · kompendium</title>
+    <style>
+        :root{--bg:#0f0a14;--surface:#1d1526;--surface-hover:#2a1f38;--border:#3b2f4a;--text:#ece6f0;--text-muted:#a394b3;--accent:#f472b6;--accent-hover:#f9a8d4;--green:#4ade80;--purple:#c084fc;--orange:#fb923c;--blue:#60a5fa;--yellow:#fbbf24;--red:#f87171}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+        .header{position:sticky;top:0;z-index:100;background:linear-gradient(135deg,#1d1526 0%,#0f0a14 100%);border-bottom:1px solid var(--border);padding:20px 20px 14px;backdrop-filter:blur(10px)}
+        .header-content{max-width:1100px;margin:0 auto}
+        .topnav{font-size:.8rem;color:var(--text-muted);margin-bottom:8px}
+        .topnav a{color:var(--accent);text-decoration:none}
+        .header h1{font-size:1.75rem;font-weight:700;margin-bottom:4px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+        .header .subtitle{color:var(--text-muted);font-size:.9rem;margin-bottom:12px}
+        .search-container{position:relative;max-width:700px}
+        .search-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;font-size:1.1rem}
+        #searchInput{width:100%;padding:12px 18px 12px 48px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:1rem;outline:none;font-family:inherit;transition:all .2s ease}
+        #searchInput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(244,114,182,.15)}
+        #searchInput::placeholder{color:var(--text-muted)}
+        .filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+        .filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);padding:4px 12px;border-radius:14px;font-size:.78rem;cursor:pointer;font-family:inherit;transition:all .15s}
+        .filter-btn:hover{color:var(--text);border-color:var(--accent)}
+        .filter-btn.active{background:rgba(244,114,182,.15);color:var(--accent);border-color:var(--accent)}
+        .container{max-width:1100px;margin:0 auto;padding:24px 20px 80px}
+
+        /* GALERIA */
+        .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:12px;margin-bottom:26px}
+        .gal-item{background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+        .gal-photo{height:130px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--surface-hover);cursor:zoom-in}
+        .gal-photo img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+        .gal-item:hover .gal-photo img{transform:scale(1.07)}
+        .gal-caption{font-size:.72rem;color:var(--text-muted);padding:7px 10px;text-align:center;line-height:1.35}
+        .gal-caption strong{color:var(--text);display:block;font-size:.76rem}
+
+        .quick-access{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:24px}
+        .quick-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-decoration:none;color:var(--text);transition:all .15s;display:flex;align-items:center;gap:10px}
+        .quick-card:hover{border-color:var(--accent);background:var(--surface-hover);transform:translateY(-2px)}
+        .quick-card-icon{font-size:1.5rem}
+        .quick-card-text{font-size:.85rem;font-weight:500}
+
+        .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+        .section.hidden{display:none}
+        .section-header{padding:16px 22px;cursor:pointer;display:flex;align-items:center;gap:12px;user-select:none;transition:background .15s}
+        .section-header:hover{background:var(--surface-hover)}
+        .section-toggle{font-size:.9rem;color:var(--text-muted);transition:transform .2s ease;display:inline-block;width:16px}
+        .section.expanded .section-toggle{transform:rotate(90deg)}
+        .section-icon{font-size:1.3rem;min-width:28px}
+        .section-title{font-size:1.1rem;font-weight:600;color:var(--accent);flex:1}
+        .section-meta{font-size:.75rem;color:var(--text-muted);background:rgba(244,114,182,.1);padding:3px 10px;border-radius:12px}
+        .section-description{padding:0 22px 0 50px;color:var(--text-muted);font-size:.85rem;margin-top:-6px;display:none}
+        .section.expanded .section-description{display:block;margin-bottom:10px}
+        .section-body{display:none;padding:0 22px 18px}
+        .section.expanded .section-body{display:block}
+        .items{padding-left:18px}
+        .item{display:flex;align-items:flex-start;gap:10px;padding:7px 12px;border-radius:6px;text-decoration:none;color:var(--text);transition:all .15s;margin-bottom:2px}
+        .item:hover{background:rgba(244,114,182,.08)}
+        .item.hidden{display:none}
+        .item-icon{color:var(--text-muted);font-size:.85rem;margin-top:2px;min-width:14px}
+        .item-content{flex:1;min-width:0}
+        .item-title{font-size:.88rem;font-weight:500;color:var(--text);margin-bottom:1px}
+        .item-desc{font-size:.74rem;color:var(--text-muted);line-height:1.4}
+        .item-page{font-size:.66rem;color:var(--accent);background:rgba(244,114,182,.12);padding:1px 7px;border-radius:4px;margin-top:3px;display:inline-block}
+        footer{text-align:center;padding:30px;color:var(--text-muted);font-size:.85rem;border-top:1px solid var(--border)}
+        footer a{color:var(--accent);text-decoration:none}
+
+        /* LIGHTBOX */
+        #lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:9999;align-items:center;justify-content:center;flex-direction:column}
+        #lb img{max-width:90vw;max-height:82vh;object-fit:contain;border-radius:6px;box-shadow:0 0 60px rgba(0,0,0,.9)}
+        #lb-cap{color:var(--accent);font-size:.9rem;margin-top:14px;text-align:center;max-width:80vw;padding:0 60px}
+        #lb-cnt{color:#6b5b7b;font-size:.72rem;margin-top:5px}
+        @media (max-width:600px){.header{padding:14px 14px 12px}.header h1{font-size:1.3rem}.container{padding:16px 14px 60px}.gallery{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="topnav"><a href="../../index.html">📚 Kompendium</a> / <span>🎹 Pianino</span></div>
+            <h1>🎹 Pianino — nauka gry</h1>
+            <p class="subtitle">Od podstaw po repertuar · klawiatura · notacja · teoria · technika · kursy i metody · dobór instrumentu · 2026</p>
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Szukaj tematu (np. gama C-dur, palcowanie, Hanon, koło kwintowe)... (Ctrl+K)" autocomplete="off" autofocus>
+            </div>
+            <div class="filters" id="filters">
+                <button class="filter-btn active" data-filter="all">Wszystko</button>
+                <button class="filter-btn" data-filter="podstawy">🎹 Podstawy</button>
+                <button class="filter-btn" data-filter="notacja">🎼 Notacja</button>
+                <button class="filter-btn" data-filter="teoria">🎵 Teoria</button>
+                <button class="filter-btn" data-filter="technika">✋ Technika</button>
+                <button class="filter-btn" data-filter="kursy">📚 Kursy</button>
+                <button class="filter-btn" data-filter="repertuar">🎶 Repertuar</button>
+                <button class="filter-btn" data-filter="sluch">🎧 Słuch i rytm</button>
+                <button class="filter-btn" data-filter="sprzet">🎛 Sprzęt</button>
+                <button class="filter-btn" data-filter="aplikacje">📱 Aplikacje</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="content">
+
+        <!-- GALERIA ZDJĘĆ -->
+        <div class="gallery">
+            <div class="gal-item"><div class="gal-photo"><img src="media/piano-keyboard.jpg" alt="Klawiatura pianina — białe i czarne klawisze" loading="lazy" onerror="this.parentElement.innerHTML='🎹'"></div><div class="gal-caption"><strong>Klawiatura</strong>białe i czarne klawisze</div></div>
+            <div class="gal-item"><div class="gal-photo"><img src="media/grand-piano.jpg" alt="Fortepian Steinway" loading="lazy" onerror="this.parentElement.innerHTML='🎹'"></div><div class="gal-caption"><strong>Fortepian</strong>instrument koncertowy</div></div>
+            <div class="gal-item"><div class="gal-photo"><img src="media/upright-piano.jpg" alt="Pianino pionowe" loading="lazy" onerror="this.parentElement.innerHTML='🎹'"></div><div class="gal-caption"><strong>Pianino pionowe</strong>domowy instrument akustyczny</div></div>
+            <div class="gal-item"><div class="gal-photo"><img src="media/digital-piano.jpg" alt="Pianino cyfrowe" loading="lazy" onerror="this.parentElement.innerHTML='🎛'"></div><div class="gal-caption"><strong>Pianino cyfrowe</strong>klawiatura ważona, słuchawki</div></div>
+            <div class="gal-item"><div class="gal-photo"><img src="media/hands-on-keys.jpg" alt="Ułożenie dłoni na klawiaturze" loading="lazy" onerror="this.parentElement.innerHTML='✋'"></div><div class="gal-caption"><strong>Ułożenie dłoni</strong>zaokrąglone palce, luźny nadgarstek</div></div>
+            <div class="gal-item"><div class="gal-photo"><img src="media/sheet-music.jpg" alt="Nuty — zapis muzyczny" loading="lazy" onerror="this.parentElement.innerHTML='🎼'"></div><div class="gal-caption"><strong>Nuty</strong>zapis muzyczny na pięciolinii</div></div>
+        </div>
+
+        <div class="quick-access">
+            <a class="quick-card" href="01-podstawy.html"><span class="quick-card-icon">🎹</span><span class="quick-card-text">Podstawy</span></a>
+            <a class="quick-card" href="02-notacja.html"><span class="quick-card-icon">🎼</span><span class="quick-card-text">Notacja</span></a>
+            <a class="quick-card" href="03-teoria.html"><span class="quick-card-icon">🎵</span><span class="quick-card-text">Teoria</span></a>
+            <a class="quick-card" href="04-technika.html"><span class="quick-card-icon">✋</span><span class="quick-card-text">Technika</span></a>
+            <a class="quick-card" href="05-kursy.html"><span class="quick-card-icon">📚</span><span class="quick-card-text">Kursy i metody</span></a>
+            <a class="quick-card" href="06-repertuar.html"><span class="quick-card-icon">🎶</span><span class="quick-card-text">Repertuar</span></a>
+            <a class="quick-card" href="08-sprzet.html"><span class="quick-card-icon">🎛</span><span class="quick-card-text">Dobór instrumentu</span></a>
+        </div>
+
+        <!-- 01 PODSTAWY -->
+        <div class="section expanded" data-section="podstawy">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🎹</span><span class="section-title">01 — Podstawy: instrument i dłonie</span><span class="section-meta">strona →</span></div>
+            <div class="section-description">Budowa instrumentu, klawiatura 88 klawiszy, oktawy, postawa przy pianinie, ułożenie ręki i numeracja palców.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="01-podstawy.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Pełna strona: Podstawy gry</div><div class="item-desc">Schemat klawiatury SVG, postawa, ułożenie dłoni, pierwsze dźwięki</div><span class="item-page">🎹 01-podstawy.html</span></div></a>
+                <a class="item" href="01-podstawy.html#klawiatura"><span class="item-icon">⬛</span><div class="item-content"><div class="item-title">Klawiatura 88 klawiszy</div><div class="item-desc">52 białe + 36 czarnych, oktawy, grupy 2 i 3 czarnych klawiszy, jak znaleźć C</div></div></a>
+                <a class="item" href="01-podstawy.html#palce"><span class="item-icon">✋</span><div class="item-content"><div class="item-title">Numeracja palców 1–5</div><div class="item-desc">Kciuk = 1, mały palec = 5; ta sama numeracja w obu rękach</div></div></a>
+                <a class="item" href="01-podstawy.html#postawa"><span class="item-icon">🪑</span><div class="item-content"><div class="item-title">Postawa i ułożenie dłoni</div><div class="item-desc">Wysokość ławy, łokcie na wysokości klawiatury, zaokrąglone palce, luźny nadgarstek</div></div></a>
+                <a class="item" href="01-podstawy.html#pierwsza-sekwencja"><span class="item-icon">🎵</span><div class="item-content"><div class="item-title">Pierwsza sekwencja — pozycja C</div><div class="item-desc">Pozycja pięciopalcowa C, palcowanie 1-2-3-4-5, pierwsza melodia (Oda do radości)</div></div></a>
+            </div></div>
+        </div>
+
+        <!-- 02 NOTACJA -->
+        <div class="section expanded" data-section="notacja">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🎼</span><span class="section-title">02 — Notacja muzyczna (nuty)</span><span class="section-meta">strona →</span></div>
+            <div class="section-description">Pięciolinia, klucz wiolinowy i basowy, nazwy nut, wartości rytmiczne, pauzy, takt i metrum.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="02-notacja.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Pełna strona: Czytanie nut</div><div class="item-desc">Pięciolinia SVG, nuty na pięciolinii i pomocnicze, rytm krok po kroku</div><span class="item-page">🎼 02-notacja.html</span></div></a>
+                <a class="item" href="02-notacja.html#klucze"><span class="item-icon">🎼</span><div class="item-content"><div class="item-title">Klucz wiolinowy i basowy</div><div class="item-desc">Prawa ręka (G) i lewa ręka (F), system fortepianowy (wielka pięciolinia)</div></div></a>
+                <a class="item" href="02-notacja.html#nazwy"><span class="item-icon">🔤</span><div class="item-content"><div class="item-title">Nazwy nut C-D-E-F-G-A-H</div><div class="item-desc">Polski (C D E F G A H) i międzynarodowy zapis, mnemotechniki</div></div></a>
+                <a class="item" href="02-notacja.html#rytm"><span class="item-icon">⏱️</span><div class="item-content"><div class="item-title">Wartości rytmiczne i pauzy</div><div class="item-desc">Cała, półnuta, ćwierćnuta, ósemka, szesnastka; kropka, łuk, triola</div></div></a>
+                <a class="item" href="02-notacja.html#metrum"><span class="item-icon">📐</span><div class="item-content"><div class="item-title">Takt i metrum (4/4, 3/4, 6/8)</div><div class="item-desc">Kreski taktowe, metrum, akcenty, liczenie „raz-dwa-trzy-cztery"</div></div></a>
+                <a class="item" href="02-notacja.html#znaki"><span class="item-icon">♯</span><div class="item-content"><div class="item-title">Krzyżyk, bemol, kasownik</div><div class="item-desc">Znaki chromatyczne, znaki przykluczowe, jak czytać tonację</div></div></a>
+            </div></div>
+        </div>
+
+        <!-- 03 TEORIA -->
+        <div class="section expanded" data-section="teoria">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🎵</span><span class="section-title">03 — Teoria muzyki przy pianinie</span><span class="section-meta">strona →</span></div>
+            <div class="section-description">Gamy durowe i molowe, interwały, akordy (triady), tonacje, koło kwintowe, kadencje.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="03-teoria.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Pełna strona: Teoria w praktyce</div><div class="item-desc">Budowa gam, akordów i kadencji pokazana na klawiaturze + koło kwintowe SVG</div><span class="item-page">🎵 03-teoria.html</span></div></a>
+                <a class="item" href="03-teoria.html#gamy"><span class="item-icon">🪜</span><div class="item-content"><div class="item-title">Gama durowa i molowa</div><div class="item-desc">Wzór całe-całe-pół (C-dur), gama molowa naturalna/harmoniczna/melodyczna</div></div></a>
+                <a class="item" href="03-teoria.html#interwaly"><span class="item-icon">📏</span><div class="item-content"><div class="item-title">Interwały</div><div class="item-desc">Pryma, sekunda, tercja… oktawa; wielkie/małe/czyste, brzmienie</div></div></a>
+                <a class="item" href="03-teoria.html#akordy"><span class="item-icon">🎹</span><div class="item-content"><div class="item-title">Akordy (triady) i przewroty</div><div class="item-desc">Dur, moll, zmniejszony, zwiększony; akordy septymowe, przewroty</div></div></a>
+                <a class="item" href="03-teoria.html#kolo"><span class="item-icon">⭕</span><div class="item-content"><div class="item-title">Koło kwintowe i tonacje</div><div class="item-desc">Znaki przykluczowe, pokrewieństwo tonacji, tonacje równoległe (dur/moll)</div></div></a>
+                <a class="item" href="03-teoria.html#kadencje"><span class="item-icon">🔚</span><div class="item-content"><div class="item-title">Kadencje T-S-D (akompaniament)</div><div class="item-desc">Funkcje toniki, subdominanty, dominanty; progresje I-IV-V-I do zagrania, akompaniament</div></div></a>
+            </div></div>
+        </div>
+
+        <!-- 04 TECHNIKA -->
+        <div class="section expanded" data-section="technika">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">✋</span><span class="section-title">04 — Technika gry</span><span class="section-meta">strona →</span></div>
+            <div class="section-description">Palcowanie, podkładanie kciuka, gamy i pasaże, ćwiczenia Hanon i Czerny, artykulacja, dynamika, pedalizacja.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="04-technika.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Pełna strona: Technika i ćwiczenia</div><div class="item-desc">Palcowanie gam, ćwiczenia rozgrzewające, artykulacja, plan ćwiczeń</div><span class="item-page">✋ 04-technika.html</span></div></a>
+                <a class="item" href="04-technika.html#palcowanie"><span class="item-icon">👆</span><div class="item-content"><div class="item-title">Palcowanie i podkładanie kciuka</div><div class="item-desc">Standardowe palcowanie gam, podkładanie kciuka (1-2-3-1-2-3-4-5)</div></div></a>
+                <a class="item" href="04-technika.html#cwiczenia"><span class="item-icon">💪</span><div class="item-content"><div class="item-title">Hanon, Czerny, Burgmüller</div><div class="item-desc">Wirtuoz pianista (Hanon), etiudy Czernego — niezależność palców, równość</div></div></a>
+                <a class="item" href="04-technika.html#sekwencje"><span class="item-icon">🔁</span><div class="item-content"><div class="item-title">Przykładowe sekwencje ćwiczeń</div><div class="item-desc">Pasaż pięciopalcowy, gama C-dur z podkładaniem kciuka, arpeggio, bas Albertiego</div></div></a>
+                <a class="item" href="04-technika.html#artykulacja"><span class="item-icon">🎯</span><div class="item-content"><div class="item-title">Legato, staccato, dynamika</div><div class="item-desc">Sposoby uderzenia, łączenie dźwięków, piano–forte, frazowanie</div></div></a>
+                <a class="item" href="04-technika.html#pedal"><span class="item-icon">🦶</span><div class="item-content"><div class="item-title">Pedalizacja</div><div class="item-desc">Pedał prawy (sustain), pedał syntetyzujący po zmianie harmonii, una corda</div></div></a>
+            </div></div>
+        </div>
+
+        <!-- 05 KURSY -->
+        <div class="section expanded" data-section="kursy">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📚</span><span class="section-title">05 — Kursy i metody nauki</span><span class="section-meta">strona →</span></div>
+            <div class="section-description">Popularne szkoły gry (Alfred, Faber, Bastien, Thompson, Suzuki), polskie podręczniki, plan nauki dla początkujących.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="05-kursy.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Pełna strona: Kursy i plan nauki</div><div class="item-desc">Porównanie metod, plan tygodniowy, samodzielnie vs nauczyciel</div><span class="item-page">📚 05-kursy.html</span></div></a>
+                <a class="item" href="05-kursy.html#metody"><span class="item-icon">📖</span><div class="item-content"><div class="item-title">Metody: Alfred, Faber, Bastien, Thompson</div><div class="item-desc">Najpopularniejsze serie podręczników, dla kogo która, kolejność tomów</div></div></a>
+                <a class="item" href="05-kursy.html#suzuki"><span class="item-icon">🎻</span><div class="item-content"><div class="item-title">Metoda Suzuki</div><div class="item-desc">Nauka ze słuchu, rola rodzica, dla najmłodszych</div></div></a>
+                <a class="item" href="05-kursy.html#polskie"><span class="item-icon">🇵🇱</span><div class="item-content"><div class="item-title">Polskie podręczniki i szkoły muzyczne</div><div class="item-desc">Szkoły muzyczne I stopnia, podręczniki krajowe, egzaminy</div></div></a>
+                <a class="item" href="05-kursy.html#plan"><span class="item-icon">🗓️</span><div class="item-content"><div class="item-title">Plan nauki dla początkującego</div><div class="item-desc">Pierwsze 6 miesięcy, ile ćwiczyć, jak ustalać cele, kamienie milowe</div></div></a>
+            </div></div>
+        </div>
+
+        <!-- 06 REPERTUAR -->
+        <div class="section expanded" data-section="repertuar">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🎶</span><span class="section-title">06 — Repertuar wg poziomów</span><span class="section-meta">strona →</span></div>
+            <div class="section-description">Utwory od pierwszych melodii po klasykę — uporządkowane według trudności, z linkami do darmowych nut.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="06-repertuar.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Pełna strona: Repertuar i nuty</div><div class="item-desc">Lista utworów wg poziomów, gdzie szukać darmowych nut (IMSLP, MuseScore)</div><span class="item-page">🎶 06-repertuar.html</span></div></a>
+                <a class="item" href="06-repertuar.html#poczatki"><span class="item-icon">🌱</span><div class="item-content"><div class="item-title">Początkujący</div><div class="item-desc">Oda do radości, Wlazł kotek, Panie Janie, pierwsze melodie jedną ręką</div></div></a>
+                <a class="item" href="06-repertuar.html#sekwencje"><span class="item-icon">🎹</span><div class="item-content"><div class="item-title">Przykładowe sekwencje — zagraj od ręki</div><div class="item-desc">Oda do radości, Jingle Bells, Mary Had a Little Lamb, Panie Janie — dźwięk po dźwięku z palcowaniem</div></div></a>
+                <a class="item" href="06-repertuar.html#sredni"><span class="item-icon">🌿</span><div class="item-content"><div class="item-title">Średnio zaawansowany</div><div class="item-desc">Bach — Menuet G-dur, Beethoven — Dla Elizy (część), Burgmüller etiudy</div></div></a>
+                <a class="item" href="06-repertuar.html#zaawansowany"><span class="item-icon">🌳</span><div class="item-content"><div class="item-title">Zaawansowany</div><div class="item-desc">Chopin — preludia/walce, Bach — inwencje, Debussy — Clair de lune</div></div></a>
+            </div></div>
+        </div>
+
+        <!-- 07 SŁUCH I RYTM -->
+        <div class="section expanded" data-section="sluch">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🎧</span><span class="section-title">07 — Kształcenie słuchu i rytm</span><span class="section-meta">4 tematy</span></div>
+            <div class="section-description">Solfeż, praca z metronomem, czytanie a vista, rozpoznawanie interwałów i akordów ze słuchu.</div>
+            <div class="section-body"><div class="items">
+                <div class="item"><span class="item-icon">🎵</span><div class="item-content"><div class="item-title">Solfeż i śpiewanie nut</div><div class="item-desc">Do-re-mi (solmizacja), nazywanie i śpiewanie dźwięków, słuch względny</div></div></div>
+                <div class="item"><span class="item-icon">🥁</span><div class="item-content"><div class="item-title">Metronom — praca z pulsem</div><div class="item-desc">Tempo w BPM, ćwiczenie wolno→szybko, równość, podział na ósemki/szesnastki</div></div></div>
+                <div class="item"><span class="item-icon">👀</span><div class="item-content"><div class="item-title">Czytanie a vista (z listka)</div><div class="item-desc">Granie nieznanych nut na bieżąco — patrz do przodu, nie zatrzymuj się</div></div></div>
+                <div class="item"><span class="item-icon">👂</span><div class="item-content"><div class="item-title">Interwały i akordy ze słuchu</div><div class="item-desc">Rozpoznawanie po piosenkach-skojarzeniach, dur vs moll, granie ze słuchu</div></div></div>
+            </div></div>
+        </div>
+
+        <!-- 08 SPRZĘT -->
+        <div class="section expanded" data-section="sprzet">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">🎛</span><span class="section-title">08 — Dobór instrumentu</span><span class="section-meta">strona →</span></div>
+            <div class="section-description">Pianino akustyczne vs cyfrowe vs keyboard, klawiatura ważona i młoteczkowa, marki, na co zwrócić uwagę przy zakupie.</div>
+            <div class="section-body"><div class="items">
+                <a class="item" href="08-sprzet.html"><span class="item-icon">📄</span><div class="item-content"><div class="item-title">Pełna strona: Jaki instrument wybrać</div><div class="item-desc">Akustyczne vs cyfrowe, klawiatura ważona, marki, budżety, akcesoria</div><span class="item-page">🎛 08-sprzet.html</span></div></a>
+                <a class="item" href="08-sprzet.html#akustyczne"><span class="item-icon">🎹</span><div class="item-content"><div class="item-title">Akustyczne: pianino vs fortepian</div><div class="item-desc">Mechanizm młoteczkowy, strojenie, wymagania, brzmienie, cena</div></div></a>
+                <a class="item" href="08-sprzet.html#cyfrowe"><span class="item-icon">🔌</span><div class="item-content"><div class="item-title">Cyfrowe i keyboardy</div><div class="item-desc">88 klawiszy ważonych, młoteczkowa akcja, słuchawki, MIDI/USB, brak strojenia</div></div></a>
+                <a class="item" href="08-sprzet.html#marki"><span class="item-icon">🏷️</span><div class="item-content"><div class="item-title">Marki i modele (2026)</div><div class="item-desc">Yamaha, Roland, Kawai, Casio — modele dla początkujących i zaawansowanych</div></div></a>
+                <a class="item" href="08-sprzet.html#zakup"><span class="item-icon">🛒</span><div class="item-content"><div class="item-title">Na co zwrócić uwagę przy zakupie</div><div class="item-desc">Klawiatura ważona (a nie sprężynowa!), 88 klawiszy, polifonia, używane vs nowe</div></div></a>
+            </div></div>
+        </div>
+
+        <!-- 09 APLIKACJE -->
+        <div class="section expanded" data-section="aplikacje">
+            <div class="section-header" onclick="toggleSection(this)"><span class="section-toggle">▶</span><span class="section-icon">📱</span><span class="section-title">09 — Aplikacje i zasoby online</span><span class="section-meta">6 zasobów</span></div>
+            <div class="section-description">Aplikacje do nauki, darmowe nuty, kanały i narzędzia wspierające ćwiczenie.</div>
+            <div class="section-body"><div class="items">
+                <div class="item"><span class="item-icon">🎮</span><div class="item-content"><div class="item-title">Synthesia</div><div class="item-desc">Nauka „spadającymi kafelkami", podłączenie pianina przez MIDI, biblioteka utworów</div></div></div>
+                <div class="item"><span class="item-icon">📲</span><div class="item-content"><div class="item-title">Simply Piano / flowkey / Piano Marvel</div><div class="item-desc">Kursy krok po kroku ze słuchaniem grania przez mikrofon, feedback w czasie rzeczywistym</div></div></div>
+                <div class="item"><a class="item-link" href="https://imslp.org" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;display:flex;gap:10px"><span class="item-icon">📜</span><div class="item-content"><div class="item-title">IMSLP (Petrucci) — darmowe nuty klasyki ↗</div><div class="item-desc">Domena publiczna: Bach, Mozart, Chopin, Beethoven — pełne partytury PDF za darmo</div></div></a></div>
+                <div class="item"><a class="item-link" href="https://musescore.org" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;display:flex;gap:10px"><span class="item-icon">🎼</span><div class="item-content"><div class="item-title">MuseScore — darmowy edytor nut ↗</div><div class="item-desc">Pisanie i odtwarzanie nut, ogromna baza aranżacji użytkowników</div></div></a></div>
+                <div class="item"><span class="item-icon">🥁</span><div class="item-content"><div class="item-title">Metronom online / aplikacja</div><div class="item-desc">Podstawowe narzędzie do ćwiczenia tempa i równości</div></div></div>
+                <div class="item"><span class="item-icon">▶️</span><div class="item-content"><div class="item-title">Kanały YouTube</div><div class="item-desc">Tutoriale utworów, kursy techniki, teoria — darmowa nauka wizualna</div></div></div>
+            </div></div>
+        </div>
+
+    </div>
+
+    <footer>
+        🎹 Pianino — nauka gry · kompendium 2026 · zdjęcia: Wikimedia Commons (CC) · <a href="../../index.html">⟵ Kompendium</a>
+    </footer>
+
+    <!-- LIGHTBOX -->
+    <div id="lb">
+        <img id="lb-img" src="" alt="">
+        <div id="lb-cap"></div>
+        <div id="lb-cnt"></div>
+    </div>
+
+    <script>
+        function toggleSection(el){el.parentElement.classList.toggle('expanded')}
+        const sections=document.querySelectorAll('.section');
+        const input=document.getElementById('searchInput');
+        const filters=document.querySelectorAll('.filter-btn');
+        let activeFilter='all';
+        function applyFilters(){
+            const q=input.value.toLowerCase().trim();
+            sections.forEach(sec=>{
+                const matchesFilter=activeFilter==='all'||sec.dataset.section===activeFilter;
+                let anyVisible=false;
+                sec.querySelectorAll('.item').forEach(it=>{
+                    const match=!q||it.textContent.toLowerCase().includes(q);
+                    it.classList.toggle('hidden',!match);
+                    if(match) anyVisible=true;
+                });
+                sec.classList.toggle('hidden',!matchesFilter||(q&&!anyVisible));
+                if(q&&anyVisible) sec.classList.add('expanded');
+            });
+        }
+        input.addEventListener('input',applyFilters);
+        filters.forEach(b=>b.addEventListener('click',()=>{
+            filters.forEach(x=>x.classList.remove('active'));
+            b.classList.add('active');
+            activeFilter=b.dataset.filter;
+            applyFilters();
+        }));
+        document.addEventListener('keydown',e=>{
+            if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();input.focus();input.select();}
+        });
+
+        // LIGHTBOX galerii
+        (function(){
+            const lb=document.getElementById('lb'),lbImg=document.getElementById('lb-img'),lbCap=document.getElementById('lb-cap'),lbCnt=document.getElementById('lb-cnt');
+            const pool=[];let ci=0;
+            document.querySelectorAll('.gal-photo img').forEach(img=>{
+                const idx=pool.length;
+                const cap=img.closest('.gal-item').querySelector('.gal-caption').textContent;
+                pool.push({src:img.src,cap:cap});
+                img.parentElement.addEventListener('click',()=>lbOpen(idx));
+            });
+            function lbOpen(i){if(!pool.length)return;ci=((i%pool.length)+pool.length)%pool.length;lbImg.src=pool[ci].src;lbCap.textContent=pool[ci].cap;lbCnt.textContent=(ci+1)+' / '+pool.length;lb.style.display='flex';document.body.style.overflow='hidden';}
+            function lbClose(){lb.style.display='none';document.body.style.overflow='';}
+            lb.addEventListener('click',e=>{if(e.target===lb||e.target===lbImg)lbClose();});
+            document.addEventListener('keydown',e=>{
+                if(lb.style.display!=='flex')return;
+                if(e.key==='Escape')lbClose();
+                if(e.key==='ArrowLeft')lbOpen(ci-1);
+                if(e.key==='ArrowRight')lbOpen(ci+1);
+            });
+        })();
+    </script>
+</body>
+</html>

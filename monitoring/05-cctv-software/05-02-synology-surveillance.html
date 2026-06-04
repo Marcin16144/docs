@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05-02 — Synology Surveillance Station</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:8px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:40px;opacity:.8}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">05 Software VMS</a><span class="sep">/</span><span class="title">05-02 Synology Surveillance Station</span>
+</div>
+<div class="container">
+<h1>Synology Surveillance Station</h1>
+<p class="subtitle">NAS Synology jako pełnoprawny NVR — pakiet Surveillance Station w DSM, model licencjonowania (2 darmowe + dokup), aplikacja DS cam, Active Insight, Smart Search.</p>
+<p class="updated">Aktualizacja: 2026-05</p>
+
+<h2>Czym jest Synology Surveillance Station</h2>
+<p>Surveillance Station (SS) to oficjalny pakiet Synology, instalowany przez Centrum Pakietów w DSM. Zamienia każde NAS Synology w pełnoprawny VMS z funkcjami klasy enterprise: nagrywanie z timeline, detekcja ruchu, eventy, e-maile, mapa kamer, mobilna aplikacja, REST API.</p>
+<table>
+<thead><tr><th>Cecha</th><th>SS na NAS DS220+</th><th>SS na DS923+ (z RAM)</th><th>Komercyjny NVR Hikvision</th></tr></thead>
+<tbody>
+<tr><td>Max kamer</td><td>15 (po dokupieniu licencji)</td><td>40+ z plug-in</td><td>16 (NVR-DS-7616)</td></tr>
+<tr><td>Storage</td><td>2 × HDD CMR (np. WD Purple)</td><td>4 × HDD + 2 × SSD</td><td>2 × HDD do 16 TB</td></tr>
+<tr><td>RAM</td><td>2 GB (limit 10 kamer real-time decode)</td><td>4 GB + slot DDR4</td><td>~1 GB fix</td></tr>
+<tr><td>Wszystkie funkcje na 1 boxie</td><td>tak (Plex, NAS, kamera)</td><td>tak + Docker</td><td>nie</td></tr>
+<tr><td>Cena (2026)</td><td>~1700 zł + dyski</td><td>~3500 zł + dyski</td><td>~1900 zł</td></tr>
+</tbody>
+</table>
+
+<h2>Licencjonowanie kamer</h2>
+<p>Każde NAS Synology ma <strong>2 darmowe licencje kamer</strong> wbudowane od fabryki. Dla większej liczby kupujesz pakiety:</p>
+<table>
+<thead><tr><th>Pakiet licencji</th><th>Liczba kamer</th><th>Cena (2026)</th></tr></thead>
+<tbody>
+<tr><td>Device License Pack 1</td><td>+1 kamera</td><td>~270 zł</td></tr>
+<tr><td>Device License Pack 4</td><td>+4 kamery</td><td>~900 zł</td></tr>
+<tr><td>Device License Pack 8</td><td>+8 kamer</td><td>~1700 zł</td></tr>
+</tbody>
+</table>
+<div class="callout">Licencja jest <strong>powiązana z numerem seryjnym NAS</strong>. Wymiana NAS na nowszy = nowa licencja (chyba że okazjonalna promocja Synology na migrację). Z drugiej strony licencja działa wiecznie, bez subskrypcji rocznej.</div>
+
+<h2>Lista kompatybilnych kamer</h2>
+<p>Synology utrzymuje listę „Camera Support List" — przed zakupem warto sprawdzić, czy konkretna kamera jest oficjalnie wspierana. Lista zawiera ~7000+ modeli (stan 2026).</p>
+<ul>
+<li><strong>Pełna integracja</strong> — wszystkie funkcje (PTZ, eventy, snapshot, audio, AI events).</li>
+<li><strong>ONVIF generic</strong> — kamera nie wymieniona, ale obsługuje ONVIF Profile S. Działa, lecz część funkcji może nie być dostępna.</li>
+<li><strong>Niewspierane</strong> — kamera z własnym protokołem (np. tania chińska bez ONVIF). Nie zadziała.</li>
+</ul>
+
+<h3>Polecane marki na rynku polskim</h3>
+<ul>
+<li><strong>Reolink</strong> (RLC-820A, 822A, 1224A) — bardzo dobra integracja, AI events, IR/ColorX.</li>
+<li><strong>Hikvision / HiLook</strong> — pełne wsparcie, ColorVu, AcuSense AI.</li>
+<li><strong>Dahua / Lorex</strong> — pełne wsparcie, Starlight, IVS.</li>
+<li><strong>Axis</strong> — premium, drogie, ale ze wszystkimi feature'ami SS.</li>
+<li><strong>Foscam, Tapo (TP-Link)</strong> — działają, ale ograniczone.</li>
+</ul>
+
+<h2>Instalacja krok po kroku</h2>
+<ol>
+<li><strong>DSM 7.x</strong> — aktualne, zaktualizuj jeśli starsze. Wymagana wersja min. 7.0.</li>
+<li><strong>Centrum Pakietów</strong> → kategoria <em>Bezpieczeństwo</em> → Surveillance Station → Zainstaluj.</li>
+<li>Po instalacji uruchom z menu DSM. Pojawi się pulpit SS w przeglądarce.</li>
+<li><strong>Dodaj kamerę</strong> — IP Camera → Add → wybierz markę i model z listy, podaj IP + login.</li>
+<li>Ustaw <strong>profil nagrywania</strong> (rozdzielczość, fps, codec). Domyślnie continuous 24/7.</li>
+<li>Skonfiguruj <strong>retencję</strong> — np. „usuń pliki starsze niż 14 dni".</li>
+</ol>
+
+<h2>Funkcje kluczowe</h2>
+<h3>Timeline i odtwarzanie</h3>
+<p>Surveillance Station prezentuje wszystkie nagrania na timeline z kolorowymi paskami (motion, event, alarm). Z poziomu timeline można:</p>
+<ul>
+<li>Skok do dowolnej godziny — klik na pasek czasu</li>
+<li>Wyeksportować klip do MP4/AVI</li>
+<li>Synchronizować odtwarzanie kilku kamer równolegle (multi-pane)</li>
+<li>Powiększyć fragment obrazu (digital zoom w nagraniu)</li>
+</ul>
+
+<h3>Smart Search</h3>
+<p>Funkcja AI przeszukiwania nagrań po obiektach. Zaznacz strefę na obrazie → SS przebiega cały materiał i zwraca tylko klipy z ruchem w tej strefie. Bardzo przydatne do śledzenia kradzieży: „pokaz mi wszystkie momenty, gdy ktoś wszedł na taras między 22:00 a 6:00".</p>
+
+<h3>Action Rules</h3>
+<p>System automatyzacji „IFTTT" w SS. Trigger → akcja. Przykłady:</p>
+<table>
+<thead><tr><th>Trigger</th><th>Akcja</th></tr></thead>
+<tbody>
+<tr><td>Motion w strefie „Brama"</td><td>Snapshot + e-mail + push do DS cam</td></tr>
+<tr><td>Event AI „Person"</td><td>Włącz nagrywanie HD na 60 s</td></tr>
+<tr><td>Zewnętrzny webhook (HA)</td><td>Włącz alarm dźwiękowy (PTZ z siren)</td></tr>
+<tr><td>Wjazd auta (LPR)</td><td>Otwórz bramę (relay output)</td></tr>
+</tbody>
+</table>
+
+<h3>Mobile — DS cam</h3>
+<p>Aplikacja na iOS i Android (darmowa). Funkcje:</p>
+<ul>
+<li>Podgląd live z wszystkich kamer (multi-cam grid)</li>
+<li>Odtwarzanie nagrań z timeline</li>
+<li>Push notifications na motion / event</li>
+<li>Sterowanie PTZ (touch swipe)</li>
+<li>Two-way audio (mikrofon + głośnik kamery)</li>
+<li>Dostęp przez QuickConnect (bez VPN, P2P Synology)</li>
+</ul>
+
+<h3>Active Insight</h3>
+<p>Cloud-based monitoring stanu NAS + Surveillance Station. Powiadamia o:</p>
+<ul>
+<li>Awarii dysku (SMART)</li>
+<li>Wyłączeniu kamery (offline &gt; X minut)</li>
+<li>Pełnym storage (do retencji)</li>
+<li>Próbach włamania (logi DSM)</li>
+</ul>
+<div class="tip">Active Insight jest <strong>darmowy</strong> i bardzo wartościowy. Wystarczy konto Synology Account. Mobile alerty docierają w 1–2 minuty.</div>
+
+<h2>Wymagania sprzętowe</h2>
+<table>
+<thead><tr><th>NAS</th><th>Kamery max</th><th>RAM</th><th>Storage</th><th>Roczne nagranie 4 kamer 4 MP H.265</th></tr></thead>
+<tbody>
+<tr><td>DS220+</td><td>~10 (real-time + nagrywanie)</td><td>2 GB (rozszerz do 6 GB)</td><td>2 × 8 TB WD Purple</td><td>~6 TB</td></tr>
+<tr><td>DS224+ / DS423+</td><td>~15</td><td>2 GB (do 6 GB)</td><td>2–4 × 12 TB</td><td>~6 TB</td></tr>
+<tr><td>DS923+</td><td>~25–40</td><td>4 GB (do 32 GB)</td><td>4 × 12 TB + 2 × SSD NVMe</td><td>~6 TB / 4 kamer</td></tr>
+<tr><td>RS1221+ (rackowe)</td><td>40+</td><td>4 GB (do 32 GB)</td><td>8 × 16 TB w RAID6</td><td>~12 TB / 8 kamer</td></tr>
+</tbody>
+</table>
+
+<h3>Dyski</h3>
+<div class="warning">Używaj dysków <strong>CMR (Conventional Magnetic Recording)</strong>, nie SMR. Klasa „Surveillance" (WD Purple Pro, Seagate SkyHawk, Toshiba S300) jest projektowana na 24/7 zapis sekwencyjny — typowy obciążeniowy profil CCTV. Dysk biurkowy WD Blue padnie po pół roku.</div>
+
+<h2>Storage — kalkulacje</h2>
+<p>Bitrate kamery to klucz. Przy 4 MP H.265 z motion-aware codec średnio 2–4 Mbps. Przy 24/7:</p>
+<pre><code>4 Mbps × 86 400 s / dzień = 345 600 Mb / dzień = 43,2 GB / dzień / kamera
+4 kamery × 43,2 GB × 30 dni = 5,2 TB / miesiąc
+
+Dla retencji 30 dni 4 kamer 4 MP — potrzebujesz min. 6 TB użytkowych.
+Z RAID1 (mirror) na 2 × 8 TB → ~7,3 TB użytkowych (po formatowaniu).</code></pre>
+
+<h2>Archiwum i backup</h2>
+<p>Surveillance Station oferuje kilka strategii archiwizacji:</p>
+<ul>
+<li><strong>Local recording</strong> — zapis na dyskach NAS, automatyczna rotacja po retencji.</li>
+<li><strong>Archive Vault</strong> — kopia nagrań na drugim Synology NAS (np. lokalizacja zdalna).</li>
+<li><strong>Cloud Backup</strong> — wybrany klip do C2 Surveillance (~5 USD / kamera / m-c).</li>
+<li><strong>Manual export</strong> — z konkretnego incydentu na pendrive (klip + zaszyfrowany raport).</li>
+</ul>
+
+<h2>Porty i dostęp zdalny</h2>
+<table>
+<thead><tr><th>Port</th><th>Funkcja</th></tr></thead>
+<tbody>
+<tr><td>5000 / 5001</td><td>DSM web UI (HTTP / HTTPS)</td></tr>
+<tr><td>9999 / 9998</td><td>Surveillance Station (HTTP / HTTPS)</td></tr>
+<tr><td>5354</td><td>Surveillance Station live streaming</td></tr>
+<tr><td>QuickConnect</td><td>P2P bez forward portów — najwygodniej, ale relay przez Synology</td></tr>
+</tbody>
+</table>
+<div class="callout">Rekomendacja 2026: nie wystawiaj 5000/5001 i 9999 na publiczny IP. Użyj <strong>QuickConnect</strong> (jak Hikvision Hik-Connect) albo <strong>VPN</strong> (Synology MR2200ac z OpenVPN, lub Tailscale jako pakiet w DSM).</div>
+
+<div class="nav-bottom">
+<a href="05-01-onvif-rtsp.html">⟵ ONVIF i RTSP</a>
+<a href="05-03-frigate-blueiris.html">Frigate, BlueIris, Shinobi →</a>
+</div>
+</div>
+</body>
+</html>

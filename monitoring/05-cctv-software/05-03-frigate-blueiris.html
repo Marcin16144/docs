@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05-03 — Frigate, BlueIris, Shinobi</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:8px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:40px;opacity:.8}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">05 Software VMS</a><span class="sep">/</span><span class="title">05-03 Frigate, BlueIris, Shinobi</span>
+</div>
+<div class="container">
+<h1>Frigate, BlueIris, Shinobi, iSpy</h1>
+<p class="subtitle">Open-source i komercyjne VMS — Frigate (Coral TPU / Hailo, MQTT, HA), BlueIris (Windows, CodeProject AI), Shinobi (NodeJS), iSpy. Porównanie wymagań, AI i kosztów.</p>
+<p class="updated">Aktualizacja: 2026-05</p>
+
+<h2>Szybkie porównanie</h2>
+<table>
+<thead><tr><th>VMS</th><th>OS / platforma</th><th>Licencja</th><th>AI</th><th>HA integracja</th><th>Cena</th></tr></thead>
+<tbody>
+<tr><td><strong>Frigate</strong></td><td>Docker (Linux, RPi, Win z WSL2)</td><td>MIT open-source</td><td>YOLOv8 + Coral TPU / Hailo-8 / OpenVINO</td><td>natywna (MQTT)</td><td>0 zł (+ Coral ~330 zł)</td></tr>
+<tr><td><strong>BlueIris</strong></td><td>Windows 10/11/Server</td><td>komercyjna 1× zakup</td><td>CodeProject.AI, DeepStack</td><td>przez MQTT / web</td><td>~290 zł (BI Pro)</td></tr>
+<tr><td><strong>Shinobi</strong></td><td>NodeJS (Linux, Win, Mac)</td><td>MIT open-source</td><td>OpenALPR, Tensorflow</td><td>HTTP API, MQTT</td><td>0 zł (Pro = $50/m-c)</td></tr>
+<tr><td><strong>iSpy / Agent DVR</strong></td><td>Windows / Linux / Docker</td><td>open-source / freemium</td><td>DeepStack, Plate Recognizer</td><td>HTTP API, MQTT</td><td>0 zł (sub Agent +)</td></tr>
+<tr><td><strong>Surveillance Station</strong></td><td>Synology DSM</td><td>Free (2 cam) + licencje</td><td>People + Deep Video Analytics</td><td>HACS plugin</td><td>~270 zł / kamera</td></tr>
+<tr><td><strong>Zoneminder</strong></td><td>Linux (Debian/Ubuntu)</td><td>GPL</td><td>brak natywnego AI</td><td>HACS, MQTT</td><td>0 zł</td></tr>
+</tbody>
+</table>
+
+<h2>Frigate — lider open-source z AI</h2>
+<p>Frigate to projekt Blake'a Blackshear napisany w Pythonie. Cała architektura skupiona wokół jednego pomysłu: niska latencja AI obiektowej z akceleratorem sprzętowym (Coral TPU), zdarzenia publikowane przez MQTT.</p>
+
+<h3>Architektura</h3>
+<pre><code>Kamera RTSP → Frigate (Docker) → ffmpeg dekodowanie sprzętowe (VAAPI/QuickSync)
+                                ↓
+                            sample frames → AI (Coral/CPU/GPU)
+                                ↓                  ↓
+                       Storage (nagrania)      MQTT events
+                                                   ↓
+                                              Home Assistant</code></pre>
+
+<h3>Wymagania sprzętowe</h3>
+<table>
+<thead><tr><th>Kamer</th><th>CPU</th><th>RAM</th><th>Akcelerator AI</th><th>Storage</th></tr></thead>
+<tbody>
+<tr><td>1–2 kamery 1080p</td><td>RPi 4 / N5095 (2 GHz)</td><td>4 GB</td><td>Coral USB ($30)</td><td>SSD 256 GB</td></tr>
+<tr><td>4–6 kamery 4 MP</td><td>Intel N100 / i3-8100</td><td>8 GB</td><td>Coral M.2 / Hailo-8</td><td>HDD 2 TB CMR</td></tr>
+<tr><td>8–16 kamery 4 MP/4K</td><td>i5/i7 z iGPU lub Xeon</td><td>16 GB</td><td>2 × Coral lub Hailo-8L</td><td>HDD 8 TB + SSD cache</td></tr>
+</tbody>
+</table>
+<div class="tip"><strong>Google Coral USB Edge TPU</strong> (~330 zł, w 2026 dostępność znów dobra po dwóch trudnych latach) wykonuje 4 TOPS w 2 W i odbarcza CPU o 80–95% przy inferencji YOLO. <strong>Hailo-8L M.2</strong> (~600 zł) daje 13 TOPS i jest godnym następcą.</div>
+
+<h3>Konfiguracja YAML</h3>
+<pre><code>mqtt:
+  host: 192.168.1.10
+  user: frigate
+  password: !secret mqtt_pass
+
+detectors:
+  coral:
+    type: edgetpu
+    device: usb
+
+cameras:
+  brama_wjazd:
+    ffmpeg:
+      inputs:
+        - path: rtsp://admin:Pass@192.168.1.64:554/Streaming/Channels/101
+          roles: [record]
+        - path: rtsp://admin:Pass@192.168.1.64:554/Streaming/Channels/102
+          roles: [detect]
+    detect:
+      width: 640
+      height: 360
+      fps: 5
+    objects:
+      track: [person, car, dog]
+      filters:
+        person:
+          min_area: 5000
+          threshold: 0.7
+    record:
+      enabled: true
+      retain:
+        days: 14
+      events:
+        retain:
+          default: 30
+          objects:
+            person: 60</code></pre>
+
+<h3>MQTT events</h3>
+<p>Frigate publikuje 3 topic na każdy event:</p>
+<ul>
+<li><code>frigate/events</code> — JSON z metadanymi (typ obiektu, snapshot, bounding box)</li>
+<li><code>frigate/&lt;camera&gt;/&lt;label&gt;</code> — np. <code>frigate/brama_wjazd/person</code> = ON podczas detekcji</li>
+<li><code>frigate/&lt;camera&gt;/&lt;label&gt;/snapshot</code> — JPEG snapshot eventu</li>
+</ul>
+
+<h2>BlueIris — gold standard Windows</h2>
+<p>BlueIris od Perspective Software (~280–320 zł jednorazowo) to weteran rynku — działa na Windows 10/11, obsługuje 64 kamery, ma najlepszy interface do przeglądania archiwum w branży.</p>
+
+<h3>Cechy szczególne</h3>
+<ul>
+<li><strong>Substream support</strong> — dekoduje sub-stream do detekcji, main do nagrywania (oszczędność CPU 70%+).</li>
+<li><strong>Hardware accelerated decoding</strong> — Intel QuickSync, NVIDIA CUDA, AMD VCN.</li>
+<li><strong>CodeProject.AI</strong> (następca DeepStack) — modele klasyfikacji „Person/Vehicle/Animal/Face", LPR.</li>
+<li><strong>UI3 web app</strong> — przeglądanie nagrań z każdej przeglądarki, mobile-friendly.</li>
+<li><strong>iOS / Android app</strong> (~$10) — push, podgląd, sterowanie PTZ.</li>
+<li><strong>NVR features</strong> — RAID, automatic archive, sync z OneDrive/Dropbox.</li>
+</ul>
+
+<h3>Wymagania</h3>
+<table>
+<thead><tr><th>Kamer</th><th>CPU (z QuickSync)</th><th>RAM</th></tr></thead>
+<tbody>
+<tr><td>4 × 1080p</td><td>i3 lub Pentium G7400</td><td>8 GB</td></tr>
+<tr><td>8 × 4 MP</td><td>i5-12400 lub Ryzen 5</td><td>16 GB</td></tr>
+<tr><td>16 × 4 MP</td><td>i7-13700 z QuickSync</td><td>32 GB</td></tr>
+<tr><td>32+ × 4 MP</td><td>Xeon E-2400, RTX 4060 dla AI</td><td>64 GB</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>Intel QuickSync</strong> w iGPU obsługuje dekodowanie H.265 sprzętowo — pojedynczy strumień 4K zajmuje 1–2% CPU zamiast 30–50%. Stąd BlueIris świetnie skaluje się na konsumenckich Core i3/i5 z grafiką Iris/UHD.</div>
+
+<h2>Shinobi — NodeJS, dla deweloperów</h2>
+<p>Shinobi to VMS w NodeJS (Express + ffmpeg + MongoDB). Lekki, ale ekosystem mniejszy niż Frigate. Wersja CE (Community Edition) jest darmowa, Pro za subskrypcję $50/m-c (premium features, support).</p>
+
+<h3>Plusy</h3>
+<ul>
+<li>Bardzo niskie wymagania (działa na RPi z 1 GB RAM dla 2 kamer)</li>
+<li>Plugin system — można pisać własne moduły</li>
+<li>Integracja z Telegram, Discord, Slack out-of-the-box</li>
+<li>OpenALPR integracja (LPR)</li>
+</ul>
+
+<h3>Minusy</h3>
+<ul>
+<li>Mniejsze community niż Frigate (mniej tutoriali, plug-inów)</li>
+<li>UI mniej dopracowane</li>
+<li>AI integracja słabsza (tylko Tensorflow przez API)</li>
+</ul>
+
+<h2>iSpy / Agent DVR — open-source dla Windows</h2>
+<p>iSpy to klasyczny VMS dla Windows; jego nowsza wersja <strong>Agent DVR</strong> jest cross-platform (Windows, Linux, Docker, macOS).</p>
+
+<h3>Agent DVR — kluczowe cechy</h3>
+<ul>
+<li>Free, ale niektóre featury (cloud, advanced AI) wymagają subskrypcji Agent+ ($8/m-c)</li>
+<li>DeepStack i Plate Recognizer integracja</li>
+<li>Web UI bardzo nowoczesne (oparte na React)</li>
+<li>Up to 100 kamer per instance</li>
+<li>Native MQTT, WebSocket events</li>
+</ul>
+
+<h2>Porównanie AI</h2>
+<table>
+<thead><tr><th>VMS</th><th>Modele AI</th><th>Akceleratory</th><th>Klasy obiektów</th><th>LPR (tablice)</th></tr></thead>
+<tbody>
+<tr><td><strong>Frigate</strong></td><td>YOLOv8 / SSD MobileNet (TFLite)</td><td>Coral TPU, Hailo-8, OpenVINO (iGPU), NVIDIA</td><td>90+ (COCO)</td><td>plug-in (frigate-plus)</td></tr>
+<tr><td><strong>BlueIris + CP.AI</strong></td><td>YOLOv5, FaceProcessing, LicensePlate</td><td>CPU, CUDA, Intel iGPU</td><td>person, vehicle, animal, face, plate</td><td>natywnie</td></tr>
+<tr><td><strong>Synology SS</strong></td><td>People + DVA (płatne plug-in)</td><td>CPU</td><td>person, vehicle, face</td><td>brak</td></tr>
+<tr><td><strong>Agent DVR + DeepStack</strong></td><td>DeepStack object</td><td>CPU, CUDA</td><td>80+ (COCO)</td><td>z Plate Recognizer API ($)</td></tr>
+</tbody>
+</table>
+
+<h2>Porównanie kosztów (instalacja 6 kamer 4 MP)</h2>
+<table>
+<thead><tr><th>Konfiguracja</th><th>Sprzęt</th><th>Software</th><th>Razem (2026)</th></tr></thead>
+<tbody>
+<tr><td>Frigate na N100 mini-PC + Coral USB</td><td>~1500 zł (Beelink S12) + 330 zł Coral + 2 TB HDD ~330 zł</td><td>0 zł</td><td>~2160 zł</td></tr>
+<tr><td>BlueIris na używanym i5-10400 PC</td><td>~1200 zł używana stacja + 2 TB HDD ~330 zł</td><td>~290 zł (BI Pro)</td><td>~1820 zł</td></tr>
+<tr><td>Synology DS224+ + 6 licencji</td><td>~1700 zł DS224+ + 2×8 TB ~1200 zł</td><td>4 × ~270 zł licencje</td><td>~3980 zł</td></tr>
+<tr><td>Komercyjny NVR Hikvision 8-ch + HDD</td><td>~1900 zł NVR + 4 TB ~580 zł</td><td>w cenie</td><td>~2480 zł</td></tr>
+</tbody>
+</table>
+
+<h2>Wybór — kiedy co</h2>
+<ul>
+<li><strong>Frigate</strong> — Linux/Docker/HA fanatycy, AI z Coral, OSS, automatyzacje. Wymaga ogarniętości technicznej.</li>
+<li><strong>BlueIris</strong> — chcesz natychmiast działający VMS na Windows, bez gimnastyki. Ekosystem dojrzały, dokumentacja po angielsku.</li>
+<li><strong>Synology SS</strong> — masz już NAS Synology, chcesz wszystko w jednym pudełku, łatwe.</li>
+<li><strong>Shinobi / Agent DVR</strong> — alternatywa OSS dla mniejszych instalacji, lub developer chce wbudować w własną aplikację.</li>
+<li><strong>Komercyjny NVR</strong> — najprostszy, plug-and-play, ale bez AI i bez integracji z HA.</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="05-02-synology-surveillance.html">⟵ Synology Surveillance Station</a>
+<a href="05-04-integracja-home-assistant.html">Integracja z Home Assistant →</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>13-01 — Kontrolery i software KD</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:8px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:40px;opacity:.8}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">13 Kontrola dostępu i domofony</a><span class="sep">/</span><span class="title">13-01 Kontrolery i software KD</span>
+</div>
+<div class="container">
+<h1>Kontrolery i software KD</h1>
+<p class="subtitle">Systemy kontroli dostępu (KD/ACS): kontroler, czytnik, zamek i software zarządzający. Polski Roger (RACS 5, MC16), Satel ACCO (ACCO-NET, ACCO-KP), brytyjski Paxton (Net2, Paxton10), HID, ZKTeco. Magistrala RS-485, Wiegand vs OSDP, integracja z alarmem (ACCO + Integra) i CCTV.</p>
+<p class="updated">Aktualizacja: 2026-05</p>
+
+<h2>Czym jest kontrola dostępu (KD / ACS)</h2>
+<p>Kontrola dostępu (pol. <strong>KD</strong>, ang. <strong>Access Control System – ACS</strong>) to system, który decyduje <em>kto</em>, <em>kiedy</em> i <em>którędy</em> może przejść przez chronione przejście. Zastępuje klucz mechaniczny identyfikatorem elektronicznym (karta, PIN, odcisk palca) i prowadzi rejestr każdego zdarzenia. W odróżnieniu od zwykłego domofonu KD to system <strong>uprawnień i logów</strong>, a nie tylko otwierania drzwi.</p>
+<p>Każde przejście KD składa się z czterech podstawowych elementów:</p>
+<table>
+<thead><tr><th>Element</th><th>Rola</th><th>Przykład</th></tr></thead>
+<tbody>
+<tr><td><strong>Kontroler</strong></td><td>„mózg" — przechowuje uprawnienia, podejmuje decyzję otwarcia, steruje zamkiem, prowadzi bufor zdarzeń (działa też offline)</td><td>Roger MC16, Satel ACCO-KP, Paxton Net2 plus</td></tr>
+<tr><td><strong>Czytnik</strong></td><td>odczytuje identyfikator (kartę, PIN, palec) i przesyła go do kontrolera</td><td>Roger MCT, czytnik Mifare, biometryczny</td></tr>
+<tr><td><strong>Element wykonawczy (zamek)</strong></td><td>fizycznie blokuje/zwalnia drzwi na sygnał kontrolera</td><td>elektrozaczep, zwora elektromagnetyczna</td></tr>
+<tr><td><strong>Software</strong></td><td>zarządza użytkownikami, harmonogramami, strefami, generuje raporty</td><td>RACS 5, ACCO-NET, Net2</td></tr>
+</tbody>
+</table>
+<p>Dodatkowo na drzwiach montuje się: <strong>przycisk wyjścia</strong> (EXIT, po stronie wewnętrznej), <strong>kontaktron</strong> (czujnik położenia drzwi — wykrywa wyważenie/zbyt długie otwarcie „door-forced / door-held") oraz <strong>zasilacz buforowy</strong> z akumulatorem.</p>
+
+<h2>Topologie systemu</h2>
+<h3>Kontroler 1-drzwiowy vs wielodrzwiowy</h3>
+<p>To podstawowy wybór architektoniczny wpływający na koszt i niezawodność:</p>
+<table>
+<thead><tr><th>Cecha</th><th>Kontroler 1-drzwiowy</th><th>Kontroler wielodrzwiowy</th></tr></thead>
+<tbody>
+<tr><td>Liczba przejść</td><td>1 (czasem 1 dwustronne)</td><td>2 / 4 / 8 drzwi z jednej płyty</td></tr>
+<tr><td>Awaria</td><td>uszkodzenie blokuje tylko 1 drzwi</td><td>uszkodzenie może zablokować wszystkie podpięte drzwi</td></tr>
+<tr><td>Okablowanie</td><td>więcej jednostek, krótsze trasy</td><td>jedna szafka, dłuższe trasy do drzwi</td></tr>
+<tr><td>Koszt / drzwi</td><td>wyższy</td><td>niższy (współdzielona elektronika)</td></tr>
+<tr><td>Przykład</td><td>Roger MC16 (1–2 przejścia)</td><td>Paxton Net2 plus, ZKTeco C3-400 (4 drzwi)</td></tr>
+</tbody>
+</table>
+<div class="tip">W praktyce dla biur stosuje się kontrolery 2-drzwiowe (1 jednostka = 1 wejście dwustronne lub 2 jednostronne), a dla dużych obiektów (hotele, magazyny) wielodrzwiowe na piętro/strefę z magistralą RS-485 do nadrzędnego serwera.</div>
+
+<h3>Magistrala komunikacyjna RS-485</h3>
+<p>Kontrolery łączą się z serwerem/sąsiednimi modułami magistralą <strong>RS-485</strong> (2 żyły danych A/B, topologia łańcuchowa „daisy chain", do <strong>1200 m</strong>, prędkości 9600–115200 bps). RS-485 jest odporny na zakłócenia i pozwala spiąć dziesiątki urządzeń na jednej linii. W nowszych systemach (Paxton10, RACS 5 z MC16) magistralą szkieletową bywa też <strong>Ethernet/PoE</strong>, a RS-485 zostaje tylko lokalnie do czytników i ekspanderów.</p>
+<div class="callout">Magistralę RS-485 należy <strong>terminować rezystorem 120 Ω</strong> na obu końcach linii i prowadzić skrętką (np. żyła z ekranem). Topologia gwiazdy (rozgałęzienia) powoduje odbicia sygnału i błędy komunikacji.</div>
+
+<h3>Wiegand vs OSDP — łącze czytnik ↔ kontroler</h3>
+<p>To kluczowa decyzja bezpieczeństwa. Sposób, w jaki czytnik przekazuje numer karty do kontrolera:</p>
+<table>
+<thead><tr><th>Cecha</th><th>Wiegand (26/34-bit)</th><th>OSDP (SIA OSDP v2 / Secure Channel)</th></tr></thead>
+<tbody>
+<tr><td>Rok / status</td><td>lata 80., przestarzały, wciąż masowy</td><td>nowoczesny standard SIA, zalecany</td></tr>
+<tr><td>Okablowanie</td><td>min. 2 żyły danych (D0/D1) + zasilanie, do ~100 m</td><td>2 żyły RS-485 (A/B), do 1200 m, wiele czytników na 1 linii</td></tr>
+<tr><td>Kierunek</td><td>jednokierunkowy (czytnik → kontroler)</td><td>dwukierunkowy (sterowanie LED, dźwiękiem, status)</td></tr>
+<tr><td>Szyfrowanie</td><td><strong>brak</strong> — łatwy do podsłuchu/wstrzyknięcia (atak „ESPKey")</td><td><strong>AES-128 Secure Channel (SCBK)</strong></td></tr>
+<tr><td>Wykrycie sabotażu kabla</td><td>nie</td><td>tak (utrata komunikacji)</td></tr>
+</tbody>
+</table>
+<div class="warning"><strong>Wiegand jest niezabezpieczony.</strong> Przewody D0/D1 prowadzone na zewnątrz (przy czytniku po stronie „brudnej") można podsłuchać urządzeniem typu ESPKey i sklonować przejście. Dla obiektów o podwyższonym bezpieczeństwie wybieraj czytniki i kontrolery z <strong>OSDP Secure Channel</strong> (Roger seria MCT z OSDP, HID Signo, Paxton).</div>
+
+<h2>Marki i kontrolery — przegląd</h2>
+<h3>Roger (Polska) — RACS 5</h3>
+<p>Polski producent z Gościcina. System <strong>RACS 5</strong> oparty na uniwersalnym kontrolerze <strong>MC16</strong> (programowalny: KD, RCP, rejestracja czasu pracy, automatyka). Czytniki serii <strong>MCT</strong> (Mifare + OSDP/Wiegand), ekspandery MCX. Bardzo dobre wsparcie i dokumentacja w języku polskim.</p>
+<table>
+<thead><tr><th>Model</th><th>Opis</th><th>Cena (2026)</th></tr></thead>
+<tbody>
+<tr><td><strong>MC16-PAC-2</strong></td><td>kontroler dostępu na 2 przejścia (licencja PAC)</td><td>~950 zł</td></tr>
+<tr><td><strong>MC16-PAC-4</strong></td><td>kontroler na 4 przejścia</td><td>~1250 zł</td></tr>
+<tr><td><strong>MCT80M-IO</strong></td><td>czytnik Mifare z klawiaturą + we/wy, OSDP</td><td>~520 zł</td></tr>
+<tr><td><strong>MCT12M</strong></td><td>czytnik zbliżeniowy Mifare, smukły</td><td>~330 zł</td></tr>
+<tr><td><strong>MCX2D / MCX4D</strong></td><td>ekspander I/O na 2 / 4 przejścia do MC16</td><td>~480–720 zł</td></tr>
+</tbody>
+</table>
+
+<h3>Satel ACCO (Polska)</h3>
+<p>Linia KD polskiego Satela, idealna gdy obiekt ma już alarm <em>Integra</em>. Dwa warianty: autonomiczne kontrolery <strong>ACCO-KP / ACCO-KP-PS</strong> (z zasilaczem) zarządzane lokalnie oraz sieciowy system <strong>ACCO-NET</strong> (serwer + moduły ACCO-NT na Ethernet) dla wielu przejść i wielu lokalizacji.</p>
+<table>
+<thead><tr><th>Model</th><th>Opis</th><th>Cena (2026)</th></tr></thead>
+<tbody>
+<tr><td><strong>ACCO-KP</strong></td><td>kontroler 1 przejścia (bez zasilacza)</td><td>~390 zł</td></tr>
+<tr><td><strong>ACCO-KP-PS</strong></td><td>kontroler 1 przejścia z zasilaczem buforowym</td><td>~560 zł</td></tr>
+<tr><td><strong>ACCO-NT</strong></td><td>kontroler sieciowy (Ethernet) do systemu ACCO-NET</td><td>~720 zł</td></tr>
+<tr><td><strong>CZ-EMM / CZ-EMM2</strong></td><td>czytnik zbliżeniowy 125 kHz (EM) / Mifare</td><td>~150–230 zł</td></tr>
+<tr><td><strong>ACCO-SOFT-LT</strong></td><td>oprogramowanie zarządzające (darmowe dla małych instalacji)</td><td>0 zł</td></tr>
+</tbody>
+</table>
+
+<h3>Paxton (Wielka Brytania)</h3>
+<p>Brytyjski lider rynku biurowego. <strong>Net2</strong> — sprawdzony system PC/serwer (kontrolery Net2 plus, ACU na Ethernet/RS-485). <strong>Paxton10</strong> — nowsza platforma łącząca KD i CCTV w jednym interfejsie webowym, kontrolery PoE. Licencja oprogramowania Net2 jest darmowa.</p>
+<table>
+<thead><tr><th>Model</th><th>Opis</th><th>Cena (2026)</th></tr></thead>
+<tbody>
+<tr><td><strong>Net2 plus 1-door</strong></td><td>kontroler 1 drzwi, TCP/IP + RS-485</td><td>~1100 zł</td></tr>
+<tr><td><strong>Net2 nano</strong></td><td>kontroler PoE w obudowie czytnika</td><td>~900 zł</td></tr>
+<tr><td><strong>Paxton10 Door Controller (PoE)</strong></td><td>kontroler 1 drzwi platformy Paxton10</td><td>~1350 zł</td></tr>
+<tr><td><strong>Paxton KeyReader / czytnik P50</strong></td><td>czytnik zbliżeniowy/Bluetooth</td><td>~430 zł</td></tr>
+</tbody>
+</table>
+
+<h3>HID Global i ZKTeco</h3>
+<ul>
+<li><strong>HID</strong> — światowy standard w korporacjach. Czytniki <strong>HID Signo</strong> (OSDP, mobilny dostęp), karty <strong>iCLASS SE / SEOS</strong> (szyfrowane), kontrolery <strong>VertX / Aero</strong>. Premium cenowo (czytnik Signo ~700–900 zł).</li>
+<li><strong>ZKTeco</strong> — chiński producent, bardzo dobry stosunek ceny do funkcji, mocny w biometrii. Kontrolery <strong>InBio / C3</strong> (2–4 drzwi, ~600–1100 zł), terminale biometryczne twarz+palec <strong>SpeedFace</strong>, software <strong>ZKBioSecurity / BioTime</strong> (RCP).</li>
+</ul>
+
+<h2>Czytniki i identyfikatory</h2>
+<table>
+<thead><tr><th>Technologia</th><th>Częstotliwość / nośnik</th><th>Bezpieczeństwo</th><th>Uwagi</th></tr></thead>
+<tbody>
+<tr><td>Zbliżeniowa <strong>Unique / EM</strong></td><td>125 kHz</td><td>niskie — karta łatwa do skopiowania</td><td>tania, masowa, do prostych instalacji</td></tr>
+<tr><td>Zbliżeniowa <strong>Mifare</strong></td><td>13,56 MHz (DESFire EV2/EV3)</td><td>wysokie — szyfrowanie AES na karcie</td><td>zalecana, obsługa płatności/wielofunkcyjna</td></tr>
+<tr><td><strong>Biometria — linie papilarne</strong></td><td>czytnik optyczny/pojemnościowy</td><td>wysokie — identyfikator „przy sobie"</td><td>problem przy brudnych/uszkodzonych palcach</td></tr>
+<tr><td><strong>Biometria — twarz</strong></td><td>kamera 2D/3D (np. SpeedFace)</td><td>wysokie, bezdotykowa</td><td>popularna po pandemii, czuła na oświetlenie</td></tr>
+<tr><td><strong>PIN / klawiatura</strong></td><td>kod cyfrowy</td><td>średnie — kod można podejrzeć/przekazać</td><td>często jako 2. składnik (karta + PIN)</td></tr>
+<tr><td><strong>Mobilny — BLE / NFC</strong></td><td>smartfon (Bluetooth/NFC)</td><td>wysokie — szyfrowany token</td><td>HID Mobile Access, Roger, Paxton — wygoda</td></tr>
+</tbody>
+</table>
+<div class="tip"><strong>Uwierzytelnianie dwuskładnikowe (MFA):</strong> dla serwerowni i stref krytycznych łączy się dwa czynniki, np. <em>karta Mifare + PIN</em> lub <em>karta + odcisk palca</em>. Harmonogram może wymuszać PIN tylko poza godzinami pracy.</div>
+
+<h2>Software — funkcje zarządzające</h2>
+<p>Oprogramowanie (RACS 5, ACCO-NET, Net2, ZKBioSecurity) jest sercem zarządzania całym systemem:</p>
+<ul>
+<li><strong>Zarządzanie użytkownikami</strong> — baza osób, przypisanie kart/PIN/biometrii, grupy uprawnień, zdjęcia, ważność identyfikatora (data od–do dla gości/pracowników czasowych).</li>
+<li><strong>Harmonogramy i strefy czasowe</strong> — kto może wejść w danym oknie czasowym (np. sprzątanie 18:00–20:00, biuro pon–pt 7–19), kalendarze świąt.</li>
+<li><strong>Strefy dostępu</strong> — przypisanie przejść do stref (parking, biuro, serwerownia) i nadawanie uprawnień grupowo.</li>
+<li><strong>Anti-passback (APB)</strong> — blokada ponownego użycia karty na wejściu bez wcześniejszego wyjścia (zapobiega „podawaniu" karty drugiej osobie); odmiany: twardy/miękki, czasowy.</li>
+<li><strong>Raporty RCP (Rejestracja Czasu Pracy)</strong> — naliczanie czasu pracy z odbić wejście/wyjście, nadgodziny, spóźnienia, eksport do kadr/płac (Roger RCP, ZKTeco BioTime).</li>
+<li><strong>Lockdown / tryb awaryjny</strong> — natychmiastowe zablokowanie lub odblokowanie wszystkich drzwi z jednego przycisku (np. zagrożenie, ewakuacja).</li>
+</ul>
+
+<h2>Integracja z systemem alarmowym i CCTV</h2>
+<h3>KD + alarm (Satel ACCO + Integra)</h3>
+<p>Największą zaletą wyboru jednego producenta (Satel) jest natywna integracja. Przykładowe scenariusze:</p>
+<ul>
+<li><strong>Autorozbrojenie strefy</strong> — wejście autoryzowaną kartą przez ACCO automatycznie rozbraja powiązaną partycję Integry (pracownik nie wpisuje już kodu na klawiaturze alarmu).</li>
+<li><strong>Auto-uzbrojenie</strong> — ostatnie wyjście z biura + zamknięcie drzwi uzbraja strefę.</li>
+<li><strong>Blokada wejścia przy uzbrojonej strefie</strong> — KD nie otworzy drzwi do strefy, która jest uzbrojona, dopóki uprawniona osoba jej nie rozbroi.</li>
+</ul>
+<div class="callout">W rozwiązaniach od różnych producentów integrację KD↔alarm realizuje się <strong>stykowo</strong>: wyjście przekaźnikowe alarmu (status uzbrojenia) → wejście kontrolera KD, oraz wyjście KD (autoryzacja) → wejście „klucz/strefa" w centrali alarmowej.</div>
+
+<h3>KD + CCTV (zdarzenie → nagranie)</h3>
+<p>Powiązanie zdarzeń KD z systemem CCTV (VMS/NVR) pozwala wizualnie weryfikować przejścia:</p>
+<ul>
+<li><strong>Zdarzenie KD → bookmark/nagranie</strong> — odbicie karty lub alarm „drzwi wyważone" wyzwala znacznik na osi czasu rejestratora i nagranie z kamery przy drzwiach.</li>
+<li><strong>Weryfikacja foto</strong> — w software KD przy odbiciu wyświetla się zdjęcie z bazy <em>obok</em> klatki z kamery na żywo — ochrona widzi, czy karty użyła właściwa osoba.</li>
+<li><strong>Platformy zintegrowane</strong> — Paxton10 łączy KD i CCTV w jednym interfejsie; Hikvision i Dahua integrują własne KD z NVR w ramach jednego ekosystemu.</li>
+</ul>
+
+<h2>Zasilanie awaryjne i tryb przy zaniku napięcia</h2>
+<p>Kontroler KD zasilany jest z <strong>zasilacza buforowego</strong> (np. 12 V / 13,8 V) z akumulatorem żelowym, zapewniającym działanie 1–8 h po zaniku sieci 230 V. Kluczowe jest jednak zachowanie <em>zamka</em> po utracie zasilania:</p>
+<table>
+<thead><tr><th>Tryb</th><th>Przy zaniku zasilania</th><th>Typowy element</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td><strong>Fail-safe</strong> (NC, „rewersyjny")</td><td>drzwi się <strong>ODBLOKOWUJĄ</strong> (zasilanie trzyma zamek)</td><td>zwora elektromagnetyczna, elektrozaczep rewersyjny</td><td><strong>drogi ewakuacyjne / PPOŻ</strong>, wyjścia awaryjne</td></tr>
+<tr><td><strong>Fail-secure</strong> (NO)</td><td>drzwi pozostają <strong>ZAMKNIĘTE</strong> (zasilanie zwalnia zamek)</td><td>elektrozaczep zwykły (standardowy)</td><td>serwerownie, magazyny, kasy — gdzie liczy się ochrona mienia</td></tr>
+</tbody>
+</table>
+<div class="warning"><strong>PPOŻ — drzwi ewakuacyjne!</strong> Na drogach ewakuacji prawo wymaga, by przy zaniku zasilania <em>oraz</em> przy alarmie pożarowym drzwi dały się otworzyć bez klucza/karty. Dlatego stosuje się <strong>fail-safe</strong> + przycisk awaryjny (ręczny zwalniacz, ang. <em>emergency break-glass</em>) zwierający zasilanie zwory, oraz powiązanie z centralą SSP (pożar → zwolnienie zwór). Nigdy nie montuj fail-secure na jedynej drodze ewakuacyjnej.</div>
+
+<h3>Przykładowy schemat logiczny zwory na drodze ewakuacyjnej</h3>
+<pre><code>230V ─► Zasilacz buforowy 12V/13,8V ─┬─► Akumulator (backup)
+                                    │
+                                    ├─► Zwora elektromagnetyczna (fail-safe, trzymana napięciem)
+                                    │        ▲
+              Przycisk EXIT ────────┘        │ przerwanie obwodu = otwarcie
+              Przycisk awaryjny (break-glass)┘
+              Wyjście NC centrali SSP (pożar) ┘  → zanik napięcia → drzwi otwarte</code></pre>
+
+<div class="nav-bottom">
+<a href="index.html">⟵ Kontrola dostępu i domofony</a>
+<a href="13-02-domofony.html">13-02 Domofony →</a>
+</div>
+</div>
+</body>
+</html>

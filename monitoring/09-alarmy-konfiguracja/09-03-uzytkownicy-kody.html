@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09-03 — Użytkownicy, kody, piloty</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:8px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:40px;opacity:.8}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">09 Konfiguracja alarmu</a><span class="sep">/</span><span class="title">09-03 Użytkownicy, kody, piloty</span>
+</div>
+<div class="container">
+<h1>Użytkownicy, kody, piloty</h1>
+<p class="subtitle">Hierarchia użytkowników (instalator / master / user / przymus), kod przymusu (duress), poziomy uprawnień, piloty RF (breloki), karty zbliżeniowe RFID, polityka blokad i dobre praktyki.</p>
+<p class="updated">Aktualizacja: 2026-05</p>
+
+<h2>Hierarchia użytkowników</h2>
+<p>Każda centrala alarmowa (Satel, DSC, Risco, Jablotron) ma wielopoziomową strukturę kont. Najwyższe uprawnienia ma instalator, ale to <strong>administrator (master)</strong> zarządza zwykłymi użytkownikami w codziennym życiu.</p>
+<table>
+<thead><tr><th>Poziom</th><th>Nazwa</th><th>Zakres</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><strong>Instalator (serwisowy)</strong></td><td>pełne programowanie systemu (typy wejść, partycje, komunikacja). Zwykle <em>nie może</em> sam rozbroić systemu bez zgody mastera (tryb serwisowy).</td></tr>
+<tr><td>2</td><td><strong>Master / administrator</strong></td><td>zarządza użytkownikami (dodaje/usuwa kody, breloki, karty), nadaje uprawnienia, ustawia harmonogramy. Najwyższy „użytkownik" obiektu.</td></tr>
+<tr><td>3</td><td><strong>Użytkownik zwykły</strong></td><td>uzbraja/rozbraja przypisane partycje, wg nadanych uprawnień.</td></tr>
+<tr><td>4</td><td><strong>Kod przymusu (duress)</strong></td><td>specjalny kod — rozbraja system, ale wysyła cichy alarm napadowy do agencji.</td></tr>
+<tr><td>—</td><td>Konta specjalne</td><td>np. <em>sprzątaczka</em> (ograniczony czasowo), <em>strażnik / patrol</em> (uzbrajanie po obchodzie), <em>gość</em>.</td></tr>
+</tbody>
+</table>
+<div class="callout">Rozdzielenie <strong>instalatora</strong> i <strong>mastera</strong> jest kluczowe: instalator konfiguruje sprzęt, ale to właściciel (master) panuje nad tym, kto i kiedy może rozbroić alarm. W trybie zgodnym z normą instalator nie wejdzie do programowania bez autoryzacji mastera (tzw. dostęp instalatora włączany przez mastera).</div>
+
+<h2>Kod przymusu (duress code)</h2>
+<p><strong>Kod przymusu</strong> (ang. <em>duress code</em>) to jedna z najważniejszych funkcji bezpieczeństwa. Działa tak:</p>
+<ul>
+<li>Napastnik zmusza domownika do rozbrojenia alarmu.</li>
+<li>Domownik wpisuje <strong>kod przymusu</strong> zamiast normalnego kodu.</li>
+<li>System <strong>normalnie się rozbraja</strong> (napastnik niczego nie podejrzewa).</li>
+<li>Jednocześnie centrala wysyła <strong>cichy alarm napadowy</strong> (PANIC / HOLD-UP) do stacji monitoringu — bez syreny, bez sygnału na klawiaturze.</li>
+<li>Agencja ochrony wie, że rozbrojenie nastąpiło pod przymusem i reaguje (patrol / policja).</li>
+</ul>
+<table>
+<thead><tr><th>Producent</th><th>Realizacja kodu przymusu</th></tr></thead>
+<tbody>
+<tr><td><strong>Satel</strong></td><td>osobny kod typu „przymus" (DURESS) lub kod o numerze użytkownika z atrybutem przymusu; wysyła kod zdarzenia napadu do PCO</td></tr>
+<tr><td><strong>DSC</strong></td><td>dedykowany <em>Duress Code</em> w programowaniu kodów; generuje raport „duress" (np. Contact ID 121)</td></tr>
+<tr><td><strong>Risco</strong></td><td>atrybut „duress" dla kodu użytkownika; cichy alarm do Risco Cloud / PCO</td></tr>
+<tr><td><strong>Jablotron</strong></td><td>kod/uprawnienie z funkcją przymusu; raport napadowy przez MyJABLOTRON / PCO</td></tr>
+</tbody>
+</table>
+<div class="warning">Kod przymusu ma sens <strong>tylko przy aktywnym monitoringu (PCO)</strong> lub powiadomieniu, które ktoś odbierze. Jeśli system nie raportuje nigdzie cichego alarmu, funkcja przymusu nic nie zmienia. Domownicy muszą znać i pamiętać ten kod — warto go przećwiczyć.</div>
+
+<h2>Poziomy uprawnień</h2>
+<p>Każdemu użytkownikowi master nadaje zestaw uprawnień. Typowe atrybuty (nazewnictwo różni się między producentami, ale idea jest wspólna):</p>
+<table>
+<thead><tr><th>Uprawnienie</th><th>Opis</th></tr></thead>
+<tbody>
+<tr><td><strong>Tylko uzbrajanie (arm only)</strong></td><td>użytkownik może załączyć czuwanie, ale nie rozbroić (np. pracownik zamykający lokal)</td></tr>
+<tr><td><strong>Uzbrajanie + rozbrajanie</strong></td><td>pełna obsługa czuwania przypisanych partycji</td></tr>
+<tr><td><strong>Pełne (full)</strong></td><td>uzbrajanie, rozbrajanie, kasowanie alarmu, pomijanie wejść (bypass)</td></tr>
+<tr><td><strong>Sterowanie wyjściami</strong></td><td>obsługa wyjść programowalnych (brama, oświetlenie, rolety) bez wpływu na czuwanie</td></tr>
+<tr><td><strong>Dostęp do partycji / sekcji</strong></td><td>lista stref/partycji, do których kod ma dostęp (np. tylko „Parter")</td></tr>
+<tr><td><strong>Zmiana własnego kodu</strong></td><td>czy użytkownik może sam zmienić swój PIN</td></tr>
+<tr><td><strong>Master</strong></td><td>zarządzanie innymi użytkownikami</td></tr>
+</tbody>
+</table>
+<div class="callout">Powiązanie uprawnień z <strong>partycjami</strong> opisano w <a href="09-01-strefy-partycje.html">09-01 Strefy i partycje</a>, a uzbrajanie warunkowe/harmonogramy w <a href="09-02-scenariusze-uzbrojenia.html">09-02 Scenariusze uzbrojenia</a>. Tu skupiamy się na samych kontach, kodach i nośnikach.</div>
+
+<h2>Długość kodów i polityka blokady</h2>
+<p>Kody PIN mają zwykle <strong>4 do 6 cyfr</strong>. Dłuższy kod = większa przestrzeń kombinacji = trudniejszy do zgadnięcia.</p>
+<table>
+<thead><tr><th>Długość</th><th>Kombinacje</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td>4 cyfry</td><td>10 000</td><td>standard domowy (Grade 2), minimum</td></tr>
+<tr><td>5 cyfr</td><td>100 000</td><td>podwyższone bezpieczeństwo</td></tr>
+<tr><td>6 cyfr</td><td>1 000 000</td><td>Grade 3, obiekty komercyjne</td></tr>
+</tbody>
+</table>
+<p>Aby utrudnić zgadywanie metodą prób (brute force), centrale stosują <strong>blokadę klawiatury po błędnych próbach</strong>:</p>
+<ul>
+<li>Po <strong>kilku błędnych kodach</strong> (typowo 3–10, konfigurowalne) klawiatura blokuje się na określony czas (np. 90 s – kilka minut).</li>
+<li>Wielokrotna seria błędów może wygenerować zdarzenie sabotażu / próby manipulacji do PCO.</li>
+<li>Norma PN-EN 50131 wymaga, by liczba możliwych kombinacji i ograniczenie prób uniemożliwiały łatwe odgadnięcie kodu (dla Grade 2/3).</li>
+</ul>
+<div class="tip">Nie używaj kodów oczywistych: <code>1234</code>, <code>0000</code>, <code>1111</code>, daty urodzenia, numeru mieszkania. Unikaj też kodu „o jeden” różnego od kodu przymusu (łatwa pomyłka). Każdy domownik powinien mieć <strong>własny, unikalny</strong> kod.</div>
+
+<h2>Piloty RF (breloki)</h2>
+<p>Pilot radiowy (brelok) pozwala uzbroić/rozbroić system z dystansu (np. z samochodu, sprzed bramy). Komunikuje się z centralą przez moduł bezprzewodowy (Satel ABAX, DSC PowerG, Risco 868 MHz, Jablotron 868 MHz).</p>
+<h3>Typowy układ przycisków</h3>
+<table>
+<thead><tr><th>Przycisk</th><th>Funkcja (programowalna)</th></tr></thead>
+<tbody>
+<tr><td>🔒 (kłódka zamknięta)</td><td><strong>Uzbrojenie</strong> (arm) — pełne czuwanie</td></tr>
+<tr><td>🔓 (kłódka otwarta)</td><td><strong>Rozbrojenie</strong> (disarm)</td></tr>
+<tr><td>● / dom</td><td>Uzbrojenie częściowe / nocne (np. tylko obwód) lub wyjście programowalne</td></tr>
+<tr><td>★ / panika</td><td><strong>Alarm napadowy (panic)</strong> — np. przytrzymanie 3 s</td></tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Przypisanie pilota</strong> — master/instalator dodaje pilot do konkretnego użytkownika; pilot dziedziczy jego uprawnienia i partycje.</li>
+<li><strong>Dwukierunkowe piloty</strong> (2-way) — mają diodę/sygnał potwierdzający wykonanie komendy (np. „uzbrojono / nie uzbrojono — wejście otwarte”). Dotyczy ABAX 2, PowerG, Risco/Jablotron 868 MHz.</li>
+<li><strong>Bateria</strong> — pilot zasilany jest baterią litową (np. CR2032 / CR2354 wg modelu). System 2-way zgłasza <em>niski stan baterii</em> pilota do centrali i aplikacji. Wymiana co kilka lat.</li>
+</ul>
+<table>
+<thead><tr><th>Pilot (przykład)</th><th>System</th><th>Cena (2026)</th></tr></thead>
+<tbody>
+<tr><td><strong>Satel APT-200</strong> (5-przyciskowy, 2-way)</td><td>ABAX 2</td><td>~180 zł</td></tr>
+<tr><td><strong>DSC PG8929 / PG9929</strong> (brelok PowerG)</td><td>PowerG 2-way</td><td>~190 zł</td></tr>
+<tr><td><strong>Risco Panic/Keyfob 2-way</strong></td><td>Risco 868 MHz</td><td>~150 zł</td></tr>
+<tr><td><strong>Jablotron JA-152J</strong> (4-przyciskowy)</td><td>Jablotron 868 MHz</td><td>~140 zł</td></tr>
+</tbody>
+</table>
+<div class="warning"><strong>Zgubiony pilot</strong> = potencjalny dostęp do rozbrojenia. Po utracie pilota natychmiast <strong>usuń go z systemu</strong> (master/instalator) i — jeśli pilot rozbrajał — rozważ zmianę powiązanych kodów. To samo dotyczy zgubionej karty/breloka RFID.</div>
+
+<h2>Karty i breloki zbliżeniowe (RFID)</h2>
+<p>Klawiatury z wbudowanym czytnikiem (lub osobne czytniki na magistrali) pozwalają autoryzować się przez <strong>zbliżenie karty / breloka RFID</strong> zamiast wpisywania kodu — wygodne przy wielu użytkownikach.</p>
+<table>
+<thead><tr><th>Standard RFID</th><th>Częstotliwość</th><th>Cechy</th></tr></thead>
+<tbody>
+<tr><td><strong>EM / Unique</strong></td><td>125 kHz</td><td>tani, popularny, tylko odczyt UID (mniej bezpieczny — łatwy do sklonowania)</td></tr>
+<tr><td><strong>Mifare Classic / DESFire</strong></td><td>13,56 MHz</td><td>nowocześniejszy, szyfrowanie (DESFire), trudniejszy do sklonowania</td></tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Satel</strong> — czytniki i klawiatury z proximity (np. moduły 125 kHz / Mifare), karty/breloki dodawane jak użytkownik.</li>
+<li><strong>DSC / PowerG</strong> — proximity tag dodawany do kodu użytkownika na klawiaturze z czytnikiem.</li>
+<li><strong>Risco</strong> — klawiatura Elegant z proximity, breloki/karty.</li>
+<li><strong>Jablotron</strong> — RFID to podstawa codziennej obsługi (segment + zbliżenie), karty i breloki przypisane do użytkownika.</li>
+</ul>
+<div class="tip">Do obiektów o wyższym ryzyku wybieraj <strong>13,56 MHz Mifare DESFire</strong> zamiast 125 kHz EM — karty 125 kHz „tylko-UID” można skopiować tanim duplikatorem. Dla integracji z kontrolą dostępu patrz dział <a href="../12-kd-czytniki-zamki/index.html">12 Kontrola dostępu</a>.</div>
+
+<h2>Programowanie — przykłady</h2>
+<h3>Satel (DLOAD X / klawiatura)</h3>
+<p>Master dodaje użytkownika z poziomu klawiatury lub programu <strong>DLOAD X</strong>. Schemat menu użytkownika (z klawiatury LCD):</p>
+<pre><code>[KOD MASTER] # ...... wejscie do menu uzytkownika
+  &gt; Uzytkownicy
+      &gt; Nowy uzytkownik
+          - Schemat uprawnien:  "Uzytkownik" / "Tylko zalaczajacy" / "Przymus" ...
+          - Kod:                ****  (4-8 cyfr)
+          - Partycje:           [x] Parter   [ ] Pietro
+          - Karta zblizeniowa:  (przyloz karte do klawiatury) -&gt; zapis UID
+          - Pilot APT-200:      (nacisnij przycisk pilota)    -&gt; rejestracja
+      &gt; Edycja / Usun uzytkownika
+; Schemat "Przymus" = kod duress (cichy alarm napadowy do PCO)</code></pre>
+
+<h3>DSC PowerSeries Neo (klawiatura)</h3>
+<p>W DSC kody programuje się sekcjami z poziomu kodu master. Uproszczony schemat:</p>
+<pre><code>[*][5][KOD MASTER]        ; programowanie kodow uzytkownikow
+   &gt; wybierz nr uzytkownika (np. 03)
+   &gt; wprowadz 4- lub 6-cyfrowy kod
+   &gt; [*] atrybuty uzytkownika:
+        - partycje, do ktorych ma dostep
+        - typ: zwykly / arm-only / Duress / Master
+[*][5][KOD MASTER] -&gt; uzytkownik 'Duress'  ; kod przymusu
+[*][1] ......                                ; bypass (pomijanie wejsc) wg uprawnien
+; Proximity tag: na klawiaturze z czytnikiem przypisz tag do nr uzytkownika</code></pre>
+<div class="callout">W obu systemach <strong>kod master dodaje i usuwa zwykłych użytkowników</strong>, ale to <strong>kod instalatora</strong> definiuje, jakie <em>schematy uprawnień</em> / typy kodów w ogóle istnieją i jak system raportuje przymus do PCO. Master operuje w ramach przygotowanych przez instalatora schematów.</div>
+
+<h2>Dobre praktyki</h2>
+<ul>
+<li><strong>Osobny kod / brelok dla każdego domownika</strong> — log zdarzeń pokaże, <em>kto</em> uzbroił/rozbroił i o której godzinie (audyt). Wspólny kod „dla wszystkich” niweczy tę wartość.</li>
+<li><strong>Zmień domyślny kod instalatora i mastera</strong> zaraz po montażu — fabryczne kody (np. master <code>1234</code>, instalator <code>12345</code> w wielu systemach) są powszechnie znane.</li>
+<li><strong>Ograniczenie czasowe</strong> dla kont serwisowych — kod sprzątaczki aktywny tylko w określone dni/godziny (harmonogram), automatycznie nieaktywny poza nimi.</li>
+<li><strong>Skonfiguruj kod przymusu</strong> i przećwicz go z domownikami (tylko gdy jest monitoring/PCO).</li>
+<li><strong>Usuwaj nieużywane konta, zgubione piloty i karty</strong> niezwłocznie.</li>
+<li><strong>Dłuższe kody (6 cyfr) i blokada po błędach</strong> dla obiektów komercyjnych / Grade 3.</li>
+<li><strong>Nie zapisuj kodów</strong> na klawiaturze ani w pobliżu; dla wielu użytkowników rozważ RFID Mifare zamiast jawnych PIN-ów.</li>
+</ul>
+
+<h2>RODO i prywatność logów zdarzeń</h2>
+<div class="callout">Log zdarzeń alarmu (kto, kiedy uzbroił/rozbroił, którą strefę) to w praktyce <strong>dane osobowe</strong> — pozwala odtworzyć obecność i aktywność konkretnych osób (np. godziny pracy pracownika, obecność domownika). W kontekście <strong>RODO</strong> oznacza to:</div>
+<ul>
+<li>Jeśli system rejestruje pracowników (firma, biuro), poinformuj ich o <strong>monitorowaniu</strong> dostępu/uzbrojeń i celu przetwarzania (obowiązek informacyjny). W relacjach pracowniczych monitoring zdarzeń może podlegać przepisom Kodeksu pracy.</li>
+<li>Ogranicz dostęp do logów (panel mastera / chmura) tylko do osób uprawnionych.</li>
+<li>Stosuj <strong>retencję</strong> — nie przechowuj logów dłużej niż to konieczne (chmury producentów mają własne okresy przechowywania).</li>
+<li>Imienne przypisanie kodów (audyt „kto”) jest pożyteczne dla bezpieczeństwa, ale zwiększa zakres danych osobowych — trzymaj to świadomie i proporcjonalnie do celu.</li>
+<li>W domu jednorodzinnym (użytek osobisty) RODO zasadniczo nie ma zastosowania, ale rozsądna higiena danych nadal się przydaje.</li>
+</ul>
+<div class="warning">To ogólne wskazówki, nie porada prawna. Przy instalacjach komercyjnych z monitorowaniem pracowników skonsultuj zgodność z RODO i Kodeksem pracy z osobą odpowiedzialną za ochronę danych.</div>
+
+<div class="nav-bottom">
+<a href="09-02-scenariusze-uzbrojenia.html">⟵ 09-02 Scenariusze uzbrojenia</a>
+<a href="index.html">Konfiguracja alarmu →</a>
+</div>
+</div>
+</body>
+</html>

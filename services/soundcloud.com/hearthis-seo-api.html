@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hearthis.at — SEO + integracja API</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #555;
+    --accent: #ff8000;
+    --code-bg: #f5f5f7;
+    --code-fg: #c7254e;
+    --border: #e3e3e3;
+    --table-head: #fafafa;
+    --warning-bg: #fff8e1;
+    --warning-border: #ffc107;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --fg: #e8e8e8;
+      --muted: #aaa;
+      --accent: #ffa040;
+      --code-bg: #2a2a2a;
+      --code-fg: #ff9999;
+      --border: #3a3a3a;
+      --table-head: #252525;
+      --warning-bg: #3a2f1a;
+      --warning-border: #b58900;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 4rem;
+  }
+  h1 {
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 0.5rem;
+    margin-top: 0;
+  }
+  h2 {
+    color: var(--accent);
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  h3 { margin-top: 1.75rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.92em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    font-size: 0.88em;
+    line-height: 1.5;
+  }
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    font-size: inherit;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: 0.94em;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--table-head); font-weight: 600; }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.25rem 0; }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2.5rem 0;
+  }
+  blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 0.6rem 1rem;
+    margin: 1rem 0;
+    color: var(--fg);
+    background: var(--warning-bg);
+    border-left-color: var(--warning-border);
+  }
+  .meta {
+    color: var(--muted);
+    font-size: 0.9em;
+    margin-bottom: 2rem;
+  }
+  .toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0 2.5rem;
+  }
+  .toc h3 { margin: 0 0 0.5rem; font-size: 1em; }
+  .toc ol { margin: 0; padding-left: 1.25rem; }
+  strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>hearthis.at — SEO + integracja API</h1>
+<p class="meta">SEO, API i strategia użycia platformy dla artystów już obecnych na SoundCloud.</p>
+
+<blockquote>
+<strong>TL;DR:</strong> hearthis.at ≠ SoundCloud. To <strong>mniejsza, niszowa platforma</strong> zorientowana na DJ-skie miksy i edity. API jest <strong>głównie do odczytu — bez publicznego endpointu uploadu</strong>. Discovery wewnętrzne jest słabe, więc strategia SEO opiera się bardziej na <strong>external traffic + niche positioning</strong> niż na algorytmie platformy.
+<br><br>
+<strong>Dwa scenariusze użycia:</strong>
+<ul>
+  <li><strong>Nowy artysta</strong> → używaj jako secondary/mirror, główna platforma to SC.</li>
+  <li><strong>Artysta z istniejącym katalogiem 100+ utworów na hearthis.at</strong> (jak <code>maximummusic</code> z 268 tracków) → <strong>odwróć logikę</strong>: hearthis.at jako archiwum/lab, SC jako kuracja best-of. Patrz sekcja 10.</li>
+</ul>
+</blockquote>
+
+<nav class="toc">
+  <h3>Spis treści</h3>
+  <ol>
+    <li><a href="#context">Czym jest hearthis.at (kontekst strategiczny)</a></li>
+    <li><a href="#seo">SEO na hearthis.at — co działa, co nie</a></li>
+    <li><a href="#api">Dostęp do API</a></li>
+    <li><a href="#upload">Upload utworu — przez web UI</a></li>
+    <li><a href="#mirror">Strategia mirror catalogue: SoundCloud → hearthis.at</a></li>
+    <li><a href="#template">Bilingual description — szablon</a></li>
+    <li><a href="#external">Promocja zewnętrzna</a></li>
+    <li><a href="#checklist">Checklist publikacji</a></li>
+    <li><a href="#verdict">TL;DR — kiedy używać hearthis.at</a></li>
+    <li><a href="#reversed">Strategia gdy hearthis.at JEST main (200+ utworów)</a></li>
+    <li><a href="#case-ffa">Case study: Far Far Away na hearthis.at</a></li>
+    <li><a href="#sources">Źródła</a></li>
+  </ol>
+</nav>
+
+<h2 id="context">1. Czym jest hearthis.at (kontekst strategiczny)</h2>
+
+<table>
+  <thead>
+    <tr><th>Cecha</th><th>hearthis.at</th><th>SoundCloud</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Założenie</td><td>2011, Niemcy</td><td>2007, Niemcy/Szwecja</td></tr>
+    <tr><td>Główna nisha</td><td><strong>DJ mixy, edity, sety</strong></td><td>Indie artists, single, mainstream</td></tr>
+    <tr><td>Free upload</td><td>400 MB/tydzień, MP3 only</td><td>3h total, MP3/WAV</td></tr>
+    <tr><td>Pro cena</td><td><strong>€4/mc lub €33/rok</strong></td><td>$12+/mc (Pro Unlimited)</td></tr>
+    <tr><td>Pro formaty</td><td>FLAC, WAV, AIF, M4A, AAC, OGG, WMA</td><td>Pełne</td></tr>
+    <tr><td>Limit długości utworu</td><td><strong>Brak</strong> (idealne dla 2h+ mixów)</td><td>Pro: brak; Free: ograniczony</td></tr>
+    <tr><td>Społeczność (2026)</td><td>~10× mniejsza niż SC</td><td>Duża, globalna</td></tr>
+    <tr><td>Discovery wewnętrzne</td><td><strong>Słabe</strong> — feed mocno spamowany "share to download"</td><td>Lepsze, algorytm + playlisty</td></tr>
+    <tr><td>Public API</td><td>Read-only (feed, tracks, artists, playlists)</td><td>OAuth 2.1, pełne CRUD</td></tr>
+    <tr><td>Public upload API</td><td><strong>NIE MA</strong></td><td>TAK (<code>POST /tracks</code>)</td></tr>
+    <tr><td>Mobile experience</td><td>Słaby</td><td>Dobry (native apps)</td></tr>
+    <tr><td>Reliability streamingu</td><td>Dobra</td><td>Dobra</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Werdykt strategiczny:</strong></p>
+<ul>
+  <li><strong>Nie używaj jako platformy podstawowej</strong> dla nowych artystów.</li>
+  <li><strong>Używaj jako secondary/mirror</strong> — backup catalogue, alternative URL dla fanów wolących nie-SC.</li>
+  <li><strong>Idealne dla</strong>: DJ-skich setów (60-120 min), edits/bootlegs, długich form niedopuszczanych przez SC, jako "hosting" do promocji przez Facebook/Twitter.</li>
+</ul>
+
+<h2 id="seo">2. SEO na hearthis.at — co działa, co nie</h2>
+
+<h3>Co działa</h3>
+<ol>
+  <li><strong>External traffic &gt; internal discovery</strong> — link z bloga, Facebook, Twitter ma większy zwrot niż optymalizacja pod feed.</li>
+  <li><strong>Niche genre tags</strong> — disco edits, DJ mixy mają długi tail. Bardzo niszowe gatunki (np. <code>italo edits</code>, <code>cosmic disco</code>, <code>nu disco edits</code>) konwertują lepiej niż mainstream.</li>
+  <li><strong>Long-form content</strong> — 60-120 min DJ mixy mają większe szanse niż 3-min single (przeciwnie niż SC).</li>
+  <li><strong>Title + description w opisach</strong> — robi się tutaj <strong>w sposób klasyczny SEO</strong> (Google indeksuje strony tracków), więc tytuł z keywordami się opłaca.</li>
+  <li><strong>Embed na własnej stronie</strong> — odtwarzacz hearthis.at jest lekki i Google dobrze indeksuje strony z embedem.</li>
+</ol>
+
+<h3>Co nie działa</h3>
+<ol>
+  <li><strong>Spam tagami</strong> — feed jest zaszumiony przez "share to download", tagi gubią się w hałasie.</li>
+  <li><strong>Liczenie na "Trending" / "Recommended"</strong> — autor 5 Magazine wprost mówi: "być HearThis Superstar to nic nie znaczy".</li>
+  <li><strong>Strategia z SoundCloud 1:1</strong> — to nie zadziała. SC ma algorytm. hearthis.at ma głównie feed + search.</li>
+  <li><strong>Częste publikowanie</strong> — algorytm cię nie nagrodzi tak jak SC. Raczej <strong>rzadziej + jakość</strong>.</li>
+</ol>
+
+<h3>Konkretne taktyki SEO</h3>
+
+<h4>Tytuł utworu / mixa</h4>
+<ul>
+  <li><strong>DJ mix</strong> → format: <code>[Artist Name] — [Series/Show Name] #[XX] (Genre, BPM, Month YYYY)</code><br>
+      Przykład: <code>Maximum Music Maxx — Sunset Sessions #04 (Melodic Deep House, 122 BPM, May 2026)</code></li>
+  <li><strong>Track single</strong> → format: <code>[Track Title] — [Subgenre] [Year]</code><br>
+      Przykład: <code>Far Far Away — Dreamy Sunset Deep House 2026</code></li>
+</ul>
+
+<h4>Description (kluczowe — Google indeksuje!)</h4>
+<ul>
+  <li>Pierwsze 160 znaków = jak meta description w SEO. Tutaj wsadź najmocniejsze keywordy.</li>
+  <li><strong>Tracklist z timestampami</strong> w DJ mixie = potężny SEO (każdy artysta + utwór to oddzielne keywordy w treści strony).</li>
+  <li>Linki zwrotne do własnej strony, Mixcloud, SC, Spotify, Instagram, e-mail bookingowy.</li>
+  <li>Bilingual PL/EN — Niemcy są drugą najliczniejszą grupą na hearthis.at, ale globalnie EN dominuje.</li>
+</ul>
+
+<h4>Tagi</h4>
+<ul>
+  <li><strong>Gatunek + podgatunek + nastrój + dekada + BPM</strong> (np. <code>deep house, melodic deep house, sunset, 2020s, 122bpm</code>).</li>
+  <li>Tagi DJ-skie: <code>dj mix</code>, <code>dj set</code>, <code>live recording</code>, <code>radio show</code>, <code>podcast</code>.</li>
+  <li>Lokalne keywordy działają na hearthis.at lepiej niż na SC: <code>berlin</code>, <code>ibiza</code>, <code>tulum</code>, <code>polska</code>.</li>
+</ul>
+
+<h4>Genre (pole oficjalne)</h4>
+<ul>
+  <li>hearthis.at ma większy katalog gatunków niż SC, <strong>w tym "Disco Edits"</strong> jako osobną kategorię.</li>
+  <li>Trzymaj się tych samych 3 bucketów co na SC dla spójności: <code>Deep House</code>, <code>House</code>, <code>Ambient</code>.</li>
+</ul>
+
+<h4>Artwork</h4>
+<ul>
+  <li>Min. 800×800, ale <strong>na hearthis.at działa też custom background + slideshow</strong> — wyróżnia stronę utworu.</li>
+  <li>Spójna seria visualna z SC = łatwiejsze rozpoznanie przez fanów krzyżujących platformy.</li>
+</ul>
+
+<h4>Embed strategy (najmocniejsza karta)</h4>
+<ul>
+  <li>Osadź odtwarzacz hearthis.at na własnej stronie / blogu / Linktree.</li>
+  <li>Google indeksuje stronę → strona linkuje hearthis.at → ruch + autorytet.</li>
+  <li>Hearthis.at oferuje <strong>native download button w embedzie</strong> (różnica vs SC) — DJ-e to lubią.</li>
+</ul>
+
+<h2 id="api">3. Dostęp do API</h2>
+
+<h3>Co API oferuje (read-only)</h3>
+<ul>
+  <li><code>GET feed</code> — pobieranie feeda z filtrami.</li>
+  <li><code>GET genres</code> + <code>GET tracks by genre</code>.</li>
+  <li><code>GET artist</code> (single + list).</li>
+  <li><code>GET track</code> (po URI).</li>
+  <li><code>POST track_like_unlike</code>, <code>POST artist_follow_unfollow</code>.</li>
+  <li><code>POST/DELETE playlist</code> (tworzenie, dodawanie, usuwanie tracków — <strong>wymaga sesji użytkownika</strong>).</li>
+</ul>
+
+<h3>Czego API NIE oferuje</h3>
+<ul>
+  <li><strong>Brak publicznego endpointu uploadu utworu</strong>.</li>
+  <li><strong>Brak publicznego endpointu update metadanych</strong> (title, tags, description).</li>
+  <li>Brak OAuth 2.x — uwierzytelnianie przez <strong>email + hasło</strong> w body requesta (basic, mniej bezpieczne).</li>
+</ul>
+
+<h3>Autoryzacja</h3>
+<ul>
+  <li>Endpoint bazowy: <code>https://api-v2.hearthis.at/</code> (oficjalny API v2).</li>
+  <li>Większość endpointów odczytowych — <strong>bez autoryzacji</strong>.</li>
+  <li>Akcje wymagające sesji (like, follow, playlist) — login przez:
+    <pre><code>POST /login
+{
+  "email": "user@example.com",
+  "password": "..."
+}</code></pre>
+    → response z session token / cookie.
+  </li>
+  <li>Brak rotacji tokenów, brak refresh. Sesje trzymane przez cookie.</li>
+</ul>
+
+<h3>Praktyczne wnioski</h3>
+<ol>
+  <li><strong>Automatyzacja uploadu = brak</strong> w czystym sensie. Musisz wgrywać przez web UI.</li>
+  <li><strong>Workaround</strong> — biblioteki typu Selenium / Playwright (browser automation) — szare strefy, ryzykujesz ban przy intensywnym użyciu.</li>
+  <li><strong>Read API</strong> wystarczy do: stats tracking, monitor profilu, integracja z własną stroną (auto-feed na blogu), analiza konkurencji.</li>
+</ol>
+
+<h2 id="upload">4. Upload utworu — przez web UI (skoro nie ma API)</h2>
+
+<p>Endpoint web: <code>https://hearthis.at/upload/</code></p>
+
+<p><strong>Krok po kroku:</strong></p>
+<ol>
+  <li><strong>Przygotuj plik</strong> — clean filename (zasada slug-hygiene jak na SC). <code>far-far-away.wav</code> lepsze niż <code>Maximum Music Maxx - Far Far Away (Final v3).wav</code>.</li>
+  <li><strong>Drag &amp; drop</strong> lub <code>Choose file</code>.</li>
+  <li><strong>Pola do wypełnienia:</strong></li>
+</ol>
+
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Uwagi</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Title</strong></td><td>Format SEO j.w. — gatunek + rok w tytule</td></tr>
+    <tr><td><strong>Description</strong></td><td>Bilingual PL/EN. Tracklist z timestampami dla mixów. Linki zwrotne.</td></tr>
+    <tr><td><strong>Tags</strong></td><td>Separator: przecinek. 5–10 tagów. Bez asterisków, czysto.</td></tr>
+    <tr><td><strong>Genre</strong></td><td>Wybór z listy. Trzymaj się 3 bucketów: Deep House / House / Ambient.</td></tr>
+    <tr><td><strong>Type</strong></td><td><code>Track</code> / <code>Mix</code> / <code>Live Recording</code> / <code>Podcast</code> — wybieraj precyzyjnie.</td></tr>
+    <tr><td><strong>Cover image</strong></td><td>≥ 800×800, JPG/PNG</td></tr>
+    <tr><td><strong>Background image</strong></td><td>Opcjonalne, customowy layout strony utworu</td></tr>
+    <tr><td><strong>Slideshow</strong></td><td>Opcjonalne, sekwencja obrazów synchronizowana z waveform</td></tr>
+    <tr><td><strong>Privacy</strong></td><td><code>Public</code> / <code>Private</code> / <code>Unlisted</code></td></tr>
+    <tr><td><strong>Downloadable</strong></td><td>Tak/Nie — DJ-skie tracki: warto włączyć</td></tr>
+    <tr><td><strong>License</strong></td><td>Default: All rights reserved</td></tr>
+    <tr><td><strong>Release date</strong></td><td>Manualne ustawienie</td></tr>
+    <tr><td><strong>Waveform style</strong></td><td>Soft / Digitized — drobiazg, ale wyróżnia</td></tr>
+  </tbody>
+</table>
+
+<ol start="4">
+  <li><strong>Save</strong> → trafia na profil. Bez kolejki transkodowania jak na SC.</li>
+</ol>
+
+<h3>Workaround dla masowego uploadu</h3>
+<ul>
+  <li><strong>Browser automation</strong> (Playwright/Selenium) — sekwencyjne wypełnianie formularza.</li>
+  <li><strong>Trzymaj nazwy plików w slug formie</strong> + skrypt który czyta JSON z metadanymi i wpisuje w formularz.</li>
+  <li><strong>Risk:</strong> intensywna automatyzacja może wywołać captcha / blokadę konta.</li>
+</ul>
+
+<h2 id="mirror">5. Strategia mirror catalogue: SoundCloud → hearthis.at</h2>
+
+<blockquote><strong>Note:</strong> ta sekcja zakłada, że SC jest Twoim main, a hearthis.at jest świeżym mirror'em. <strong>Jeśli masz odwrotnie</strong> (np. 200+ tracków na hearthis i kilka na SC) — przeczytaj najpierw <strong><a href="#reversed">sekcję 10</a></strong>, która opisuje odwróconą strategię.</blockquote>
+
+<p>Skoro nie da się uploadować przez API, mirror to <strong>manualny proces</strong> — ale wart roboty raz na zawsze.</p>
+
+<h3>Workflow</h3>
+<ol>
+  <li><strong>Pobierz oryginalne pliki audio</strong> (master WAV/FLAC z DAW, nie streamowy MP3 z SC).</li>
+  <li><strong>Przygotuj clean filename</strong> zgodnie z zasadą slug-hygiene.</li>
+  <li><strong>Przygotuj artwork</strong> w wyższej rozdzielczości (3000×3000 jeśli masz).</li>
+  <li><strong>Skopiuj</strong> bilingual opisy z SC case studies (mamy je gotowe w <code>soundcloud-seo-api.md</code>).</li>
+  <li><strong>Dostosuj</strong> tagi do format hearthis (separator = przecinek, nie spacja w cudzysłowach).</li>
+  <li><strong>Crosslink</strong> w opisie:
+    <pre><code>🎵 Also on SoundCloud: https://soundcloud.com/maximummusicmaxx/[slug]</code></pre>
+  </li>
+  <li><strong>Privacy: Public</strong>, <strong>License: All rights reserved</strong>, <strong>Downloadable: true</strong>.</li>
+</ol>
+
+<h3>Mapping katalogu Maximum Music Maxx na hearthis.at</h3>
+<table>
+  <thead>
+    <tr><th>Utwór</th><th>Genre (hearthis)</th><th>Type</th><th>Specjalność hearthis</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Lunar Harmony 2026</td><td>Ambient</td><td>Track</td><td>Filmowcy + sync (mniej DJ-skie)</td></tr>
+    <tr><td>Old Love Will Not Be Forgotten</td><td>Deep House</td><td>Track</td><td>Sunset DJ-e lubią</td></tr>
+    <tr><td>Let's Talk About Music (sunny)</td><td>Deep House</td><td>Track</td><td>Tropical/summer DJ-e</td></tr>
+    <tr><td>Fantastic World (No More Coffee)</td><td>Deep House</td><td>Track</td><td>Lounge/café — sync target</td></tr>
+    <tr><td>The Journey In the Time and Space</td><td>Deep House</td><td>Track</td><td>Anjunadeep/Lane 8 słuchacze</td></tr>
+    <tr><td>Far Far Away</td><td>Deep House</td><td>Track</td><td>Sunset DJ-e + sync</td></tr>
+  </tbody>
+</table>
+
+<h3>Bonus — DJ mix tylko na hearthis.at</h3>
+<p>hearthis.at ma <strong>przewagę nad SC dla długich mixów</strong>. Stwórz 60-min mix:</p>
+<p><code>Maximum Music Maxx — Sunset Sessions #01 (Melodic Deep House Continuous Mix, May 2026)</code></p>
+
+<p>Tracklist:</p>
+<ol>
+  <li>Lunar Harmony 2026 (Intro)</li>
+  <li>Far Far Away</li>
+  <li>Old Love Will Not Be Forgotten</li>
+  <li>Let's Talk About Music (sunny version)</li>
+  <li>Fantastic World (No More Coffee)</li>
+  <li>The Journey In the Time and Space (Outro)</li>
+</ol>
+
+<p>To <strong>flagowy content</strong> dla hearthis.at, którego nie wrzucisz na SC (limit czasu/jakości) — i powód, żeby fani Cię śledzili na obu platformach.</p>
+
+<h2 id="template">6. Bilingual description — szablon dla hearthis.at</h2>
+
+<pre><code>[Track Title] — [PL hook z keywordami w 1-2 zdaniach]
+
+Jeśli kochasz [gatunek niszowy] [gatunek szerszy] i klimaty [Artist 1, Artist 2]
+— ten utwór jest dla Ciebie.
+
+— — —
+
+[Track Title] — [EN hook with keywords in 1-2 sentences]
+
+Perfect if you love [niche genre] [broad genre] and the vibes of
+[Artist 1, Artist 2].
+
+🎧 [Use case]
+🎵 Also on SoundCloud: https://soundcloud.com/maximummusicmaxx/[slug]
+🌐 More: [your website if any]
+
+#[tag1] #[tag2] #[tag3]</code></pre>
+
+<h2 id="external">7. Promocja zewnętrzna (rdzeń strategii hearthis.at)</h2>
+
+<p>Skoro discovery wewnątrz platformy jest słabe, <strong>promuj poza nią</strong>:</p>
+<ol>
+  <li><strong>Facebook groups</strong> — <code>Deep House Lovers</code>, <code>Melodic House &amp; Techno</code>, lokalne grupy DJ-skie. hearthis.at jest dobrze przyjmowany w Niemczech, Holandii, Skandynawii.</li>
+  <li><strong>Reddit</strong> — r/deephouse, r/edmproduction, r/MelodicHouseTechno. Link do hearthis vs SC może mieć przewagę (mniej "self-promo" stigma).</li>
+  <li><strong>Mixcloud crossover</strong> — fani Mixcloud często słuchają też hearthis.at. Cross-post.</li>
+  <li><strong>DJ pools / promo lists</strong> — Beatport curated, Bandcamp followers, własna newsletter list.</li>
+  <li><strong>Embed w blogowych recenzjach</strong> — jeśli ktoś pisze o tracku, linkuj hearthis (lekkie embed, dobre dla bloga Google).</li>
+</ol>
+
+<h2 id="checklist">8. Checklist publikacji na hearthis.at</h2>
+
+<ul style="list-style:none;padding-left:0">
+  <li>☐ <strong>Slug hygiene</strong> — clean nazwa pliku przed uploadem</li>
+  <li>☐ <strong>Title</strong> — format SEO (gatunek + rok)</li>
+  <li>☐ <strong>Description</strong> — bilingual PL/EN, 1-2 zdania hooka na początku, linki zwrotne, e-mail bookingowy</li>
+  <li>☐ <strong>Tracklist z timestampami</strong> (dla mixów)</li>
+  <li>☐ <strong>Tags</strong> — 5–10, separator przecinek, niche + broad mix</li>
+  <li>☐ <strong>Genre</strong> — z 3 bucketów (Deep House / House / Ambient)</li>
+  <li>☐ <strong>Type</strong> — Track / Mix / Live / Podcast (precyzyjnie!)</li>
+  <li>☐ <strong>Cover</strong> — ≥ 800×800, spójna z SC dla cross-platform branding</li>
+  <li>☐ <strong>Privacy: Public</strong>, <strong>Downloadable: true</strong>, <strong>License: ARR</strong></li>
+  <li>☐ <strong>Crosslink do SC</strong> w opisie</li>
+  <li>☐ <strong>Embed</strong> na własnej stronie / blogu</li>
+  <li>☐ <strong>Share</strong> w Facebook groups + Reddit (niche subs)</li>
+</ul>
+
+<h2 id="verdict">9. TL;DR — kiedy używać hearthis.at</h2>
+
+<table>
+  <thead>
+    <tr><th>Sytuacja</th><th>Werdykt</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Główna platforma dla nowego artysty</td><td>❌ Nie. SC ma większy zasięg.</td></tr>
+    <tr><td>Archiwum / lab dla istniejącego katalogu 100+ utworów</td><td>✅ <strong>Tak</strong> (patrz <a href="#reversed">sekcja 10</a>)</td></tr>
+    <tr><td>Backup catalogue / świeży mirror</td><td>✅ Tak. Pro €33/rok to nic.</td></tr>
+    <tr><td>Długie DJ mixy (60-120 min)</td><td>✅ <strong>Idealne</strong>. SC tego nie udźwignie.</td></tr>
+    <tr><td>Disco edits / bootlegi</td><td>✅ <strong>Idealne</strong>. Społeczność edits tu siedzi.</td></tr>
+    <tr><td>Automatyzacja uploadu</td><td>❌ Nie. Brak API. Manualnie lub browser automation.</td></tr>
+    <tr><td>Stats / monitoring</td><td>⚠️ Tylko basic, weź pod uwagę zewnętrzne narzędzia.</td></tr>
+    <tr><td>Sync placements pitching</td><td>⚠️ Słabsze niż SC — sync libraries i tak biorą oryginalny WAV.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="reversed">10. Strategia gdy hearthis.at JEST main (katalog 200+ utworów)</h2>
+
+<p>Sytuacja Maximum Music Maxx: <strong>268 utworów na hearthis.at vs 6 na SC</strong>. To <strong>odwraca standardową logikę</strong> "SC main, hearthis mirror". Tutaj hearthis to archiwum/lab, a SC to kuracja flagowych singli.</p>
+
+<h3>10.1. Problem #1: Discovery przy dużym katalogu</h3>
+<p>268 utworów = nawigacyjny chaos. Słuchacz wchodzi w profil i widzi ścianę 268 tytułów. <strong>Nie ma od czego zacząć</strong> → opuszcza profil.</p>
+
+<p><strong>Wskaźnik diagnostyczny:</strong> liczba_followerów / liczba_tracków.</p>
+<ul>
+  <li>&lt; 5% = poważny problem discoverability (przypadek <code>maximummusic</code>: 26/268 ≈ 10%, granicznie OK ale jest praca).</li>
+  <li>5–20% = normalne dla niszowego producenta.</li>
+  <li>&gt; 20% = bardzo dobry conversion.</li>
+</ul>
+
+<h3>10.2. Fix: Playlists / Series strategy</h3>
+<p>Stwórz <strong>5–8 playlist tematycznych</strong> organizujących katalog według mood/series. Playlisty:</p>
+<ol>
+  <li>Są pierwszą rzeczą jaką widzi nowy słuchacz.</li>
+  <li>Dają natychmiastową ścieżkę "zacznij od X".</li>
+  <li>Rankują w search osobno od tracków.</li>
+</ol>
+
+<p><strong>Proponowane playlisty dla <code>maximummusic</code></strong> (do adaptacji do faktycznego katalogu 268 tracków):</p>
+
+<table>
+  <thead>
+    <tr><th>Playlist (nazwa)</th><th>Zawartość</th><th>Cel</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Best of Maximum Music — Start Here</code></td><td>Top 10 z całego katalogu</td><td>"Onboarding" nowych słuchaczy</td></tr>
+    <tr><td><code>Sunset Series — Melodic Deep House</code></td><td>Wszystkie sunset/dreamy tracki</td><td>Sunset DJ-e i fani Lane 8</td></tr>
+    <tr><td><code>Cosmic Series — Space &amp; Stars</code></td><td>Lunar Harmony, The Journey + kosmiczne</td><td>Anjunadeep, stargazing</td></tr>
+    <tr><td><code>Café &amp; Lounge Series</code></td><td>Fantastic World + jazzy/lounge</td><td>Sync (HoReCa) + lounge DJ</td></tr>
+    <tr><td><code>Sunny &amp; Tropical Series</code></td><td>Let's Talk About Music + summer</td><td>Letnie playlisty (V-VIII)</td></tr>
+    <tr><td><code>Ambient &amp; Cinematic Series</code></td><td>Lunar Harmony i podobne</td><td>Focus / film score / sync</td></tr>
+    <tr><td><code>Continuous DJ Mixes</code></td><td>Wszystkie 60+ min mixy</td><td>DJ-skie sety, długie formy</td></tr>
+    <tr><td><code>New 2026 Releases</code></td><td>Tylko świeże tracki bieżącego roku</td><td>"Co nowego" — łatwe odświeżanie</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Każdy nowy follower powinien w 30 sekund móc kliknąć "Sunset Series" zamiast scrollować 268 tracków.</strong></p>
+
+<h3>10.3. Problem #2: Bio profilu</h3>
+<p>Aktualny bio: "shares sounds on hearthis.at" — generic. Wstaw konkretne:</p>
+<pre><code>Maximum Music Maxx — Warsaw-based producer of instrumental
+deep house &amp; ambient. 268+ tracks across 6+ mood series.
+
+🎧 Currently exploring: Sunset · Cosmic · Café · Lunar · Sunny · Dreamy
+🌅 Start here: Best of Maximum Music playlist
+🎵 Curated singles on SoundCloud: soundcloud.com/maximummusicmaxx</code></pre>
+
+<h3>10.4. Problem #3: Outbound networking (Follow:Follower ratio)</h3>
+<p><code>maximummusic</code> ma 26 followerów i obserwuje 26 — symetria 1:1. Na hearthis.at outbound network ma <strong>wyższy zwrot niż na SC</strong> (mniejsza społeczność, więcej reciprocity, niska "follow fatigue").</p>
+
+<p><strong>Akcja w 7 dni:</strong></p>
+<ol>
+  <li>Wyszukaj <code>deep house</code>, <code>melodic deep house</code>, <code>ambient</code>, <code>chillout</code> w hearthis.at search.</li>
+  <li>Zidentyfikuj <strong>50–100 producentów</strong> z niszy (preferuj Niemcy, Polskę, Holandię, Skandynawię — geo-correlated bottom-up community).</li>
+  <li>Obserwuj ich (przyrost ~10/dziennie).</li>
+  <li><strong>30–40% odda follow w pierwszych 14 dniach</strong> (typowy reciprocity rate na małych platformach).</li>
+  <li>Po 3 tygodniach: 26 → 60–80 followerów bez żadnej innej akcji.</li>
+</ol>
+
+<h3>10.5. Cross-platform reversal: SC jako kuracja</h3>
+<p>Skoro masz 268 tracków na hearthis.at, <strong>SC powinien być selekcją "best of"</strong> — nie odwrotnie.</p>
+
+<p><strong>Mapping:</strong></p>
+<ul>
+  <li><strong>hearthis.at</strong> = pełne archiwum, lab, eksperymenty, długie mixy, edits → wszystko co tworzysz.</li>
+  <li><strong>SoundCloud</strong> = top 10–20 utworów wybranych pod kątem playlist editorial / sync potential / DJ promo.</li>
+</ul>
+
+<p>Z 268 tracków wybierz <strong>kolejne 10–15</strong> najlepszych pod kątem:</p>
+<ul>
+  <li>Klarowności gatunkowej (3-bucket rule: Deep House / House / Ambient).</li>
+  <li>Sezonowości (które utwory mają potencjał w odpowiednim oknie 2026).</li>
+  <li>Sync potential (cinematic, café, sunset — łapią placements).</li>
+  <li>Spójność wizualnych mood-series (Sunset, Cosmic, etc.).</li>
+</ul>
+
+<p>I wrzuć je na SC z pełnymi opisami z naszego <code>soundcloud-seo-api.md</code> — masz tam już framework.</p>
+
+<h3>10.6. Czek-lista odwróconej strategii</h3>
+<ul style="list-style:none;padding-left:0">
+  <li>☐ Stwórz 5–8 playlist tematycznych na hearthis.at (10.2)</li>
+  <li>☐ Wypełnij bio profilu (10.3)</li>
+  <li>☐ Wybierz 10–15 utworów do "promocji" na SC z 268 (10.5)</li>
+  <li>☐ Outbound follow 50–100 producentów w 7 dni (10.4)</li>
+  <li>☐ Dodaj playlistę <code>Best of</code> jako pinned/featured na profilu</li>
+  <li>☐ Cross-link w opisach: hearthis ↔ SC</li>
+</ul>
+
+<h2 id="case-ffa">11. Case study: Far Far Away na hearthis.at</h2>
+
+<p>URL: <a href="https://hearthis.at/maximummusic/far-far-away/">hearthis.at/maximummusic/far-far-away</a></p>
+
+<h3>Stan obecny (audyt)</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wartość</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Tytuł</td><td><code>Far Far Away — Dreamy Sunset Deep House (2026)</code></td><td>✅ Wdrożona rekomendacja z SC doc</td></tr>
+    <tr><td>Slug</td><td><code>far-far-away</code></td><td>✅ Clean (slug hygiene wdrożone)</td></tr>
+    <tr><td>Genre</td><td><code>Deep House</code></td><td>✅ Zgodne z 3-bucket rule</td></tr>
+    <tr><td>BPM</td><td><code>119</code></td><td>✅ Wpisane</td></tr>
+    <tr><td>Key</td><td><code>G</code> (major)</td><td>✅ Wpisane, pasuje do "dreamy"</td></tr>
+    <tr><td>Duration</td><td><code>3:46</code></td><td>OK</td></tr>
+    <tr><td>Cover</td><td>Spójny z SC</td><td>✅ Cross-platform branding</td></tr>
+    <tr><td>Downloadable</td><td>Yes</td><td>✅ DJ-e to lubią</td></tr>
+    <tr><td>Type</td><td>Track</td><td>✅</td></tr>
+    <tr><td><strong>Tags</strong></td><td><strong><code>Deep House, Deep House</code></strong> (zduplikowany!)</td><td>❌ <strong>Krytyczny brak</strong></td></tr>
+    <tr><td>Description</td><td>Niewidoczny w fetch</td><td>⚠️ Wypełnij wg sekcji poniżej</td></tr>
+  </tbody>
+</table>
+
+<h3>Najpilniejsze fixy</h3>
+
+<p><strong>1. Tagi — wklej zamiast <code>Deep House, Deep House</code>:</strong></p>
+<pre><code>deep house, dreamy deep house, sunset deep house, melodic deep house, cinematic deep house, sunset music, instrumental, dreamy, deep house 2026, melodic</code></pre>
+<p>Separator na hearthis to <strong>przecinek</strong> (nie cudzysłowy z SC).</p>
+
+<p><strong>2. Description — wklej bilingual z crosslinkiem do SC:</strong></p>
+<pre><code>Far Far Away — instrumentalny dreamy / sunset deep house o miejscach,
+które istnieją tylko na horyzoncie. Miękkie pady, dalekie melodie,
+głęboki bas i miarowy puls — soundtrack dla samotnych spacerów wzdłuż
+brzegu, wieczornych jazd nad morze i wszystkich momentów,
+w których chcesz być gdzie indziej, daleko stąd.
+
+Jeśli kochasz dreamy deep house, sunset deep house, cinematic house
+i klimat Lane 8, Yotto, Eli &amp; Fur — ten utwór jest dla Ciebie.
+
+— — —
+
+Far Far Away — an instrumental dreamy / sunset deep house track about
+places that exist only on the horizon. Soft pads, distant melodies,
+deep bass and a steady pulse — a soundtrack for solo walks along
+the shore, evening drives to the sea and any moment when you want
+to be somewhere else, far away from here.
+
+Perfect if you love dreamy deep house, sunset deep house, cinematic house
+and the vibes of Lane 8, Yotto, Eli &amp; Fur.
+
+🌅 Best at golden hour, on headphones
+🎵 Also on SoundCloud: https://soundcloud.com/maximummusicmaxx/far-far-away
+#dreamydeephouse #sunsetdeephouse #cinematichouse #melodicdeephouse #escapism</code></pre>
+
+<p><strong>3. Add to playlist <code>Sunset Series — Melodic Deep House</code></strong> (utwórz jeśli nie istnieje).</p>
+
+<h3>Porównanie: ten sam utwór na SC vs hearthis.at</h3>
+<table>
+  <thead>
+    <tr><th>Aspekt</th><th>SC (planowane)</th><th>hearthis.at (obecne)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Tytuł</td><td><code>Far Far Away — Dreamy Sunset Deep House (2026)</code></td><td>✅ Już to samo</td></tr>
+    <tr><td>Slug</td><td><code>far-far-away</code> (do fix po update)</td><td>✅ Już clean</td></tr>
+    <tr><td>Genre</td><td>Deep House</td><td>Deep House</td></tr>
+    <tr><td>Tagi (separator)</td><td><code>"frazy" w cudzysłowach</code>, oddzielone spacjami</td><td><code>tagi, oddzielone, przecinkami</code></td></tr>
+    <tr><td>Description</td><td>Bilingual + crosslink do hearthis</td><td>Bilingual + crosslink do SC</td></tr>
+    <tr><td>Public API upload</td><td>TAK (<code>POST /tracks</code>)</td><td>❌ Brak — manual</td></tr>
+    <tr><td>Algorytm wsparcia</td><td>Tak (pierwsze 24-48h kluczowe)</td><td>Słaby, polega na external traffic</td></tr>
+    <tr><td>Sync potential</td><td>Bardziej widoczny</td><td>Mniejszy, ale sync libraries i tak biorą WAV</td></tr>
+  </tbody>
+</table>
+
+<h3>Insight z porównania</h3>
+<ol>
+  <li><strong>Tytuł, slug, BPM, key, downloadable — wszystko wdrożone już na hearthis przed pojawieniem się rekomendacji SC.</strong> Doc'y konwergują w stronę tej samej dobrej praktyki.</li>
+  <li><strong>Tagi to największa pojedyncza luka cross-platform</strong> — na obu platformach przy fresh uploadzie domyślnie tagi są minimalne (<code>Deep House, Deep House</code> na hearthis = <code>[puste]</code> na SC). Implementacja pełnego tag string'a = natychmiastowy boost.</li>
+  <li><strong>Format tagów się różni</strong> — SC chce frazy w cudzysłowach (<code>"sunset deep house"</code>), hearthis chce przecinki (<code>sunset deep house, melodic deep house</code>). Trzymaj w notatniku oba formaty obok siebie.</li>
+</ol>
+
+<h2 id="sources">Źródła</h2>
+<ul>
+  <li><a href="https://hearthis.at/">hearthis.at — main</a></li>
+  <li><a href="https://hearthis.at/upload/">hearthis.at — upload page</a></li>
+  <li><a href="https://hearthis.at/api-v2/">hearthis.at — API v2 (redirect to RapidAPI)</a></li>
+  <li><a href="https://rapidapi.com/hearthisat/api/hearthis-at">RapidAPI — hearthis.at</a></li>
+  <li><a href="https://github.com/jinchuuriki91/python-hearthis">GitHub — python-hearthis (unofficial library)</a></li>
+  <li><a href="https://github.com/topics/hearthisat-api">GitHub topic — hearthisat-api</a></li>
+  <li><a href="https://appmus.com/vs/hearthis-at-vs-soundcloud">Appmus — hearthis.at vs SoundCloud comparison</a></li>
+  <li><a href="https://www.saashub.com/compare-soundcloud-vs-hearthis-at">SaaSHub — SoundCloud vs hearthis.at</a></li>
+  <li><a href="https://www.extremraym.com/en/hearthis-at-soundcloud-alternative/">ExtremRaym — hearthis.at as SoundCloud alternative</a></li>
+  <li><a href="https://5mag.net/features/dj-streaming-sites/hearthis-soundcloud-alternatives/">5 Magazine — what happened to the "Soundcloud Killer"</a></li>
+  <li><a href="https://www.ionos.com/digitalguide/online-marketing/online-sales/soundcloud-alternatives-for-music-marketing/">IONOS — SoundCloud alternatives for musicians</a></li>
+  <li><a href="https://www.beatsbypao.com/l/soundcloud-alternatives-where-to-go-with-your-music-if-soundcloud-dies-one-day/">Beats by Pao — SoundCloud alternatives</a></li>
+</ul>
+
+</body>
+</html>

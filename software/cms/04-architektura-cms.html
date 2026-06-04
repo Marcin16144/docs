@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04 — Architektura CMS</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#2dd4bf;--accent-hover:#5eead4;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--sky:#38bdf8;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--sky));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+a{color:var(--accent)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.82rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.diagram{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:18px;margin:18px 0}
+.layers{display:flex;flex-direction:column;gap:8px}
+.layer{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:12px 16px}
+.layer .lname{color:var(--accent-hover);font-weight:600}
+.layer .ldesc{font-size:.85rem;color:var(--text-muted)}
+.cachelayers .layer{border-left-color:var(--sky)}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:center;margin:10px 0}
+.fbox{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:.85rem;text-align:center;min-width:110px}
+.farrow{color:var(--accent);font-weight:700;font-size:1.2rem}
+.callout{background:rgba(251,146,60,.1);border-left:3px solid var(--orange);border-radius:6px;padding:12px 16px;margin:16px 0;font-size:.92rem}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<span class="title">04 — Architektura CMS</span>
+</div>
+<div class="container">
+<h1>Architektura CMS</h1>
+<p class="subtitle">Jak CMS dziala pod maska — warstwy, cykl zycia zadania, model danych, hooki i cache.</p>
+
+<p>Ten rozdzial wyjasnia, <strong>jak CMS dziala pod maska</strong> — od warstw aplikacji, przez cykl zycia zadania, po system pluginow, model danych i cache. Zrozumienie architektury pomaga ocenic wydajnosc, bezpieczenstwo i mozliwosci rozbudowy systemu.</p>
+
+<h2>Warstwy CMS (architektura warstwowa)</h2>
+<p>Wiekszosc CMS to aplikacja warstwowa (layered architecture):</p>
+<div class="diagram layers">
+<div class="layer"><span class="lname">Warstwa prezentacji (Presentation)</span><div class="ldesc">szablony, motywy, HTML/CSS/JS, panel admina</div></div>
+<div class="layer"><span class="lname">Warstwa aplikacji / logiki (Application)</span><div class="ldesc">routing, kontrolery, logika biznesowa, hooki, pluginy</div></div>
+<div class="layer"><span class="lname">Warstwa dostepu do danych (Data Access)</span><div class="ldesc">ORM / query builder, modele, abstrakcja bazy</div></div>
+<div class="layer"><span class="lname">Warstwa danych (Persistence)</span><div class="ldesc">baza danych (MySQL/PostgreSQL), pliki, cache, media</div></div>
+</div>
+<p>Rozdzielenie warstw pozwala wymieniac elementy niezaleznie (np. inny motyw bez ruszania logiki, inna baza bez zmiany szablonow).</p>
+
+<h2>Cykl zycia zadania (request lifecycle)</h2>
+<p>Co dzieje sie od klikniecia linku do wyswietlenia strony w tradycyjnym CMS:</p>
+<pre><code> 1. Przegladarka          GET /blog/czym-jest-cms
+        │
+        ▼
+ 2. Serwer WWW            Nginx/Apache → przekazuje do PHP/Node
+        │
+        ▼
+ 3. Bootstrap CMS         ladowanie rdzenia, konfiguracji, pluginow
+        │
+        ▼
+ 4. Routing               dopasowanie URL → "pokaz wpis o slugu X"
+        │
+        ▼
+ 5. Kontroler / logika    pobierz dane (z cache? z bazy?)
+        │
+        ▼
+ 6. Zapytanie do bazy     SELECT * FROM posts WHERE slug = '...'
+        │
+        ▼
+ 7. Renderowanie          szablon + dane → HTML
+        │
+        ▼
+ 8. Hooki / filtry        pluginy modyfikuja wynik (np. dodaja meta SEO)
+        │
+        ▼
+ 9. Cache                 zapis wyniku do bufora na kolejne zadania
+        │
+        ▼
+10. Odpowiedz HTTP        gotowy HTML ──► przegladarka</code></pre>
+<div class="callout">W headless CMS kroki 7-8 znikaja — zamiast HTML serwer zwraca <strong>JSON</strong> przez API, a renderowaniem zajmuje sie osobny frontend.</div>
+
+<h2>Model danych (typowy schemat bazy)</h2>
+<p>Uproszczony model relacyjny (na przykladzie CMS typu WordPress/Drupal):</p>
+<pre><code>┌──────────────┐        ┌──────────────┐        ┌──────────────┐
+│    USERS     │        │    POSTS     │        │  POST_META   │
+├──────────────┤        ├──────────────┤        ├──────────────┤
+│ id (PK)      │◄──┐    │ id (PK)      │◄───────│ post_id (FK) │
+│ login        │   └────│ author_id(FK)│        │ meta_key     │
+│ email        │        │ title        │        │ meta_value   │
+│ role         │        │ slug         │        └──────────────┘
+│ password_hash│        │ content      │
+└──────────────┘        │ status       │        ┌──────────────┐
+                        │ created_at   │        │    TERMS     │
+                        └──────┬───────┘        ├──────────────┤
+                               │                │ id (PK)      │
+                        ┌──────┴────────┐       │ name         │
+                        │ POST_TERMS    │◄──────│ taxonomy     │
+                        │ (pivot)       │       │ (kat./tag)   │
+                        │ post_id  (FK) │       └──────────────┘
+                        │ term_id  (FK) │
+                        └───────────────┘</code></pre>
+<ul>
+<li><strong>USERS</strong> — uzytkownicy i ich role.</li>
+<li><strong>POSTS</strong> — tresc (wpisy, strony, produkty — czesto jedna tabela z polem type).</li>
+<li><strong>POST_META</strong> — elastyczne pola dodatkowe (klucz-wartosc) bez zmiany schematu.</li>
+<li><strong>TERMS / POST_TERMS</strong> — taksonomie (kategorie, tagi) i ich powiazania (relacja wiele-do-wielu).</li>
+</ul>
+<p>Wzorzec <strong>meta (klucz-wartosc)</strong> to typowy sposob na elastycznosc: dodajesz nowe pola bez migracji schematu — kosztem wydajnosci zapytan.</p>
+
+<h2>MVC w CMS</h2>
+<p>Wiele CMS opiera sie na wzorcu <strong>MVC (Model-View-Controller)</strong>:</p>
+<pre><code>        zadanie
+           │
+           ▼
+   ┌───────────────┐    pobiera/zapisuje    ┌─────────────┐
+   │  CONTROLLER   │ ─────────────────────► │    MODEL    │
+   │ (logika, co   │                        │ (dane, baza,│
+   │  zrobic)      │ ◄───────────────────── │  reguly)    │
+   └───────┬───────┘        dane            └─────────────┘
+           │
+           ▼
+   ┌───────────────┐
+   │     VIEW      │  ──► HTML ──► uzytkownik
+   │  (szablon)    │
+   └───────────────┘</code></pre>
+<ul>
+<li><strong>Model</strong> — dane i reguly biznesowe (encje: wpis, uzytkownik).</li>
+<li><strong>View</strong> — warstwa prezentacji (szablony renderujace HTML).</li>
+<li><strong>Controller</strong> — przyjmuje zadanie, koordynuje model i widok.</li>
+</ul>
+<p>Przyklady: Drupal (Symfony), Statamic/October (Laravel), Strapi (Koa/Node). WordPress historycznie nie jest czystym MVC, ale realizuje podobny podzial.</p>
+
+<h2>System pluginow i hookow (rozszerzalnosc)</h2>
+<p>Kluczowy mechanizm: jak rozszerzyc CMS <strong>bez modyfikacji rdzenia</strong>. Najpopularniejszy model to <strong>hooki</strong> (zdarzenia i filtry):</p>
+<pre><code>RDZEN CMS publikuje wpis
+        │
+        ├── do_action('before_publish')  ◄── Plugin A: sprawdz spam
+        │
+        ├── [ ZAPIS DO BAZY ]
+        │
+        ├── apply_filter('post_content')  ◄── Plugin B: dodaj przycisk share
+        │                                 ◄── Plugin C: skroc obrazy do WebP
+        │
+        └── do_action('after_publish')    ◄── Plugin D: wyslij na Slacka
+                                          ◄── Plugin E: wyczysc cache</code></pre>
+<ul>
+<li><strong>Actions (akcje)</strong> — „stalo sie zdarzenie X, wykonaj kod" (nie zwraca wartosci).</li>
+<li><strong>Filters (filtry)</strong> — „przeksztalc wartosc X przed uzyciem" (zwraca zmodyfikowana dana).</li>
+<li><strong>Events / listeners</strong> — nowoczesniejszy odpowiednik (Symfony EventDispatcher, Node EventEmitter).</li>
+<li><strong>Service container / DI</strong> — wstrzykiwanie zaleznosci w CMS opartych na frameworkach.</li>
+</ul>
+<p>Ten wzorzec (Observer / Pub-Sub) sprawia, ze ekosystem pluginow moze rozwijac sie niezaleznie od rdzenia. To glowny powod sukcesu WordPressa.</p>
+
+<h2>Warstwy cache (wydajnosc)</h2>
+<p>Cache to najwazniejszy mechanizm wydajnosciowy CMS. Im wyzej trafienie, tym szybciej:</p>
+<div class="diagram layers cachelayers">
+<div class="layer"><span class="lname">1. CDN / Edge</span><div class="ldesc">trafienie → zwroc gotowy HTML blisko uzytkownika (najszybsze) — Cloudflare, Fastly</div></div>
+<div class="layer"><span class="lname">2. Page cache</span><div class="ldesc">pelny zbuforowany HTML strony — Varnish, WP Rocket</div></div>
+<div class="layer"><span class="lname">3. Object cache</span><div class="ldesc">gotowe wyniki zapytan do bazy — Redis, Memcached</div></div>
+<div class="layer"><span class="lname">4. Opcode cache</span><div class="ldesc">skompilowany bajtkod w pamieci — OPcache (PHP)</div></div>
+<div class="layer"><span class="lname">5. Baza danych</span><div class="ldesc">ostateczne zrodlo prawdy (najwolniejsze)</div></div>
+</div>
+<table>
+<thead><tr><th>Warstwa</th><th>Co buforuje</th><th>Technologia</th></tr></thead>
+<tbody>
+<tr><td><strong>CDN</strong></td><td>Statyczne assety i strony, blisko uzytkownika</td><td>Cloudflare, Fastly</td></tr>
+<tr><td><strong>Page cache</strong></td><td>Caly wygenerowany HTML</td><td>Varnish, WP Rocket</td></tr>
+<tr><td><strong>Object cache</strong></td><td>Wyniki zapytan do bazy</td><td>Redis, Memcached</td></tr>
+<tr><td><strong>Opcode cache</strong></td><td>Skompilowany bajtkod</td><td>OPcache (PHP)</td></tr>
+<tr><td><strong>Browser cache</strong></td><td>Assety po stronie klienta</td><td>naglowki HTTP Cache-Control</td></tr>
+</tbody>
+</table>
+
+<h2>Architektura headless</h2>
+<p>W headless CMS architektura jest rozdzielona na niezalezne uslugi:</p>
+<pre><code>┌────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+│  HEADLESS CMS  │    │  WARSTWA API     │    │   FRONTEND(Y)    │
+│                │    │  REST / GraphQL  │    │                  │
+│  tresc + admin │───►│  (Content API)   │───►│  Next.js (web)   │
+│  baza tresci   │    │  + CDN dla API   │    │  Mobile app      │
+│                │    │                  │    │  Smart TV        │
+└────────────────┘    └──────────────────┘    └──────────────────┘
+       ▲                                              │
+       │              webhook (tresc zmieniona)       │
+       └──────────────────────────────────────────────┘
+                    (trigger przebudowy SSG)</code></pre>
+<ul>
+<li>CMS i frontend skaluja sie <strong>niezaleznie</strong>.</li>
+<li>Webhooki wyzwalaja przebudowe statycznej strony (SSG) po zmianie tresci.</li>
+<li>API moze byc chronione kluczem i buforowane na CDN.</li>
+<li>Wiecej o headless i renderowaniu — rozdzial 06.</li>
+</ul>
+
+<h2>Skalowanie CMS</h2>
+<p>Gdy ruch rosnie, architektura ewoluuje:</p>
+<pre><code>MALY RUCH                    DUZY RUCH (wysoka dostepnosc)
+─────────                    ──────────────────────────────
+                                      [ CDN ]
+                                         │
+┌──────────────┐              ┌──────────────────┐
+│  1 serwer:   │              │  Load Balancer   │
+│  CMS + baza  │              └────────┬─────────┘
+└──────────────┘                ┌──────┴──────┐
+                                ▼             ▼
+                          [ App 1 ]      [ App 2 ]   ... (poziomo)
+                                │             │
+                          ┌─────┴─────────────┴─────┐
+                          ▼                         ▼
+                    [ Redis cache ]         [ Baza: master ]
+                                            [ + read replicas ]
+                                                  │
+                                            [ Object storage / S3 ]
+                                            (media poza serwerem)</code></pre>
+<ul>
+<li><strong>Skalowanie poziome</strong> — wiele serwerow aplikacji za load balancerem.</li>
+<li><strong>Read replicas</strong> — repliki bazy do odczytu (CMS czyta duzo, pisze malo).</li>
+<li><strong>Object storage</strong> — media na S3/zewnetrznym storage, nie na serwerze app.</li>
+<li><strong>Stateless app</strong> — sesje w Redis, by kazdy serwer obsluzyl kazde zadanie.</li>
+</ul>
+
+<h2>Bezpieczenstwo architektoniczne</h2>
+<ul>
+<li><strong>Separacja warstw</strong> — panel admina za dodatkowym uwierzytelnieniem/VPN.</li>
+<li><strong>Zasada najmniejszych uprawnien</strong> — konta DB i pliki z minimalnym dostepem.</li>
+<li><strong>Walidacja i sanityzacja</strong> — ochrona przed SQL injection, XSS, CSRF.</li>
+<li><strong>WAF</strong> — Web Application Firewall przed aplikacja.</li>
+<li><strong>Aktualizacje</strong> — rdzen i pluginy to glowny wektor ataku (rozdzial 07).</li>
+<li><strong>Headless jako bonus</strong> — brak publicznego panelu admina na froncie zmniejsza powierzchnie ataku.</li>
+</ul>
+
+<h2>Podsumowanie</h2>
+<p>Architektura CMS to gra kompromisow: monolit (coupled) jest prosty i szybki w starcie, ale trudniej skalowalny i sztywny; headless jest elastyczny i wydajny, ale wymaga wiecej pracy developerskiej. Cache i odpowiedni model danych decyduja o wydajnosci, a system hookow — o mozliwosciach rozbudowy.</p>
+
+<div class="nav-bottom">
+<a href="03-funkcje-cms.html">&larr; 03 — Funkcje CMS</a>
+<a href="05-popularne-rozwiazania.html">05 — Popularne rozwiazania &rarr;</a>
+</div>
+</div>
+</body>
+</html>

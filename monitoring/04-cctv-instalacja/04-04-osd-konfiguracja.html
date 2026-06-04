@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04-04 — OSD i konfiguracja kamery</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:8px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:40px;opacity:.8}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">04 Instalacja CCTV</a><span class="sep">/</span><span class="title">04-04 OSD i konfiguracja</span>
+</div>
+<div class="container">
+<h1>OSD i konfiguracja kamery</h1>
+<p class="subtitle">Menu OSD/web kamery, ustawienia ekspozycji, balansu bieli, BLC/HLC/WDR, redukcji szumów 3D-DNR, maskowania prywatności (RODO), stref detekcji ruchu i harmonogramów.</p>
+<p class="updated">Aktualizacja: 2026-05</p>
+
+<h2>Dwie metody konfiguracji</h2>
+<table>
+<thead><tr><th>Metoda</th><th>Dostęp</th><th>Kiedy</th></tr></thead>
+<tbody>
+<tr><td><strong>OSD analog</strong> (joystick na kablu)</td><td>menu nakładane na obraz, mini-joystick na 5-żyłce</td><td>kamery analogowe AHD/CVI/TVI, brak interfejsu web</td></tr>
+<tr><td><strong>WebUI HTTP/S</strong></td><td>przeglądarka, port 80/443, login admin</td><td>wszystkie kamery IP — pełen dostęp do ustawień</td></tr>
+<tr><td><strong>OSD przez NVR</strong></td><td>menu rejestratora — „Camera Settings"</td><td>kamery podpięte do rejestratora producenta (np. Hikvision do Hik-Connect)</td></tr>
+<tr><td><strong>Aplikacja mobilna</strong></td><td>Hik-Connect, Dahua DMSS, Reolink App</td><td>podstawowa konfiguracja, brak zaawansowanych opcji</td></tr>
+<tr><td><strong>ONVIF</strong> (np. SmartPSS, ONVIF Device Manager)</td><td>standard, działa z wieloma markami</td><td>tylko podstawowe parametry, nie zaawansowane</td></tr>
+</tbody>
+</table>
+
+<h2>Ekspozycja — zarządzanie światłem</h2>
+<p>Ekspozycja to kombinacja trzech parametrów: <strong>czas migawki</strong>, <strong>przysłona</strong> (jeśli kamera ma motor IRIS), <strong>czułość ISO/gain</strong>. W trybie auto kamera sama dobiera, ale ręczna kontrola jest niezbędna w trudnych scenach.</p>
+<table>
+<thead><tr><th>Parametr</th><th>Zakres</th><th>Praktyczne ustawienie</th></tr></thead>
+<tbody>
+<tr><td><strong>Migawka (Shutter)</strong></td><td>1/3 s – 1/100 000 s</td><td>Auto 1/25 – 1/1000 (Europa 50 Hz), max 1/100 dla zachowania kolorów w nocy</td></tr>
+<tr><td><strong>Gain (wzmocnienie)</strong></td><td>0–100 (lub 0–60 dB)</td><td>Max 30–40 dB — wyżej dużo szumu</td></tr>
+<tr><td><strong>Iris</strong> (DC/P-Iris)</td><td>F1.0 – F16</td><td>Auto, P-Iris precyzyjniej steruje na podstawie sceny</td></tr>
+<tr><td><strong>Anti-flicker</strong></td><td>50 Hz / 60 Hz / off</td><td><strong>50 Hz w Polsce</strong> — eliminuje migotanie świetlówek</td></tr>
+<tr><td><strong>BLC / HLC / WDR</strong></td><td>off / on / poziom 1–5</td><td>WDR dla kontrastu, BLC dla okna w tle, HLC dla świateł aut</td></tr>
+</tbody>
+</table>
+
+<h3>Wybór trybu kontrastu — BLC vs HLC vs WDR</h3>
+<ul>
+<li><strong>BLC (Backlight Compensation)</strong> — kompensacja jasnego tła. Klasyczny przypadek: drzwi wejściowe, ktoś staje pod oknem. Bez BLC widzisz tylko sylwetkę, BLC „rozjaśnia" twarz. Mechanizm: kamera ignoruje jasne piksele i ekspozycję ustawia na ciemne.</li>
+<li><strong>HLC (Highlight Compensation)</strong> — odwrotność: tłumi punktowe źródła światła (np. reflektory aut w nocy, latarnia w kadrze). Pixele białe ścina, dzięki temu widać tablice rejestracyjne aut.</li>
+<li><strong>WDR (Wide Dynamic Range)</strong> — najpotężniejszy: kamera robi 2 ekspozycje (krótka dla świateł, długa dla cieni) i łączy je w jeden obraz. Real-WDR (sprzętowy) działa lepiej niż „digital WDR" (programowy). Jednostka: <strong>dB</strong> (np. 120 dB to świetnie).</li>
+</ul>
+
+<h2>Balans bieli (WB)</h2>
+<p>Sceny pod różnym oświetleniem mają różną „temperaturę barwową" wyrażaną w kelwinach (K). Bez kompensacji obraz jest zażółcony lub zaniebieszczony.</p>
+<table>
+<thead><tr><th>Źródło światła</th><th>Temperatura (K)</th><th>Tryb WB</th></tr></thead>
+<tbody>
+<tr><td>Świeca</td><td>~1800</td><td>Manual / Indoor</td></tr>
+<tr><td>Żarówka 60 W</td><td>2700</td><td>Indoor (tungsten)</td></tr>
+<tr><td>Halogen</td><td>3000</td><td>Indoor</td></tr>
+<tr><td>Świetlówka biała neutralna</td><td>4000</td><td>Fluorescent</td></tr>
+<tr><td>Światło dzienne południe</td><td>5500</td><td>Outdoor / Daylight</td></tr>
+<tr><td>Pochmurno</td><td>6500</td><td>Cloudy</td></tr>
+<tr><td>Cień / niebieskie niebo</td><td>10000</td><td>Shade</td></tr>
+</tbody>
+</table>
+<div class="tip"><strong>ATW (Auto Tracking White Balance)</strong> — uniwersalny tryb dla zmiennych warunków (kamera zewnętrzna). Dla kamery wewnątrz pod stałym oświetleniem ustaw <strong>ręcznie</strong>, by uniknąć „pływania" kolorów.</div>
+
+<h2>Redukcja szumów — DNR i 3D-DNR</h2>
+<p>W nocy lub w słabym świetle kamera „kręci" gain. Wyższy gain = więcej szumu. Algorytmy DNR (Digital Noise Reduction) usuwają szum, ale za cenę rozmycia szybkich obiektów.</p>
+<ul>
+<li><strong>2D-DNR</strong> — analizuje pojedynczą klatkę, usuwa szumy przestrzenne. Mniej obciąża procesor, łatwiej zaimplementować, słabiej redukuje.</li>
+<li><strong>3D-DNR</strong> — porównuje wiele klatek czasowo, wykrywa stałe szumy losowe i usuwa je. Dużo lepszy efekt, ale przy szybkim ruchu może powodować artefakty „smużenia".</li>
+</ul>
+<table>
+<thead><tr><th>Poziom 3D-DNR</th><th>Efekt</th><th>Stosowanie</th></tr></thead>
+<tbody>
+<tr><td>Off</td><td>obraz surowy, szum widać</td><td>jasna scena, obiekty szybkie</td></tr>
+<tr><td>Low (1–3)</td><td>lekka redukcja, brak smużenia</td><td>scena z ruchem (parking, brama)</td></tr>
+<tr><td>Mid (4–6)</td><td>balans szum/smużenie</td><td>typowa scena ogrodu, podjazdu nocą</td></tr>
+<tr><td>High (7–9)</td><td>czysty obraz, smużenie obiektów</td><td>scena statyczna, magazyn pusty</td></tr>
+</tbody>
+</table>
+
+<h2>Maskowanie prywatności — wymóg RODO</h2>
+<div class="warning"><strong>Obowiązek prawny:</strong> jeśli kamera obejmuje fragment cudzej działki, ulicy, okno sąsiada — musisz nałożyć maskę prywatności. Bez maski instalacja narusza RODO i prawo do prywatności, a właściciel kamery może zostać ukarany karą administracyjną lub pozwany cywilnie.</div>
+
+<h3>Konfiguracja maski</h3>
+<ol>
+<li>Wejdź w WebUI kamery: <em>Configuration → Image → Privacy Mask</em>.</li>
+<li>Włącz „Enable" i wybierz typ — solid color (czarna, biała, szara), mozaika, blur.</li>
+<li>Narysuj poligon na obrazie (typowo do 4 stref). Większość kamer pozwala na 4–8 niezależnych masek.</li>
+<li>Zapisz, sprawdź czy maska pojawia się <strong>również na nagraniu</strong> (nie tylko w podglądzie!).</li>
+<li>Zrób screenshot zmaskowanego widoku do dokumentacji wewnętrznej (potwierdzenie zgodności RODO).</li>
+</ol>
+<div class="callout"><strong>Cienie maski:</strong> niektóre kamery (zwłaszcza tańsze) maskują tylko podgląd „live", ale nagranie idzie bez maski. Sprawdź to wcześniej — odtwarzając archiwum z tej samej kamery na inną sesję.</div>
+
+<h2>Strefy detekcji ruchu</h2>
+<p>Nagrywanie 24/7 z analizą całego obrazu produkuje setki false-positive (drzewa, ptaki, chmury, samochody na ulicy). Sensowne nagrywanie używa <strong>masek detekcji</strong> i <strong>klas obiektów</strong>.</p>
+<table>
+<thead><tr><th>Typ detekcji</th><th>Mechanizm</th><th>False positive</th></tr></thead>
+<tbody>
+<tr><td><strong>Motion Detection</strong> (pikselowa)</td><td>różnica między klatkami</td><td>bardzo wiele (cienie, drzewa, deszcz)</td></tr>
+<tr><td><strong>Line Crossing / Intrusion</strong></td><td>obiekt przekracza linię/wchodzi w obszar</td><td>średnio</td></tr>
+<tr><td><strong>Object Detection (AI)</strong></td><td>klasyfikacja YOLO: human, vehicle, animal</td><td>mało, jeśli AI jakościowe</td></tr>
+<tr><td><strong>Smart IR Detection</strong></td><td>ruch + wykrycie sylwetki</td><td>średnio</td></tr>
+<tr><td><strong>Face Detection</strong></td><td>tylko twarz w kadrze wywołuje alarm</td><td>mało, ale tylko twarz frontalna</td></tr>
+</tbody>
+</table>
+
+<h3>Mapa stref</h3>
+<pre><code>Kamera bullet patrząca na podjazd:
++---------------------+
+| niebo (ignoruj)     |  ← cała górna 1/3 obrazu — chmury, ptaki
+|---------------------|
+| ulica (ignoruj/AI)  |  ← obce auta = false positive, RODO
+|---------------------|
+| podjazd (DETEKCJA)  |  ← strefa zainteresowania
+| ↓ AI: vehicle/human |
+|---------------------|
+| ścieżka (DETEKCJA)  |  ← pieszy do drzwi
++---------------------+</code></pre>
+
+<h2>Harmonogramy nagrywania</h2>
+<p>Tryb 24/7 jest najprostszy ale generuje gigabajty bezużytecznych danych. Lepiej skomponować harmonogram:</p>
+<table>
+<thead><tr><th>Tryb</th><th>Co</th><th>Storage / dzień (4 MP, H.265)</th></tr></thead>
+<tbody>
+<tr><td><strong>24/7 continuous</strong></td><td>nagrywa zawsze, na pełnym fps</td><td>~30 GB</td></tr>
+<tr><td><strong>Motion only</strong></td><td>nagrywa po wykryciu ruchu + pre/post buffer 5–30 s</td><td>3–10 GB</td></tr>
+<tr><td><strong>Scheduled + Motion</strong></td><td>dzień: motion, noc: continuous (lub odwrotnie)</td><td>10–20 GB</td></tr>
+<tr><td><strong>Smart codec H.265+ (Hikvision) / H.265 Pro+ (Dahua)</strong></td><td>continuous, ale niska klatka w bez-ruchu</td><td>5–15 GB</td></tr>
+</tbody>
+</table>
+<div class="tip">Dla domowego CCTV optymalny tryb: <strong>Continuous 24/7 + H.265+ z niską klatką w bezruchu</strong>. Zawsze jest nagranie (ważne przy incydentach „nikt nic nie widział"), a storage jest 3× mniejszy niż klasyczne 24/7.</div>
+
+<h2>Twardnienie konta admin — bezpieczeństwo</h2>
+<ol>
+<li><strong>Zmień domyślne hasło</strong> przy pierwszym logowaniu. Default Hikvision = 12345, Dahua = admin/admin.</li>
+<li><strong>Wyłącz UPnP</strong> i otwieranie portów na publiczny IP. Używaj VPN albo P2P producenta z 2FA.</li>
+<li><strong>Wyłącz Telnet</strong>, SSH, FTP — chyba że świadomie używasz.</li>
+<li><strong>Firmware aktualny</strong> — producenci kamer regularnie łatają luki (np. Hikvision CVE-2021-36260 — RCE na kilkadziesiąt modeli).</li>
+<li><strong>Izolacja VLAN</strong> — kamery w osobnym VLAN bez dostępu do internetu (NVR jako proxy do podglądu zewnętrznego).</li>
+<li><strong>Lista IP whitelist</strong> — dostęp do WebUI tylko z konkretnych adresów (np. tylko LAN).</li>
+<li><strong>Logi</strong> — włącz logowanie wszystkich logowań i błędów uwierzytelnienia.</li>
+</ol>
+
+<div class="nav-bottom">
+<a href="04-03-montaz-pozycjonowanie.html">⟵ Montaż i pozycjonowanie</a>
+<a href="../05-cctv-software/index.html">Sekcja 05 — Software VMS →</a>
+</div>
+</div>
+</body>
+</html>

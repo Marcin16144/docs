@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11-01 — Centrale SAP konwencjonalne</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">11 Centrale SAP</a><span class="sep">/</span><span class="title">11-01 Konwencjonalne</span>
+</div>
+<div class="container">
+<h1>Centrale SAP konwencjonalne</h1>
+<p class="subtitle">Centrale liniowe (2–16 linii dozorowych) — lokalizacja na poziomie linii, do ~500 m², ekonomiczne rozwiązanie do małych i średnich obiektów. PN-EN 54-2 / 54-4.</p>
+
+<h2>Architektura konwencjonalna</h2>
+<p>System SAP konwencjonalny opiera się na podziale obiektu na <strong>linie dozorowe</strong> (zwane też pętlami konwencjonalnymi, choć nie są to prawdziwe pętle adresowalne). Każda linia to dwużyłowy obwód, do którego podłączonych jest równolegle do 32 czujek punktowych (typowo: kabel YnTKSY 1×2×1,4 mm² lub HTKSH).</p>
+<pre><code>Centrala
+  ├── Linia 1 ──○─○─○─○─○──[R 4k7]   (sypialnie, korytarz)
+  ├── Linia 2 ──○─○─○──[R 4k7]       (salon, kuchnia, łazienka)
+  ├── Linia 3 ──○─○─○─○──[R 4k7]     (piwnica, garaż)
+  └── Linia 4 ──[ROP][ROP]──[R 4k7]  (ręczne ostrzegacze)</code></pre>
+
+<p><strong>Działanie:</strong></p>
+<ul>
+<li>centrala zasila linię stałym napięciem (~24 V DC) i mierzy prąd spoczynkowy,</li>
+<li>na końcu linii <strong>rezystor końca linii (EOL)</strong> typowo 4,7 kΩ — pozwala centrali wykryć przerwę,</li>
+<li>czujka w stanie czuwania pobiera ~50 µA (mikroprąd),</li>
+<li>czujka w alarmie zwiera linię (~10 mA) → centrala wykrywa skok prądu na danej linii,</li>
+<li>centrala wie tylko, że <strong>na linii X coś zadziałało</strong> — nie wie która czujka.</li>
+</ul>
+
+<h2>Stany linii dozorowej</h2>
+<table>
+<thead><tr><th>Stan</th><th>Prąd na linii</th><th>Co oznacza</th></tr></thead>
+<tbody>
+<tr><td><strong>DOZÓR</strong></td><td>~5 mA (przez 4,7 kΩ EOL)</td><td>stan normalny, wszystkie czujki OK</td></tr>
+<tr><td><strong>ALARM</strong></td><td>~10–20 mA</td><td>jedna lub więcej czujek w alarmie</td></tr>
+<tr><td><strong>USZKODZENIE — przerwa</strong></td><td>0 mA</td><td>przerwany kabel lub uszkodzony EOL</td></tr>
+<tr><td><strong>USZKODZENIE — zwarcie</strong></td><td>&gt;50 mA</td><td>zwarcie kabla / zalanie</td></tr>
+</tbody>
+</table>
+
+<h2>Strefa pożarowa vs linia dozorowa</h2>
+<p>Pojęcia często mylone:</p>
+<ul>
+<li><strong>strefa pożarowa</strong> — obszar oddzielony ścianami i drzwiami o odpowiedniej odporności ogniowej (REI 60/120/240). To pojęcie z dziedziny ochrony przeciwpożarowej budynku.</li>
+<li><strong>linia dozorowa (strefa dozorowa)</strong> — obwód elektryczny SAP. To pojęcie ze sterowania i sygnalizacji.</li>
+</ul>
+<p>Zasada: <strong>jedna linia dozorowa = jedna strefa pożarowa</strong> (lub fragment, jeśli strefa duża). Nie wolno na jednej linii mieć czujek z dwóch różnych stref pożarowych.</p>
+
+<h2>Typowe wielkości central konwencjonalnych</h2>
+<table>
+<thead><tr><th>Liczba linii</th><th>Maks. czujek</th><th>Obiekt</th><th>Cena (przybl.)</th></tr></thead>
+<tbody>
+<tr><td>2 linie</td><td>64 czujek</td><td>sklep, gabinet, mały warsztat</td><td>1 200–2 500 zł</td></tr>
+<tr><td>4 linie</td><td>128 czujek</td><td>mały hotel, dom kultury, przedszkole</td><td>2 500–4 500 zł</td></tr>
+<tr><td>8 linii</td><td>256 czujek</td><td>średnia szkoła, biurowiec piętrowy</td><td>4 500–8 000 zł</td></tr>
+<tr><td>16 linii</td><td>512 czujek</td><td>maks. zalecane (nad to → adresowalna)</td><td>8 000–15 000 zł</td></tr>
+</tbody>
+</table>
+
+<h2>Sygnał wyjściowy z centrali</h2>
+<p>Każda centrala SAP ma co najmniej:</p>
+<ul>
+<li><strong>wyjście syren</strong> (1–4 linie sygnalizacyjne) — uruchamia sygnalizatory akustyczno-optyczne,</li>
+<li><strong>wyjście do monitoringu</strong> (przekaźnik bezpotencjałowy NC/NO) — do nadajnika transmisji ATS / GSM,</li>
+<li><strong>wyjście awarii</strong> (przekaźnik) — sygnalizuje uszkodzenie systemu,</li>
+<li><strong>wyjścia programowalne</strong> (PGM) — sterowanie wentylacją, oddymianiem, klapami przeciwpożarowymi.</li>
+</ul>
+
+<h2>Centrale Polon-Alfa POLON 4xxx</h2>
+<p>Najpopularniejsza polska seria konwencjonalna (zastąpiła starsze CSP-30, CSP-40):</p>
+<table>
+<thead><tr><th>Model</th><th>Liczba linii</th><th>Akumulator</th><th>Cechy</th></tr></thead>
+<tbody>
+<tr><td>POLON 4100</td><td>1</td><td>2× 7 Ah</td><td>mała, do gabinetów</td></tr>
+<tr><td>POLON 4200</td><td>2</td><td>2× 7 Ah</td><td>standard sklep / kawiarnia</td></tr>
+<tr><td>POLON 4400</td><td>4</td><td>2× 17 Ah</td><td>mały hotel, przychodnia</td></tr>
+<tr><td>POLON 4800</td><td>8</td><td>2× 17 Ah</td><td>średnia szkoła</td></tr>
+</tbody>
+</table>
+<p>Wszystkie posiadają certyfikat <strong>CNBOP-PIB</strong> (Centrum Naukowo-Badawcze Ochrony Przeciwpożarowej), zgodność z PN-EN 54-2 (centrale) i PN-EN 54-4 (zasilacze).</p>
+
+<h2>Inne marki konwencjonalne</h2>
+<ul>
+<li><strong>Bosch FPC-500</strong> — 2/4/8 linii, kompatybilny z czujkami Bosch FCH-200/FCP-O,</li>
+<li><strong>Inim PREVIDIA C100/C200</strong> — włoska centrala 2/4/8 linii, certyfikat CPR,</li>
+<li><strong>Hochiki HCV-2/4/8</strong> — kompatybilna z czujkami Hochiki SLR-E (najwyższa jakość czujników),</li>
+<li><strong>Notifier ID3000</strong> — wersja konwencjonalna,</li>
+<li><strong>ZITON ZP1</strong> — UK, populare w hotelach,</li>
+<li><strong>Cooper / Eaton CF2000</strong> — 2/4/6/8 linii.</li>
+</ul>
+
+<h2>Zalety i wady konwencjonalnych</h2>
+<table>
+<thead><tr><th>Zalety</th><th>Wady</th></tr></thead>
+<tbody>
+<tr><td>tania centrala (od 1200 zł)</td><td>brak dokładnej lokalizacji (tylko linia)</td></tr>
+<tr><td>tanie czujki (60–150 zł)</td><td>czujki niewymienne między producentami</td></tr>
+<tr><td>prosty montaż i serwis</td><td>limit 16 linii — duże obiekty wymagają wielu central</td></tr>
+<tr><td>nie wymaga komputera do konfiguracji</td><td>brak komunikacji z BMS / SCADA</td></tr>
+<tr><td>technika sprawdzona od dziesięcioleci</td><td>trudne rozbudowy (kable po linii)</td></tr>
+</tbody>
+</table>
+
+<h2>Kiedy wybrać konwencjonalną</h2>
+<ul>
+<li>obiekt do <strong>~500 m²</strong> (lub do 4 stref pożarowych),</li>
+<li>budżet ograniczony,</li>
+<li>brak wymagania integracji z BMS / systemem zarządzania budynkiem,</li>
+<li>prosty układ przestrzenny (łatwo zlokalizować zagrożenie wzrokowo po dotarciu na linię),</li>
+<li>brak ROZP. dot. SUG (stałych urządzeń gaszących), które najczęściej wymagają lokalizacji adresowej.</li>
+</ul>
+
+<div class="warning"><strong>Uwaga prawna:</strong> w Polsce projekt systemu SAP w obiektach z obowiązkiem SAP (np. budynki użyteczności publicznej powyżej określonych metraży, hotele, szpitale) sporządza <strong>rzeczoznawca ds. zabezpieczeń przeciwpożarowych</strong>. Wykonawstwo i konserwacja — firma z personelem przeszkolonym przez producenta, posiadająca uprawnienia (zaświadczenie SEP D+E, świadectwo kwalifikacji ppoż).</div>
+
+<h2>Programowanie i konfiguracja</h2>
+<p>Większość central konwencjonalnych konfigurowana jest <strong>z klawiatury obudowy</strong> (LCD + przyciski). Zakres ustawień:</p>
+<ul>
+<li>etykiety linii (np. „Sala konferencyjna", „Kuchnia"),</li>
+<li>opóźnienia alarmu (0–600 s) — czas na sprawdzenie przez obsługę przed wyjściem alarmu na zewnątrz,</li>
+<li>tryby tłumienia nocnego (sztab obsługi reaguje wolniej w nocy → wyższe progi),</li>
+<li>scenariusze: linia 5 alarm → wyjście PGM 2 → zamknięcie zaworu gazu kuchni,</li>
+<li>logi zdarzeń (~1000 wpisów ostatnich alarmów / awarii).</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="index.html">⟵ Spis sekcji 11</a>
+<a href="11-02-centrale-adresowalne.html">Centrale adresowalne →</a>
+</div>
+</div>
+</body>
+</html>

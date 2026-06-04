@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kompendium — Baza wiedzy</title>
+    <style>
+        :root{
+            --bg:#0f172a;--surface:#1e293b;--surface-hi:#243447;
+            --border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;
+            --green:#4ade80;--blue:#60a5fa;--cyan:#22d3ee;
+            --yellow:#fbbf24;--orange:#fb923c;--purple:#a78bfa;
+            --pink:#f472b6;--red:#f87171;--teal:#2dd4bf;
+        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+
+        /* ── HERO ─────────────────────────────────────────── */
+        .hero{background:linear-gradient(135deg,#1e293b 0%,#0f172a 60%,#1a1f35 100%);border-bottom:1px solid var(--border);padding:44px 20px 32px;text-align:center}
+        .hero-inner{max-width:760px;margin:0 auto}
+        .hero h1{font-size:2.2rem;font-weight:800;margin-bottom:10px;background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+        .hero p{color:var(--text-muted);font-size:.95rem;margin-bottom:20px;line-height:1.7}
+        .stats{display:flex;justify-content:center;flex-wrap:wrap;gap:20px;margin-top:18px}
+        .stat{text-align:center}
+        .stat-num{font-size:1.7rem;font-weight:700;display:block;background:linear-gradient(135deg,var(--cyan),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .stat-label{font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em}
+
+        /* ── FILTER BAR ───────────────────────────────────── */
+        .filter-bar{position:sticky;top:0;z-index:50;background:rgba(15,23,42,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 20px}
+        .filter-inner{max-width:1160px;margin:0 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+        .filter-label{font-size:.75rem;color:var(--text-muted);white-space:nowrap}
+        .ftag{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);padding:4px 13px;border-radius:14px;font-size:.75rem;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
+        .ftag:hover{color:var(--text);border-color:var(--cyan)}
+        .ftag.on{background:rgba(34,211,238,.15);color:var(--cyan);border-color:var(--cyan)}
+
+        /* ── GRID ─────────────────────────────────────────── */
+        .container{max-width:1160px;margin:0 auto;padding:32px 20px 80px}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
+
+        /* ── CARD ─────────────────────────────────────────── */
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:all .2s;display:flex;flex-direction:column}
+        .card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.4)}
+        .card.hidden{display:none}
+        .card-top{padding:22px 22px 0;display:flex;align-items:flex-start;gap:14px}
+        .card-icon{font-size:2.4rem;min-width:2.6rem;line-height:1}
+        .card-head{flex:1}
+        .card-title{font-size:1.12rem;font-weight:700;margin-bottom:3px}
+        .card-latin{font-size:.75rem;color:var(--text-muted)}
+        .card-desc{padding:10px 22px 0;font-size:.84rem;color:var(--text-muted);line-height:1.6;flex:1}
+        .card-tags{padding:12px 22px 0;display:flex;flex-wrap:wrap;gap:5px}
+        .tag{font-size:.64rem;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap}
+        .card-links{padding:14px 22px 18px;display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid var(--border);margin-top:14px}
+        .btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:8px;font-size:.78rem;font-weight:600;text-decoration:none;transition:all .15s;border:1px solid}
+        .btn-main{background:rgba(255,255,255,.06);border-color:var(--border);color:var(--text)}
+        .btn-main:hover{background:rgba(255,255,255,.1);transform:translateY(-1px)}
+        .btn-sub{background:transparent;border-color:var(--border);color:var(--text-muted);font-size:.71rem;padding:4px 10px}
+        .btn-sub:hover{color:var(--text);border-color:var(--text-muted)}
+
+        /* accent borders per card */
+        .c-green  .card-title{color:var(--green)}   .c-green  .btn-main{border-color:var(--green);color:var(--green)}   .c-green  .btn-main:hover{background:rgba(74,222,128,.1)}
+        .c-yellow .card-title{color:var(--yellow)}  .c-yellow .btn-main{border-color:var(--yellow);color:var(--yellow)} .c-yellow .btn-main:hover{background:rgba(251,191,36,.1)}
+        .c-blue   .card-title{color:var(--blue)}    .c-blue   .btn-main{border-color:var(--blue);color:var(--blue)}     .c-blue   .btn-main:hover{background:rgba(96,165,250,.1)}
+        .c-cyan   .card-title{color:var(--cyan)}    .c-cyan   .btn-main{border-color:var(--cyan);color:var(--cyan)}     .c-cyan   .btn-main:hover{background:rgba(34,211,238,.1)}
+        .c-purple .card-title{color:var(--purple)}  .c-purple .btn-main{border-color:var(--purple);color:var(--purple)} .c-purple .btn-main:hover{background:rgba(167,139,250,.1)}
+        .c-teal   .card-title{color:var(--teal)}    .c-teal   .btn-main{border-color:var(--teal);color:var(--teal)}     .c-teal   .btn-main:hover{background:rgba(45,212,191,.1)}
+        .c-orange .card-title{color:var(--orange)}  .c-orange .btn-main{border-color:var(--orange);color:var(--orange)} .c-orange .btn-main:hover{background:rgba(251,146,60,.1)}
+        .c-red    .card-title{color:var(--red)}     .c-red    .btn-main{border-color:var(--red);color:var(--red)}       .c-red    .btn-main:hover{background:rgba(248,113,113,.1)}
+
+        /* tag colors */
+        .t-green {background:rgba(74,222,128,.12);color:var(--green)}
+        .t-yellow{background:rgba(251,191,36,.12);color:var(--yellow)}
+        .t-blue  {background:rgba(96,165,250,.12);color:var(--blue)}
+        .t-cyan  {background:rgba(34,211,238,.12);color:var(--cyan)}
+        .t-purple{background:rgba(167,139,250,.12);color:var(--purple)}
+        .t-teal  {background:rgba(45,212,191,.12);color:var(--teal)}
+        .t-orange{background:rgba(251,146,60,.12);color:var(--orange)}
+        .t-red   {background:rgba(248,113,113,.12);color:var(--red)}
+
+        /* top color stripe */
+        .card::before{content:'';display:block;height:3px}
+        .c-green::before {background:linear-gradient(90deg,var(--green),transparent)}
+        .c-yellow::before{background:linear-gradient(90deg,var(--yellow),transparent)}
+        .c-blue::before  {background:linear-gradient(90deg,var(--blue),transparent)}
+        .c-cyan::before  {background:linear-gradient(90deg,var(--cyan),transparent)}
+        .c-purple::before{background:linear-gradient(90deg,var(--purple),transparent)}
+        .c-teal::before  {background:linear-gradient(90deg,var(--teal),transparent)}
+        .c-orange::before{background:linear-gradient(90deg,var(--orange),transparent)}
+        .c-red::before   {background:linear-gradient(90deg,var(--red),transparent)}
+
+        /* ── FOOTER ───────────────────────────────────────── */
+        footer{text-align:center;padding:28px 20px;color:var(--text-muted);font-size:.8rem;border-top:1px solid var(--border)}
+
+        @media(max-width:640px){
+            .hero h1{font-size:1.6rem}
+            .grid{grid-template-columns:1fr}
+            .stats{gap:14px}
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── HERO ─────────────────────────────────────────────── -->
+<div class="hero">
+    <div class="hero-inner">
+        <h1>📚 Kompendium — Baza wiedzy</h1>
+        <p>Lokalna baza dokumentacji technicznej i zielarskiej.<br>
+        Elektryka · Elektronika · Software · Hardware · Monitoring · Dom · Samochody · AGD</p>
+        <div class="stats">
+            <div class="stat"><span class="stat-num">8</span><span class="stat-label">działów</span></div>
+            <div class="stat"><span class="stat-num">8</span><span class="stat-label">indeksów</span></div>
+            <div class="stat"><span class="stat-num">13+</span><span class="stat-label">roślin zielarskich</span></div>
+            <div class="stat"><span class="stat-num">100+</span><span class="stat-label">tematów</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── FILTER BAR ─────────────────────────────────────── -->
+<div class="filter-bar">
+    <div class="filter-inner">
+        <span class="filter-label">Filtr:</span>
+        <button class="ftag on" data-tag="all">Wszystko</button>
+        <button class="ftag" data-tag="dom">🌿 Dom</button>
+        <button class="ftag" data-tag="elektryka">⚡ Elektryka</button>
+        <button class="ftag" data-tag="elektronika">🔌 Elektronika</button>
+        <button class="ftag" data-tag="software">💻 Software</button>
+        <button class="ftag" data-tag="hardware">🖥️ Hardware</button>
+        <button class="ftag" data-tag="monitoring">📡 Monitoring</button>
+        <button class="ftag" data-tag="samochody">🚗 Samochody</button>
+        <button class="ftag" data-tag="agd">🏠 AGD</button>
+    </div>
+</div>
+
+<!-- ── CARDS GRID ─────────────────────────────────────── -->
+<div class="container">
+<div class="grid" id="grid">
+
+    <!-- 1. ROŚLINY / DOM -->
+    <div class="card c-green" data-tags="dom">
+        <div class="card-top">
+            <div class="card-icon">🌿</div>
+            <div class="card-head">
+                <div class="card-title">Dom — rośliny, grzyby, kryształy</div>
+                <div class="card-latin">Zielarstwo · Mykologia · Mineralogia</div>
+            </div>
+        </div>
+        <div class="card-desc">
+            Kompendium zielarstwa domowego — 13 roślin z opisem, składem, przepisami i przeciwwskazaniami. Przewodnik po grzybach jadalnych i trujących. Kryształy i minerały z właściwościami.
+        </div>
+        <div class="card-tags">
+            <span class="tag t-green">zielarstwo</span>
+            <span class="tag t-green">przepisy</span>
+            <span class="tag t-green">grzyby</span>
+            <span class="tag t-green">kryształy</span>
+            <span class="tag t-green">lightbox</span>
+        </div>
+        <div class="card-links">
+            <a href="house/rosliny/index.html" class="btn btn-main">🌿 Rośliny zielarskie →</a>
+            <a href="house/Grzyby.html" class="btn btn-sub">🍄 Grzyby</a>
+            <a href="house/Krysztaly.html" class="btn btn-sub">💎 Kryształy</a>
+        </div>
+    </div>
+
+    <!-- 2. ELEKTRYKA DOMOWA -->
+    <div class="card c-yellow" data-tags="elektryka">
+        <div class="card-top">
+            <div class="card-icon">⚡</div>
+            <div class="card-head">
+                <div class="card-title">Elektryka domowa</div>
+                <div class="card-latin">Instalacje · OZE · Normy PN-HD 60364</div>
+            </div>
+        </div>
+        <div class="card-desc">
+            Kompleksowe kompendium elektryki od fizyki prądu po projektowanie instalacji. Rozdzielnice, bezpieczniki, uziemienie, fotowoltaika, off-grid, magazyny energii i normy prawne.
+        </div>
+        <div class="card-tags">
+            <span class="tag t-yellow">instalacja</span>
+            <span class="tag t-yellow">rozdzielnica</span>
+            <span class="tag t-yellow">fotowoltaika</span>
+            <span class="tag t-yellow">off-grid</span>
+            <span class="tag t-yellow">UPS</span>
+            <span class="tag t-yellow">normy</span>
+        </div>
+        <div class="card-links">
+            <a href="electric/index.html" class="btn btn-main">⚡ Otwórz kompendium →</a>
+        </div>
+    </div>
+
+    <!-- 3. ELEKTRONIKA -->
+    <div class="card c-blue" data-tags="elektronika">
+        <div class="card-top">
+            <div class="card-icon">🔌</div>
+            <div class="card-head">
+                <div class="card-title">Elektronika i naprawy</div>
+                <div class="card-latin">Elementy bierne · półprzewodniki · układy scalone</div>
+            </div>
+        </div>
+        <div class="card-desc">
+            Teoria elektroniki i praktyka napraw — rezystory, kondensatory, tranzystory, układy scalone. Zasilacze, transformatory, wzmacniacze, timery 555. Galeria SVG elementów, schematy, kody kolorów.
+        </div>
+        <div class="card-tags">
+            <span class="tag t-blue">rezystory</span>
+            <span class="tag t-blue">tranzystory</span>
+            <span class="tag t-blue">zasilacze</span>
+            <span class="tag t-blue">transformatory</span>
+            <span class="tag t-blue">lutowanie</span>
+            <span class="tag t-blue">oscyloskop</span>
+        </div>
+        <div class="card-links">
+            <a href="electronic/index.html" class="btn btn-main">🔌 Otwórz kompendium →</a>
+            <a href="electronic/galeria-elementow.html" class="btn btn-sub">🎨 Galeria SVG</a>
+            <a href="electronic/schematy.html" class="btn btn-sub">📐 Schematy</a>
+        </div>
+    </div>
+
+    <!-- 4. SOFTWARE -->
+    <div class="card c-cyan" data-tags="software">
+        <div class="card-top">
+            <div class="card-icon">💻</div>
+            <div class="card-head">
+                <div class="card-title">Software i programowanie</div>
+                <div class="card-latin">Web · API · Docker · Linux · LLM</div>
+            </div>
+        </div>
+        <div class="card-desc">
+            Baza wiedzy z programowania — JavaScript, React, architektura aplikacji, Docker, Git, Linux, API, wzorce projektowe. Notatki z LLM/AI, promptów i integracji. Przykłady kodu i tutoriale.
+        </div>
+        <div class="card-tags">
+            <span class="tag t-cyan">JavaScript</span>
+            <span class="tag t-cyan">React</span>
+            <span class="tag t-cyan">Docker</span>
+            <span class="tag t-cyan">Linux</span>
+            <span class="tag t-cyan">API</span>
+            <span class="tag t-cyan">LLM/AI</span>
+        </div>
+        <div class="card-links">
+            <a href="software/index.html" class="btn btn-main">💻 Otwórz kompendium →</a>
+        </div>
+    </div>
+
+    <!-- 5. HARDWARE -->
+    <div class="card c-purple" data-tags="hardware">
+        <div class="card-top">
+            <div class="card-icon">🖥️</div>
+            <div class="card-head">
+                <div class="card-title">Hardware</div>
+                <div class="card-latin">Karty graficzne · Serwery · PC</div>
+            </div>
+        </div>
+        <div class="card-desc">
+            Przewodniki po sprzęcie komputerowym — karty graficzne NVIDIA RTX (Blackwell), wybór GPU do LLM/gier/pracy. Konfiguracje serwerów i stacji roboczych. Marki AIB i rekomendacje zakupowe.
+        </div>
+        <div class="card-tags">
+            <span class="tag t-purple">RTX 50</span>
+            <span class="tag t-purple">GPU</span>
+            <span class="tag t-purple">serwery</span>
+            <span class="tag t-purple">Blackwell</span>
+            <span class="tag t-purple">VRAM</span>
+        </div>
+        <div class="card-links">
+            <a href="hardware/index.html" class="btn btn-main">🖥️ Otwórz przewodnik →</a>
+            <a href="hardware/Geforce/index.html" class="btn btn-sub">🎮 GeForce</a>
+            <a href="hardware/servers/index.html" class="btn btn-sub">🗄 Serwery</a>
+        </div>
+    </div>
+
+    <!-- 6. MONITORING -->
+    <div class="card c-teal" data-tags="monitoring">
+        <div class="card-top">
+            <div class="card-icon">📡</div>
+            <div class="card-head">
+                <div class="card-title">Monitoring i zabezpieczenia</div>
+                <div class="card-latin">CCTV · Alarmy · Ppoż · Kontrola dostępu</div>
+            </div>
+        </div>
+        <div class="card-desc">
+            Kompendium systemów zabezpieczeń — kamery IP i analogowe, rejestratory NVR/DVR, centrale alarmowe, czujki ruchu i dymu, systemy ppoż, kontrola dostępu, domofony. Normy i projekty.
+        </div>
+        <div class="card-tags">
+            <span class="tag t-teal">CCTV</span>
+            <span class="tag t-teal">NVR/DVR</span>
+            <span class="tag t-teal">alarmy</span>
+            <span class="tag t-teal">ppoż</span>
+            <span class="tag t-teal">KD</span>
+            <span class="tag t-teal">domofony</span>
+        </div>
+        <div class="card-links">
+            <a href="monitoring/index.html" class="btn btn-main">📡 Otwórz kompendium →</a>
+        </div>
+    </div>
+
+    <!-- 7. SAMOCHODY -->
+    <div class="card c-orange" data-tags="samochody">
+        <div class="card-top">
+            <div class="card-icon">🚗</div>
+            <div class="card-head">
+                <div class="card-title">Naprawa i serwis samochodów</div>
+                <div class="card-latin">OBD2 · Mechanika · Elektryka · Diagnostyka</div>
+            </div>
+        </div>
+        <div class="card-desc">
+            Przewodnik po samodzielnej naprawie i serwisowaniu samochodów — diagnostyka OBD2, kody błędów, silnik, układ hamulcowy, zawieszenie, elektryka, chłodzenie, klimatyzacja, opony i harmonogram przeglądów.
+        </div>
+        <div class="card-tags">
+            <span class="tag t-orange">OBD2</span>
+            <span class="tag t-orange">silnik</span>
+            <span class="tag t-orange">hamulce</span>
+            <span class="tag t-orange">zawieszenie</span>
+            <span class="tag t-orange">elektryka</span>
+            <span class="tag t-orange">przeglądy</span>
+        </div>
+        <div class="card-links">
+            <a href="cars/index.html" class="btn btn-main">🚗 Otwórz przewodnik →</a>
+        </div>
+    </div>
+
+    <!-- 8. AGD -->
+    <div class="card c-red" data-tags="agd">
+        <div class="card-top">
+            <div class="card-icon">🏠</div>
+            <div class="card-head">
+                <div class="card-title">Naprawa sprzętu AGD i RTV</div>
+                <div class="card-latin">Pralki · Lodówki · Bojlery · TV · Narzędzia</div>
+            </div>
+        </div>
+        <div class="card-desc">
+            Kompendium napraw domowego sprzętu AGD i RTV — pralki, zmywarki, lodówki, piekarniki, bojlery, klimatyzatory pokojowe, telewizory LED, odkurzacze i narzędzia elektryczne. Kody błędów i diagnostyka.
+        </div>
+        <div class="card-tags">
+            <span class="tag t-red">pralka</span>
+            <span class="tag t-red">lodówka</span>
+            <span class="tag t-red">bojler</span>
+            <span class="tag t-red">TV LED</span>
+            <span class="tag t-red">klimatyzator</span>
+            <span class="tag t-red">kody błędów</span>
+        </div>
+        <div class="card-links">
+            <a href="agd/index.html" class="btn btn-main">🏠 Otwórz przewodnik →</a>
+        </div>
+    </div>
+
+</div><!-- /grid -->
+</div><!-- /container -->
+
+<footer>
+    Kompendium — Baza wiedzy · 2026 · Dokumentacja lokalna ·
+    <span style="color:var(--cyan)">8 działów</span>
+</footer>
+
+<script>
+(function(){
+    var btns = document.querySelectorAll('.ftag');
+    var cards = document.querySelectorAll('.card');
+    var active = 'all';
+
+    function apply(){
+        cards.forEach(function(c){
+            if(active === 'all'){ c.classList.remove('hidden'); return; }
+            var tags = (c.dataset.tags || '').split(' ');
+            c.classList.toggle('hidden', !tags.includes(active));
+        });
+        btns.forEach(function(b){ b.classList.toggle('on', b.dataset.tag === active); });
+    }
+
+    btns.forEach(function(b){
+        b.addEventListener('click', function(){
+            active = b.dataset.tag;
+            apply();
+        });
+    });
+})();
+</script>
+
+</body>
+</html>

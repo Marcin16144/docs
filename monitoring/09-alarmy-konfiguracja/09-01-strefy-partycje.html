@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09-01 — Strefy i partycje</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">09 Konfiguracja</a><span class="sep">/</span><span class="title">09-01 Strefy i partycje</span>
+</div>
+<div class="container">
+<h1>Strefy i partycje</h1>
+<p class="subtitle">Pojęcia fundamentalne dla konfiguracji systemu alarmowego. Strefa to linia czujki, partycja to grupa stref uzbrajana niezależnie od reszty.</p>
+
+<h2>Strefa (zone) — pojedyncza linia detekcji</h2>
+<p><strong>Strefa</strong> (zone, sektor) to elementarna jednostka logiczna w centrali — odpowiada jednemu wejściu na płycie centrali (lub ekspandera), do którego podłączona jest czujka. Każda strefa ma:</p>
+<ul>
+<li>numer (1, 2, 3... do limitu centrali — Integra 24 ma 24, Integra 256 ma 256)</li>
+<li>typ (np. opóźniona, 24h, natychmiastowa, techniczna)</li>
+<li>nazwę (np. „Drzwi wejściowe", „PIR salon", „Kontaktron garaż")</li>
+<li>przypisanie do partycji (jeśli system ma podział)</li>
+<li>parametry: czułość, opóźnienie, liczba pulsów, opcja bypass</li>
+</ul>
+
+<h2>Typy stref — czas reakcji i kontekst</h2>
+
+<h3>1. Opóźniona (delayed / entry-exit)</h3>
+<p>Czujka generuje alarm <strong>po upływie czasu opóźnienia</strong> (typowo 10–60 s). Pozwala wejść do obiektu i rozbroić centralę zanim ona wzbudzi syrenę.</p>
+<table>
+<thead><tr><th>Parametr</th><th>Typowa wartość</th><th>Uwagi</th></tr></thead>
+<tbody>
+<tr><td>Entry delay (czas na wejście)</td><td>30 s</td><td>od otwarcia drzwi do wpisania kodu</td></tr>
+<tr><td>Exit delay (czas na wyjście)</td><td>30–60 s</td><td>od uzbrojenia do opuszczenia obiektu</td></tr>
+<tr><td>Final door</td><td>opcja</td><td>centrala sama uzbroi się po zamknięciu drzwi</td></tr>
+</tbody>
+</table>
+<p>Zastosowanie: <strong>drzwi wejściowe</strong>, kontaktron głównego wejścia, PIR w korytarzu wejściowym (jeśli klawiatura jest dalej).</p>
+
+<h3>2. Natychmiastowa (instant)</h3>
+<p>Alarm <strong>od razu</strong> po wzbudzeniu (0 s opóźnienia). Standard dla większości czujek wnętrza i okien.</p>
+<p>Zastosowanie: <strong>PIR w pomieszczeniach</strong>, kontaktrony okien, kurtyny perymetru.</p>
+
+<h3>3. 24-godzinna (24h)</h3>
+<p>Aktywna <strong>zawsze</strong> — niezależnie od uzbrojenia centrali. Alarm wystąpi nawet gdy domownicy są w domu z rozbrojonym alarmem.</p>
+<table>
+<thead><tr><th>Sub-typ</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td><strong>24h sabotażowa</strong></td><td>tampery obudów czujek, syren, klawiatur, centrali</td></tr>
+<tr><td><strong>24h pożarowa</strong></td><td>czujki dymowe, CO, gazu — alarm głośny, inny ton, powiadomienie</td></tr>
+<tr><td><strong>24h napadowa (panic)</strong></td><td>przycisk napadowy pod biurkiem, kombinacja klawiszy na klawiaturze</td></tr>
+<tr><td><strong>24h techniczna</strong></td><td>zalanie, awaria PSU, brak komunikacji — alarm cichy, tylko SMS/push</td></tr>
+<tr><td><strong>24h medyczna</strong></td><td>przycisk dla osób starszych — wezwanie pomocy</td></tr>
+</tbody>
+</table>
+
+<h3>4. Wewnętrzna (interior)</h3>
+<p>Aktywna <strong>tylko gdy centrala uzbrojona pełnym uzbrojeniem</strong> (Full Arm). W trybie Stay/Home — automatycznie wykluczona.</p>
+<p>Zastosowanie: <strong>PIR-y w pokojach</strong>, w których przebywa się przy rozbrojonej części obiektu (sypialnie, salon przy obecności).</p>
+
+<h3>5. Cicha (silent / hold-up)</h3>
+<p>Alarm <strong>bez syreny</strong>, tylko transmisja do agencji ochrony i powiadomienie. Stosowany np. dla przycisku napadowego — żeby napastnik nie wiedział, że został zgłoszony.</p>
+
+<h3>6. Nocna (night / interior delay)</h3>
+<p>Strefa aktywna w trybie Night Arm, wykluczona w Stay. Typowo: PIR w korytarzach poza sypialniami — domownik mogą wstać do sypialni, ale ruch w salonie / kuchni wzbudza alarm.</p>
+
+<h3>7. Strefa zlicznika (chime)</h3>
+<p>Generuje krótki dźwięk klawiatury („dingdong") przy wzbudzeniu, ale <strong>bez alarmu</strong>. Funkcja sygnalizacji wejścia gościa (drzwi sklepu, recepcja).</p>
+
+<h2>Typy linii — jak czujka jest podłączona elektrycznie</h2>
+<p>Strefa to także konkretna konfiguracja elektryczna z punktu widzenia centrali:</p>
+<table>
+<thead><tr><th>Typ linii</th><th>Konfiguracja</th><th>Co wykrywa</th></tr></thead>
+<tbody>
+<tr><td><strong>NC</strong></td><td>styk normalnie zwarty</td><td>tylko alarm (przerwa) — brak detekcji sabotażu</td></tr>
+<tr><td><strong>NO</strong></td><td>styk normalnie otwarty</td><td>jw., rzadziej stosowany</td></tr>
+<tr><td><strong>EOL</strong> (1 rezystor)</td><td>R szeregowo z czujką (2k2 lub 5k6)</td><td>alarm (przerwa) + zwarcie (sabotaż linii)</td></tr>
+<tr><td><strong>2EOL</strong> (DEOL)</td><td>2 rezystory (alarm + tamper)</td><td>alarm + sabotaż na tych samych 2 żyłach</td></tr>
+<tr><td><strong>NC+TMP</strong></td><td>4 żyły, osobne pary alarm + sabotaż</td><td>jak 2EOL, ale przez 4 żyły</td></tr>
+</tbody>
+</table>
+<div class="callout">Dla nowych instalacji standard to <strong>2EOL z rezystorami 1k1+1k1</strong> (Satel) lub 5k6+5k6 (DSC). Daje 4 stany na 2 żyłach: normalny, alarm, sabotaż, zwarcie.</div>
+
+<h2>Partycja (partition / subsystem) — niezależnie uzbrajana grupa stref</h2>
+<p><strong>Partycja</strong> to wirtualny podział obiektu — każda partycja ma własne kody, własny stan (uzbrojona / rozbrojona), własne strefy. Pozwala na:</p>
+<ul>
+<li>Uzbrojenie <strong>tylko garażu</strong> w nocy gdy domownicy są w głównej części domu</li>
+<li>Uzbrojenie <strong>tylko piwnicy / pomieszczeń biurowych</strong>, gdy reszta jest w użyciu</li>
+<li>Osobne uzbrojenie <strong>parteru i piętra</strong> (dwie rodziny w jednym domu)</li>
+<li>Wynajem części obiektu — najemca uzbraja <strong>tylko swoją partycję</strong>, nie ma dostępu do reszty</li>
+</ul>
+
+<h2>Przykład podziału partycji — dom jednorodzinny</h2>
+<pre><code>PARTYCJA 1 — DOM (parter + piętro)
+  ├─ Strefa 1: Drzwi wejściowe (opóźniona, 30s)
+  ├─ Strefa 2: Drzwi tarasu (natychmiastowa)
+  ├─ Strefa 3: PIR salon (wewnętrzna)
+  ├─ Strefa 4: PIR kuchnia (wewnętrzna)
+  ├─ Strefa 5: PIR korytarz parter (nocna)
+  ├─ Strefa 6: Kontaktrony okien parter (natychmiastowa)
+  ├─ Strefa 7: PIR sypialnia (wewnętrzna, wyklucz w stay)
+  └─ Strefa 8: PIR pokój dzieci (wewnętrzna, wyklucz w stay)
+
+PARTYCJA 2 — GARAŻ + KOTŁOWNIA
+  ├─ Strefa 9: Kontaktron brama garażowa (opóźniona 60s)
+  ├─ Strefa 10: PIR garaż dual (natychmiastowa)
+  ├─ Strefa 11: Czujka zalania kotłownia (24h tech.)
+  └─ Strefa 12: Czujka gazu CH4 (24h pożarowa)
+
+PARTYCJA 3 — BIURO/GABINET (osobne wejście)
+  ├─ Strefa 13: Drzwi biura (opóźniona)
+  ├─ Strefa 14: PIR biuro (wewnętrzna)
+  └─ Strefa 15: Kontaktron sejf (24h alarmowa)
+
+STREFA WSPÓLNA (24h, na wszystkie partycje)
+  ├─ Strefa 16: Tampers wszystkich obudów
+  ├─ Strefa 17: Czujka pożarowa parter (24h ppoż)
+  └─ Strefa 18: Przycisk napadowy (24h cicha)</code></pre>
+
+<h2>Pula stref vs partycji w typowych centralach</h2>
+<table>
+<thead><tr><th>Centrala</th><th>Strefy</th><th>Partycje</th><th>Klawiatury</th></tr></thead>
+<tbody>
+<tr><td>Satel INTEGRA 24</td><td>24</td><td>4</td><td>4</td></tr>
+<tr><td>Satel INTEGRA 32</td><td>32</td><td>16</td><td>8</td></tr>
+<tr><td>Satel INTEGRA 64</td><td>64</td><td>32</td><td>8</td></tr>
+<tr><td>Satel INTEGRA 128</td><td>128</td><td>32</td><td>8</td></tr>
+<tr><td>Satel INTEGRA 256 Plus</td><td>256</td><td>32</td><td>16</td></tr>
+<tr><td>DSC PowerSeries Neo HS2016</td><td>16 (do 128)</td><td>4</td><td>8</td></tr>
+<tr><td>DSC PowerSeries Neo HS2128</td><td>128</td><td>8</td><td>16</td></tr>
+<tr><td>Risco LightSYS Plus</td><td>512</td><td>32</td><td>32</td></tr>
+<tr><td>Jablotron JA-101K</td><td>50</td><td>4</td><td>4</td></tr>
+<tr><td>Jablotron JA-103K</td><td>120</td><td>15</td><td>10</td></tr>
+</tbody>
+</table>
+
+<h2>Bypass — wykluczanie strefy</h2>
+<p><strong>Bypass</strong> = chwilowe wyłączenie strefy z uzbrojenia bez dezaktywacji całej centrali. Stosowane gdy:</p>
+<ul>
+<li>czujka jest uszkodzona (czeka na serwis) — żeby nie blokować uzbrojenia całej partycji</li>
+<li>w nocy ktoś musi swobodnie przemieszczać się po pomieszczeniu z PIR</li>
+<li>chwilowo szczeniak (zwierzę) nie ma „pet-immune" pokrycia</li>
+</ul>
+<p>Bypass robi się z klawiatury (przed uzbrojeniem). Po rozbrojeniu — bypass automatycznie się kasuje.</p>
+<div class="warning">Nie należy stosować bypassu jako <strong>długoterminowego rozwiązania</strong>. Awaria czujki = napraw lub wymień, a nie „omijaj na stałe". W historii zdarzeń bypass jest widoczny — ślad dla SMA i audytu.</div>
+
+<h2>Strefy wspólne i przypisanie do wielu partycji</h2>
+<p>Niektóre strefy logicznie należą do <strong>wszystkich partycji</strong>:</p>
+<ul>
+<li>czujki sabotażu obudów (wszędzie i zawsze 24h)</li>
+<li>czujki dymowe (pożar — całe obiekt)</li>
+<li>czujki gazu, zalania (techniczne — całe obiekt)</li>
+<li>kontaktrony drzwi pomieszczeń wspólnych (np. hala) w obiektach wieloskośnych</li>
+</ul>
+<p>W centrali Integra strefa może być przypisana do wielu partycji jednocześnie. W DSC PowerSeries — pojedyncza strefa do max 8 partycji.</p>
+
+<h2>Strefy bezprzewodowe vs przewodowe</h2>
+<table>
+<thead><tr><th>Typ</th><th>Plus</th><th>Minus</th></tr></thead>
+<tbody>
+<tr><td>Przewodowa</td><td>brak baterii, niezawodność, brak fałszywek radiowych</td><td>okablowanie inwazyjne, koszt montażu</td></tr>
+<tr><td>Bezprzewodowa</td><td>łatwy montaż w gotowym budynku, estetyczna</td><td>baterie do wymiany 2–5 lat, ryzyko jammingu</td></tr>
+</tbody>
+</table>
+<p>Większość central nowoczesnych jest hybrydowa — można mieszać czujki przewodowe i bezprzewodowe. Satel ABAX2, DSC PowerG, Risco WiComm.</p>
+
+<div class="nav-bottom">
+<a href="index.html">⟵ Spis sekcji 09</a>
+<a href="09-02-scenariusze-uzbrojenia.html">Scenariusze uzbrojenia →</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audius — SEO + integracja API</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #555;
+    --accent: #7c3aed;
+    --accent-2: #9d5cf0;
+    --code-bg: #f5f5f7;
+    --code-fg: #c7254e;
+    --border: #e3e3e3;
+    --table-head: #fafafa;
+    --warning-bg: #f3eefe;
+    --warning-border: #7c3aed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --fg: #e8e8e8;
+      --muted: #aaa;
+      --accent: #a78bfa;
+      --accent-2: #c4b5fd;
+      --code-bg: #2a2a2a;
+      --code-fg: #ff9999;
+      --border: #3a3a3a;
+      --table-head: #252525;
+      --warning-bg: #2a2140;
+      --warning-border: #a78bfa;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 4rem;
+  }
+  h1 {
+    color: var(--accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 0.5rem;
+    margin-top: 0;
+  }
+  h2 {
+    color: var(--accent);
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  h3 { margin-top: 1.75rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.92em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    font-size: 0.88em;
+    line-height: 1.5;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; font-size: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.94em; }
+  th, td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+  th { background: var(--table-head); font-weight: 600; }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.25rem 0; }
+  blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 0.6rem 1rem;
+    margin: 1rem 0;
+    color: var(--fg);
+    background: var(--warning-bg);
+  }
+  .meta { color: var(--muted); font-size: 0.9em; margin-bottom: 2rem; }
+  .toc { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.5rem; margin: 1.5rem 0 2.5rem; }
+  .toc h3 { margin: 0 0 0.5rem; font-size: 1em; }
+  .toc ol { margin: 0; padding-left: 1.25rem; }
+  strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>Audius — SEO + integracja API</h1>
+<p class="meta">SoundCloud-like platforma z DZIAŁAJĄCYM API uploadu + SDK do automatyzacji.</p>
+
+<blockquote>
+<strong>TL;DR:</strong> Audius to <strong>najbliższy duchem odpowiednik SoundCloud z DZIAŁAJĄCYM API uploadu</strong> — w przeciwieństwie do hearthis (read-only) i Deezer/Spotify (brak uploadu). <strong>Rejestracja apki jest OTWARTA</strong> (SoundCloud i Deezer często ją zamykają). Darmowy, decentralizowany (Web3), z oficjalnym <strong>JavaScript SDK</strong> do automatyzacji. Idealny do programowego wrzucania części z Twoich 268 utworów + silna społeczność electronic/deep house.
+</blockquote>
+
+<nav class="toc">
+  <h3>Spis treści</h3>
+  <ol>
+    <li><a href="#vs">Audius vs SoundCloud</a></li>
+    <li><a href="#why">Dlaczego Audius dla Ciebie</a></li>
+    <li><a href="#setup">Setup API — krok po kroku</a></li>
+    <li><a href="#sdk">Instalacja SDK</a></li>
+    <li><a href="#upload">Upload utworu — pełny przykład</a></li>
+    <li><a href="#metadata">Metadata — pola i wartości</a></li>
+    <li><a href="#seo">SEO / discovery na Audius</a></li>
+    <li><a href="#mapping">Mapping katalogu</a></li>
+    <li><a href="#automation">Automatyzacja bulk upload</a></li>
+    <li><a href="#web3">Web3 — co musisz wiedzieć</a></li>
+    <li><a href="#checklist">Checklist publikacji</a></li>
+    <li><a href="#ecosystem">Mapa ekosystemu</a></li>
+    <li><a href="#sources">Źródła</a></li>
+  </ol>
+</nav>
+
+<h2 id="vs">1. Audius vs SoundCloud (kontekst strategiczny)</h2>
+<table>
+  <thead>
+    <tr><th>Cecha</th><th>Audius</th><th>SoundCloud</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Upload przez API</td><td>✅ <strong>SDK (<code>createTrack</code>)</strong></td><td>✅ OAuth (<code>POST /tracks</code>)</td></tr>
+    <tr><td>Rejestracja apki</td><td>✅ <strong>OTWARTA</strong></td><td>⚠️ często zamknięta</td></tr>
+    <tr><td>Koszt</td><td>✅ Darmowy</td><td>Free + Pro płatny</td></tr>
+    <tr><td>Model</td><td>Decentralizowany (Web3)</td><td>Korporacyjny</td></tr>
+    <tr><td>Społeczność</td><td>Electronic / EDM / deep house</td><td>Szeroka, mainstream</td></tr>
+    <tr><td>Payout dla artystów</td><td>Wyższy (brak pośrednika)</td><td>Niższy</td></tr>
+    <tr><td>Free API limit</td><td><strong>10 req/s, 500k/mc</strong></td><td>Limity OAuth</td></tr>
+    <tr><td>Web3 wymagane?</td><td>❌ Nie musisz znać krypto</td><td>—</td></tr>
+  </tbody>
+</table>
+<p><strong>Werdykt:</strong> Audius = <strong>drugie najważniejsze miejsce po SoundCloud</strong> dla Twojego API workflow. Otwarta rejestracja apki to przewaga — możesz zacząć od razu.</p>
+
+<h2 id="why">2. Dlaczego Audius dla Ciebie</h2>
+<ol>
+  <li><strong>Otwarta rejestracja API</strong> — zaczynasz dziś, bez czekania (SC/Deezer gatekeepują).</li>
+  <li><strong>JS SDK</strong> — automatyzacja uploadu (czego nie zrobisz na hearthis bez browser automation).</li>
+  <li><strong>Electronic community</strong> — deep house ma naturalną publikę; Audius wyrósł na EDM/electronic.</li>
+  <li><strong>Pełna metadata</strong> — title, genre, mood, tags, description, releaseDate, cover, remix tracking.</li>
+  <li><strong>Wyższe payouty</strong> — model decentralizowany, mniej pośredników.</li>
+  <li><strong>Bulk upload</strong> — idealny do przeniesienia best-of z 268 utworów programowo.</li>
+</ol>
+
+<h2 id="setup">3. Setup API — krok po kroku</h2>
+<h3>3.1. Utwórz developer app</h3>
+<pre><code>1. Zaloguj się na audius.co (konto Maximum Music Maxx)
+2. Settings → "Manage Your Apps"
+3. "Create new developer app"
+4. Otrzymujesz: API Key + API Secret</code></pre>
+
+<h3>3.2. Autoryzacja</h3>
+<ul>
+  <li><strong>API Key + Bearer Token</strong> identyfikują aplikację i autoryzują zapis.</li>
+  <li><strong>Operacje zapisu (upload) wymagają autoryzacji użytkownika</strong> — przez "Log in with Audius" (OAuth) lub własne dane konta.</li>
+  <li>Read-only (search, feeds) — bez autoryzacji użytkownika.</li>
+</ul>
+
+<h3>3.3. Limity (Free Plan)</h3>
+<ul>
+  <li><strong>10 requestów/sekundę</strong></li>
+  <li><strong>500 000 requestów/miesiąc</strong></li>
+  <li>Unlimited Plan — bez limitu (jeśli kiedyś potrzebne)</li>
+</ul>
+
+<h2 id="sdk">4. Instalacja SDK</h2>
+<pre><code>npm install @audius/sdk</code></pre>
+
+<h3>Inicjalizacja (backend / Node.js)</h3>
+<pre><code>import { sdk } from '@audius/sdk'
+
+const audiusSdk = sdk({
+  apiKey: 'YOUR_API_KEY',
+  bearerToken: 'YOUR_BEARER_TOKEN', // z autoryzacji użytkownika
+})</code></pre>
+<blockquote><code>apiKey</code> trzymaj po stronie serwera. Nigdy w frontendzie.</blockquote>
+
+<h2 id="upload">5. Upload utworu — pełny przykład (3 kroki)</h2>
+<p>Audius rozdziela upload na: <strong>audio → cover art → metadata</strong>.</p>
+<pre><code>import fs from 'node:fs'
+
+// KROK 1: Upload pliku audio
+const trackBuffer = fs.readFileSync('path/to/journey-time-and-space-2026.mp3')
+const audioUpload = audiusSdk.uploads.createAudioUpload({
+  file: {
+    buffer: Buffer.from(trackBuffer),
+    name: 'journey-time-and-space-2026.mp3',
+    type: 'audio/mpeg',
+  },
+  previewStartSeconds: 30, // 30-sek preview (opcjonalne)
+})
+const audioResult = await audioUpload.start()
+
+// KROK 2: Upload cover art
+const coverArtBuffer = fs.readFileSync('path/to/cover.png')
+const imageUpload = audiusSdk.uploads.createImageUpload({
+  file: {
+    buffer: Buffer.from(coverArtBuffer),
+    name: 'cover.png',
+    type: 'image/png',
+  },
+})
+const coverArtCid = await imageUpload.start()
+
+// KROK 3: Utwórz track z metadanymi
+const { data } = await audiusSdk.tracks.createTrack({
+  userId: 'YOUR_USER_ID',
+  metadata: {
+    title: 'The Journey In the Time and Space (2026 Version)',
+    description: 'Instrumental progressive / cosmic deep house...',
+    genre: 'Deep House',
+    mood: 'Yearning',
+    tags: 'deep house, progressive deep house, cosmic house, melodic, instrumental, 2026',
+    releaseDate: '2026-05-28',
+    ...audioResult,
+    coverArtSizes: coverArtCid,
+  },
+})</code></pre>
+<p><strong>Formaty audio:</strong> MP3 (audio/mpeg), WAV, FLAC, AAC, OGG.<br>
+<strong>Cover art:</strong> PNG/JPG, min. 1000×1000 (zalecane).</p>
+
+<h2 id="metadata">6. Metadata — pola i wartości</h2>
+<h3>Pola</h3>
+<table>
+  <thead>
+    <tr><th>Pole</th><th>Wymagane</th><th>Opis</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>title</code></td><td>✅</td><td>Tytuł utworu</td></tr>
+    <tr><td><code>genre</code></td><td>✅</td><td>Z enum Audius (patrz niżej)</td></tr>
+    <tr><td><code>mood</code></td><td>opcjonalne</td><td>Z enum Audius</td></tr>
+    <tr><td><code>tags</code></td><td>opcjonalne</td><td>String oddzielony przecinkami</td></tr>
+    <tr><td><code>description</code></td><td>opcjonalne</td><td>Opis (bilingual PL/EN OK)</td></tr>
+    <tr><td><code>releaseDate</code></td><td>opcjonalne</td><td><code>YYYY-MM-DD</code>, nie w przyszłości</td></tr>
+    <tr><td><code>coverArtSizes</code></td><td>✅</td><td>CID z image upload</td></tr>
+    <tr><td><code>previewStartSeconds</code></td><td>opcjonalne</td><td>Start 30-sek preview</td></tr>
+    <tr><td><code>isStreamGated</code> / <code>isDownloadGated</code></td><td>opcjonalne</td><td>Monetyzacja (tip/USDC)</td></tr>
+    <tr><td><code>remixOf</code></td><td>opcjonalne</td><td>Parent track (dla remixów)</td></tr>
+  </tbody>
+</table>
+
+<h3>Genre — relevantne dla Ciebie</h3>
+<p>Audius ma enum gatunków. Dla Twojego katalogu:</p>
+<ul>
+  <li><strong><code>Deep House</code></strong> ← główny (3-bucket rule)</li>
+  <li><code>House</code></li>
+  <li><code>Techno</code></li>
+  <li><code>Progressive House</code></li>
+  <li><code>Tech House</code></li>
+  <li><code>Ambient</code></li>
+  <li><code>Downtempo</code></li>
+  <li><code>Electronic</code> (fallback)</li>
+</ul>
+<blockquote>Pełną listę sprawdź w SDK (<code>Genre</code> enum) — Audius ma rozbudowaną taksonomię electronic.</blockquote>
+
+<h3>Mood — relevantne dla Twoich utworów</h3>
+<table>
+  <thead>
+    <tr><th>Twój utwór</th><th>Sugerowany mood</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>The Journey (cosmic)</td><td><code>Yearning</code> lub <code>Cool</code></td></tr>
+    <tr><td>Old Love (emocjonalny sunset)</td><td><code>Sentimental</code> lub <code>Romantic</code></td></tr>
+    <tr><td>Far Far Away (dreamy)</td><td><code>Peaceful</code> lub <code>Tender</code></td></tr>
+    <tr><td>Deep Water (melancholic)</td><td><code>Melancholy</code> lub <code>Brooding</code></td></tr>
+    <tr><td>Time To Speed Up (driving)</td><td><code>Energizing</code> lub <code>Fiery</code></td></tr>
+    <tr><td>Let's Talk About Music (sunny)</td><td><code>Upbeat</code> lub <code>Easygoing</code></td></tr>
+    <tr><td>Fantastic World (café)</td><td><code>Easygoing</code> lub <code>Cool</code></td></tr>
+    <tr><td>Lunar Harmony (ambient)</td><td><code>Peaceful</code></td></tr>
+  </tbody>
+</table>
+<blockquote>Mood to <strong>Audius-specific feature</strong> — używaj go, bo Audius filtruje/rekomenduje po mood.</blockquote>
+
+<h2 id="seo">7. SEO / discovery na Audius</h2>
+<h3>Co działa</h3>
+<ol>
+  <li><strong>Genre + Mood precyzyjnie</strong> — Audius mocno filtruje feed po gatunku i nastroju. Dokładny genre + mood = lepsze trafienie do publiki.</li>
+  <li><strong>Tags</strong> — string z przecinkami, jak na hearthis. Mix szeroki + niszowy.</li>
+  <li><strong>Trending</strong> — Audius ma Trending per genre. Wczesne odtworzenia + reposty (jak na SC) podbijają.</li>
+  <li><strong>Reposty + favoryty</strong> — silny sygnał w sieci Audius.</li>
+  <li><strong>Playlisty</strong> — twórz i dołączaj (mood-series jak na innych platformach).</li>
+  <li><strong>Spójny cover</strong> — cross-platform branding (te same artworky co SC/YT).</li>
+</ol>
+<h3>Co inne niż SC</h3>
+<ul>
+  <li><strong>Web3 native audience</strong> — bardziej tech-savvy, electronic-focused. Mniej mainstreamu, więcej niszy.</li>
+  <li><strong>$AUDIO rewards</strong> — aktywność bywa nagradzana tokenami. Nie musisz tego ogarniać, ale to bonus.</li>
+  <li><strong>Brak "share to download" spamu</strong> jak na hearthis — czystszy feed.</li>
+</ul>
+<h3>Tagi — format (przecinki, jak hearthis)</h3>
+<pre><code>deep house, progressive deep house, cosmic house, melodic deep house, instrumental, electronic, deep house 2026, melodic</code></pre>
+
+<h2 id="mapping">8. Mapping katalogu na Audius</h2>
+<table>
+  <thead>
+    <tr><th>Utwór</th><th>Genre</th><th>Mood</th><th>Priorytet</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>The Journey (2026)</td><td>Deep House</td><td>Yearning</td><td>🟢 wysoki (flagship cover)</td></tr>
+    <tr><td>The Locomotive</td><td>Deep House</td><td>Fiery</td><td>🟢 wysoki (best performer)</td></tr>
+    <tr><td>Deep Water (Ext)</td><td>Deep House</td><td>Melancholy</td><td>🟢 wysoki</td></tr>
+    <tr><td>Far Far Away</td><td>Deep House</td><td>Peaceful</td><td>🟡 średni</td></tr>
+    <tr><td>Old Love</td><td>Deep House</td><td>Sentimental</td><td>🟡 średni</td></tr>
+    <tr><td>Time To Speed Up</td><td>Deep House</td><td>Energizing</td><td>🟡 średni</td></tr>
+    <tr><td>Lunar Harmony</td><td>Ambient</td><td>Peaceful</td><td>🟡 średni (sync)</td></tr>
+    <tr><td>Let's Talk (sunny)</td><td>Deep House</td><td>Upbeat</td><td>🟢 sezonowy (lato)</td></tr>
+    <tr><td>Fantastic World</td><td>Deep House</td><td>Easygoing</td><td>🟡 średni</td></tr>
+  </tbody>
+</table>
+<p><strong>Strategia:</strong> zacznij od <strong>best-of 10-15</strong> (jak na SC), nie wszystkich 268. Audius nagradza jakość + spójność, nie ilość.</p>
+
+<h2 id="automation">9. Automatyzacja bulk upload (przewaga Audius)</h2>
+<p>Tu Audius bije hearthis — <strong>możesz uploadować programowo</strong>. Wzorzec:</p>
+<pre><code>import fs from 'node:fs'
+
+const catalog = JSON.parse(fs.readFileSync('catalog.json', 'utf-8'))
+// catalog.json: [{ file, cover, title, genre, mood, tags, description, releaseDate }, ...]
+
+for (const track of catalog) {
+  try {
+    // 1. audio
+    const audioUpload = audiusSdk.uploads.createAudioUpload({
+      file: {
+        buffer: Buffer.from(fs.readFileSync(track.file)),
+        name: track.file.split('/').pop(),
+        type: 'audio/mpeg',
+      },
+      previewStartSeconds: 30,
+    })
+    const audioResult = await audioUpload.start()
+
+    // 2. cover
+    const imageUpload = audiusSdk.uploads.createImageUpload({
+      file: {
+        buffer: Buffer.from(fs.readFileSync(track.cover)),
+        name: track.cover.split('/').pop(),
+        type: 'image/png',
+      },
+    })
+    const coverArtCid = await imageUpload.start()
+
+    // 3. track
+    await audiusSdk.tracks.createTrack({
+      userId: process.env.AUDIUS_USER_ID,
+      metadata: {
+        title: track.title,
+        description: track.description,
+        genre: track.genre,
+        mood: track.mood,
+        tags: track.tags,
+        releaseDate: track.releaseDate,
+        ...audioResult,
+        coverArtSizes: coverArtCid,
+      },
+    })
+    console.log(`✅ Uploaded: ${track.title}`)
+    await new Promise(r =&gt; setTimeout(r, 2000)) // backoff (10 req/s limit)
+  } catch (e) {
+    console.error(`❌ Failed: ${track.title}`, e.message)
+  }
+}</code></pre>
+<p><strong>Higiena:</strong></p>
+<ul>
+  <li><strong>Backoff</strong> między uploadami (limit 10 req/s, ale upload to ciężka operacja — daj 2-5s).</li>
+  <li><strong>Clean filenames</strong> (slug hygiene jak wszędzie).</li>
+  <li><strong>Try/catch per track</strong> — jeden błąd nie zatrzymuje całej pętli.</li>
+  <li><strong>Loguj wyniki</strong> do pliku — wiesz co weszło.</li>
+  <li><strong>Trzymaj <code>apiKey</code> + <code>bearerToken</code> w env</strong>, nie w kodzie.</li>
+</ul>
+
+<h2 id="web3">10. Web3 — co musisz wiedzieć (mało)</h2>
+<ul>
+  <li><strong>Nie musisz znać krypto</strong> by uploadować i budować publikę.</li>
+  <li>Konto Audius = email/hasło (jak normalna platforma) LUB wallet.</li>
+  <li><strong>$AUDIO token</strong> — możesz dostawać za aktywność/popularność, ale to opcjonalny bonus, nie wymóg.</li>
+  <li><strong>Monetyzacja</strong> (stream/download gating za USDC) — opcjonalna, dla zaawansowanych. Na start: zwykły darmowy upload.</li>
+</ul>
+
+<h2 id="checklist">11. Checklist publikacji na Audius</h2>
+<ul style="list-style:none;padding-left:0">
+  <li>☐ <strong>Developer app</strong> utworzona (Settings → Manage Your Apps) → API Key + Secret</li>
+  <li>☐ <strong>SDK</strong> zainstalowane (<code>npm install @audius/sdk</code>)</li>
+  <li>☐ <strong>Autoryzacja użytkownika</strong> (bearer token) skonfigurowana</li>
+  <li>☐ <strong>Clean filename</strong> audio (slug hygiene)</li>
+  <li>☐ <strong>Genre</strong> z 3-bucket rule (<code>Deep House</code> / <code>House</code> / <code>Ambient</code>)</li>
+  <li>☐ <strong>Mood</strong> dobrany do utworu (Audius-specific!)</li>
+  <li>☐ <strong>Tags</strong> (przecinki, niche + broad)</li>
+  <li>☐ <strong>Description</strong> bilingual PL/EN</li>
+  <li>☐ <strong>Cover</strong> spójny z SC/YT (cross-platform branding)</li>
+  <li>☐ <strong>releaseDate</strong> ustawiona (nie w przyszłości)</li>
+  <li>☐ <strong>Backoff</strong> w pętli przy bulk upload</li>
+</ul>
+
+<h2 id="ecosystem">12. Mapa ekosystemu (zaktualizowana)</h2>
+<pre><code>Upload bezpośredni (Ty / API):
+  • SoundCloud   → best-of single (API OAuth, gdy otwarte)
+  • Audius       → katalog + automatyzacja (API SDK, OTWARTE) ← NOWE
+  • Mixcloud     → DJ mixy (API, sections/tracklist)
+  • hearthis.at  → archiwum (manual, brak upload API)
+  • YouTube      → wideo + visualizer (manual)
+
+Przez dystrybutora (RouteNote / Amuse):
+  • Spotify, Apple Music, Deezer, Tidal</code></pre>
+<p><strong>Audius = jedyna platforma z OTWARTYM API uploadu + SDK do automatyzacji.</strong> Najlepszy kandydat do programowego zarządzania katalogiem.</p>
+
+<h2 id="sources">Źródła</h2>
+<ul>
+  <li><a href="https://audius.org/api/">Audius — API</a></li>
+  <li><a href="https://docs.audius.co/">Audius Developer Docs — Getting Started</a></li>
+  <li><a href="https://docs.audius.co/developers/upload-track-metadata/">Audius Dev Docs — Upload Track Metadata</a></li>
+  <li><a href="https://docs.audius.co/sdk/">Audius — JavaScript SDK</a></li>
+  <li><a href="https://docs.audius.co/sdk/uploads">Audius SDK — Uploads</a></li>
+  <li><a href="https://www.npmjs.com/package/@audius/sdk">Audius SDK — npm @audius/sdk</a></li>
+  <li><a href="https://github.com/AudiusProject/api-docs">Audius API Docs — GitHub</a></li>
+  <li><a href="https://musicfetch.io/services/audius/api">Musicfetch — Does Audius have an API?</a></li>
+</ul>
+
+</body>
+</html>

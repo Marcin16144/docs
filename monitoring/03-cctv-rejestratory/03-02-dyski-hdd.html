@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03-02 — Dyski HDD Surveillance</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#60a5fa;--accent-hover:#93c5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:820px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:8px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:40px;opacity:.8}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:rgba(96,165,250,.03)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.9rem;line-height:1.55}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="../index.html">🛡️ Monitoring</a><span class="sep">/</span><a href="index.html">03 Rejestratory CCTV</a><span class="sep">/</span><span class="title">03-02 Dyski HDD</span>
+</div>
+<div class="container">
+<h1>Dyski HDD Surveillance</h1>
+<p class="subtitle">WD Purple, Seagate SkyHawk, Toshiba S300 — dyski projektowane pod ciągły zapis 24/7. Dlaczego nie wolno wkładać dysku desktopowego do rejestratora, jak policzyć potrzebną pojemność i czym jest workload rating oraz MTBF.</p>
+<p class="updated">Aktualizacja: 2026-05</p>
+
+<h2>Dlaczego dysk „surveillance"</h2>
+<p>System CCTV zapisuje obraz <strong>bez przerwy, 24 godziny na dobę, 365 dni w roku</strong>. To zupełnie inny profil pracy niż komputer biurowy, który leży bezczynnie nocą. Dyski monitoringowe (WD Purple, Seagate SkyHawk, Toshiba S300) projektowane są właśnie pod ten ciągły, sekwencyjny strumień zapisu. Kluczowe cechy:</p>
+<ul>
+<li><strong>Workload 24/7</strong> — przystosowane do nieprzerwanej pracy, w przeciwieństwie do dysków desktop liczonych na ~2400 h/rok.</li>
+<li><strong>Firmware ATA Streaming</strong> — priorytet dla płynnego strumienia wideo zamiast bezbłędnego odczytu pojedynczego sektora; dysk nie „zawiesza się" na długiej korekcji błędu, by nie gubić klatek.</li>
+<li><strong>Obsługa wielu strumieni</strong> — WD Purple do <strong>64 kamer</strong> (technologia AllFrame), SkyHawk do 64 kamer (ImagePerfect) — wiele jednoczesnych zapisów to losowy, nie czysto sekwencyjny dostęp.</li>
+<li><strong>Tolerancja ciepła</strong> — rejestratory bywają w ciasnych szafkach bez wentylacji; dyski surveillance znoszą wyższe temperatury otoczenia.</li>
+<li><strong>Niska wibracja / czujniki RV</strong> — modele PRO mają czujniki rotational vibration do pracy w macierzach wielodyskowych, gdzie drgania sąsiednich talerzy zaburzają pozycjonowanie głowic.</li>
+</ul>
+<div class="callout">Dyski monitoringowe są zoptymalizowane pod <strong>zapis</strong> (write-heavy ~90%). Odczyt zdarza się tylko przy odtwarzaniu archiwum. To odwrotnie niż w NAS-ie czy serwerze plików.</div>
+
+<h2>Dyski monitoringowe — modele i ceny 2026</h2>
+<table>
+<thead><tr><th>Model</th><th>Pojemności</th><th>Workload (TB/rok)</th><th>RPM / cache</th><th>Maks. kamer</th><th>Cena (2026)</th></tr></thead>
+<tbody>
+<tr><td><strong>WD Purple</strong></td><td>1–8 TB</td><td>180 TB/rok</td><td>5400 / 64–256 MB</td><td>do 64</td><td>2 TB ~290 zł · 4 TB ~440 zł · 8 TB ~820 zł</td></tr>
+<tr><td><strong>WD Purple Pro</strong></td><td>8–22 TB</td><td>550 TB/rok</td><td>7200 / 256–512 MB</td><td>do 64 + AI/deep learning</td><td>8 TB ~990 zł · 12 TB ~1450 zł · 18 TB ~2100 zł · 22 TB ~2650 zł</td></tr>
+<tr><td><strong>Seagate SkyHawk</strong></td><td>1–8 TB</td><td>180 TB/rok</td><td>5400–7200 / 64–256 MB</td><td>do 64</td><td>2 TB ~280 zł · 4 TB ~430 zł · 8 TB ~810 zł</td></tr>
+<tr><td><strong>Seagate SkyHawk AI</strong></td><td>8–24 TB</td><td>550 TB/rok</td><td>7200 / 256–512 MB</td><td>32 HD + 32 AI stream</td><td>10 TB ~1250 zł · 16 TB ~1950 zł · 24 TB ~2950 zł</td></tr>
+<tr><td><strong>Toshiba S300</strong></td><td>1–6 TB</td><td>180 TB/rok</td><td>5400–5700 / 64–128 MB</td><td>do 64</td><td>2 TB ~270 zł · 4 TB ~420 zł · 6 TB ~620 zł</td></tr>
+<tr><td><strong>Toshiba S300 Pro</strong></td><td>4–10 TB</td><td>180–300 TB/rok</td><td>7200 / 256 MB</td><td>do 64</td><td>8 TB ~880 zł · 10 TB ~1150 zł</td></tr>
+</tbody>
+</table>
+<div class="tip">Linie <strong>„Pro" / „AI"</strong> (Purple Pro, SkyHawk AI) różnią się nie tylko pojemnością — mają wyższy workload (550 vs 180 TB/rok), 7200 RPM, czujniki wibracji RV i obsługę dodatkowych strumieni AI z kamer. Wybierz je dla macierzy ≥ 8 dysków lub gdy NVR prowadzi analizę deep-learning.</div>
+
+<h2>MTBF i workload rating</h2>
+<p>Dwa parametry niezawodności, których nie wolno mylić:</p>
+<ul>
+<li><strong>MTBF (Mean Time Between Failures)</strong> — statystyczny średni czas między awariami, np. <strong>1 000 000 h</strong> (Purple) lub <strong>2 000 000 h</strong> (Purple Pro / SkyHawk AI). To wartość populacyjna, NIE gwarancja, że dany egzemplarz przeżyje 114 lat — oznacza, że w dużej populacji dysków taki jest średni odstęp awarii.</li>
+<li><strong>Workload rating (TB/rok)</strong> — ile danych dysk może bezpiecznie zapisać/odczytać rocznie w ramach gwarancji. Przekroczenie skraca żywotność i bywa podstawą odrzucenia reklamacji.</li>
+</ul>
+<table>
+<thead><tr><th>Klasa</th><th>Workload</th><th>MTBF</th><th>Gwarancja</th></tr></thead>
+<tbody>
+<tr><td>WD Purple</td><td>180 TB/rok</td><td>1,0 mln h</td><td>3 lata</td></tr>
+<tr><td>WD Purple Pro</td><td>550 TB/rok</td><td>2,5 mln h</td><td>5 lat</td></tr>
+<tr><td>Seagate SkyHawk</td><td>180 TB/rok</td><td>1,0 mln h</td><td>3 lata</td></tr>
+<tr><td>Seagate SkyHawk AI</td><td>550 TB/rok</td><td>2,0 mln h</td><td>5 lat (+ Rescue 3 lata)</td></tr>
+<tr><td>Toshiba S300 (Pro)</td><td>180 / 300 TB/rok</td><td>1,0 / 1,2 mln h</td><td>3 lata</td></tr>
+</tbody>
+</table>
+<div class="callout"><strong>Czy 180 TB/rok wystarczy?</strong> 8 kamer 4MP @ 4 Mbps zapisywanych ciągle = ok. 126 TB zapisu rocznie na cały system. Rozłożone na 1 dysk to mieści się w 180 TB/rok. Ale przy dużych systemach i ciągłym nadpisywaniu szybko zbliżasz się do limitu — wtedy klasa Pro (550 TB/rok) jest bezpieczniejsza.</div>
+
+<h2>Dlaczego NIE dysk desktop ani NAS</h2>
+<table>
+<thead><tr><th>Klasa dysku</th><th>Przykład</th><th>Profil pracy</th><th>Dlaczego nie do CCTV</th></tr></thead>
+<tbody>
+<tr><td><strong>Desktop</strong></td><td>WD Blue, Seagate BarraCuda</td><td>~2400 h/rok, biuro</td><td>brak firmware streaming, niski workload (~55 TB/rok), nieprzystosowany do 24/7 — szybka awaria</td></tr>
+<tr><td><strong>NAS</strong></td><td>WD Red (Plus/Pro), Seagate IronWolf</td><td>24/7, ale read-heavy, RAID, błędy korygowane dokładnie (TLER/ERC)</td><td>zoptymalizowany pod <em>odczyt</em> i integralność danych, nie pod ciągły strumień zapisu wielu kamer; działa, ale to nie jego profil</td></tr>
+<tr><td><strong>Surveillance</strong></td><td>WD Purple, SkyHawk, S300</td><td>24/7 write-heavy, wiele strumieni, ATA streaming</td><td>— właściwy wybór —</td></tr>
+</tbody>
+</table>
+<div class="warning"><strong>WD Blue do rejestratora to najczęstszy błąd taniego montażu.</strong> Dysk desktopowy w pracy 24/7 zużywa się wielokrotnie szybciej, a jego firmware przy próbie korekcji błędu potrafi „zamrozić" zapis na sekundy — w tym czasie giną klatki, a rejestrator może oznaczyć dysk jako uszkodzony. Dysk NAS (WD Red) zadziała, ale płacisz za funkcje (TLER, integralność RAID), których CCTV nie potrzebuje, a brakuje optymalizacji write-streaming.</div>
+
+<h2>Kalkulator retencji</h2>
+<p>Pojemność potrzebna na założoną liczbę dni zapisu. Wzór bazowy (zapis ciągły 24/7):</p>
+<pre><code>Storage [GB] = (bitrate[Mbps] × liczba_kamer × 3600 × 24 × dni) / (8 × 1024 × 1024)
+
+  bitrate  — średni bitrate jednej kamery w megabitach/s (Mbps)
+  3600×24  — sekundy w dobie (86 400 s)
+  / 8      — bity → bajty
+  /1024/1024 — bajty → GB (megabity → gigabajty)</code></pre>
+<p>Wersja praktyczna w TB dla całego systemu:</p>
+<pre><code>Storage [TB] ≈ (bitrate[Mbps] × kamery × dni × 0,0108) / 1000
+
+  współczynnik 0,0108 TB to dzienny zapis 1 kamery na 1 Mbps
+  (1 Mbps × 86400 s / 8 / 1000 / 1000 ≈ 0,0108 TB/dobę)</code></pre>
+
+<h3>Przykład: 8 kamer 4MP H.265 @ 4 Mbps, 30 dni</h3>
+<pre><code>Dzienny zapis 1 kamery: 4 Mbps × 86400 s / 8 = 172 800 Mb = 21 600 MB ≈ 21,1 GB/dobę
+8 kamer × 21,1 GB     = 168,8 GB/dobę
+× 30 dni              = 5 064 GB ≈ 4,95 TB
+
++ rezerwa systemowa ~10% (system plików, fragmentacja) → ~5,5 TB
+Dobór dysku: 6 TB (WD Purple / SkyHawk)</code></pre>
+
+<table>
+<thead><tr><th>Scenariusz</th><th>Bitrate/kam.</th><th>Kamery</th><th>Dni</th><th>Potrzeba</th><th>Sugerowany dysk</th></tr></thead>
+<tbody>
+<tr><td>Dom — 4 kam. 4MP H.265+</td><td>2 Mbps</td><td>4</td><td>30</td><td>~2,5 TB</td><td>4 TB Purple</td></tr>
+<tr><td>Dom rozbudowany — 8 kam. 4MP H.265</td><td>4 Mbps</td><td>8</td><td>30</td><td>~5,0 TB</td><td>6 TB Purple / SkyHawk</td></tr>
+<tr><td>Sklep — 8 kam. 8MP H.265</td><td>8 Mbps</td><td>8</td><td>30</td><td>~10,1 TB</td><td>12 TB Purple Pro</td></tr>
+<tr><td>Firma — 16 kam. 4MP H.265</td><td>4 Mbps</td><td>16</td><td>30</td><td>~10,1 TB</td><td>12 TB Purple Pro</td></tr>
+<tr><td>Magazyn — 32 kam. 4MP H.265</td><td>4 Mbps</td><td>32</td><td>30</td><td>~20,3 TB</td><td>2× 12 TB lub 24 TB SkyHawk AI</td></tr>
+<tr><td>Obiekt — 16 kam. 8MP H.265</td><td>8 Mbps</td><td>16</td><td>30</td><td>~20,3 TB</td><td>2× 12 TB Purple Pro</td></tr>
+</tbody>
+</table>
+
+<div class="tip"><strong>Jak realnie zmniejszyć pojemność:</strong> włącz <strong>H.265+ / Smart codec</strong> (bitrate spada nawet o 60–70%), ustaw <strong>nagrywanie na detekcji ruchu</strong> zamiast ciągłego dla scen statycznych, albo obniż FPS strumienia głównego do 15–20 kl./s. Każdy z tych zabiegów potrafi podwoić liczbę dni przy tym samym dysku.</div>
+<div class="warning">Producenci podają pojemność w <strong>TB dziesiętnych</strong> (1 TB = 1000 GB), a system operacyjny liczy w <strong>TiB binarnych</strong> (1 TiB = 1024 GiB). Dysk „4 TB" to realnie ~3,64 TiB użytecznych. Dlatego zawsze dolicz rezerwę i nie planuj na 100% nominalnej pojemności.</div>
+
+<h2>SMART, hot-swap, recykling nagrań</h2>
+
+<h3>Monitoring S.M.A.R.T.</h3>
+<p>Rejestratory NVR/DVR czytają atrybuty <strong>S.M.A.R.T.</strong> dysku i ostrzegają przed awarią. Kluczowe atrybuty do obserwacji:</p>
+<table>
+<thead><tr><th>Atrybut</th><th>Znaczenie</th><th>Sygnał alarmowy</th></tr></thead>
+<tbody>
+<tr><td><strong>05 — Reallocated Sectors</strong></td><td>realokowane uszkodzone sektory</td><td>wartość rośnie → dysk się sypie</td></tr>
+<tr><td><strong>C5 — Current Pending Sectors</strong></td><td>sektory czekające na realokację</td><td>&gt; 0 → ryzyko utraty danych</td></tr>
+<tr><td><strong>C6 — Uncorrectable</strong></td><td>błędy nieusuwalne</td><td>&gt; 0 → pilna wymiana</td></tr>
+<tr><td><strong>C2 — Temperature</strong></td><td>temperatura dysku</td><td>&gt; 55–60 °C → wentylacja</td></tr>
+<tr><td><strong>09 — Power-On Hours</strong></td><td>godziny pracy</td><td>kontekst zużycia</td></tr>
+</tbody>
+</table>
+<div class="callout">Włącz w NVR <strong>cykliczny test SMART</strong> (zwykle co tydzień) i powiadomienia e-mail/push przy błędzie HDD. Dysk najczęściej daje sygnały (rosnące C5/05) na tygodnie przed całkowitą awarią — to czas, by zrobić kopię i wymienić.</div>
+
+<h3>Hot-swap</h3>
+<p>W rejestratorach i NAS-ach z kieszeniami (caddy) dysk można wymienić <strong>bez wyłączania urządzenia</strong> — hot-swap. Przy macierzy RAID system odbuduje dane na nowym dysku w tle. Dotyczy modeli z zatokami wyciąganymi od frontu (Hikvision DS-96xxx, Dahua 8-bay, Synology/QNAP). Tańsze NVR z dyskiem montowanym wewnątrz wymagają odkręcenia obudowy i wyłączenia.</p>
+
+<h3>Recykling nagrań (overwrite oldest)</h3>
+<p>Domyślny tryb pracy CCTV: gdy dysk się zapełni, rejestrator <strong>nadpisuje najstarsze nagrania</strong> (FIFO — first in, first out), tworząc ciągłe „przesuwane okno" retencji. Dzięki temu zawsze masz ostatnie N dni, a system nie staje przy pełnym dysku. Alternatywa „overwrite off" zatrzymuje zapis przy zapełnieniu — używana tylko, gdy archiwum musi być zewnętrznie wyeksportowane przed nadpisaniem (dowody, monitoring objęty przepisami).</p>
+<div class="warning">Tryb nadpisywania oznacza, że <strong>nagranie sprzed retencji znika bezpowrotnie</strong>. Materiał, który może być dowodem (włamanie, kolizja), wyeksportuj na pendrive/dysk zaraz po zdarzeniu — zanim cykl FIFO go skasuje. Przy 30-dniowej retencji masz na to maksymalnie miesiąc.</div>
+
+<div class="nav-bottom">
+<a href="03-01-nvr-dvr-hvr.html">⟵ 03-01 NVR/DVR/HVR</a>
+<a href="03-03-raid-redundancja.html">03-03 RAID →</a>
+</div>
+</div>
+</body>
+</html>
