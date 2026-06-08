@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rendering i materiały — Blender</title>
+<style>
+:root{--bg:#0c0e13;--surface:#17191f;--surface-hover:#20242c;--border:#2c313b;--text:#e9edf2;--text-muted:#969da9;--accent:#f97316;--accent-hover:#fb923c;--blue:#3b82f6;--green:#4ade80;--purple:#c084fc;--yellow:#fbbf24;--red:#f87171;--code-bg:#101218}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:880px;margin:0 auto;padding:38px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:6px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:36px;opacity:.8}
+h2{font-size:1.4rem;font-weight:600;color:var(--accent);margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.12rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--blue)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+td:first-child{white-space:nowrap}
+tr:hover td{background:var(--surface-hover)}
+.callout{background:rgba(59,130,246,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:54px;padding-top:22px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+kbd{background:var(--code-bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:'Cascadia Code',monospace;font-size:.82rem;color:var(--text);white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">📚 Kompendium</a><span class="sep">/</span><a href="../index.html">🧊 Grafika 3D</a><span class="sep">/</span><a href="index.html">🟧 Blender</a><span class="sep">/</span><span class="title">Rendering i materiały</span></div>
+<div class="container">
+<h1>Rendering i materiały</h1>
+<p class="subtitle">Silniki Eevee i Cycles, materiały (Principled BSDF), oświetlenie, kamera i ustawienia renderu</p>
+<p class="updated">Aktualizacja: 2026-06</p>
+
+<p><strong>Rendering</strong> to wyliczenie finalnego obrazu z modeli, materiałów i świateł. O wyniku decydują trzy rzeczy: wybrany <strong>silnik</strong>, <strong>materiały</strong> obiektów i <strong>oświetlenie</strong> sceny.</p>
+
+<h2 id="silniki">Silniki renderujące: Eevee vs Cycles</h2>
+<table>
+<thead><tr><th></th><th>Eevee</th><th>Cycles</th></tr></thead>
+<tbody>
+<tr><td>Typ</td><td>rasteryzacja (jak w grach) — czas rzeczywisty</td><td>path tracing — fizyczne śledzenie promieni</td></tr>
+<tr><td>Szybkość</td><td>bardzo szybki</td><td>wolniejszy (ale fotorealistyczny)</td></tr>
+<tr><td>Jakość światła</td><td>przybliżona (odbicia, GI z ograniczeniami)</td><td>realistyczna — odbicia, refrakcja, caustics</td></tr>
+<tr><td>Najlepszy do</td><td>animacja, stylizacja, podgląd, szybkie projekty</td><td>fotorealizm, render produktowy, finalne ujęcia</td></tr>
+</tbody>
+</table>
+<p>Silnik wybierasz w <strong>Render Properties</strong> (ikona aparatu z tyłem). Podgląd materiałów i świateł w oknie 3D włączysz klawiszem <kbd>Z</kbd> → <em>Material Preview</em> lub <em>Rendered</em>.</p>
+<div class="tip">✅ Ucz się i animuj w <strong>Eevee</strong> (natychmiastowy podgląd), a finalny, „ładny" kadr wyrenderuj w <strong>Cycles</strong> z włączonym GPU. Ten sam materiał Principled BSDF działa w obu silnikach.</div>
+
+<h2 id="materialy">Materiały (Principled BSDF)</h2>
+<p>Materiał nadajesz w <strong>Material Properties</strong> (ikona kuli). Domyślny shader <strong>Principled BSDF</strong> jednym węzłem opisuje niemal każdą powierzchnię:</p>
+<table>
+<thead><tr><th>Parametr</th><th>Za co odpowiada</th></tr></thead>
+<tbody>
+<tr><td><strong>Base Color</strong></td><td>kolor podstawowy powierzchni</td></tr>
+<tr><td><strong>Metallic</strong></td><td>czy to metal (0 = dielektryk, 1 = metal)</td></tr>
+<tr><td><strong>Roughness</strong></td><td>chropowatość — 0 = lustro, 1 = mat</td></tr>
+<tr><td><strong>IOR / Transmission</strong></td><td>przezroczystość i załamanie (szkło, woda)</td></tr>
+<tr><td><strong>Emission</strong></td><td>świecenie własne (neony, ekrany)</td></tr>
+<tr><td><strong>Normal</strong></td><td>mapa wypukłości (detale bez geometrii)</td></tr>
+</tbody>
+</table>
+<div class="callout">🎨 Tekstury (zdjęcia) podpinasz w <strong>Shader Editor</strong> (workspace <em>Shading</em>) węzłem <em>Image Texture</em>. By tekstura legła poprawnie na modelu, trzeba go <strong>rozwinąć (UV unwrap)</strong> — zaznacz wszystko w Edit Mode i naciśnij <kbd>U</kbd> → <em>Smart UV Project</em>.</div>
+
+<h2 id="swiatlo">Oświetlenie</h2>
+<p>Bez światła render jest czarny. Dodaj je przez <kbd>Shift</kbd>+<kbd>A</kbd> → <em>Light</em>:</p>
+<table>
+<thead><tr><th>Lampa</th><th>Charakter</th></tr></thead>
+<tbody>
+<tr><td><strong>Point</strong></td><td>punktowa, świeci równo we wszystkie strony (żarówka)</td></tr>
+<tr><td><strong>Sun</strong></td><td>równoległe promienie o stałej mocy (słońce) — kierunek, nie pozycja</td></tr>
+<tr><td><strong>Spot</strong></td><td>stożek światła (reflektor)</td></tr>
+<tr><td><strong>Area</strong></td><td>miękkie światło z powierzchni (softbox, okno) — najładniejsze cienie</td></tr>
+</tbody>
+</table>
+<div class="tip">✅ Najszybszy realizm daje <strong>HDRI</strong>: w <em>World Properties</em> podłącz węzeł <em>Environment Texture</em> z mapą .hdr — scena dostaje naturalne światło i tło otoczenia. Klasyka oświetlenia postaci to <em>three-point lighting</em>: key, fill i rim.</div>
+
+<h2 id="kamera">Kamera</h2>
+<ul>
+<li><strong>Patrz przez kamerę:</strong> <kbd>Num0</kbd>. Ustaw kamerę do bieżącego widoku: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Num0</kbd>.</li>
+<li><strong>Ogniskowa (Focal Length):</strong> w <em>Object Data Properties</em> kamery — mniejsza (18 mm) = szeroki kąt, większa (85 mm) = „teleobiektyw", ładne portrety.</li>
+<li><strong>Głębia ostrości (DoF):</strong> włącz <em>Depth of Field</em> i wskaż punkt ostrości — rozmywa tło (efekt „bokeh").</li>
+</ul>
+
+<h2 id="ustawienia">Ustawienia renderu (jakość)</h2>
+<table>
+<thead><tr><th>Ustawienie</th><th>Opis</th></tr></thead>
+<tbody>
+<tr><td><strong>Samples</strong> (Cycles)</td><td>liczba próbek na piksel — więcej = mniej szumu, dłuższy render</td></tr>
+<tr><td><strong>Denoise</strong></td><td>odszumianie (OptiX / OpenImageDenoise) — pozwala zejść z próbkami i renderować szybciej</td></tr>
+<tr><td><strong>Resolution</strong></td><td>rozdzielczość wyjściowa i procent skali (np. 50% do testów)</td></tr>
+<tr><td><strong>GPU Compute</strong></td><td>w <em>Render Properties → Device</em> — wybierz GPU zamiast CPU dla Cycles</td></tr>
+</tbody>
+</table>
+<div class="warning">⚠️ Render w Cycles potrafi być pamięciożerny. Jeśli scena nie mieści się w VRAM, włącz „GPU+CPU" lub zmniejsz tekstury. Eevee jest pod tym względem znacznie lżejszy.</div>
+
+<h2 id="output">Eksport — obraz i animacja</h2>
+<ul>
+<li><strong>Pojedyncza klatka:</strong> <kbd>F12</kbd> → <em>Image → Save As</em> (PNG/JPEG).</li>
+<li><strong>Animacja:</strong> w <em>Output Properties</em> ustaw format i ścieżkę, potem <strong>Render → Render Animation</strong> (<kbd>Ctrl</kbd>+<kbd>F12</kbd>). Szczegóły — patrz <a href="03-animacja.html#render" style="color:var(--accent)">Animacja → Render animacji</a>.</li>
+<li><strong>Przezroczyste tło:</strong> <em>Render Properties → Film → Transparent</em> (do kompozycji na wideo).</li>
+</ul>
+
+<div class="nav-bottom">
+<a href="03-animacja.html">⟵ Animacja</a>
+<a href="05-skroty.html">Skróty klawiszowe →</a>
+</div>
+</div>
+</body>
+</html>

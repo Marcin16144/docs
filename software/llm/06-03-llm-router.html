@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>06-03 — LLM router</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<a href="06-projektowanie-modelu.html">06 — Projektowanie modelu</a>
+<span class="sep">/</span>
+<span class="title">LLM router</span>
+</div>
+<div class="container">
+<h1>LLM router</h1>
+<p class="subtitle">Komponent decyzyjny proxy: typy routerow, jak decyduja, RouteLLM, trening i ewaluacja routera, narzedzia produkcyjne.</p>
+
+<div class="card">
+<p>Rozwiniecie rozdzialu <a href="06-02-model-proxy-router.html">06-02 Model proxy</a>. Tam opisany jest caly wzorzec proxy/cascade; tutaj skupiamy sie na <strong>samym routerze</strong> — komponencie decyzyjnym, ktory wybiera model.</p>
+</div>
+
+<h2>Po co router?</h2>
+<p>Nie kazde zapytanie potrzebuje najdrozszego modelu. "Ile to 2+2?" i "zaprojektuj rozproszony system kolejkowania" to dwie rozne ligi. <strong>Router</strong> kieruje kazde zapytanie do <strong>najtanszego modelu, ktory jeszcze da rade</strong> — dzieki temu masz jakosc najlepszego modelu przy ulamku kosztu.</p>
+<p>To inny mechanizm niz "model proxy" jako calosc: proxy to caly system (router + modele + orkiestracja), a router to <strong>mozg decyzyjny</strong> w srodku.</p>
+
+<h2>Router vs cascade — dwie filozofie dyspozytora</h2>
+<p>To kluczowe rozroznienie. Oba kieruja ruch, ale w innym momencie:</p>
+<table>
+<thead>
+<tr><th></th><th>Router (pre-dispatch)</th><th>Cascade (post-hoc)</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Kiedy decyzja</strong></td><td>przed generacja</td><td>po probie taniego modelu</td></tr>
+<tr><td><strong>Wejscie decyzji</strong></td><td>samo pytanie</td><td>pytanie + odpowiedz taniego</td></tr>
+<tr><td><strong>Koszt</strong></td><td>1 model</td><td>do 2 modeli przy eskalacji</td></tr>
+<tr><td><strong>Trafnosc</strong></td><td>zalezy od predyktora trudnosci</td><td>wyzsza (widzi juz odpowiedz)</td></tr>
+<tr><td><strong>Latencja</strong></td><td>niska (1 strzal)</td><td>wyzsza przy eskalacji (2 strzaly)</td></tr>
+<tr><td><strong>Cold start</strong></td><td>trudny (potrzeba danych)</td><td>latwy (dziala od razu)</td></tr>
+</tbody>
+</table>
+<p><strong>Praktyczna recepta:</strong> zacznij od cascade (dziala bez danych), loguj wyniki, a gdy masz dane — doloz router, by ciac podwojny koszt. Czesto laczy sie oba: router lapie oczywiste przypadki, cascade obsluguje reszte.</p>
+
+<h2>Taksonomia routerow (wg celu)</h2>
+<ul>
+<li><strong>Quality routing</strong> — weak ↔ strong: tani model dla latwych, mocny dla trudnych. Najczestszy.</li>
+<li><strong>Cost routing</strong> — minimalizuj $ przy zadanym progu jakosci.</li>
+<li><strong>Domain / skill routing</strong> — kod → model-koder, matematyka → model-matematyk, obraz → vision, prawo → model prawniczy.</li>
+<li><strong>Latency routing</strong> — pilne zapytania → szybki model, batch → wolniejszy/tanszy.</li>
+<li><strong>Multi-tier</strong> — 3+ poziomy (np. lokalny 3B → lokalny 30B → cloud frontier).</li>
+</ul>
+
+<h2>Jak router decyduje — mechanizmy</h2>
+<p>Serce routera to funkcja <code>pytanie → wybor modelu</code>. Sposoby (od najprostszego):</p>
+<table>
+<thead>
+<tr><th>Mechanizm</th><th>Koszt decyzji</th><th>Trafnosc</th><th>Kiedy uzywac</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Reguly / keywordy</strong></td><td>~0</td><td>niska</td><td>jasne sygnaly (jezyk, slowa-klucze, dlugosc)</td></tr>
+<tr><td><strong>Embedding similarity</strong></td><td>bardzo niski</td><td>srednia</td><td>routing po intencji/domenie (Semantic Router)</td></tr>
+<tr><td><strong>Klasyfikator</strong> (LR/BERT)</td><td>niski</td><td>wysoka (z danymi)</td><td>masz logi do treningu</td></tr>
+<tr><td><strong>LLM-as-router</strong></td><td>sredni (1 wywolanie)</td><td>wysoka, elastyczna</td><td>malo danych, zlozone decyzje</td></tr>
+<tr><td><strong>Learned preference</strong> (RouteLLM)</td><td>niski</td><td>wysoka</td><td>quality routing weak↔strong</td></tr>
+</tbody>
+</table>
+
+<h3>Reguly</h3>
+<p>Najprostsze: regex, jezyk zapytania, dlugosc, obecnosc bloku kodu. Kruche i nie skaluje sie, ale dobre na start i jako twarde "zawsze do X".</p>
+
+<h3>Embedding similarity</h3>
+<p>Definiujesz "trasy" przez przykladowe wypowiedzi, embedujesz je, a zapytanie kierujesz do najblizszej trasy. Deterministyczne, milisekundowe (Semantic Router).</p>
+
+<h3>Klasyfikator</h3>
+<p>Trenujesz model (regresja logistyczna / BERT) przewidujacy "czy weak wystarczy / ktora domena". Najlepsza trafnosc, ale potrzebuje danych.</p>
+
+<h3>LLM-as-router</h3>
+<p>Pytasz tani LLM: "Do ktorego modelu skierowac to zapytanie? [opcje]". Elastyczne, radzi sobie bez danych treningowych, ale doklada jedno wywolanie (koszt + latencja).</p>
+
+<h2>RouteLLM — kanoniczny open-source router</h2>
+<p>RouteLLM (Ong et al., LMSYS/Berkeley 2024) to referencyjna implementacja uczonego routera weak↔strong. Uczy sie na <strong>danych preferencji</strong> (Chatbot Arena) — ktore odpowiedzi ludzie woleli — i przewiduje, czy slaby model wystarczy.</p>
+<p><strong>Cztery typy routerow w RouteLLM:</strong></p>
+<ol>
+<li><strong>Similarity-weighted (SW) ranking</strong> — wazy podobne historyczne zapytania.</li>
+<li><strong>Matrix factorization (MF)</strong> — uczy ukrytej "trudnosci" zapytan i "sily" modeli.</li>
+<li><strong>BERT classifier</strong> — fine-tune BERT na (pytanie → weak wystarczy?).</li>
+<li><strong>Causal LLM classifier</strong> — maly LLM jako klasyfikator.</li>
+</ol>
+<p><strong>Prog kalibrowany pod budzet:</strong> ustawiasz, jaki % zapytan moze isc do mocnego modelu (np. <code>router-mf-0.11593</code> = prog dla ~okreslonego udzialu strong).</p>
+<p><strong>Wyniki (wg autorow):</strong> na MT-Bench router osiagal ~95% jakosci GPT-4 wolajac go tylko w czesci przypadkow → <strong>ponad 85% redukcji kosztow</strong> wzgledem "wszystko do GPT-4". Co wazne — <strong>router generalizuje</strong>: wytrenowany na jednej parze (GPT-4 / Mixtral) dziala na innych parach (np. Claude / Llama) bez ponownego treningu.</p>
+<pre><code>from routellm.controller import Controller   # pip install routellm
+
+client = Controller(
+    routers=["mf"],                            # matrix factorization
+    strong_model="claude-sonnet-4-6",
+    weak_model="ollama/qwen3-coder:30b",       # np. Twoj mocniejszy LAN-owy Ollama
+)
+resp = client.chat.completions.create(
+    model="router-mf-0.11593",                 # prog: udzial wywolan do strong
+    messages=[{"role": "user", "content": "..."}],
+)</code></pre>
+
+<h2>Ewaluacja routera — czy w ogole jest dobry?</h2>
+<p>Router oceniasz na <strong>krzywej koszt–jakosc</strong>, nie pojedyncza liczba.</p>
+<p><strong>PGR (Performance Gap Recovered)</strong> — ile luki miedzy weak a strong odzyskuje router:</p>
+<pre><code>PGR = (jakosc_router − jakosc_weak) / (jakosc_strong − jakosc_weak)
+
+PGR = 0 → tak slabo jak sam weak
+PGR = 1 → tak dobrze jak sam strong</code></pre>
+<p><strong>APGR (Average PGR)</strong> — pole pod krzywa PGR(% wywolan do strong). Im wyzej nad przekatna (= losowym routerem), tym lepiej.</p>
+<p><strong>CPT(x%) (Call-Performance Threshold)</strong> — ile wywolan do strong potrzeba, by osiagnac x% gap recovered. Np. CPT(50%) = 18% → polowe luki odzyskujesz wysylajac tylko 18% ruchu do mocnego modelu.</p>
+<pre><code>PGR
+1.0 ┤                          ╭───── strong-only
+    │                    ╭─────╯
+    │              ╭────╯   ← dobry router (nad przekatna)
+    │         ╭───╯
+0.5 ┤      ╭─╯- - - - - - - - - losowy router (przekatna)
+    │   ╭─╯
+0.0 ┼─╯──────────────────────────────▶
+    0%         % wywolan do strong      100%</code></pre>
+<p>Zawsze porownuj z <strong>losowym routerem</strong> (przekatna) — to dolna granica sensu.</p>
+
+<h2>Trening wlasnego routera — pelny workflow</h2>
+<pre><code>1. Zbierz dane  → logi z cascade'a: (pytanie, czy weak wystarczyl)
+   ↓               albo public preference data (Chatbot Arena)
+2. Etykietuj    → binarnie (weak_ok: 0/1) lub preferencyjnie
+   ↓
+3. Cechy        → embedding pytania (+ metadane: dlugosc, jezyk, domena)
+   ↓
+4. Model        → regresja logistyczna → fine-tune BERT
+   ↓
+5. Kalibruj prog → pod % ruchu do strong / budzet
+   ↓
+6. Monitoruj    → drift rozkladu pytan → douczaj</code></pre>
+<pre><code># pip install sentence-transformers scikit-learn numpy
+import numpy as np
+from sentence_transformers import SentenceTransformer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+emb = SentenceTransformer("all-MiniLM-L6-v2")     # maly, lokalny, darmowy
+
+def features(questions):
+    e = emb.encode(questions)
+    meta = np.array([[len(q), q.count("?")] for q in questions])  # proste metadane
+    return np.hstack([e, meta])
+
+# logs = [{"question": "...", "weak_ok": 1}, ...]   # 1 = weak wystarczyl
+X = features([r["question"] for r in logs])
+y = np.array([r["weak_ok"] for r in logs])
+
+Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=0)
+clf = LogisticRegression(max_iter=1000).fit(Xtr, ytr)
+
+# P(weak NIE wystarczy) = "trudnosc" zapytania
+def difficulty(questions):
+    return 1 - clf.predict_proba(features(questions))[:, 1]
+
+# Kalibracja: chcemy slac do strong ~20% najtrudniejszych
+threshold = np.quantile(difficulty([r["question"] for r in logs]), 0.80)
+
+def route(question: str) -&gt; str:
+    return "strong" if difficulty([question])[0] &gt;= threshold else "weak"</code></pre>
+<p>Gdy masz wiecej danych, zamien regresje na fine-tune DistilBERT — wyzsza trafnosc przy podobnej latencji.</p>
+
+<h2>Router domenowy (skill routing) — przyklad</h2>
+<p>Zamiast weak/strong, kieruj po <strong>umiejetnosci</strong> do wyspecjalizowanego modelu. Idealne pod Twoj zestaw lokalnych modeli (np. koder + ogolny + cloud do trudnej matmy):</p>
+<pre><code># pip install semantic-router
+from semantic_router import Route, RouteLayer
+from semantic_router.encoders import HuggingFaceEncoder
+
+code = Route(name="code", utterances=[
+    "napisz funkcje w python", "popraw ten bug", "zrefaktoryzuj klase"])
+math = Route(name="math", utterances=[
+    "policz calke", "rozwiaz rownanie", "udowodnij twierdzenie"])
+chat = Route(name="chat", utterances=[
+    "opowiedz dowcip", "jak sie masz", "co slychac"])
+
+rl = RouteLayer(encoder=HuggingFaceEncoder(), routes=[code, math, chat])
+
+MODEL_FOR = {
+    "code": "qwen2.5-coder:7b",     # lokalny koder
+    "math": "claude-sonnet-4-6",    # trudna matma → cloud
+    "chat": "llama3.2:3b",          # lekki, lokalny
+}
+choice = rl("zrefaktoryzuj te metode").name          # → "code"
+model = MODEL_FOR.get(choice, "llama3.2:3b")          # fallback na lekki</code></pre>
+
+<h2>Routery produkcyjne / narzedzia</h2>
+<table>
+<thead>
+<tr><th>Narzedzie</th><th>Typ routingu</th><th>Licencja</th><th>Uwagi</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>RouteLLM</strong></td><td>quality (weak↔strong), uczony</td><td>open source</td><td>4 typy routerow, prog kalibrowany</td></tr>
+<tr><td><strong>Semantic Router</strong></td><td>domena/intencja (embedding)</td><td>open source</td><td>deterministyczny, ms-latency</td></tr>
+<tr><td><strong>LiteLLM Router</strong></td><td>niezawodnosc miedzy <strong>deploymentami</strong></td><td>open source</td><td>NIE quality routing! patrz nizej</td></tr>
+<tr><td><strong>OpenRouter</strong> (auto)</td><td>quality, hostowany</td><td>usluga</td><td><code>openrouter/auto</code> (NotDiamond)</td></tr>
+<tr><td><strong>NotDiamond</strong></td><td>quality, hostowany</td><td>usluga</td><td>dobiera model pod prompt</td></tr>
+<tr><td><strong>Martian</strong></td><td>quality/cost, hostowany</td><td>usluga</td><td>komercyjny</td></tr>
+</tbody>
+</table>
+<div class="card">
+<p><strong>Uwaga na LiteLLM Router:</strong> to routing dla <strong>niezawodnosci i load-balancingu</strong> miedzy wieloma instancjami/deploymentami tego samego logicznego modelu (strategie: latency-based, least-busy, cost-based, usage-based + fallback/retry). To <strong>nie</strong> jest "ktory model jest madrzejszy do tego pytania". Quality routing dokladasz osobno (RouteLLM / wlasny klasyfikator).</p>
+</div>
+
+<h2>Architektura: gdzie siedzi router (gateway)</h2>
+<p>W produkcji router zwykle zyje w <strong>gateway</strong> — jednym wejsciu, ktore centralizuje routing, auth, limity, logowanie i fallback:</p>
+<pre><code>                    ┌──────────── GATEWAY ────────────┐
+  klient ──────────▶│  auth · rate-limit · ROUTER ·    │
+                    │  logging · fallback · retry      │
+                    └───┬──────────┬──────────┬────────┘
+                        ▼          ▼          ▼
+                   ┌────────┐ ┌────────┐ ┌─────────┐
+                   │ weak   │ │ strong │ │ domena/ │
+                   │ lokalny│ │ cloud  │ │ vision  │
+                   └────────┘ └────────┘ └─────────┘</code></pre>
+<p>Logi z gatewaya to <strong>paliwo do trenowania routera</strong> — zamknij petle: loguj (pytanie, wybor, wynik, czy trzeba bylo eskalowac) → trenuj → wdrazaj → powtarzaj.</p>
+
+<h2>Pulapki specyficzne dla routerow</h2>
+<ul>
+<li><strong>Router jest tak dobry jak dane treningowe.</strong> Zmiana rozkladu pytan (drift) psuje trafnosc — douczaj.</li>
+<li><strong>Prog trzeba rekalibrowac</strong> po kazdej zmianie modeli lub ich cen. Prog z zeszlego kwartalu moze juz nie byc optymalny.</li>
+<li><strong>Over-routing do strong</strong> (prog za niski) zzera oszczednosci — pilnuj realnego % ruchu do mocnego modelu.</li>
+<li><strong>LLM-as-router doklada koszt i latencje</strong> — maly, ale realny; przy duzym ruchu wolisz klasyfikator.</li>
+<li><strong>Cold start.</strong> Bez danych nie wytrenujesz routera — zacznij od cascade, zbierz logi, potem przelacz na router.</li>
+<li><strong>Router nie naprawia brakow obu modeli.</strong> Jesli ani weak, ani strong nie znaja odpowiedzi (swieze dane, niszowa domena), routing nie pomoze — potrzebny RAG albo tools, nie inny model.</li>
+</ul>
+
+<h2>Sciezka wdrozenia</h2>
+<pre><code>1. Cascade z bramka pewnosci (cold start, dziala od razu)
+   ↓
+2. Loguj wszystko: pytanie, pewnosc, wybor, czy eskalowano, wynik
+   ↓
+3. Wytrenuj klasyfikator-router na logach (LR → BERT)
+   ↓
+4. Skalibruj prog pod budzet (krzywa koszt–jakosc, APGR)
+   ↓
+5. Wdroz jako pre-router; cascade zostaw jako bezpiecznik
+   ↓
+6. Monitoruj drift i % ruchu do strong → rekalibruj / douczaj</code></pre>
+
+<h2>Zasoby</h2>
+<div class="card">
+<p><strong>Papers:</strong></p>
+<ul>
+<li><strong>RouteLLM</strong> (Ong et al., 2024) — "Learning to Route LLMs with Preference Data"</li>
+<li><strong>Hybrid LLM</strong> (Ding et al., ICLR 2024) — routing wg trudnosci + docelowej jakosci</li>
+<li><strong>FrugalGPT</strong> (Chen et al., 2023) — cascade + scorer (fundament routingu kosztowego)</li>
+<li><strong>AutoMix</strong> (Madaan et al., 2023) — self-verification + meta-router</li>
+<li><strong>LLM Routing with Benchmark Datasets</strong> (Shnitzer et al., 2023) — wczesne prace</li>
+</ul>
+<p><strong>Narzedzia:</strong></p>
+<ul>
+<li>RouteLLM — github.com/lm-sys/RouteLLM</li>
+<li>Semantic Router — github.com/aurelio-labs/semantic-router</li>
+<li>LiteLLM Router — docs.litellm.ai (load-balance + fallback)</li>
+<li>OpenRouter — openrouter.ai (<code>openrouter/auto</code>)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="06-02-model-proxy-router.html">← 06-02 — Model proxy</a>
+<a href="index.html">Spis tresci →</a>
+</div>
+</div>
+</body>
+</html>

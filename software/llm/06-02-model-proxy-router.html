@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>06-02 — Model proxy (router / cascade)</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#a78bfa;--accent-hover:#c4b5fd;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--pink:#f472b6;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar">
+<a href="index.html">Spis tresci</a>
+<span class="sep">/</span>
+<a href="06-projektowanie-modelu.html">06 — Projektowanie modelu</a>
+<span class="sep">/</span>
+<span class="title">Model proxy (router / cascade)</span>
+</div>
+<div class="container">
+<h1>Model proxy (router / cascade)</h1>
+<p class="subtitle">Lekki model-bramka: sam odpowiada na proste pytania, a trudne deleguje do wiekszych lub specjalistycznych modeli.</p>
+
+<h2>O co chodzi</h2>
+<p>Chcesz zbudowac model, ktory <strong>sam odpowiada na to, co umie</strong>, a gdy <strong>nie wie — odwoluje sie do innych modeli</strong> (wiekszych, specjalistycznych albo chmurowych). To klasyczny wzorzec zwany <strong>LLM router</strong>, <strong>model gateway</strong> albo <strong>cascade</strong>.</p>
+<p><strong>Najwazniejsza rzecz na start:</strong> model proxy to <strong>NIE</strong> jest model trenowany od zera. To <strong>warstwa orkiestracji</strong> (kilkadziesiat linii kodu) + opcjonalnie maly klasyfikator decydujacy o trasie. Nie potrzebujesz klastra GPU ani milionow dolarow — potrzebujesz dobrego mechanizmu "wiem, ze nie wiem".</p>
+<pre><code>            ┌──────────────────────┐
+   pytanie  │   MODEL PROXY        │
+ ──────────▶│  (maly, lokalny)     │
+            └─────────┬────────────┘
+                      │ ocena pewnosci
+              ┌───────┴────────┐
+        pewny │                │ niepewny / nie wie
+              ▼                ▼
+       ┌────────────┐   ┌──────────────────┐
+       │ odpowiedz  │   │  ESKALACJA        │
+       │ lokalnie   │   │  duzy / cloud /   │
+       │ (tanio)    │   │  specjalista      │
+       └────────────┘   └──────────────────┘</code></pre>
+
+<h2>Terminologia — co to naprawde jest</h2>
+<p>Ludzie myla "model proxy" z MoE. To rozne rzeczy:</p>
+<table>
+<thead>
+<tr><th>Pojecie</th><th>Co routuje</th><th>Granularnosc</th><th>Gdzie zyje</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Model proxy / router</strong></td><td>miedzy osobnymi modelami</td><td>per zapytanie</td><td>warstwa aplikacji</td></tr>
+<tr><td><strong>Cascade</strong> (FrugalGPT)</td><td>tani → drogi, sekwencyjnie</td><td>per zapytanie</td><td>warstwa aplikacji</td></tr>
+<tr><td><strong>Mixture of Agents (MoA)</strong></td><td>wiele modeli rownolegle + agregacja</td><td>per zapytanie</td><td>warstwa aplikacji</td></tr>
+<tr><td><strong>MoE</strong> (Mixture of Experts)</td><td>miedzy ekspertami <strong>wewnatrz 1 modelu</strong></td><td>per token</td><td>wewnatrz wag modelu</td></tr>
+</tbody>
+</table>
+<p>To, co opisujesz ("jak nie wie, pyta innych"), to <strong>cascade z bramka pewnosci</strong> — najprostszy i najtanszy wariant routera. MoE to cos zupelnie innego (routing wewnatrz jednego modelu) — nie myl tych dwoch.</p>
+
+<h2>Wzorce architektoniczne</h2>
+
+<h3>A) Pre-routing (klasyfikuj → wybierz model PRZED generacja)</h3>
+<p>Lekki klasyfikator patrzy na pytanie i od razu kieruje je do wlasciwego modelu. Zero podwojnego kosztu, ale wymaga dobrego klasyfikatora.</p>
+<pre><code>pytanie → [router/klasyfikator] → wybor modelu → odpowiedz</code></pre>
+
+<h3>B) Cascade / fallback (probuj tanio → eskaluj gdy niepewny)</h3>
+<p>Dokladnie Twoj scenariusz. Najpierw maly model, a jesli "nie wie" — wiekszy. Prosty, ale placisz za obie proby przy eskalacji.</p>
+<pre><code>pytanie → maly → pewny? → TAK: zwroc
+                       └── NIE: → duzy → zwroc</code></pre>
+
+<h3>C) Mixture of Agents (pytaj kilka, agreguj)</h3>
+<p>Kilka modeli odpowiada rownolegle, model-agregator scala. Najlepsza jakosc, najwyzszy koszt.</p>
+
+<h3>D) Verifier / judge</h3>
+<p>Maly model odpowiada, drugi model (lub ten sam) <strong>weryfikuje</strong> odpowiedz; jesli weryfikacja wypada zle → eskalacja.</p>
+
+<div class="card">
+<p>Dla Twojego celu zacznij od <strong>B (cascade)</strong>. Gdy zbierzesz dane z logow, doloz <strong>A (pre-routing)</strong>, zeby uniknac podwojnego kosztu.</p>
+</div>
+
+<h2>Sedno problemu: skad model wie, ze "nie wie"?</h2>
+<p>To jest cala trudnosc. LLM domyslnie brzmi pewnie nawet gdy halucynuje. Musisz dolozyc <strong>sygnal pewnosci</strong>. Metody (od najprostszej):</p>
+
+<h3>1. Self-evaluation (structured output) — najlatwiejsze</h3>
+<p>Kaz modelowi zwrocic JSON z polem <code>confidence</code> i instrukcja: "jesli nie znasz odpowiedzi, ustaw confidence &lt; 0.5".</p>
+<pre><code>{"answer": "...", "confidence": 0.0-1.0, "domain": "..."}</code></pre>
+<p>Dziala zaskakujaco dobrze jako pierwsza bramka. Wada: model bywa <strong>przesadnie pewny</strong> (slaba kalibracja).</p>
+
+<h3>2. Logprobs / perplexity</h3>
+<p>Niska srednia prawdopodobienstwa tokenow = model "sie waha". Prog na perplexity → eskalacja. Wymaga modelu zwracajacego logprob-y (Ollama/llama.cpp potrafia).</p>
+
+<h3>3. Self-consistency (semantic entropy)</h3>
+<p>Sprobuj N razy z <code>temperature&gt;0</code>. Jesli odpowiedzi sie <strong>rozjezdzaja</strong> → model nie wie → eskaluj. Drogie (N wywolan), ale najlepiej koreluje z halucynacjami (Nature 2024, "semantic entropy").</p>
+
+<h3>4. Heurystyki</h3>
+<p>Wykrycie fraz typu "nie jestem pewien", "nie mam informacji", wykrycie domeny poza zakresem (np. pytanie o swieze dane → cutoff), bardzo krotka/pusta odpowiedz.</p>
+
+<h3>5. Verifier model</h3>
+<p>Osobny (maly) model-sedzia ocenia odpowiedz: "Czy ta odpowiedz jest poprawna i kompletna? TAK/NIE".</p>
+
+<div class="card">
+<p>Szczegoly mierzenia wiedzy modelu i kalibracji — patrz rozdzial <a href="11-01-weryfikacja-wiedzy-modelu.html">11-01 Weryfikacja wiedzy modelu</a>. Pamietaj: surowe <code>confidence</code> bez kalibracji <strong>klamie</strong> — zawsze zwaliduj prog na realnych danych.</p>
+</div>
+
+<h2>Implementacja krok po kroku (Ollama + fallback do chmury)</h2>
+<p>Pod Twoj sprzet (RTX 5060 8GB): proxy = maly model lokalny przez Ollama, eskalacja = wiekszy model w chmurze (lub wiekszy lokalny, jesli masz VRAM).</p>
+<pre><code>import json
+import ollama                      # pip install ollama
+from anthropic import Anthropic    # pip install anthropic
+
+LOCAL_MODEL  = "llama3.2:3b"          # proxy / drzwi frontowe (maly, lokalny, darmowy)
+REMOTE_MODEL = "claude-sonnet-4-6"    # eskalacja (duzy, platny)
+CONF_THRESHOLD = 0.7
+
+client = Anthropic()  # czyta ANTHROPIC_API_KEY ze srodowiska
+
+SYSTEM = """Jestes asystentem-proxy. Odpowiadaj rzetelnie, ale TYLKO gdy jestes pewien.
+Zwroc WYLACZNIE JSON: {"answer": "...", "confidence": 0.0-1.0, "domain": "..."}.
+Jesli nie znasz odpowiedzi lub sie wahasz, ustaw confidence ponizej 0.5."""
+
+def ask_local(question: str) -&gt; dict:
+    resp = ollama.chat(
+        model=LOCAL_MODEL,
+        messages=[{"role": "system", "content": SYSTEM},
+                  {"role": "user",   "content": question}],
+        format="json",                 # wymus poprawny JSON
+        options={"temperature": 0},
+    )
+    return json.loads(resp["message"]["content"])
+
+def ask_remote(question: str) -&gt; str:
+    msg = client.messages.create(
+        model=REMOTE_MODEL,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": question}],
+    )
+    return msg.content[0].text
+
+def proxy(question: str) -&gt; dict:
+    local = ask_local(question)
+    if local.get("confidence", 0) &gt;= CONF_THRESHOLD:
+        return {"source": LOCAL_MODEL, "answer": local["answer"]}
+    # model "nie wie" — deleguj do wiekszego
+    return {"source": REMOTE_MODEL, "answer": ask_remote(question)}
+
+print(proxy("Ile to 2+2?"))                                  # → lokalny (pewny)
+print(proxy("Udowodnij twierdzenie Godla o niezupelnosci"))  # → eskalacja</code></pre>
+
+<h3>Wariant z self-consistency (gdy nie ufasz <code>confidence</code>)</h3>
+<pre><code>from collections import Counter
+
+def ask_local_consistent(question: str, n: int = 5) -&gt; tuple[str, float]:
+    answers = []
+    for _ in range(n):
+        r = ollama.chat(model=LOCAL_MODEL,
+                        messages=[{"role": "user", "content": question}],
+                        options={"temperature": 0.7})
+        answers.append(r["message"]["content"].strip())
+    top, count = Counter(answers).most_common(1)[0]
+    return top, count / n          # zgodnosc jako pewnosc
+
+answer, agreement = ask_local_consistent("Stolica Australii?")
+if agreement &lt; 0.6:               # odpowiedzi sie rozjechaly → nie wie
+    answer = ask_remote("Stolica Australii?")</code></pre>
+
+<h2>Gotowe narzedzia — nie wymyslaj kola na nowo</h2>
+<p>Zanim napiszesz wlasny router, sprawdz te (kolejnosc: najpierw open-source / darmowe):</p>
+<table>
+<thead>
+<tr><th>Narzedzie</th><th>Co robi</th><th>Licencja</th><th>Uwagi</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>LiteLLM</strong></td><td>proxy/gateway, fallback przy bledzie, retry, load-balance</td><td>open source</td><td>jednolite API do 100+ modeli; standard branzowy</td></tr>
+<tr><td><strong>RouteLLM</strong> (LMSYS/Berkeley)</td><td>wytrenowany router weak↔strong</td><td>open source</td><td>router uczony na danych preferencji</td></tr>
+<tr><td><strong>Semantic Router</strong> (Aurelio)</td><td>routing po embeddingach (intencja)</td><td>open source</td><td>bardzo szybki, deterministyczny</td></tr>
+<tr><td><strong>OpenRouter</strong></td><td>hostowany gateway do wielu modeli</td><td>usluga (ma free tier)</td><td>dobre do prototypu, darmowe modele w ofercie</td></tr>
+<tr><td><strong>NotDiamond</strong></td><td>router-as-a-service</td><td>usluga</td><td>dobiera model pod zapytanie</td></tr>
+<tr><td><strong>Martian</strong></td><td>komercyjny model router</td><td>usluga</td><td>optymalizacja koszt/jakosc</td></tr>
+</tbody>
+</table>
+<p><strong>Wazne rozroznienie:</strong> LiteLLM robi fallback <strong>przy bledzie/timeout</strong> (model padl, limit), a NIE "przy niskiej pewnosci". Routing typu "model nie wie" musisz dolozyc sam (bramka pewnosci wyzej) albo uzyc RouteLLM. To dwa rozne fallbacki — nie myl ich.</p>
+
+<h3>Minimalny szkielet na LiteLLM (fallback przy bledzie)</h3>
+<pre><code>from litellm import completion        # pip install litellm
+
+response = completion(
+    model="ollama/llama3.2:3b",                  # probuj najpierw lokalnie
+    messages=[{"role": "user", "content": "..."}],
+    fallbacks=["claude-sonnet-4-6", "gpt-4o"],   # gdy lokalny zawiedzie
+)</code></pre>
+
+<h3>RouteLLM (wytrenowany pre-router)</h3>
+<pre><code>from routellm.controller import Controller       # pip install routellm
+
+client = Controller(
+    routers=["mf"],                               # matrix-factorization router
+    strong_model="claude-sonnet-4-6",
+    weak_model="ollama/llama3.2:3b",
+)
+resp = client.chat.completions.create(
+    model="router-mf-0.11593",                    # prog skalibrowany pod budzet
+    messages=[{"role": "user", "content": "..."}],
+)</code></pre>
+
+<div class="card">
+<p><strong>Chcesz glebiej o samym routerze?</strong> Typy routerow, mechanizmy decyzji, RouteLLM od srodka, metryki (PGR/APGR/CPT) i pelny trening — patrz <a href="06-03-llm-router.html">rozdzial 06-03 LLM router</a>.</p>
+</div>
+
+<h2>Trenowanie wlasnego routera "od zera" (opcjonalnie)</h2>
+<p>Jesli chcesz prawdziwy wlasny model-router (a nie heurystyke), wytrenuj <strong>maly klasyfikator</strong> decydujacy "zostan lokalnie vs eskaluj". To jest ta czesc, ktora realnie "tworzysz od podstaw".</p>
+<p><strong>Skad dane?</strong> Z logow wlasnego cascade'a: dla kazdego pytania zapisz, czy maly model wystarczyl (<code>1</code>) czy trzeba bylo eskalowac (<code>0</code>).</p>
+<pre><code># pip install sentence-transformers scikit-learn
+from sentence_transformers import SentenceTransformer
+from sklearn.linear_model import LogisticRegression
+
+emb = SentenceTransformer("all-MiniLM-L6-v2")     # maly, lokalny, darmowy
+
+X = emb.encode([row["question"] for row in logs]) # logi z cascade'a
+y = [row["local_was_enough"] for row in logs]      # 1 = zostan, 0 = eskaluj
+
+router = LogisticRegression().fit(X, y)
+
+def should_stay_local(question: str) -&gt; bool:
+    x = emb.encode([question])
+    return router.predict_proba(x)[0][1] &gt;= 0.5</code></pre>
+<p>To <strong>pre-router</strong> (wzorzec A): podejmuje decyzje bez uruchamiania duzego modelu → zero podwojnego kosztu. Gdy zbierzesz wiecej danych, mozesz zamienic regresje logistyczna na fine-tune malego BERT/DistilBERT albo malego LLM jako klasyfikatora.</p>
+
+<h2>Koszt i latencja — kompromisy</h2>
+<p>Sens cascade'a to <strong>oszczednosc</strong>: maly lokalny model lapie wiekszosc zapytan za darmo.</p>
+<pre><code>E[koszt] = p · c_lokalny + (1−p) · (c_lokalny + c_zdalny)
+         = c_lokalny + (1−p) · c_zdalny        (przy eskalacji placisz OBA)
+
+p          = odsetek zapytan obsluzonych lokalnie
+c_lokalny  ≈ 0   (wlasny GPU, prad)
+c_zdalny   = cena duzego modelu w chmurze</code></pre>
+<table>
+<thead>
+<tr><th>p (lapie lokalnie)</th><th>Wzgledny koszt vs "wszystko w chmurze"</th></tr>
+</thead>
+<tbody>
+<tr><td>0%</td><td>~100% (a nawet &gt;100% przez podwojne wywolanie)</td></tr>
+<tr><td>50%</td><td>~50%</td></tr>
+<tr><td>80%</td><td>~20%</td></tr>
+<tr><td>95%</td><td>~5%</td></tr>
+</tbody>
+</table>
+<p>Im lepiej proxy lapie proste pytania, tym taniej. <strong>Ale</strong> cascade doklada latencje (sekwencyjne wywolania) i przy eskalacji placisz dwa razy — dlatego pre-routing (wzorzec A) bywa lepszy, gdy masz dobry klasyfikator.</p>
+
+<h2>Pulapki</h2>
+<ul>
+<li><strong>Niekalibrowane confidence</strong> — model bywa pewny blednych odpowiedzi. Zwaliduj prog na realnym zbiorze testowym, nie zgaduj.</li>
+<li><strong>Podwojny koszt i latencja</strong> — eskalacja = dwie proby. Przy duzym ruchu przejdz na pre-routing.</li>
+<li><strong>Router drift</strong> — rozklad pytan sie zmienia; klasyfikator trzeba douczac.</li>
+<li><strong>Niespojnosc formatow</strong> — rozne modele zwracaja inaczej; ujednolicaj output po stronie proxy.</li>
+<li><strong>Bezpieczenstwo / prywatnosc</strong> — eskalacja wysyla dane do zewnetrznego API. Nie loguj sekretow i pilnuj, co opuszcza maszyne lokalna.</li>
+<li><strong>Pojedynczy punkt awarii</strong> — proxy to waskie gardlo; dodaj timeouty i twardy fallback.</li>
+</ul>
+
+<h2>Sciezka wdrozenia</h2>
+<pre><code>1. Uruchom maly model lokalnie (Ollama: llama3.2:3b / qwen2.5:3b)
+   ↓
+2. Dodaj bramke pewnosci (structured output {answer, confidence})
+   ↓
+3. Eskalacja przy niskiej pewnosci → wiekszy model / chmura
+   ↓
+4. Owin to w LiteLLM (jednolite API + fallback przy bledzie)
+   ↓
+5. Loguj kazde zapytanie: pytanie, pewnosc, czy eskalowano, wynik
+   ↓
+6. Z logow wytrenuj pre-router (klasyfikator) → tnij podwojny koszt
+   ↓
+7. Skalibruj prog pod swoj budzet (koszt vs jakosc)</code></pre>
+
+<h2>Zasoby</h2>
+<div class="card">
+<p><strong>Papers (kanon tematu):</strong></p>
+<ul>
+<li><strong>FrugalGPT</strong> (Chen et al., Stanford 2023) — LLM cascade dla redukcji kosztow; to dokladnie Twoj wzorzec</li>
+<li><strong>RouteLLM</strong> (Ong et al., LMSYS/Berkeley 2024) — uczony router weak↔strong</li>
+<li><strong>Mixture-of-Agents</strong> (Wang et al., 2024) — agregacja wielu LLM</li>
+<li><strong>Semantic entropy</strong> (Farquhar et al., Nature 2024) — wykrywanie halucynacji / "nie wiem"</li>
+</ul>
+<p><strong>Narzedzia:</strong></p>
+<ul>
+<li>LiteLLM — docs.litellm.ai (gateway + fallback)</li>
+<li>RouteLLM — github.com/lm-sys/RouteLLM</li>
+<li>Semantic Router — github.com/aurelio-labs/semantic-router</li>
+<li>OpenRouter — openrouter.ai (hostowany gateway, ma darmowe modele)</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="06-01-trening-od-zera.html">← 06-01 — Trening od zera</a>
+<a href="06-03-llm-router.html">06-03 — LLM router →</a>
+</div>
+</div>
+</body>
+</html>

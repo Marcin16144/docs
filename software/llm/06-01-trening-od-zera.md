@@ -579,16 +579,59 @@ Patrz rozdział 11. Dla treningu od zera:
 - Red teaming
 - Bias evals
 
-## Realny przykład — TinyLlama 1.1B
+## Realny przykład — TinyLlama 1.1B (case study)
 
-Zespół 3 osób, ~6 miesięcy, $100k budżet (cloud):
-- **Architektura**: Llama 2 architecture (1.1B params)
-- **Dane**: 3T tokens (SlimPajama + StarCoderData)
-- **Hardware**: 16× A100 80GB
-- **Czas treningu**: ~3 miesiące
-- **Koszt**: ~$70k cloud + zespół
+**Dlaczego akurat TinyLlama?** To najlepiej udokumentowany, w pełni otwarty trening małego LLM od zera. Mały zespół akademicki (StatNLP @ SUTD) wytrenował konkurencyjny model 1.1B na 3T tokenów — kod, dane, pośrednie checkpointy i logi są publiczne, więc cały proces da się prześledzić i odtworzyć. Idealny następny krok po nanoGPT.
 
-Wynik: model porównywalny z Pythia 1.4B i StableLM 1.3B.
+### Specyfikacja modelu
+
+| Element | Wartość |
+|---------|---------|
+| Parametry | 1.1B |
+| Architektura | Llama 2 (ten sam tokenizer, vocab 32000) |
+| Warstwy | 22 |
+| Hidden size | 2048 |
+| Intermediate (FFN) | 5632 |
+| Attention heads | 32 |
+| KV heads (GQA) | 4 |
+| Context length | 2048 |
+| Pozycje / Norm / Aktywacja | RoPE / RMSNorm / SwiGLU |
+
+### Dane — ~950B unikatowych tokenów, ~3T przez ~3 epoki
+
+- **SlimPajama** (oczyszczony, zdeduplikowany web, ~627B) + **Starcoderdata** (kod)
+- Proporcja **natural language : code = 7:3**
+- Ze SlimPajama usunięto subset GitHub — żeby nie dublować kodu obecnego już w Starcoderdata
+- 3T tokenów = ~3 epoki po ~950B. To klasyczny **over-training**: ~2700 tokenów/parametr, znacznie powyżej Chinchilla (patrz sekcja o scaling laws wyżej)
+
+### Hardware, czas, koszt
+
+- **16× A100 40GB** (uwaga: 40GB, nie 80GB)
+- Throughput: **24 000 tokenów/s na GPU**
+- Czas: **~90 dni** ciągłego treningu
+- ~34 560 A100-godzin (16 × 90 dni × 24h)
+- Koszt cloud: **~$50-70k** (przy ~$1.5-2/h za A100-40G)
+
+### Sekret wydajności — 56% MFU
+
+To, co odróżnia TinyLlama od naiwnego treningu, to **56% MFU** (Model FLOPs Utilization) — i to *bez* activation checkpointing. Recepta:
+
+- **FlashAttention-2**
+- fused RMSNorm, fused SwiGLU, fused cross-entropy, fused RoPE
+- codebase **lit-gpt** (Lightning AI) + FSDP
+
+Efekt: 24k tok/s/GPU, czyli wyraźnie taniej niż konkurencja — **3456 A100-godzin na 300B tokenów** wobec 4830 dla Pythia-1.0B i 7920 dla MPT-1.3B.
+
+### Wynik
+
+Model konkurencyjny z otwartymi modelami podobnej skali (OPT-1.3B, Pythia-1.4B) na benchmarkach commonsense reasoning — przy mniejszym budżecie compute. Dowód, że agresywny over-training małego modelu daje mocny, a zarazem **tani w inferencji** model (idealny na edge/lokalnie).
+
+### Jak się pobawić / odtworzyć
+
+- Repo: **github.com/jzhang38/TinyLlama** — pełny kod treningowy na lit-gpt
+- Pośrednie checkpointy na Hugging Face — widać, jak rosną zdolności modelu w trakcie treningu (świetne do nauki)
+- Warianty: bazowy + chat (po SFT) oraz nowsza seria **TinyLlama v1.1** (trzy specjalizacje: base, math&code, Chinese)
+- Nowoczesny stack na osiągalnym sprzęcie: RoPE + RMSNorm + SwiGLU + GQA + FlashAttention-2 + FSDP
 
 ## Open source playgrounds
 
@@ -606,9 +649,9 @@ Jeśli chcesz **nauczyć się** treningu LLM przed wydaniem milionów:
 - Pokazuje co dzieje się "pod spodem"
 
 ### TinyLlama
-- 1.1B model, 3T tokens
-- Pełny pipeline open source
+- 1.1B model, 3T tokens, pełny pipeline open source
 - github.com/jzhang38/TinyLlama
+- **Pełny case study wyżej** → "Realny przykład — TinyLlama 1.1B"
 
 ### OLMo (AI2)
 - W pełni otwarte: dane + kod + checkpointy + logi

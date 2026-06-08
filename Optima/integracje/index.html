@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Integracje i API — Comarch Optima</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--surface-hover:#283649;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#10b981;--accent-hover:#34d399;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--yellow:#fbbf24;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:38px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:6px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:24px;opacity:.8}
+h2{font-size:1.4rem;font-weight:600;color:var(--accent);margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.08rem;font-weight:600;color:var(--text);margin:22px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+code{background:var(--code-bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:'Cascadia Code',monospace;font-size:.84rem;color:var(--green)}
+table{width:100%;border-collapse:collapse;margin:14px 0 22px;font-size:.87rem}
+th{background:var(--surface);color:var(--accent);padding:9px 13px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:8px 13px;border:1px solid var(--border);vertical-align:top}
+tr:hover td{background:var(--surface-hover)}
+.callout{background:rgba(16,185,129,.08);border-left:3px solid var(--accent);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(251,191,36,.08);border-left:3px solid var(--yellow);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.toc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:24px}
+.toc a{color:var(--accent);text-decoration:none;font-size:.85rem}
+.toc a:hover{text-decoration:underline}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:54px;padding-top:22px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+.src{font-size:.8rem;color:var(--text-muted)}
+.src a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">📚 Kompendium</a><span class="sep">/</span><a href="../index.html">💼 Optima</a><span class="sep">/</span><span class="title">Integracje i API</span></div>
+<div class="container">
+<h1>Integracje i API</h1>
+<p class="subtitle">Wymiana danych Comarch ERP Optima z innymi programami — API, Excel, CSV, XML, JPK/KSeF, bank, usługi web</p>
+<p class="updated">Aktualizacja: 2026-06 · na podstawie dokumentacji Comarch (pomoc.comarch.pl) i źródeł partnerskich</p>
+
+<div class="callout">
+ℹ️ Optima <strong>nie ma jednego, jednolitego „API"</strong> — pod tym pojęciem kryje się kilka równoległych mechanizmów (COM, WebService, REST, wymiana plikowa). Wybór zależy od architektury, wymagań i zakresu synchronizacji. Część szczegółów technicznych API i Migratora jest dostępna tylko na zamkniętych Stronach Partnerów Comarch — oznaczono je jako „do weryfikacji".
+</div>
+
+<div class="toc">
+<strong>Spis:</strong>
+<a href="#api">API</a> ·
+<a href="#excel">Excel</a> ·
+<a href="#csv">CSV/TXT</a> ·
+<a href="#xml">XML / Migrator</a> ·
+<a href="#jpk">JPK / KSeF / Płatnik</a> ·
+<a href="#bank">Bank</a> ·
+<a href="#web">Usługi web</a> ·
+<a href="#ekosystem">Ekosystem</a> ·
+<a href="#kip">Kadry i Płace</a> ·
+<a href="#tabela">Tabela zbiorcza</a>
+</div>
+
+<h2 id="api">1. API Optima (interfejs programistyczny)</h2>
+<h3>Obiekty COM / Automation („API stacjonarne")</h3>
+<p>Najstarszy i najgłębszy sposób komunikacji z logiką biznesową i bazą Optimy — operacje na dokumentach, kontrahentach, towarach, operatorach i bazie SQL Server. Model sesyjny: logowanie → operacje → wylogowanie. Do logowania wykorzystuje się biblioteki <code>Common.dll</code> i <code>Common.Logic.dll</code> z katalogu instalacyjnego, a do pracy z obiektami — bibliotekę <code>CDNBase</code> (i pozostałe <code>CDN*</code>). Wymaga wysokich kompetencji i znajomości struktury bazy MSSQL.</p>
+<h3>WebService (SOAP/XML/WSDL) i REST / Web API</h3>
+<ul>
+<li><strong>WebService (SOAP)</strong> — starsze integracje B2B i systemy legacy.</li>
+<li><strong>REST / Web API (HTTP/HTTPS, JSON)</strong> — najnowocześniejsze podejście dla aplikacji webowych, e-commerce, mobile i SaaS; dodawanie/modyfikacja dokumentów w modułach handlowym, magazynowym, księgowym i kadrowo-płacowym; autoryzacja tokenami sesyjnymi + HTTPS.</li>
+</ul>
+<div class="warning">⚠ <strong>Do weryfikacji:</strong> znaczna część rozwiązań „Web API do Optimy" to <strong>produkty firm partnerskich</strong> (nakładki na model COM/bazę), a nie natywny komponent Comarch. Istnienie osobno licencjonowanego, natywnego modułu „Comarch ERP Optima API" w aktualnym cenniku nie jest jednoznacznie potwierdzone — sprawdź u partnera. Dla integracji opartych na bazie/COM kluczowy jest moduł dający dostęp do bazy (najczęściej <strong>Kasa/Bank</strong>).</div>
+<h3>Robotyzacja (RPA) — wbudowana automatyzacja</h3>
+<p>Optima zawiera standardowy, <strong>bezpłatny</strong> moduł <strong>Robotyzacja (RPA)</strong> + funkcje AI: automatyczne przenoszenie dokumentów kosztowych z Handlu do Rejestrów VAT, księgowanie, wymianę z bankiem (eksport przelewów / import wyciągów), pobieranie kursów NBP, fakturowanie cykliczne, windykację. To wewnętrzny mechanizm (nie zewnętrzne API), ale istotny w scenariuszach integracyjnych.</p>
+
+<h2 id="excel">2. Import / eksport przez MS Excel</h2>
+<ul>
+<li><strong>Eksport list i raportów</strong> — praktycznie każdą listę/raport można wyeksportować do Excela (ikona na listach). Zalecany format: <strong>MS Excel 97-2003 (<code>.xls</code>)</strong>.</li>
+<li><strong>Import/eksport cennika i towarów</strong> — z poziomu listy towarów; od wersji 2021.4 obejmuje też dane dla e-Sklepu (nazwy/opisy w językach, dostępność, atrybuty). Można wybrać aktualizowane pola (nazwa, VAT, EAN, ceny, jednostki…).</li>
+<li><strong>Import kontrahentów</strong> — min. 3 kolumny: <strong>Kod, Nazwa, NIP</strong>. <strong>Import towarów</strong> — min. <strong>Kod, Nazwa, J.M.</strong> (biuletyn <em>OPT009 – Import danych z arkusza MS Excel</em>).</li>
+<li><strong>Comarch ERP Optima Analizy BI</strong> — dodatek analityczny: ~197 raportów, 9 dashboardów, analizy ad-hoc (drag&amp;drop), subskrypcje, dane z <strong>zewnętrznych źródeł</strong> (pliki Excel, zewnętrzne bazy). Rozszerzalny o <strong>Comarch BI Point</strong> (platforma webowa).</li>
+</ul>
+
+<h2 id="csv">3. Pliki CSV i tekstowe</h2>
+<ul>
+<li>Optima wymienia dane głównie w <code>.XML</code> i <code>.TXT</code>; obsługuje też <strong>CSV/PLI/TXT</strong>.</li>
+<li><strong>Import wyciągów bankowych z CSV/TXT</strong> — konfiguracja separatora pól (np. średnik), separatora tekstu, formatu daty (RRRR-MM-DD), separatora dziesiętnego. Ograniczenia: tylko <strong>jeden wiersz nagłówka</strong>, format <strong>bez stopki</strong>.</li>
+<li>Strony kodowe dla polskich znaków: Windows-1250, Latin II, ISO-8859-2, Mazovia, UTF-8.</li>
+<li>Własne formaty: <em>Ogólne / Inne / Formaty przelewów</em>.</li>
+</ul>
+
+<h2 id="xml">4. Pliki XML i wymiana między bazami</h2>
+<ul>
+<li><strong>Comarch Migrator</strong> — migracja danych do Optimy z innych systemów (arkusze Excel + pliki XML), przycisk „Migruj Dane". ⚠ Przeznaczony <strong>wyłącznie dla Autoryzowanych Partnerów</strong> (struktura arkuszy na Stronach Partnerów).</li>
+<li><strong>Praca rozproszona</strong> — wymiana offline plikami XML między Działem Sprzedaży/Płac a Księgowością (typowo biuro rachunkowe ↔ klient): rejestry VAT, dokumenty sprzedaży/zakupu, listy płac, dane słownikowe. Od wersji 2017.5.1 plik XML jest kompresowany (<code>.zip</code>).</li>
+<li><strong>Internetowa Wymiana Dokumentów (IWD)</strong> — wariant online pracy rozproszonej przez serwer wymiany Comarch (biuletyn <em>OPT039</em>).</li>
+<li><strong>Comarch ERP XL ↔ Optima</strong> — pliki <code>.XLO</code> (spakowane XML). <strong>Comarch DMS/BPM</strong> zasila moduł księgowy (FK) rejestrami VAT i wyciągami przez wymianę XML.</li>
+</ul>
+
+<h2 id="jpk">5. JPK, KSeF, e-Deklaracje, Płatnik</h2>
+<h3>JPK (Jednolity Plik Kontrolny)</h3>
+<p>Generowane struktury: <strong>JPK_V7 (V7M/V7K)</strong>, JPK_FA, JPK_KR, JPK_MAG, JPK_WB, JPK_EWP, JPK_PKPIR. JPK_V7 — obowiązkowy, miesięcznie do 25. dnia; <strong>bezpośrednia wysyłka</strong> z programu (podpis kwalifikowany / niekwalifikowany / Profil Zaufany). Od <strong>lutego 2026</strong> obowiązuje <strong>JPK_V7(3)</strong> z numerem KSeF i nowymi kodami (m.in. <strong>OFF</strong> — faktury offline); obsługa w Optimie od 2026.3.1.</p>
+<h3>KSeF (Krajowy System e-Faktur)</h3>
+<ul>
+<li>Wysyłka i odbiór faktur ustrukturyzowanych — pojedyncza i <strong>wsadowa</strong> (paczki ZIP, błąd jednego pliku nie blokuje paczki).</li>
+<li><strong>Automat wysyłki</strong> (interwał lub przy zatwierdzeniu dokumentu). Konfiguracja: KSeF 2.0 — Token lub Certyfikat KSeF; w <em>Konfiguracja/Firma/Dane firmy/KSeF</em>.</li>
+<li>⚠ Komunikacja z KSeF jest <strong>bezpłatna</strong> (model subskrypcyjny i nowi klienci — okres bezpłatny do końca 2026); dla starszych licencji wieczystych — do weryfikacji w cenniku.</li>
+</ul>
+<h3>e-Deklaracje i Program Płatnik (ZUS)</h3>
+<ul>
+<li><strong>e-Deklaracje</strong> — bezpośrednia wysyłka PIT/CIT/VAT i JPK_V7 do systemu MF, z odbiorem UPO.</li>
+<li><strong>Płatnik / ZUS</strong> — „Eksport do programu Płatnik" (plik <strong>KEDU XML</strong>) lub „Wyślij bezpośrednio do ZUS"; deklaracje DRA, RCA, RSA. Możliwy też <strong>import</strong> z KEDU oraz import danych kadrowych z Płatnika (na podstawie ZUS ZUA).</li>
+</ul>
+
+<h2 id="bank">6. Integracje bankowe</h2>
+<p>Centralny jest moduł <strong>Kasa/Bank</strong> (mechanizm HOME BANKING — eksport przelewów + import wyciągów; biuletyn <em>OPT070</em>).</p>
+<table>
+<thead><tr><th>Metoda</th><th>Opis</th></tr></thead>
+<tbody>
+<tr><td><strong>Elixir</strong></td><td>Krajowe przelewy (Elixir-O i warianty bankowe)</td></tr>
+<tr><td><strong>MT940 / MT942</strong></td><td>Predefiniowane formaty wyciągów (standard, BGŻ, BRE, PBS, Citi Handlowy + warianty Swift)</td></tr>
+<tr><td><strong>VideoTEL</strong></td><td>Popularny format wymiany z bankowością elektroniczną</td></tr>
+<tr><td><strong>WebService (ISO 20022)</strong></td><td>Bezpośrednia wymiana z bankiem (bez plików) — XML wg ISO 20022, HTTPS z dwustronnym SSL</td></tr>
+<tr><td><strong>Formaty użytkownika</strong></td><td>Kreator: [Ogólne]/[Nagłówek]/[Pozycje]/[Stopka] wg dokumentacji banku</td></tr>
+</tbody>
+</table>
+<p>RPA umożliwia automatyczny eksport przelewów i import wyciągów oraz parowanie płatności z dokumentami.</p>
+
+<h2 id="web">7. Usługi zewnętrzne (web)</h2>
+<ul>
+<li><strong>GUS/REGON</strong> — pobieranie danych kontrahenta po NIP/REGON i zakładanie kartoteki.</li>
+<li><strong>VIES</strong> — weryfikacja statusu VAT-UE po NIP (baza Komisji Europejskiej).</li>
+<li><strong>Status VAT</strong> (Portal Podatkowy MF) — czynny/zwolniony/niezarejestrowany; ręcznie lub automatycznie na dokumentach.</li>
+<li><strong>Biała lista (Wykaz podatników VAT)</strong> — automatyczne pobieranie rachunków bankowych kontrahenta i weryfikacja.</li>
+<li><strong>e-Doręczenia</strong> — realizowane przez <strong>Comarch DMS/BPM</strong> (wymaga licencji BPM Premium, pieczęci i certyfikatu), nie bezpośrednio w samej Optimie. ⚠ do weryfikacji.</li>
+</ul>
+<div class="warning">⚠ Funkcje weryfikacji/pobierania danych z GUS/VIES/białej listy dostępne są <strong>tylko dla programów na gwarancji</strong> (aktualna asysta/subskrypcja).</div>
+
+<h2 id="ekosystem">8. Ekosystem Comarch i e-commerce</h2>
+<ul>
+<li><strong>Comarch e-Sklep / e-Sale</strong> — dwukierunkowa synchronizacja: eksport towarów, cen, stanów, zdjęć; import zamówień. Automat synchronizacji (cykliczny).</li>
+<li><strong>wszystko.pl</strong> — platforma sprzedażowa Comarch (eksport oferty/cen/stanów, import zamówień i kategorii).</li>
+<li><strong>Allegro i inne platformy</strong> — przez e-Sklep/e-Sale lub integratory partnerskie; wbudowana integracja z kurierami (DHL, DPD, Poczta Polska, InPost/Paczkomaty).</li>
+<li><strong>Comarch HRM</strong> — praca/urlopy/czas pracy (współdzieli bazę z Kadrami i Płacami). <strong>Comarch DMS/BPM</strong> — obieg dokumentów. <strong>Comarch Mobile</strong> (Sprzedaż/Serwis) i <strong>Comarch WMS</strong> (magazyn). <strong>Comarch BI Point</strong> — analityka webowa. <strong>iBard</strong> — backup w chmurze.</li>
+</ul>
+
+<h2 id="kip">9. Integracje istotne dla Kadr i Płac</h2>
+<table>
+<thead><tr><th>Integracja</th><th>Opis</th></tr></thead>
+<tbody>
+<tr><td><strong>Płatnik / ZUS</strong></td><td>Eksport KEDU (XML) lub bezpośrednia wysyłka DRA/RCA/RSA; import z KEDU i danych kadrowych (ZUS ZUA)</td></tr>
+<tr><td><strong>e-ZLA / PUE ZUS</strong></td><td>Automatyczne pobieranie elektronicznych zwolnień lekarskich z ZUS</td></tr>
+<tr><td><strong>RCP (czytniki)</strong></td><td>Import czasu pracy z rejestratorów (od 2026 wbudowana integracja z Comarch i wybranymi zewn. systemami; wcześniej przez arkusz)</td></tr>
+<tr><td><strong>Excel</strong></td><td>Import/eksport danych pracowników, umów cywilnoprawnych, planów i czasu pracy; eksport list płac i raportów</td></tr>
+<tr><td><strong>e-Deklaracje</strong></td><td>Wysyłka PIT-11, PIT-4R, PIT-8AR do systemu MF</td></tr>
+</tbody>
+</table>
+
+<h2 id="tabela">Tabela zbiorcza ścieżek integracji</h2>
+<table>
+<thead><tr><th>Mechanizm</th><th>Technologia</th><th>Zastosowanie</th><th>Wymagania</th></tr></thead>
+<tbody>
+<tr><td>Obiekty COM / CDNBase</td><td>DLL, sesja COM, MSSQL</td><td>Głęboka integracja, automatyzacja</td><td>Moduł dostępowy + znajomość bazy</td></tr>
+<tr><td>Web API / REST (SOAP)</td><td>HTTP/HTTPS, JSON/XML</td><td>E-commerce, mobile, B2B</td><td>Często rozwiązania partnerskie</td></tr>
+<tr><td>Excel</td><td><code>.xls</code> (97-2003)</td><td>Cennik, towary, kontrahenci, pracownicy, raporty</td><td>Wbudowane</td></tr>
+<tr><td>CSV / TXT</td><td>tekst, własne formaty</td><td>Wyciągi, dane słownikowe</td><td>Wbudowane</td></tr>
+<tr><td>XML (Migrator / praca rozproszona / IWD)</td><td><code>.xml</code>, <code>.zip</code>, <code>.xlo</code></td><td>Migracja, biuro↔klient, DMS→FK</td><td>Migrator: tylko partnerzy</td></tr>
+<tr><td>JPK / e-Deklaracje / KSeF</td><td>XML</td><td>Fiskus, e-faktury</td><td>KSeF bezpłatny do końca 2026*</td></tr>
+<tr><td>Bank (Elixir/MT940/VideoTEL/ISO 20022)</td><td>pliki + WebService</td><td>Przelewy, wyciągi, autorozliczenia</td><td>Moduł Kasa/Bank</td></tr>
+<tr><td>GUS / VIES / biała lista</td><td>usługi web MF/KE</td><td>Dane kontrahenta, weryfikacja VAT</td><td>Program na gwarancji</td></tr>
+<tr><td>Płatnik / ZUS / e-ZLA / RCP</td><td>KEDU XML, web ZUS</td><td>Kadry i Płace</td><td>Moduł Płace i Kadry</td></tr>
+<tr><td>Ekosystem (e-Sklep, DMS, Mobile, BI, iBard)</td><td>synchronizacja Comarch</td><td>E-commerce, obieg dok., analityka, backup</td><td>Osobne moduły/licencje</td></tr>
+</tbody>
+</table>
+<p style="font-size:.8rem;color:var(--text-muted)">*Warunki bezpłatnego KSeF dla starszych licencji wieczystych — do weryfikacji w cenniku.</p>
+
+<p class="src">Źródła: dokumentacja Comarch (pomoc.comarch.pl — biuletyny OPT009, OPT039, OPT070, OPT088; Praca rozproszona, JPK, KSeF, Robotyzacja), comarch.pl (Aplikacje zintegrowane, Analizy BI, KSeF) oraz źródła partnerskie (ELTE-S, Kotrak). Część szczegółów API/Migratora dostępna tylko na Stronach Partnerów Comarch.</p>
+
+<div class="nav-bottom">
+<a href="../index.html">⟵ Comarch Optima</a>
+<a href="../kadry-place/index.html">Moduł Kadry i Płace →</a>
+</div>
+</div>
+</body>
+</html>

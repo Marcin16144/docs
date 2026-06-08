@@ -582,16 +582,61 @@ trainer.train()</code></pre>
 <li>Bias evals</li>
 </ul>
 
-<h2>Realny przyklad — TinyLlama 1.1B</h2>
-<p>Zespol 3 osob, ~6 miesiecy, $100k budzet (cloud):</p>
+<h2>Realny przyklad — TinyLlama 1.1B (case study)</h2>
+<p><strong>Dlaczego akurat TinyLlama?</strong> To najlepiej udokumentowany, w pelni otwarty trening malego LLM od zera. Maly zespol akademicki (StatNLP @ SUTD) wytrenowal konkurencyjny model 1.1B na 3T tokenow — kod, dane, posrednie checkpointy i logi sa publiczne, wiec caly proces da sie przesledzic i odtworzyc. Idealny nastepny krok po nanoGPT.</p>
+
+<h3>Specyfikacja modelu</h3>
+<table>
+<thead><tr><th>Element</th><th>Wartosc</th></tr></thead>
+<tbody>
+<tr><td>Parametry</td><td>1.1B</td></tr>
+<tr><td>Architektura</td><td>Llama 2 (ten sam tokenizer, vocab 32000)</td></tr>
+<tr><td>Warstwy</td><td>22</td></tr>
+<tr><td>Hidden size</td><td>2048</td></tr>
+<tr><td>Intermediate (FFN)</td><td>5632</td></tr>
+<tr><td>Attention heads</td><td>32</td></tr>
+<tr><td>KV heads (GQA)</td><td>4</td></tr>
+<tr><td>Context length</td><td>2048</td></tr>
+<tr><td>Pozycje / Norm / Aktywacja</td><td>RoPE / RMSNorm / SwiGLU</td></tr>
+</tbody>
+</table>
+
+<h3>Dane — ~950B unikatowych tokenow, ~3T przez ~3 epoki</h3>
 <ul>
-<li><strong>Architektura</strong>: Llama 2 architecture (1.1B params)</li>
-<li><strong>Dane</strong>: 3T tokens (SlimPajama + StarCoderData)</li>
-<li><strong>Hardware</strong>: 16× A100 80GB</li>
-<li><strong>Czas treningu</strong>: ~3 miesiace</li>
-<li><strong>Koszt</strong>: ~$70k cloud + zespol</li>
+<li><strong>SlimPajama</strong> (oczyszczony, zdeduplikowany web, ~627B) + <strong>Starcoderdata</strong> (kod)</li>
+<li>Proporcja <strong>natural language : code = 7:3</strong></li>
+<li>Ze SlimPajama usunieto subset GitHub — zeby nie dublowac kodu obecnego juz w Starcoderdata</li>
+<li>3T tokenow = ~3 epoki po ~950B. To klasyczny <strong>over-training</strong>: ~2700 tokenow/parametr, znacznie powyzej Chinchilla (patrz sekcja o scaling laws wyzej)</li>
 </ul>
-<p>Wynik: model porownywalny z Pythia 1.4B i StableLM 1.3B.</p>
+
+<h3>Hardware, czas, koszt</h3>
+<ul>
+<li><strong>16× A100 40GB</strong> (uwaga: 40GB, nie 80GB)</li>
+<li>Throughput: <strong>24 000 tokenow/s na GPU</strong></li>
+<li>Czas: <strong>~90 dni</strong> ciaglego treningu</li>
+<li>~34 560 A100-godzin (16 × 90 dni × 24h)</li>
+<li>Koszt cloud: <strong>~$50-70k</strong> (przy ~$1.5-2/h za A100-40G)</li>
+</ul>
+
+<h3>Sekret wydajnosci — 56% MFU</h3>
+<p>To, co odroznia TinyLlama od naiwnego treningu, to <strong>56% MFU</strong> (Model FLOPs Utilization) — i to <em>bez</em> activation checkpointing. Recepta:</p>
+<ul>
+<li><strong>FlashAttention-2</strong></li>
+<li>fused RMSNorm, fused SwiGLU, fused cross-entropy, fused RoPE</li>
+<li>codebase <strong>lit-gpt</strong> (Lightning AI) + FSDP</li>
+</ul>
+<p>Efekt: 24k tok/s/GPU, czyli wyraznie taniej niz konkurencja — <strong>3456 A100-godzin na 300B tokenow</strong> wobec 4830 dla Pythia-1.0B i 7920 dla MPT-1.3B.</p>
+
+<h3>Wynik</h3>
+<p>Model konkurencyjny z otwartymi modelami podobnej skali (OPT-1.3B, Pythia-1.4B) na benchmarkach commonsense reasoning — przy mniejszym budzecie compute. Dowod, ze agresywny over-training malego modelu daje mocny, a zarazem <strong>tani w inferencji</strong> model (idealny na edge/lokalnie).</p>
+
+<h3>Jak sie pobawic / odtworzyc</h3>
+<ul>
+<li>Repo: <strong>github.com/jzhang38/TinyLlama</strong> — pelny kod treningowy na lit-gpt</li>
+<li>Posrednie checkpointy na Hugging Face — widac, jak rosna zdolnosci modelu w trakcie treningu (swietne do nauki)</li>
+<li>Warianty: bazowy + chat (po SFT) oraz nowsza seria <strong>TinyLlama v1.1</strong> (trzy specjalizacje: base, math&amp;code, Chinese)</li>
+<li>Nowoczesny stack na osiagalnym sprzecie: RoPE + RMSNorm + SwiGLU + GQA + FlashAttention-2 + FSDP</li>
+</ul>
 
 <h2>Open source playgrounds</h2>
 <p>Jesli chcesz <strong>nauczyc sie</strong> treningu LLM przed wydaniem milionow:</p>
@@ -613,9 +658,9 @@ trainer.train()</code></pre>
 
 <h3>TinyLlama</h3>
 <ul>
-<li>1.1B model, 3T tokens</li>
-<li>Pelny pipeline open source</li>
+<li>1.1B model, 3T tokens, pelny pipeline open source</li>
 <li>github.com/jzhang38/TinyLlama</li>
+<li><strong>Pelny case study wyzej</strong> → "Realny przyklad — TinyLlama 1.1B"</li>
 </ul>
 
 <h3>OLMo (AI2)</h3>

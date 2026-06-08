@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bazy danych — w3app</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+
+    <nav class="nav">
+        <a href="structure.html">Struktura</a>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-active">Bazy danych</span>
+        <span class="crumb-sep">·</span>
+        <a href="vscode.html">VS Code</a>
+    </nav>
+
+    <h1>Bazy danych</h1>
+    <p class="version">Warstwa połączenia, migrator, modele, konwencja nazewnictwa</p>
+
+    <!-- WARSTWA POŁĄCZENIA -->
+    <h2>1. Warstwa połączenia (PDO)</h2>
+    <p>Frontend ([index.php](../../index.php)) używa singletona PDO. Wybór silnika sterowany kluczem <code>db.driver</code> w configu — autoloader katalogu <code>core/db/</code> wciąga plik on-demand.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Driver w configu</th>
+                <th>Klasa</th>
+                <th>Plik</th>
+                <th>Wymagane pola configu</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>mysql</code></td>
+                <td>MySqlDriver</td>
+                <td><code>core/db/MySqlDriver.php</code></td>
+                <td>host, port, database, username, password, charset</td>
+            </tr>
+            <tr>
+                <td><code>pgsql</code></td>
+                <td>PgSqlDriver</td>
+                <td><code>core/db/PgSqlDriver.php</code></td>
+                <td>host, port, database, username, password</td>
+            </tr>
+            <tr>
+                <td><code>sqlite</code></td>
+                <td>SqliteDriver</td>
+                <td><code>core/db/SqliteDriver.php</code></td>
+                <td>database (ścieżka lub <code>:memory:</code>)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- KOMPONENTY -->
+    <h2>2. Komponenty modułowe</h2>
+    <p>Każdy komponent żyje w <code>app/&lt;Pascal&gt;/</code>, wykrywany przez <code>ComponentDiscovery</code>. <strong>Appdb</strong> jest bazą każdego projektu; CMS/Shop — opcjonalne nadbudowy.</p>
+    <div class="columns3">
+        <div class="col-box">
+            <h3>Appdb <span class="badge">baza</span></h3>
+            <p class="summary">Application Main — autentykacja, sesje, log aplikacji.</p>
+            <ul>
+                <li>Slug: <code>appdb</code></li>
+                <li>Tabele: <code>users</code> (<code>Use</code>), <code>logs</code> (<code>Log</code>)</li>
+                <li>Log z wersją: <code>LogAppVersion</code> ← <code>Core\Version::current()</code></li>
+                <li>Tracking: <code>&lt;tenant&gt;_migrations_appdb</code></li>
+            </ul>
+        </div>
+        <div class="col-box">
+            <h3>Cms <span class="badge">opcjonalny</span></h3>
+            <p class="summary">CMS — strony, kategorie, media.</p>
+            <ul>
+                <li>Slug: <code>cms</code></li>
+                <li>Tabele: <code>pages</code></li>
+                <li>Prefix kolumn: <code>Pag</code></li>
+                <li>Tracking: <code>&lt;tenant&gt;_migrations_cms</code></li>
+            </ul>
+        </div>
+        <div class="col-box">
+            <h3>Shop <span class="badge">opcjonalny</span></h3>
+            <p class="summary">Sklep — produkty, zamówienia, koszyk.</p>
+            <ul>
+                <li>Slug: <code>shop</code></li>
+                <li>Tabele: (pusty — szablon)</li>
+                <li>Prefix kolumn: (TBD)</li>
+                <li>Tracking: <code>&lt;tenant&gt;_migrations_shop</code></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- WARSTWA MIGRACJI -->
+    <h2>3. Warstwa migracji</h2>
+    <p>Migrator <strong>nie</strong> startuje przy żądaniach frontendu. Wyzwalany przy loginie do <code>admin/</code> oraz z CLI <code>bin/migrate</code>. Lock-pliki w <code>var/schema-lock/</code> trzymają fingerprint nazw plików migracji — gdy zgodny ze stanem dysku, runner pomija zapytania SQL.</p>
+    <div class="flow">
+        <div class="flow-box">
+            <h3>Wyzwalacz</h3>
+            <ul>
+                <li><span>→</span> Login do <code>/admin/</code></li>
+                <li><span>→</span> <code>php bin/migrate &lt;k&gt; migrations:migrate</code></li>
+            </ul>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box">
+            <h3>MigrationRunner::runPending()</h3>
+            <ul>
+                <li><span>1.</span> ComponentDiscovery → lista komponentów</li>
+                <li><span>2.</span> SchemaLock fingerprint vs disk</li>
+                <li><span>3.</span> Jeśli rozjazd → migracja w transakcji</li>
+                <li><span>4.</span> Aktualizacja lock-pliku</li>
+            </ul>
+        </div>
+    </div>
+
+    <h2>4. Komponenty migratora (core/Migrations/)</h2>
+    <table>
+        <thead>
+            <tr><th>Plik</th><th>Rola</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>Component.php</code></td><td>DTO komponentu (slug, namespace, katalog, tabela śledząca, klucz DB)</td></tr>
+            <tr><td><code>ComponentDiscovery.php</code></td><td>Skan <code>app/*/Migrations/</code>, czyta opcjonalny <code>component.php</code></td></tr>
+            <tr><td><code>DbalConnectionFactory.php</code></td><td>Most między configiem PDO a Doctrine DBAL Connection</td></tr>
+            <tr><td><code>MigratorFactory.php</code></td><td>Buduje <code>DependencyFactory</code> per komponent</td></tr>
+            <tr><td><code>MigrationRunner.php</code></td><td><code>runPending()</code> — iteruje komponenty, pomija up-to-date, wykonuje <code>migrations:migrate</code></td></tr>
+            <tr><td><code>SchemaLock.php</code></td><td>Fingerprint (xxh3) + flock per komponent</td></tr>
+            <tr><td><code>TenantMigration.php</code></td><td>Abstrakcyjna baza migracji z <code>$this->table('users')</code></td></tr>
+            <tr><td><code>TenantMigrationFactory.php</code></td><td>Custom <code>MigrationFactory</code> Doctrine — wstrzykuje prefix tenant</td></tr>
+        </tbody>
+    </table>
+
+    <!-- MODELE -->
+    <h2>5. Modele tabel — deklaratywne źródło prawdy</h2>
+    <p>Każda tabela ma model w <code>app/&lt;Komponent&gt;/Models/&lt;Entity&gt;Model.php</code>. Każda kolumna to jedna linia w <code>columns()</code> — łatwo zaremować, dodać, zmienić indeks. Migracja CREATE jest cienka i woła <code>$model-&gt;createTableSql()</code>.</p>
+    <div class="codeblock"><span class="kw">final class</span> UsersModel <span class="kw">extends</span> TableModel
+{
+    <span class="kw">public function</span> entity(): string      { <span class="kw">return</span> <span class="str">'users'</span>; }
+    <span class="kw">public function</span> columnPrefix(): string { <span class="kw">return</span> <span class="str">'Use'</span>; }
+
+    <span class="kw">public function</span> columns(): array
+    {
+        <span class="kw">return</span> [
+            <span class="com">// ── Kolumny bazowe (wymagane wg konwencji) ──</span>
+            Column::<span class="type">guid</span>(<span class="str">'ID'</span>)-&gt;<span class="type">primaryKey</span>(),
+            Column::<span class="type">dateTime</span>(<span class="str">'DateTime'</span>)-&gt;<span class="type">default</span>(<span class="str">'CURRENT_TIMESTAMP'</span>),
+            Column::<span class="type">autoInc</span>(<span class="str">'IDAuto'</span>)-&gt;<span class="type">uniqueKey</span>(<span class="str">'idauto'</span>),
+
+            <span class="com">// ── Kolumny biznesowe ──</span>
+            Column::<span class="type">varchar</span>(<span class="str">'Login'</span>, 64)-&gt;<span class="type">uniqueKey</span>(<span class="str">'login'</span>),
+            Column::<span class="type">varchar</span>(<span class="str">'Password'</span>, 255),
+            Column::<span class="type">varchar</span>(<span class="str">'Email'</span>, 190)-&gt;<span class="type">nullable</span>()-&gt;<span class="type">uniqueKey</span>(<span class="str">'email'</span>),
+            Column::<span class="type">tinyInt</span>(<span class="str">'IsActive'</span>)-&gt;<span class="type">default</span>(1),
+            <span class="com">// Column::varchar('Phone', 32)-&gt;nullable(),  ← łatwo dodać / zaremować</span>
+        ];
+    }
+}</div>
+
+    <h2>6. Cykl życia modelu po wdrożeniu</h2>
+    <table>
+        <thead>
+            <tr><th>Sytuacja</th><th>Działanie</th></tr>
+        </thead>
+        <tbody>
+            <tr><td class="role">CREATE</td><td>Migracja używa <code>createTableSql()</code> z modelu</td></tr>
+            <tr><td class="role">+ kolumna</td><td>1) Dodaj linię w modelu. 2) Nowa migracja ALTER z <code>ALTER TABLE ADD COLUMN</code></td></tr>
+            <tr><td class="role">– kolumna</td><td>1) Zaremuj linię. 2) Nowa migracja ALTER z <code>DROP COLUMN</code></td></tr>
+            <tr><td class="role">Zmiana typu</td><td>1) Zmień w modelu. 2) Nowa migracja z <code>MODIFY COLUMN</code></td></tr>
+            <tr><td class="role">Zmiana indeksu</td><td>1) Zmień <code>uniqueKey</code>/<code>indexKey</code> lub <code>indexes()</code>. 2) Migracja <code>DROP INDEX</code> + <code>ADD UNIQUE KEY</code></td></tr>
+        </tbody>
+    </table>
+
+    <!-- KONWENCJA -->
+    <h2>7. Konwencja nazewnictwa</h2>
+    <p>Prefix tabeli = atrybut <strong>tenanta</strong> (jeden klient / aplikacja / domena). Prefix kolumn = 3–5 znaków PascalCase, per tabela.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Element</th>
+                <th>Konwencja</th>
+                <th>Przykład</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Nazwa tabeli</td>
+                <td><code>&lt;tenant&gt;_&lt;entity&gt;</code></td>
+                <td><code>def_users</code>, <code>kl1_pages</code></td>
+            </tr>
+            <tr>
+                <td>Primary key</td>
+                <td><code>&lt;C&gt;ID</code> CHAR(36) GUID (generowany w aplikacji)</td>
+                <td><code>UseID</code>, <code>PagID</code></td>
+            </tr>
+            <tr>
+                <td>Znacznik utworzenia</td>
+                <td><code>&lt;C&gt;DateTime</code> DATETIME DEFAULT CURRENT_TIMESTAMP</td>
+                <td><code>UseDateTime</code></td>
+            </tr>
+            <tr>
+                <td>Auto-increment</td>
+                <td><code>&lt;C&gt;IDAuto</code> INT UNSIGNED, UNIQUE (nie PK)</td>
+                <td><code>UseIDAuto</code></td>
+            </tr>
+            <tr>
+                <td>Znacznik modyfikacji (opcjonalnie)</td>
+                <td><code>&lt;C&gt;Modified</code> DATETIME NULL ON UPDATE CURRENT_TIMESTAMP</td>
+                <td><code>UseModified</code></td>
+            </tr>
+            <tr>
+                <td>Unique index</td>
+                <td><code>uniq_&lt;tabela&gt;_&lt;cel&gt;</code></td>
+                <td><code>uniq_def_users_login</code></td>
+            </tr>
+            <tr>
+                <td>Zwykły indeks</td>
+                <td><code>idx_&lt;tabela&gt;_&lt;cel&gt;</code></td>
+                <td><code>idx_def_pages_parent</code></td>
+            </tr>
+            <tr>
+                <td>Foreign key</td>
+                <td><code>fk_&lt;tabela&gt;_&lt;kolumna&gt;</code></td>
+                <td><code>fk_def_pages_authorid</code></td>
+            </tr>
+            <tr>
+                <td>Tabela metadanych migratora</td>
+                <td><code>&lt;tenant&gt;_migrations_&lt;slug&gt;</code></td>
+                <td><code>def_migrations_appdb</code></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- CLI -->
+    <h2>8. CLI</h2>
+    <div class="codeblock"><span class="com"># Status (czego brakuje, co już wykonane)</span>
+php bin/migrate appdb migrations:status
+
+<span class="com"># Wykonaj wszystkie oczekujące migracje</span>
+php bin/migrate appdb migrations:migrate
+
+<span class="com"># Wygeneruj pusty plik Version&lt;ts&gt;.php</span>
+php bin/migrate appdb migrations:generate
+
+<span class="com"># Multi-tenant — wskaż hosta klienta</span>
+HTTP_HOST=klient1.local php bin/migrate appdb migrations:migrate</div>
+
+    <h2>9. Mapowanie domen → konfiguracje + prefiksy</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Domena</th>
+                <th>Plik konfiguracji</th>
+                <th>Baza</th>
+                <th>tenant.prefix</th>
+                <th>Theme</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>klient1.local</td>
+                <td><code>configs/klient1.local.php</code></td>
+                <td>klient1_db</td>
+                <td><code>kl1</code></td>
+                <td>basic</td>
+            </tr>
+            <tr>
+                <td>(domyślny)</td>
+                <td><code>configs/_default.php</code></td>
+                <td>web_new</td>
+                <td><code>def</code></td>
+                <td>default</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p style="color:#64748b; font-size:0.85rem; margin-top:24px;">
+        Pełna dokumentacja Markdown: <a href="../bazy-danych.md">docs/bazy-danych.md</a> ·
+        Changelog DB: <a href="../changelog-db.md">docs/changelog-db.md</a> ·
+        Prompt do generowania migracji: <a href="../prompt/migracja-tabeli.md">docs/prompt/migracja-tabeli.md</a>
+    </p>
+
+</div>
+</body>
+</html>

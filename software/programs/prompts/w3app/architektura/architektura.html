@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architektura techniczna K2 CMS</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Typografia i tło ── */
+:root {
+  --brand:    #1a56db;
+  --brand-dk: #1e3a8a;
+  --sec:      #059669;
+  --warn:     #d97706;
+  --danger:   #dc2626;
+  --bg:       #f8fafc;
+  --surface:  #ffffff;
+  --border:   #e2e8f0;
+  --muted:    #64748b;
+  --text:     #1e293b;
+  --code-bg:  #1e1e2e;
+  --code-fg:  #cdd6f4;
+  --radius:   6px;
+  --shadow:   0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+}
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+}
+
+/* ── Layout ── */
+.layout { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  width: 260px; flex-shrink: 0;
+  background: var(--brand-dk); color: #e2e8f0;
+  position: sticky; top: 0; height: 100vh;
+  overflow-y: auto; padding: 1.5rem 0;
+}
+.sidebar-logo {
+  padding: 0 1.25rem 1.25rem;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+  margin-bottom: 1rem;
+}
+.sidebar-logo h1 { font-size: 1.1rem; color: #fff; line-height: 1.3; }
+.sidebar-logo small { font-size: .72rem; color: #94a3b8; display: block; margin-top: .2rem; }
+.sidebar nav a {
+  display: block; padding: .4rem 1.25rem;
+  color: #cbd5e1; text-decoration: none; font-size: .85rem;
+  border-left: 3px solid transparent; transition: all .15s;
+}
+.sidebar nav a:hover { color: #fff; background: rgba(255,255,255,.07); border-left-color: var(--brand); }
+.sidebar nav .nav-section {
+  padding: .9rem 1.25rem .3rem;
+  font-size: .65rem; text-transform: uppercase; letter-spacing: .08em; color: #64748b;
+}
+.sidebar nav .sub { padding-left: 2rem; }
+
+/* Content */
+.content { flex: 1; min-width: 0; padding: 2.5rem 2rem; max-width: 900px; }
+
+/* ── Headings ── */
+h1.page-title {
+  font-size: 2rem; color: var(--brand-dk);
+  border-bottom: 3px solid var(--brand); padding-bottom: .6rem; margin-bottom: .5rem;
+}
+.meta { color: var(--muted); font-size: .83rem; margin-bottom: 2.5rem; }
+h2.section {
+  font-size: 1.35rem; color: var(--brand-dk);
+  margin: 3rem 0 1rem; padding: .5rem .9rem;
+  border-left: 5px solid var(--brand);
+  background: #eff6ff; border-radius: 0 var(--radius) var(--radius) 0;
+}
+h2.section.sec-security { background: #fff7ed; border-left-color: var(--warn); color: #7c2d12; }
+h2.section.sec-gallery  { background: #f0fdf4; border-left-color: var(--sec); color: #14532d; }
+h2.section.sec-backup   { background: #fefce8; border-left-color: #ca8a04; color: #713f12; }
+h3 { font-size: 1.05rem; color: var(--brand-dk); margin: 1.75rem 0 .6rem; }
+h4 { font-size: .95rem; color: #334155; margin: 1.25rem 0 .4rem; font-weight: 600; }
+
+/* ── Paragraphs ── */
+p { margin-bottom: .85rem; }
+p:last-child { margin-bottom: 0; }
+
+/* ── Code ── */
+code {
+  background: #f1f5f9; border: 1px solid var(--border); border-radius: 4px;
+  padding: .1em .35em; font-size: .88em;
+  font-family: 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+  color: #be185d;
+}
+pre {
+  background: var(--code-bg); color: var(--code-fg);
+  border-radius: var(--radius); padding: 1.1rem 1.25rem;
+  overflow-x: auto; margin: 1rem 0 1.25rem;
+  font-size: .83rem; line-height: 1.6; box-shadow: var(--shadow);
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
+
+/* ── Tables ── */
+.table-wrap { overflow-x: auto; margin: 1rem 0 1.5rem; border-radius: var(--radius); box-shadow: var(--shadow); }
+table { width: 100%; border-collapse: collapse; font-size: .87rem; }
+thead tr { background: var(--brand-dk); color: #fff; }
+th { padding: .55rem .85rem; text-align: left; font-weight: 600; }
+td { padding: .45rem .85rem; border-bottom: 1px solid var(--border); }
+tbody tr:hover td { background: #f0f9ff; }
+tbody tr:last-child td { border-bottom: none; }
+
+/* ── Callouts ── */
+.callout {
+  padding: .85rem 1.1rem; margin: 1rem 0 1.25rem;
+  border-radius: 0 var(--radius) var(--radius) 0; font-size: .9rem;
+}
+.callout-note   { background: #eff6ff; border-left: 4px solid var(--brand); }
+.callout-warn   { background: #fff7ed; border-left: 4px solid var(--warn); }
+.callout-danger { background: #fef2f2; border-left: 4px solid var(--danger); }
+.callout-ok     { background: #ecfdf5; border-left: 4px solid var(--sec); }
+.callout strong { display: block; margin-bottom: .25rem; }
+
+/* ── Security layers ── */
+.layers { display: flex; flex-direction: column; gap: 2px; margin: 1.25rem 0 1.75rem; font-size: .82rem; }
+.layer {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .55rem 1rem; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border);
+}
+.layer-num { font-weight: 700; color: var(--brand); min-width: 2.5rem; font-size: .78rem; }
+.layer-arrow { color: var(--muted); text-align: center; padding: 0 1rem; font-size: .75rem; }
+
+/* ── Badges ── */
+.badge {
+  display: inline-block; padding: .15em .5em; border-radius: 999px;
+  font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.badge-impl  { background: #dcfce7; color: #166534; }
+.badge-new   { background: #fef9c3; color: #854d0e; }
+.badge-todo  { background: #fee2e2; color: #991b1b; }
+
+/* ── Divider ── */
+hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+/* ── TOC ── */
+.toc { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius); padding: 1.1rem 1.4rem; margin-bottom: 2.5rem; }
+.toc h2 { font-size: 1rem; margin: 0 0 .75rem; border: none; background: none; padding: 0; color: var(--brand-dk); }
+.toc ol { padding-left: 1.3rem; font-size: .88rem; }
+.toc li { margin: .2rem 0; }
+.toc a { color: var(--brand); text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) { .sidebar { display: none; } .content { padding: 1.5rem 1rem; } h1.page-title { font-size: 1.5rem; } }
+@media print { .sidebar { display: none; } .content { max-width: 100%; padding: 0; } pre { white-space: pre-wrap; } }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ───────────── SIDEBAR ───────────── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h1>K2 CMS</h1>
+    <small>Architektura techniczna · v0.8.0</small>
+  </div>
+  <nav>
+    <a href="#s1">1. Przegląd systemu</a>
+    <a href="#s2">2. Stos technologiczny</a>
+    <a href="#s3">3. Struktura katalogów</a>
+    <a href="#s4">4. Warstwa rdzenia</a>
+    <div class="nav-section">Aplikacja</div>
+    <a href="#s5">5. Warstwa aplikacji</a>
+    <a href="#s6">6. Panel administracyjny</a>
+    <a href="#s6-1" class="sub">6.1 Routing</a>
+    <a href="#s6-2" class="sub">6.2 admcore.php</a>
+    <a href="#s6-3" class="sub">6.3 Cykl GET</a>
+    <a href="#s6-4" class="sub">6.4 Cykl POST</a>
+    <a href="#s6-5" class="sub">6.5 Notices</a>
+    <a href="#s7">7. Galeria i media</a>
+    <a href="#s7-1" class="sub">7.1 Schemat DB</a>
+    <a href="#s7-2" class="sub">7.2 Pliki mediów</a>
+    <a href="#s7-3" class="sub">7.3 Soft-delete</a>
+    <a href="#s7-4" class="sub">7.4 Upload</a>
+    <a href="#s8">8. System backupów</a>
+    <a href="#s8-1" class="sub">8.1 Tryby</a>
+    <a href="#s8-2" class="sub">8.2 Archiwizacja</a>
+    <a href="#s8-3" class="sub">8.3 Integralność</a>
+    <div class="nav-section">Infrastruktura</div>
+    <a href="#s9">9. Multi-tenant</a>
+    <a href="#s10">10. Bezpieczeństwo</a>
+    <a href="#s10-1" class="sub">10.1 Sekretny URL</a>
+    <a href="#s10-2" class="sub">10.2 Autentykacja</a>
+    <a href="#s10-3" class="sub">10.3 Sesja</a>
+    <a href="#s10-4" class="sub">10.4 CSRF</a>
+    <a href="#s10-5" class="sub">10.5 Rate limiting</a>
+    <a href="#s10-6" class="sub">10.6 Nagłówki HTTP</a>
+    <a href="#s10-7" class="sub">10.7 Honeypot</a>
+    <a href="#s10-8" class="sub">10.8 Autoryzacja</a>
+    <a href="#s10-9" class="sub">10.9 Rejestrowanie</a>
+  </nav>
+</aside>
+
+<!-- ───────────── CONTENT ───────────── -->
+<main class="content">
+
+<h1 class="page-title">Architektura techniczna K2 CMS</h1>
+<p class="meta">
+  Wersja <strong>0.8.0</strong> &nbsp;·&nbsp; Data: <strong>2026-05-24</strong>
+  &nbsp;·&nbsp; <span class="badge badge-impl">aktualna</span>
+</p>
+
+<div class="toc">
+  <h2>Spis treści</h2>
+  <ol>
+    <li><a href="#s1">Przegląd systemu</a></li>
+    <li><a href="#s2">Stos technologiczny</a></li>
+    <li><a href="#s3">Struktura katalogów</a></li>
+    <li><a href="#s4">Warstwa rdzenia (core/)</a></li>
+    <li><a href="#s5">Warstwa aplikacji (app/)</a></li>
+    <li><a href="#s6">Panel administracyjny (admin/)</a></li>
+    <li><a href="#s7">Galeria i media</a> <span class="badge badge-new">nowe</span></li>
+    <li><a href="#s8">System kopii zapasowych</a> <span class="badge badge-new">rozbudowane</span></li>
+    <li><a href="#s9">Wzorzec multi-tenant</a></li>
+    <li><a href="#s10">Bezpieczeństwo</a></li>
+  </ol>
+</div>
+
+<hr>
+
+<!-- ── §1 ── -->
+<h2 class="section" id="s1">1. Przegląd systemu</h2>
+<p>K2 CMS to wielodomenowy system zarządzania treścią napisany w PHP 8.1+. Jedna instalacja obsługuje wiele domen (tenantów) — każda ma własny prefiks tabel, konfigurację i panel administracyjny pod unikatowym, sekretnym adresem URL.</p>
+<p>Panel oparty jest na szablonie <strong>AdminLTE 3</strong> (Bootstrap 4 + jQuery 3.6), w całości zvendorowanym lokalnie — system działa <strong>bez dostępu do internetu</strong>, bez CDN.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Moduł</th><th>Zakres funkcjonalny</th></tr></thead>
+  <tbody>
+    <tr><td>Użytkownicy i grupy</td><td>CRUD kont, uprawnienia, snapshoty historii</td></tr>
+    <tr><td>Domeny</td><td>Konfiguracja tenantów, snapshoty historii</td></tr>
+    <tr><td>Nawigacja</td><td>Wielozestawowe drzewa menu, historia migawkowa</td></tr>
+    <tr><td>Galeria</td><td>Galerie zdjęć, upload, miniaturowanie, kosz (soft-delete)</td></tr>
+    <tr><td>Dziennik zdarzeń</td><td>Logi systemowe z filtrami (kanał, poziom, użytkownik, data)</td></tr>
+    <tr><td>Kopia zapasowa</td><td>SQL / ZIP+media / media-only; opcjonalne szyfrowanie AES-256</td></tr>
+    <tr><td>Diagnostyka</td><td>Informacje o systemie, połączeniu BD, PHP</td></tr>
+  </tbody>
+</table>
+</div>
+
+<hr>
+
+<!-- ── §2 ── -->
+<h2 class="section" id="s2">2. Stos technologiczny</h2>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Warstwa</th><th>Technologia</th><th>Wersja</th></tr></thead>
+  <tbody>
+    <tr><td>Język</td><td>PHP</td><td>8.1+</td></tr>
+    <tr><td>Baza danych</td><td>MySQL</td><td>8.x (InnoDB, utf8mb4_unicode_ci)</td></tr>
+    <tr><td>Baza alternatywna</td><td>SQLite</td><td>3.x</td></tr>
+    <tr><td>Migracje</td><td>Doctrine Migrations</td><td>3.x</td></tr>
+    <tr><td>Szablon UI</td><td>AdminLTE</td><td>3.x (vendored)</td></tr>
+    <tr><td>CSS framework</td><td>Bootstrap</td><td>4.x (vendored)</td></tr>
+    <tr><td>JS library</td><td>jQuery</td><td>3.6 (vendored)</td></tr>
+    <tr><td>Ikony</td><td>Font Awesome</td><td>6.x (vendored)</td></tr>
+    <tr><td>Obróbka obrazów</td><td>PHP GD</td><td>— (wbudowane)</td></tr>
+    <tr><td>Archiwizacja ZIP</td><td>PHP ZipArchive</td><td>ext-zip</td></tr>
+    <tr><td>Archiwizacja TAR.GZ</td><td>PHP PharData</td><td>ext-phar (fallback)</td></tr>
+    <tr><td>Szyfrowanie backupów</td><td>PHP OpenSSL</td><td>ext-openssl (opcjonalne)</td></tr>
+    <tr><td>Zależności</td><td>Composer</td><td>—</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout callout-note">
+  <strong>Bez CDN</strong>
+  Wszystkie pliki <code>vendor/</code> i <code>admin/assets/</code> są dostarczane z projektem — żadne zasoby nie są pobierane z zewnętrznych serwerów w runtime.
+</div>
+
+<hr>
+
+<!-- ── §3 ── -->
+<h2 class="section" id="s3">3. Struktura katalogów</h2>
+<pre><code>w3app/
+├── admin/                    # Panel administracyjny
+│   ├── assets/               # Vendored UI: adminlte/, bootstrap/, jquery/, fontawesome/, img/
+│   ├── pages/
+│   │   ├── desktop/dashboard/        admpulpit.php + .view.php
+│   │   ├── gallery/                  admgallery.php + admgallery.view.php
+│   │   │                             admgallerydetail.view.php
+│   │   ├── navigation/menu/          admmenu.php + admmenuedit.php + admmenus.view.php
+│   │   ├── settings/
+│   │   │   ├── permissions/          admuprawnienia*.php
+│   │   │   ├── groups/               admgrupy*.php
+│   │   │   └── domains/              admdomeny*.php
+│   │   └── system/
+│   │       ├── diagnostics/          admsystem*.php
+│   │       ├── events/               admevent*.php
+│   │       └── backup/               admbackup*.php
+│   ├── admcore.php           # Wspólne funkcje panelu (auth, CRUD, gallery, backup…)
+│   ├── admlogin.view.php     # Ekran logowania
+│   ├── admlayout.view.php    # Powłoka AdminLTE (sidebar, topbar, SVG logo)
+│   ├── index.php             # Punkt wejścia, router, uwierzytelnianie
+│   ├── index.css             # Style globalne (.card overflow:hidden, rounded-corners…)
+│   └── index.js              # JS panelu (motywy, dostępność)
+│
+├── app/
+│   ├── Appdb/
+│   │   ├── Migrations/       # 22 pliki migracji (Version&lt;YYYYMMDDHHMMSS&gt;.php)
+│   │   └── Models/           # 13 modeli tabel (Users, Groups, Domains, Nav*, Gallery*, Logs)
+│   ├── Cms/
+│   │   └── Models/           # PagesModel
+│   └── Shop/
+│       └── Migrations/       # (placeholder — niezaimplementowane)
+│
+├── configs/
+│   ├── _default.php          # Bazowa konfiguracja (db, tenant, admin_code…)
+│   └── &lt;hostname&gt;.php       # Nadpisania per-tenant
+│
+├── core/
+│   ├── Config.php            # Ładowanie i dostęp do konfiguracji
+│   ├── Connection.php        # Singleton PDO z fabryką sterowników
+│   ├── db/                   # Sterowniki: MySqlDriver, PgSqlDriver, SqliteDriver
+│   ├── Log/Logger.php        # Rejestrator zdarzeń (structured, wielopoziomowy)
+│   ├── Migrations/           # TenantMigration, TenantMigrationFactory, MigrationRunner…
+│   └── Models/               # TableModel, Column, Index — baza dla modeli tabel
+│
+├── docs/
+│   ├── architektura/         # Dokumentacja architektury (MD + HTML)
+│   └── prompt/acms/          # Biblioteka promptów AI dla K2 CMS
+│
+├── media/
+│   ├── originals/            # Oryginały zdjęć per-tenant (nie wersjonowane, .gitignore)
+│   └── cache/                # Miniatury i skale per-tenant (nie wersjonowane, .gitignore)
+│
+├── var/
+│   ├── backups/              # Kopie zapasowe: .sql / .zip / .tar.gz (nie wersjonowane)
+│   ├── logs/                 # Awaryjny log plikowy (gdy BD niedostępna)
+│   └── schema-lock/          # Lock-plik migracji per środowisko
+│
+└── vendor/                   # Composer: doctrine/migrations, psr/log…</code></pre>
+
+<hr>
+
+<!-- ── §4 ── -->
+<h2 class="section" id="s4">4. Warstwa rdzenia (core/)</h2>
+
+<h3 id="s4-1">4.1 Config</h3>
+<p><code>core/Config.php</code> — ładuje konfigurację jako tablicę PHP przy pierwszym żądaniu.</p>
+<pre><code>Config::load($_SERVER['HTTP_HOST']);   // ładuje _default.php + &lt;host&gt;.php (array_replace_recursive)
+Config::get('tenant')['prefix'];       // zwraca prefix tabel, np. "def"
+Config::get('admin_code');             // sekretny kod URL panelu
+Config::get('db');                     // parametry połączenia z bazą</code></pre>
+
+<h3 id="s4-2">4.2 Connection</h3>
+<p><code>core/Connection.php</code> — singleton PDO z wyborem sterownika:</p>
+<pre><code>MySQL  → MySqlDriver  → DSN: "mysql:host=…;dbname=…;charset=utf8mb4"
+PgSQL  → PgSqlDriver  → DSN: "pgsql:host=…;dbname=…"
+SQLite → SqliteDriver → DSN: "sqlite:&lt;ścieżka&gt;"</code></pre>
+
+<h3 id="s4-3">4.3 Logger</h3>
+<p><code>core/Log/Logger.php</code> — ustrukturyzowany rejestrator. Poziomy: <code>TRACE &lt; DEBUG &lt; INFO &lt; WARN &lt; ERROR &lt; FATAL</code>. Zapis do tabeli <code>&lt;tenant&gt;_logs</code>, fallback do <code>var/logs/app.log</code>.</p>
+<pre><code>Logger::get('Gallery')->info('Przesłano zdjęcie', properties: ['gallery_id' => $id, 'bytes' => $size]);
+Logger::get('System')->warn('Backup bez sygnatury', properties: ['file' => $f]);
+Logger::get('Auth')->warn('Nieudana próba logowania', properties: ['login' => $login, 'ip' => $ip]);</code></pre>
+<p>Dostępne kanały: <code>Auth</code> · <code>Gallery</code> · <code>Navigation</code> · <code>Users</code> · <code>Domains</code> · <code>System</code></p>
+
+<h3 id="s4-4">4.4 System migracji</h3>
+<p>Oparty na <code>doctrine/migrations</code>. <code>TenantMigration</code> dostarcza <code>table(string $name): string</code> wstrzykujące prefix tenanta. Każdy komponent (<code>appdb</code>, <code>cms</code>, <code>shop</code>) ma osobną tabelę śledzącą.</p>
+<pre><code>final class Version20260524100000 extends TenantMigration {
+    public function up(Schema $schema): void {
+        $this->addSql("ALTER TABLE `{$this->table('gallery_photos')}` ADD COLUMN …");
+    }
+}</code></pre>
+
+<hr>
+
+<!-- ── §5 ── -->
+<h2 class="section" id="s5">5. Warstwa aplikacji (app/)</h2>
+<h3>Modele tabel (app/Appdb/Models/)</h3>
+<p>Każdy model to podklasa <code>Core\Models\TableModel</code> opisująca schemat tabeli. Dostarcza <code>createTableSql(string $prefix)</code> i <code>dropTableSql(string $prefix)</code>.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Model</th><th>Tabela</th><th>Prefix kolumn</th></tr></thead>
+  <tbody>
+    <tr><td><code>UsersModel</code></td><td><code>&lt;t&gt;_users</code></td><td><code>Use</code></td></tr>
+    <tr><td><code>GroupsModel</code></td><td><code>&lt;t&gt;_groups</code></td><td><code>Grp</code></td></tr>
+    <tr><td><code>DomainsModel</code></td><td><code>&lt;t&gt;_domains</code></td><td><code>Dom</code></td></tr>
+    <tr><td><code>NavigationModel</code></td><td><code>&lt;t&gt;_navigation</code></td><td><code>Nav</code></td></tr>
+    <tr><td><code>NavigationMenusModel</code></td><td><code>&lt;t&gt;_navigation_menus</code></td><td><code>NavMenu</code></td></tr>
+    <tr><td><code>NavigationHistoryModel</code></td><td><code>&lt;t&gt;_navigation_history</code></td><td><code>NavHist</code></td></tr>
+    <tr><td><code>GalleriesModel</code></td><td><code>&lt;t&gt;_galleries</code></td><td><code>Gal</code></td></tr>
+    <tr><td><code>GalleryPhotosModel</code></td><td><code>&lt;t&gt;_gallery_photos</code></td><td><code>GalPhoto</code></td></tr>
+    <tr><td><code>GalleryCategoriesModel</code></td><td><code>&lt;t&gt;_gallery_categories</code></td><td><code>GalCat</code></td></tr>
+    <tr><td><code>GalleryTagsModel</code></td><td><code>&lt;t&gt;_gallery_tags</code></td><td><code>GalTag</code></td></tr>
+    <tr><td><code>GalleryCatRelModel</code></td><td><code>&lt;t&gt;_gallery_cat_rel</code></td><td><code>GalCatRel</code></td></tr>
+    <tr><td><code>GalleryTagRelModel</code></td><td><code>&lt;t&gt;_gallery_tag_rel</code></td><td><code>GalTagRel</code></td></tr>
+    <tr><td><code>LogsModel</code></td><td><code>&lt;t&gt;_logs</code></td><td><code>Log</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<hr>
+
+<!-- ── §6 ── -->
+<h2 class="section" id="s6">6. Panel administracyjny (admin/)</h2>
+
+<h3 id="s6-1">6.1 Punkt wejścia i routing</h3>
+<p><code>admin/index.php</code> pełni rolę front-controllera: bootstrap → weryfikacja <code>admin_code</code> → nagłówki HTTP → CSRF → auth → routing → render.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th><code>?page=</code></th><th>Plik backendu</th><th>Tytuł</th></tr></thead>
+  <tbody>
+    <tr><td><code>dashboard</code></td><td><code>pages/desktop/dashboard/admpulpit</code></td><td>Pulpit</td></tr>
+    <tr><td><code>gallery</code></td><td><code>pages/gallery/admgallery</code></td><td>Galeria <span class="badge badge-new">nowe</span></td></tr>
+    <tr><td><code>permissions</code></td><td><code>pages/settings/permissions/admuprawnienia</code></td><td>Uprawnienia</td></tr>
+    <tr><td><code>groups</code></td><td><code>pages/settings/groups/admgrupy</code></td><td>Grupy</td></tr>
+    <tr><td><code>domains</code></td><td><code>pages/settings/domains/admdomeny</code></td><td>Domeny</td></tr>
+    <tr><td><code>navigation</code></td><td><code>pages/navigation/menu/admmenu</code></td><td>Menu nawigacyjne</td></tr>
+    <tr><td><code>system</code></td><td><code>pages/system/diagnostics/admsystem</code></td><td>System</td></tr>
+    <tr><td><code>events</code></td><td><code>pages/system/events/admevent</code></td><td>Zdarzenia</td></tr>
+    <tr><td><code>backup</code></td><td><code>pages/system/backup/admbackup</code></td><td>Kopia zapasowa</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="s6-2">6.2 admcore.php — wspólne funkcje</h3>
+<p>Jeden plik ~3500 linii z wszystkimi funkcjami globalnymi panelu.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Grupa</th><th>Przykładowe funkcje</th></tr></thead>
+  <tbody>
+    <tr><td>CSRF</td><td><code>csrfToken()</code>, <code>csrfVerify()</code></td></tr>
+    <tr><td>Rate limiting</td><td><code>loginIsBlocked()</code>, <code>loginRecordFailure()</code></td></tr>
+    <tr><td>Autentykacja</td><td><code>authenticate()</code>, <code>findActiveUser()</code>, <code>touchLastLogin()</code></td></tr>
+    <tr><td>Użytkownicy</td><td><code>listUsers()</code>, <code>createUser()</code>, <code>updateUser()</code>, <code>changePassword()</code></td></tr>
+    <tr><td>Grupy / Domeny</td><td><code>listGroups()</code>, <code>listDomains()</code>, <code>createDomain()</code></td></tr>
+    <tr><td>Snapshoty historii</td><td><code>saveNavigationSnapshot()</code>, <code>saveUsersSnapshot()</code>, <code>applyNavigationSnapshot()</code></td></tr>
+    <tr><td>Nawigacja</td><td><code>listNavigationItems()</code>, <code>createNavigationItem()</code>, <code>renderNavigationTree()</code></td></tr>
+    <tr><td>Zestawy menu</td><td><code>listNavigationMenus()</code>, <code>createNavigationMenu()</code>, <code>getOrCreateDefaultMenu()</code></td></tr>
+    <tr><td>Galerie</td><td><code>listGalleries()</code>, <code>createGallery()</code>, <code>updateGallery()</code>, <code>deleteGallery()</code></td></tr>
+    <tr><td>Zdjęcia</td><td><code>listGalleryPhotos()</code>, <code>uploadGalleryPhoto()</code>, <code>reorderGalleryPhotos()</code></td></tr>
+    <tr><td>Kosz zdjęć</td><td><code>listGalleryTrash()</code>, <code>deleteGalleryPhoto()</code>, <code>restoreGalleryPhoto()</code>, <code>emptyGalleryTrash()</code></td></tr>
+    <tr><td>Kategorie / Tagi</td><td><code>listGalleryCategories()</code>, <code>createGalleryCategory()</code>, <code>setGalleryCategories()</code></td></tr>
+    <tr><td>Backup</td><td><code>listBackupFiles()</code>, <code>detectArchiver()</code>, <code>createMediaArchive()</code>, <code>backupSign()</code></td></tr>
+    <tr><td>Dziennik</td><td><code>listEvents()</code>, <code>countEvents()</code>, <code>eventsFilterClause()</code></td></tr>
+    <tr><td>Narzędzia</td><td><code>uuidv4()</code>, <code>adminNotice()</code>, <code>galleryScaleImage()</code>, <code>galleryMakeThumbnail()</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="s6-3">6.3 Cykl żądania GET</h3>
+<pre><code>Przeglądarka GET ?page=gallery&amp;gallery=&lt;GalID&gt;
+      │
+      ▼
+index.php
+  ├── session_start() + cookie params
+  ├── weryfikacja admin_code → 404 jeśli błędny
+  ├── emisja nagłówków HTTP
+  ├── require admcore.php
+  ├── idle-timeout check
+  └── require pages/gallery/admgallery.php       ← backend
+          ├── listGalleries(), listGalleryPhotos(), listGalleryTrash()
+          └── (brak POST → brak redirect)
+      └── require admlayout.view.php             ← render HTML</code></pre>
+
+<h3 id="s6-4">6.4 Cykl żądania POST — PRG</h3>
+<pre><code>Przeglądarka POST _action=trash_photo
+      │
+      ▼
+index.php → csrfVerify() → require admgallery.php
+  └── deleteGalleryPhoto($photoId, $domain)   // SET GalPhotoDeletedAt = NOW()
+      └── header('Location: …?un=photo_trashed') + exit   ← REDIRECT
+
+Przeglądarka GET ?un=photo_trashed → wyświetla notice</code></pre>
+
+<p>Upload zdjęć obsługiwany przez AJAX (dropzone) — nie PRG. Odpowiedź JSON: <code>{"ok": true, "photo": {...}}</code>.</p>
+
+<h3 id="s6-5">6.5 System powiadomień (adminNotice)</h3>
+<p>Centralna mapa klucz → komunikat. <code>adminNotice(string $key): ?array</code> zwraca <code>['type', 'msg']</code> lub <code>null</code>. Widoki odczytują przez <code>$_GET['un']</code> po PRG.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Klucz</th><th>Typ</th><th>Wiadomość</th></tr></thead>
+  <tbody>
+    <tr><td><code>gallery_created</code></td><td>success</td><td>Galeria została utworzona</td></tr>
+    <tr><td><code>photo_trashed</code></td><td>warning</td><td>Zdjęcie przeniesione do kosza</td></tr>
+    <tr><td><code>photo_restored</code></td><td>success</td><td>Zdjęcie przywrócone</td></tr>
+    <tr><td><code>photo_perm_deleted</code></td><td>success</td><td>Zdjęcie trwale usunięte</td></tr>
+    <tr><td><code>trash_emptied</code></td><td>success</td><td>Kosz galerii opróżniony</td></tr>
+    <tr><td><code>backup_created</code></td><td>success</td><td>Kopia zapasowa utworzona</td></tr>
+    <tr><td><code>backup_restored</code></td><td>success</td><td>Baza danych przywrócona z kopii</td></tr>
+    <tr><td><code>err_db</code></td><td>danger</td><td>Błąd bazy danych</td></tr>
+  </tbody>
+</table>
+</div>
+
+<hr>
+
+<!-- ── §7 ── -->
+<h2 class="section sec-gallery" id="s7">7. Galeria i media <span class="badge badge-new">nowe</span></h2>
+
+<h3 id="s7-1">7.1 Schemat bazy danych</h3>
+<p>Galeria zaimplementowana na 6 tabelach tenant-prefixed, tworzonych leniwie przez <code>ensureGalleryTables()</code>:</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tabela</th><th>Opis</th></tr></thead>
+  <tbody>
+    <tr><td><code>&lt;t&gt;_galleries</code></td><td>Nagłówki galerii (nazwa, opis, status, okładka)</td></tr>
+    <tr><td><code>&lt;t&gt;_gallery_photos</code></td><td>Zdjęcia (plik, oryg. nazwa, hash SHA-256, tytuł, sort, soft-delete)</td></tr>
+    <tr><td><code>&lt;t&gt;_gallery_categories</code></td><td>Kategorie per-domena</td></tr>
+    <tr><td><code>&lt;t&gt;_gallery_tags</code></td><td>Tagi per-domena</td></tr>
+    <tr><td><code>&lt;t&gt;_gallery_cat_rel</code></td><td>Relacja galeria ↔ kategoria (N:M)</td></tr>
+    <tr><td><code>&lt;t&gt;_gallery_tag_rel</code></td><td>Relacja galeria ↔ tag (N:M)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Kluczowe kolumny <code>gallery_photos</code>:</p>
+<pre><code>GalPhotoFilename    VARCHAR(190)      -- UUID.jpg — nazwa pliku na dysku
+GalPhotoOrigName    VARCHAR(255) NULL -- oryginalna nazwa przy uploadzie
+GalPhotoHash        VARCHAR(64) NULL  -- SHA-256 do deduplikacji plików
+GalPhotoSort        INT DEFAULT 0     -- pozycja drag &amp; drop
+GalPhotoDeletedAt   DATETIME NULL     -- NULL = aktywne, NOT NULL = w koszu</code></pre>
+
+<h3 id="s7-2">7.2 Pliki mediów</h3>
+<pre><code>media/
+  originals/&lt;tenant-host&gt;/
+      &lt;uuid&gt;.jpg          ← oryginalny plik (skalowany do max 1920 px, JPEG q88)
+  cache/&lt;tenant-host&gt;/
+      &lt;uuid&gt;.jpg          ← podgląd (max 1200×900, JPEG q80)
+      &lt;uuid&gt;_thumb.jpg    ← miniatura kwadratowa (200×200 crop, JPEG q80)</code></pre>
+<p>Katalogi <code>originals/</code> i <code>cache/</code> nie są wersjonowane w git — lokalne <code>.gitignore</code> w każdym: <code>* / !.gitignore / !.gitkeep</code>.</p>
+
+<h3 id="s7-3">7.3 Wzorzec soft-delete (kosz)</h3>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Akcja</th><th>Zmiana w DB</th><th>Pliki na dysku</th></tr></thead>
+  <tbody>
+    <tr><td>„Usuń" (przycisk)</td><td><code>GalPhotoDeletedAt = NOW()</code></td><td>zachowane</td></tr>
+    <tr><td>„Przywróć" (kosz)</td><td><code>GalPhotoDeletedAt = NULL</code></td><td>niezmienione</td></tr>
+    <tr><td>„Usuń na stałe"</td><td><code>DELETE FROM …</code></td><td>usunięte *</td></tr>
+    <tr><td>„Opróżnij kosz"</td><td><code>DELETE batch</code></td><td>usunięte *</td></tr>
+  </tbody>
+</table>
+</div>
+<p><small>* Plik usuwany tylko gdy <code>countGalleryPhotoRefs(filename) &lt;= 1</code> — ochrona współdzielonych plików przy deduplikacji.</small></p>
+
+<h3 id="s7-4">7.4 Upload i cascade INSERT</h3>
+<p>Upload przez AJAX (dropzone). Warianty INSERT od bogatego do minimalnego — odporność na instalacje bez wszystkich migracji:</p>
+<pre><code>$variants = [
+    [$sqlWithHashAndOrigName, $paramsWithBoth],   // GalPhotoHash + GalPhotoOrigName
+    [$sqlWithOrigNameOnly,    $paramsWithOrig],   // tylko GalPhotoOrigName
+    [$sqlMinimal,             $paramsMinimal],    // kolumny podstawowe
+];
+foreach ($variants as [$sql, $params]) {
+    try { $pdo->prepare($sql)->execute($params); $inserted = true; break; }
+    catch (\PDOException $e) {
+        if (!str_contains($e->getMessage(), 'Unknown column')) { break; }
+    }
+}</code></pre>
+
+<hr>
+
+<!-- ── §8 ── -->
+<h2 class="section sec-backup" id="s8">8. System kopii zapasowych <span class="badge badge-new">rozbudowane</span></h2>
+
+<h3 id="s8-1">8.1 Tryby kopii</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th><code>backup_type</code></th><th>Format</th><th>Zawartość</th></tr></thead>
+  <tbody>
+    <tr><td><code>db</code></td><td><code>.sql</code> lub <code>.sql.enc</code></td><td>Dump SQL wszystkich tabel</td></tr>
+    <tr><td><code>full</code></td><td><code>.zip</code> lub <code>.tar.gz</code></td><td><code>database.sql</code> + <code>media/originals/</code> + <code>media/cache/</code></td></tr>
+    <tr><td><code>media</code></td><td><code>.zip</code> lub <code>.tar.gz</code></td><td>Tylko <code>media/originals/</code> + <code>media/cache/</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="s8-2">8.2 Wykrywanie metody archiwizacji</h3>
+<pre><code>detectArchiver() → 'zip' | 'tar_gz' | 'none'
+
+Priorytet:
+  1. ZipArchive  (ext-zip)   → .zip    — standardowe rozszerzenie PHP
+  2. PharData    (ext-phar)  → .tar.gz — wbudowane w PHP core (fallback dla shared hosting)
+  3. brak                    → archiwa mediów niedostępne, tylko SQL</code></pre>
+
+<p>Archiwizacja katalogów używa iteratywnego stosu <code>scandir()</code> zamiast <code>RecursiveIteratorIterator</code> — niezawodne na Windows, brak konfliktów uchwytów SPL + ZipArchive.</p>
+
+<h3 id="s8-3">8.3 Integralność i szyfrowanie</h3>
+<div class="callout callout-ok">
+  <strong>SHA-256 sidecar (.sha256)</strong>
+  Tworzony po każdym backupie przez <code>backupSign()</code>. Format zgodny z <code>sha256sum</code>. Weryfikowany przez <code>backupVerify()</code> przed przywróceniem (blokujące) i pobieraniem (ostrzeżenie).
+</div>
+<div class="callout callout-note">
+  <strong>AES-256-CBC (.sql.enc)</strong>
+  Aktywowany kluczem <code>backup_encryption_key = 'base64:…'</code> w konfiguracji. Format: <code>[4B magic "K2BC"][16B IV][zaszyfrowane dane]</code>. Dotyczy wyłącznie kopii SQL.
+</div>
+<p>Pliki backupów nie są wersjonowane — katalog <code>var/backups/</code> ma <code>.gitignore</code> z regułą <code>* / !.gitignore / !.gitkeep</code>.</p>
+
+<hr>
+
+<!-- ── §9 ── -->
+<h2 class="section" id="s9">9. Wzorzec multi-tenant</h2>
+
+<h3>Konfiguracja per-tenant</h3>
+<pre><code>// configs/_default.php (baza)
+return ['tenant' => ['prefix' => 'def'], 'admin_code' => 'panel1', …];
+
+// configs/klient1.local.php (nadpisanie)
+return ['tenant' => ['prefix' => 'kl1'], 'admin_code' => 'tajnyKod42', …];</code></pre>
+
+<h3>Nazwy tabel</h3>
+<pre><code>prefix = Config::get('tenant')['prefix']   // np. "def"
+
+def_users               def_groups              def_domains
+def_navigation          def_navigation_menus    def_navigation_history
+def_galleries           def_gallery_photos      def_gallery_categories
+def_gallery_tags        def_gallery_cat_rel     def_gallery_tag_rel
+def_logs                def_login_attempts
+def_migrations_appdb</code></pre>
+
+<h3>Konwencja kolumn</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Kolumna</th><th>Typ</th><th>Rola</th></tr></thead>
+  <tbody>
+    <tr><td><code>&lt;C&gt;ID</code></td><td><code>CHAR(36) NOT NULL</code></td><td>PRIMARY KEY (GUID v4, generowany w PHP)</td></tr>
+    <tr><td><code>&lt;C&gt;DateTime</code></td><td><code>DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP</code></td><td>data utworzenia rekordu</td></tr>
+    <tr><td><code>&lt;C&gt;IDAuto</code></td><td><code>INT UNSIGNED AUTO_INCREMENT UNIQUE</code></td><td>sortowanie wg kolejności wstawiania</td></tr>
+  </tbody>
+</table>
+</div>
+<p><code>&lt;C&gt;</code> to 3–5 znakowy prefiks kolumnowy (PascalCase), unikalny per tabela.</p>
+
+<hr>
+
+<!-- ── §10 ── -->
+<h2 class="section sec-security" id="s10">10. Bezpieczeństwo</h2>
+<p>Panel implementuje <strong>wielowarstwową ochronę</strong> — kompromitacja jednej warstwy nie obala pozostałych.</p>
+
+<div class="layers">
+  <div class="layer"><span class="layer-num">10.1</span> <strong>Sekretny adres URL</strong> — <code>admin_code</code> nieznany atakującemu; brak → 404</div>
+  <div class="layer-arrow">↓ adres znany</div>
+  <div class="layer"><span class="layer-num">10.7</span> <strong>Honeypot</strong> — bot wypełnia ukryte pole CSS offscreen; blokada bez rate-limit</div>
+  <div class="layer-arrow">↓ człowiek</div>
+  <div class="layer"><span class="layer-num">10.5</span> <strong>Rate limiting</strong> — max 10 prób / 15 min per IP (SHA-256 bucket)</div>
+  <div class="layer-arrow">↓ w limicie</div>
+  <div class="layer"><span class="layer-num">10.2</span> <strong>Uwierzytelnianie</strong> — bcrypt + <code>password_verify()</code> + flaga <code>UseIsActive</code></div>
+  <div class="layer-arrow">↓ zalogowany</div>
+  <div class="layer"><span class="layer-num">10.3</span> <strong>Ochrona sesji</strong> — fixation prevention, idle-timeout 3h, SameSite=Strict</div>
+  <div class="layer"><span class="layer-num">10.4</span> <strong>CSRF</strong> — Synchronizer Token, <code>hash_equals()</code>, 403 + log przy niezgodności</div>
+  <div class="layer"><span class="layer-num">10.8</span> <strong>Autoryzacja</strong> — role RBAC, <code>canManageAccess</code> dla sekcji wrażliwych</div>
+  <div class="layer"><span class="layer-num">10.6</span> <strong>Nagłówki HTTP</strong> — CSP, HSTS, X-Frame-Options, Permissions-Policy</div>
+  <div class="layer"><span class="layer-num">10.9</span> <strong>Rejestrowanie</strong> — każde zdarzenie w <code>&lt;t&gt;_logs</code>, kanał <code>Auth</code></div>
+</div>
+
+<h3 id="s10-1">10.1 Sekretny adres URL</h3>
+<p>Panel działa wyłącznie pod <code>/admin/{admin_code}/</code>. Każda inna ścieżka zwraca <strong>404 bez wskazówki</strong>. <code>hash_equals()</code> eliminuje timing attack.</p>
+<div class="callout callout-warn">
+  <strong>Zalecenie</strong> <code>admin_code</code> min. 20 losowych znaków: <code>openssl rand -base64 18</code>. Traktuj jak hasło — nie wpisuj do publicznego repo.
+</div>
+
+<h3 id="s10-2">10.2 Uwierzytelnianie</h3>
+<p>Hasła przechowywane jako bcrypt hash. Konto bootstrap <code>admin</code> działa tylko gdy tabela <code>&lt;t&gt;_users</code> jest pusta. <code>touchLastLogin()</code> aktualizuje <code>UseLastLogin</code> po każdym udanym logowaniu (audyt).</p>
+
+<h3 id="s10-3">10.3 Ochrona sesji</h3>
+<p><strong>Session Fixation:</strong> <code>session_regenerate_id(true)</code> przed zapisem <code>$_SESSION['admin']</code>. <strong>Idle-timeout 3h.</strong> Ciasteczko: <code>httponly</code>, <code>secure</code>, <code>SameSite=Strict</code>, <code>use_strict_mode=1</code>.</p>
+
+<h3 id="s10-4">10.4 Ochrona CSRF</h3>
+<p>Synchronizer Token Pattern — 64-znakowy hex per-sesja. Każdy formularz POST: <code>&lt;?= csrfToken() ?&gt;</code>. Weryfikacja przez <code>hash_equals()</code>. Niezgodność → HTTP 403 + log WARN.</p>
+
+<h3 id="s10-5">10.5 Rate limiting logowania</h3>
+<p>Tabela <code>&lt;t&gt;_login_attempts</code>. Bucket = SHA-256(REMOTE_ADDR) — IP nie przechowywane. Okno: 15 min. Limit: 10 prób. Fail-open: brak tabeli → blokada wyłączona.</p>
+
+<h3 id="s10-6">10.6 Nagłówki HTTP bezpieczeństwa</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Nagłówek</th><th>Wartość</th></tr></thead>
+  <tbody>
+    <tr><td><code>X-Frame-Options</code></td><td><code>DENY</code></td></tr>
+    <tr><td><code>X-Content-Type-Options</code></td><td><code>nosniff</code></td></tr>
+    <tr><td><code>Referrer-Policy</code></td><td><code>strict-origin-when-cross-origin</code></td></tr>
+    <tr><td><code>Permissions-Policy</code></td><td><code>camera=(), microphone=(), geolocation=()</code></td></tr>
+    <tr><td><code>Strict-Transport-Security</code></td><td><code>max-age=31536000; includeSubDomains</code> (tylko HTTPS)</td></tr>
+    <tr><td><code>Content-Security-Policy</code></td><td><code>default-src 'self'; script-src 'self' 'unsafe-inline'; … frame-ancestors 'none'</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="s10-7">10.7 Honeypot</h3>
+<p>Ukryte pole CSS <code>.a11y-offscreen</code> (<code>position: absolute; left: -9999px</code>) w formularzu logowania. Boty je wypełniają → blokada bez licznika w <code>login_attempts</code> — oszczędza budżet rate limitera.</p>
+
+<h3 id="s10-8">10.8 Kontrola dostępu (autoryzacja)</h3>
+<p>Sekcje wrażliwe (<code>permissions</code>, <code>groups</code>, <code>domains</code>, <code>backup</code>) wymagają <code>canManageAccess</code>:</p>
+<pre><code>$canManageAccess = $adminUser === 'admin'
+    || (string)($currentUser['UseGroupID'] ?? '') === GroupsModel::ADMIN_GROUP_ID;</code></pre>
+
+<h3 id="s10-9">10.9 Rejestrowanie zdarzeń bezpieczeństwa</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Zdarzenie</th><th>Poziom</th><th>Kanał</th></tr></thead>
+  <tbody>
+    <tr><td>Udane logowanie</td><td>INFO</td><td>Auth</td></tr>
+    <tr><td>Nieudane logowanie</td><td>WARN</td><td>Auth</td></tr>
+    <tr><td>Honeypot wypełniony</td><td>WARN</td><td>Auth</td></tr>
+    <tr><td>Rate limit — blokada</td><td>WARN</td><td>Auth</td></tr>
+    <tr><td>CSRF mismatch</td><td>WARN</td><td>Auth</td></tr>
+    <tr><td>Sesja wygasła / brak sesji</td><td>INFO/WARN</td><td>Auth</td></tr>
+    <tr><td>Dostęp bez uprawnień</td><td>WARN</td><td>Auth</td></tr>
+    <tr><td>Wylogowanie</td><td>INFO</td><td>Auth</td></tr>
+    <tr><td>Błąd tworzenia backupu</td><td>ERROR</td><td>System</td></tr>
+    <tr><td>Naruszenie integralności backupu</td><td>ERROR</td><td>System</td></tr>
+    <tr><td>Przywrócenie backupu</td><td>INFO</td><td>System</td></tr>
+  </tbody>
+</table>
+</div>
+
+<hr>
+<p style="font-size:.8rem; color: var(--muted)">
+  Dokumentacja generowana ręcznie — źródłem prawdy jest kod.<br>
+  Plik: <code>docs/architektura/architektura.html</code> · Wersja aplikacji: <strong>0.8.0</strong>
+</p>
+
+</main>
+</div>
+</body>
+</html>
