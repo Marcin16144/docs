@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zarzadzanie Dockerem</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#0ea5e9;--accent-hover:#38bdf8;--green:#4ade80;--orange:#fb923c;--red:#f87171;--blue:#60a5fa;--purple:#a78bfa;--code-bg:#0d1117}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}.topbar a:hover{color:var(--accent-hover)}.topbar .sep{color:var(--border)}.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:920px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+h4{font-size:1rem;font-weight:600;color:var(--text);margin:18px 0 8px}
+p{margin-bottom:14px}ul,ol{margin:0 0 16px 24px}li{margin-bottom:6px}strong{color:var(--accent-hover)}a{color:var(--accent)}a:hover{color:var(--accent-hover)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.88rem}th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}pre code{color:var(--text-muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}.nav-bottom a:hover{color:var(--accent-hover)}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../index.html">Glowna</a><span class="sep">/</span><a href="index.html">Docker</a><span class="sep">/</span><span class="title">Zarzadzanie Dockerem</span></div>
+<div class="container">
+<h1>Zarzadzanie Dockerem</h1>
+<p class="subtitle">Narzedzia, GUI, monitoring i self-hosted PaaS &mdash; Portainer, Dockge, Arcane, Coolify, Beszel, Lazydocker</p>
+
+<h2>Po co narzedzia do zarzadzania?</h2>
+<p>Samo CLI <code>docker</code> wystarcza do wszystkiego, ale przy <strong>wielu kontenerach, stackach i hostach</strong> wygodniej jest miec panel: podglad statusu, logi na zywo, metryki, restart jednym klikiem, deploy stacka z <code>compose.yaml</code>, a nawet deploy aplikacji prosto z gita. Narzedzia dziela sie na kilka kategorii:</p>
+<ul>
+<li><strong>Web GUI</strong> &mdash; pelny panel w przegladarce (Portainer, Dockge, Arcane, Yacht)</li>
+<li><strong>Self-hosted PaaS</strong> &mdash; deploy aplikacji jak na Heroku/Vercel, na wlasnym serwerze (Coolify, Dokploy, CapRover)</li>
+<li><strong>Home server / all-in-one</strong> &mdash; "app store" do domowego serwera (CasaOS, Cosmos, Komodo)</li>
+<li><strong>TUI</strong> &mdash; panel w terminalu, bez przegladarki (Lazydocker, ctop, Oxker)</li>
+<li><strong>Logi</strong> &mdash; przegladarka logow na zywo (Dozzle)</li>
+<li><strong>Metryki / monitoring</strong> &mdash; CPU/RAM/sieci, alerty (Beszel, Netdata, Glances, cAdvisor + Prometheus + Grafana, Uptime Kuma)</li>
+<li><strong>Auto-update</strong> &mdash; aktualizacja obrazow / powiadomienia (Watchtower, Diun, What's up Docker)</li>
+<li><strong>Narzedzia pomocnicze</strong> &mdash; analiza obrazow (Dive)</li>
+<li><strong>Desktop</strong> &mdash; aplikacje natywne (Docker Desktop, Podman Desktop, VS Code, JetBrains)</li>
+</ul>
+
+<div class="card" style="border-color:var(--orange)">
+<h3>Zanim podlaczysz cokolwiek do <code>docker.sock</code></h3>
+<p>Niemal kazde z tych narzedzi montuje <code>/var/run/docker.sock</code>. Dostep do tego socketu to <strong>de facto root na hoscie</strong> &mdash; kto steruje Dockerem, ten moze uruchomic uprzywilejowany kontener i przejac maszyne. Nie wystawiaj tych paneli do internetu bez uwierzytelnienia. Szczegoly w sekcji <a href="#bezpieczenstwo">Bezpieczenstwo zarzadzania</a>.</p>
+</div>
+
+<h2>Przeglad narzedzi</h2>
+<table>
+<thead><tr><th>Narzedzie</th><th>Typ</th><th>Obraz / instalacja</th><th>Licencja</th></tr></thead>
+<tbody>
+<tr><td><strong>Portainer CE</strong></td><td>Web GUI</td><td><code>portainer/portainer-ce</code></td><td>Free (OSS), Business platne</td></tr>
+<tr><td><strong>Dockge</strong></td><td>Web GUI (compose)</td><td><code>louislam/dockge</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Arcane</strong></td><td>Web GUI (GitOps)</td><td><code>ghcr.io/getarcaneapp/manager</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Yacht</strong></td><td>Web GUI</td><td><code>selfhostedpro/yacht</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Coolify</strong></td><td>Self-hosted PaaS</td><td>skrypt / <code>ghcr.io/coollabsio/coolify</code></td><td>Free (OSS) + cloud platny</td></tr>
+<tr><td><strong>Dokploy</strong></td><td>Self-hosted PaaS</td><td><code>dokploy/dokploy</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>CapRover</strong></td><td>Self-hosted PaaS (Swarm)</td><td><code>caprover/caprover</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>CasaOS</strong></td><td>Home server OS</td><td>skrypt instalacyjny</td><td>Free (OSS)</td></tr>
+<tr><td><strong>Cosmos</strong></td><td>Web GUI + proxy</td><td><code>azukaar/cosmos-server</code></td><td>Free (OSS) + platne</td></tr>
+<tr><td><strong>Komodo</strong></td><td>Web GUI + CI/CD</td><td><code>ghcr.io/moghtech/komodo-core</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Lazydocker</strong></td><td>TUI</td><td><code>lazyteam/lazydocker</code> / binarka</td><td>Free (OSS)</td></tr>
+<tr><td><strong>ctop</strong></td><td>TUI (metryki)</td><td><code>quay.io/vektorlab/ctop</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Oxker</strong></td><td>TUI (Rust)</td><td><code>mrjackwills/oxker</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Dozzle</strong></td><td>Logi web</td><td><code>amir20/dozzle</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Beszel</strong></td><td>Monitoring (lekki)</td><td><code>henrygd/beszel</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Netdata</strong></td><td>Monitoring (pelny)</td><td><code>netdata/netdata</code></td><td>Free (OSS) + cloud</td></tr>
+<tr><td><strong>Glances</strong></td><td>Monitoring web/TUI</td><td><code>nicolargo/glances</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>cAdvisor</strong></td><td>Metryki kontenerow</td><td><code>gcr.io/cadvisor/cadvisor</code></td><td>Free (OSS, Google)</td></tr>
+<tr><td><strong>Uptime Kuma</strong></td><td>Uptime / status</td><td><code>louislam/uptime-kuma</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Watchtower</strong> (fork)</td><td>Auto-update</td><td><code>nickfedor/watchtower</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Diun</strong></td><td>Powiadomienia o update</td><td><code>crazymax/diun</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Dive</strong></td><td>Analiza obrazow</td><td><code>wagoodman/dive</code></td><td>Free (OSS)</td></tr>
+<tr><td><strong>Docker Desktop</strong></td><td>Desktop GUI</td><td>aplikacja</td><td>Free dla maly biznes</td></tr>
+<tr><td><strong>Podman Desktop</strong></td><td>Desktop GUI</td><td>aplikacja</td><td>Free (OSS)</td></tr>
+</tbody>
+</table>
+
+<h2>Portainer &mdash; flagowy panel web</h2>
+<p><strong>Portainer</strong> to najpopularniejszy panel web do Dockera. Wersja <strong>Community Edition (CE)</strong> jest darmowa i open source; <strong>Business Edition (BE)</strong> dodaje RBAC, integracje z LDAP/OAuth, wsparcie. Obsluguje kontenery, obrazy, wolumeny, sieci, <strong>stacki (compose)</strong>, szablony aplikacji oraz <strong>wiele srodowisk</strong> (zdalne hosty, Swarm, Kubernetes) przez agenta.</p>
+
+<h3>Instalacja (Linux / macOS / WSL2)</h3>
+<pre><code># Wolumen na dane Portainera (konfiguracja, uzytkownicy)
+docker volume create portainer_data
+
+docker run -d \
+  --name portainer \
+  --restart=always \
+  -p 9443:9443 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v portainer_data:/data \
+  portainer/portainer-ce:lts
+
+# Panel: https://localhost:9443
+# Pierwsze wejscie: ustaw haslo admina (masz ~5 min, potem trzeba restartowac kontener)</code></pre>
+
+<h3>Wersja compose</h3>
+<pre><code># compose.yaml
+services:
+  portainer:
+    image: portainer/portainer-ce:lts
+    container_name: portainer
+    restart: always
+    ports:
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+volumes:
+  portainer_data:</code></pre>
+<pre><code>docker compose up -d</code></pre>
+
+<h3>Windows (Docker Desktop + WSL2)</h3>
+<p>Najprosciej uruchomic powyzszy <code>compose.yaml</code> z poziomu <strong>WSL2</strong> (terminal Ubuntu) &mdash; sciezka socketu <code>/var/run/docker.sock</code> dziala wtedy normalnie. Jesli odpalasz <code>docker run</code> bezposrednio z <strong>PowerShell</strong>, dodaj wiodacy ukosnik, zeby PowerShell nie psul sciezki:</p>
+<pre><code>docker run -d --name portainer --restart=always -p 9443:9443 `
+  -v //var/run/docker.sock:/var/run/docker.sock `
+  -v portainer_data:/data `
+  portainer/portainer-ce:lts</code></pre>
+<p>Panel dostepny pod <code>https://localhost:9443</code> z przegladarki Windows (Docker Desktop forwarduje port z WSL2).</p>
+
+<h3>Wiele hostow &mdash; Portainer Agent</h3>
+<p>Aby zarzadzac zdalnym hostem z jednego panelu, na tamtej maszynie uruchamiasz <strong>agenta</strong>, a w panelu dodajesz srodowisko (Environments &rarr; Add &rarr; Agent):</p>
+<pre><code># Na zdalnym hoscie
+docker run -d \
+  --name portainer_agent \
+  --restart=always \
+  -p 9001:9001 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /var/lib/docker/volumes:/var/lib/docker/volumes \
+  portainer/agent:lts</code></pre>
+<p>Obrazy: <a href="https://hub.docker.com/r/portainer/portainer-ce">hub.docker.com/r/portainer/portainer-ce</a> &middot; agent: <a href="https://hub.docker.com/r/portainer/agent">portainer/agent</a></p>
+
+<h2>Dockge &mdash; lekki menedzer stackow compose</h2>
+<p><strong>Dockge</strong> (autor Louis Lam, tworca Uptime Kuma) to lekki panel skupiony na <strong>stackach Docker Compose</strong>. Edytujesz <code>compose.yaml</code> w przegladarce, widzisz logi na zywo, konwertujesz <code>docker run</code> na compose. Pliki stackow trzyma w zwyklym katalogu na hoscie (<code>/opt/stacks</code>), wiec sa <strong>czytelne i przenosne</strong> &mdash; nie sa zamkniete w bazie aplikacji. Bez skanowania, RBAC czy OIDC &mdash; po prostu czysty panel do stackow.</p>
+<pre><code># Przygotuj katalogi
+mkdir -p /opt/dockge/data /opt/stacks
+cd /opt/dockge
+
+# compose.yaml
+services:
+  dockge:
+    image: louislam/dockge:1
+    container_name: dockge
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+      - /opt/stacks:/opt/stacks
+    environment:
+      - DOCKGE_STACKS_DIR=/opt/stacks</code></pre>
+<pre><code>docker compose up -d
+# Panel: http://localhost:5001</code></pre>
+<p>Obraz: <a href="https://hub.docker.com/r/louislam/dockge">hub.docker.com/r/louislam/dockge</a> &middot; repo: <a href="https://github.com/louislam/dockge">github.com/louislam/dockge</a></p>
+
+<h2>Arcane &mdash; nowoczesny panel web z GitOps</h2>
+<p><strong>Arcane</strong> to mlody (2025), szybko zyskujacy popularnosc panel web. Napisany w Go, dziala jako <strong>pojedynczy kontener</strong> z malym zuzyciem pamieci. Laczy zarzadzanie kontenerami/obrazami/wolumenami/sieciami z <strong>silna obsluga Compose</strong> (szablony stackow), web-terminalem, logami na zywo i <strong>GitOps</strong> (deploy stackow z repo). Czysty interfejs (SvelteKit) i prosty update przez <code>docker compose pull</code>.</p>
+<pre><code># compose.yaml
+services:
+  arcane:
+    image: ghcr.io/getarcaneapp/manager:latest
+    container_name: arcane
+    restart: unless-stopped
+    ports:
+      - "3552:3552"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - arcane-data:/app/data
+    environment:
+      - APP_URL=http://localhost:3552
+      - PUID=1000
+      - PGID=1000
+      - ENCRYPTION_KEY=WSTAW_32_BAJTOWY_SEKRET
+      - JWT_SECRET=WSTAW_32_BAJTOWY_SEKRET
+volumes:
+  arcane-data:</code></pre>
+<pre><code># Wygeneruj sekrety
+openssl rand -hex 32   # do ENCRYPTION_KEY
+openssl rand -hex 32   # do JWT_SECRET
+# Panel: http://localhost:3552</code></pre>
+<p>Obraz: <code>ghcr.io/getarcaneapp/manager</code> &middot; repo: <a href="https://github.com/getarcaneapp/arcane">github.com/getarcaneapp/arcane</a> &middot; docs: <a href="https://getarcane.app/">getarcane.app</a></p>
+
+<h2>Home server / all-in-one</h2>
+<p>Jesli chcesz panel typu "app store" do domowego serwera, gdzie kontenery instalujesz z katalogu jednym klikiem:</p>
+<table>
+<thead><tr><th>Narzedzie</th><th>Dla kogo</th><th>Instalacja / obraz</th></tr></thead>
+<tbody>
+<tr><td><strong>CasaOS</strong></td><td>Domowy serwer, prosty app store, ladny UI</td><td><code>curl -fsSL https://get.casaos.io | sudo bash</code> &middot; <a href="https://github.com/IceWhaleTech/CasaOS">github</a></td></tr>
+<tr><td><strong>Cosmos</strong></td><td>Self-hosting z wbudowanym reverse proxy, SSO i zabezpieczeniami</td><td><code>azukaar/cosmos-server</code> &middot; <a href="https://github.com/azukaar/Cosmos-Server">github</a></td></tr>
+<tr><td><strong>Komodo</strong></td><td>Build + deploy + zarzadzanie wieloma hostami (Rust, agenci Periphery, build z gita, uprawnienia) &mdash; nastepca "Monitor"</td><td><code>ghcr.io/moghtech/komodo-core</code> &middot; <a href="https://github.com/moghtech/komodo">github</a></td></tr>
+<tr><td><strong>Yacht</strong></td><td>Lekki panel oparty o szablony (template)</td><td><code>selfhostedpro/yacht</code> &middot; <a href="https://github.com/SelfhostedPro/Yacht">github</a></td></tr>
+</tbody>
+</table>
+
+<h2>Self-hosted PaaS &mdash; deploy jak Heroku, na wlasnym serwerze</h2>
+<p>To wyzsza polka niz "panel do kontenerow". <strong>Self-hosted PaaS</strong> daje workflow w stylu Heroku/Vercel/Render: <strong>git push &rarr; build &rarr; deploy</strong>, automatyczny HTTPS (Let's Encrypt), bazy danych jednym klikiem, podglad logow i rollback &mdash; ale na <strong>Twoim VPS</strong>, bez rachunków za chmurę. Pod spodem i tak siedzi Docker (czesto + Traefik jako reverse proxy).</p>
+
+<h3>Coolify</h3>
+<p>Najbardziej kompletny i dopracowany. Najwiekszy katalog szablonow, ladny UI, pelna obsluga Docker Compose, bazy danych, podglad. W zamian nieco wyzsze zuzycie zasobow na idle (rzedu kilku % CPU).</p>
+<pre><code># Instalacja (skrypt oficjalny)
+curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
+# Panel: http://&lt;ip-serwera&gt;:8000</code></pre>
+
+<h3>Dokploy</h3>
+<p>Lzejszy i prostszy &mdash; czysty UI, mniej opcji, niskie zuzycie na idle. Oparty o Traefik. Swietny, gdy wdrazasz kilka aplikacji i nie potrzebujesz zaawansowanych funkcji.</p>
+<pre><code># Instalacja (skrypt oficjalny)
+curl -sSL https://dokploy.com/install.sh | sh
+# Panel: http://&lt;ip-serwera&gt;:3000
+# Obraz: dokploy/dokploy</code></pre>
+
+<h3>CapRover</h3>
+<p>Najstarszy i bardzo konfigurowalny, oparty o <strong>Docker Swarm</strong>, sporo aplikacji "one-click". Minus: slabe wsparcie Compose (zorientowany na pojedyncze kontenery) i nieco przestarzaly interfejs.</p>
+<pre><code>docker run -d -p 80:80 -p 443:443 -p 3000:3000 \
+  -e ACCEPTED_TERMS=true \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /captain:/captain \
+  caprover/caprover
+# Dalej konfiguracja przez CLI: npm i -g caprover &amp;&amp; caprover serversetup</code></pre>
+
+<div class="card">
+<h3>Ktore PaaS wybrac?</h3>
+<ul>
+<li><strong>Coolify</strong> &mdash; najwiecej funkcji, najlepszy dla wiekszosci; warto, jesli chcesz "wszystko w jednym".</li>
+<li><strong>Dokploy</strong> &mdash; gdy zalezy Ci na lekkosci i prostocie (2&ndash;5 aplikacji na malym VPS).</li>
+<li><strong>CapRover</strong> &mdash; gdy chcesz Swarm i maksimum kontroli, akceptujesz slabszy Compose i UI.</li>
+</ul>
+<p><strong>PaaS vs Portainer/Dockge:</strong> PaaS to <em>deploy aplikacji z kodu</em> (zastepuje Heroku); Portainer/Dockge to <em>zarzadzanie istniejacymi kontenerami</em>. Czesto uzywa sie obu, ale uwazaj, by nie zarzadzac tych samych kontenerow dwoma narzedziami naraz.</p>
+</div>
+<p>Obrazy/strony: <a href="https://github.com/coollabsio/coolify">Coolify</a> &middot; <a href="https://hub.docker.com/r/dokploy/dokploy">Dokploy</a> &middot; <a href="https://hub.docker.com/r/caprover/caprover">CapRover</a></p>
+
+<h2>Lazydocker &mdash; panel w terminalu (TUI)</h2>
+<p><strong>Lazydocker</strong> (autor Jesse Duffield) to szybki panel tekstowy: lista kontenerow, logi, statystyki CPU/RAM, restart/stop/usun, czyszczenie &mdash; wszystko z klawiatury, bez przegladarki. Idealny na serwer SSH.</p>
+<pre><code># macOS / Linux (Homebrew)
+brew install lazydocker
+
+# Windows (Scoop)
+scoop install lazydocker
+
+# Skrypt (Linux/macOS)
+curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+
+# Go
+go install github.com/jesseduffield/lazydocker@latest
+
+# Uruchom
+lazydocker</code></pre>
+<p>Bez instalacji, jako kontener:</p>
+<pre><code>docker run --rm -it \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v ~/.config/lazydocker:/.config/jesseduffield/lazydocker \
+  lazyteam/lazydocker</code></pre>
+<p>Skroty: <code>x</code> menu, <code>d</code> usun, <code>s</code> stop, <code>r</code> restart, <code>Enter</code> logi, <code>[</code> / <code>]</code> zakladki. Repo: <a href="https://github.com/jesseduffield/lazydocker">github.com/jesseduffield/lazydocker</a></p>
+
+<h2>ctop i Oxker &mdash; metryki kontenerow w terminalu</h2>
+<p><strong>ctop</strong> to "top dla kontenerow" &mdash; lista z CPU, RAM, siecia i I/O na zywo. Tylko podglad metryk, lekki.</p>
+<pre><code>docker run --rm -ti \
+  --name ctop \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  quay.io/vektorlab/ctop:latest</code></pre>
+<p><strong>Oxker</strong> to nowsza alternatywa napisana w Rust &mdash; minimalna, szybka, z logami i podstawowym sterowaniem kontenerami (start/stop/restart) z poziomu TUI.</p>
+<pre><code>docker run --rm -it \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  mrjackwills/oxker</code></pre>
+<p>Repo: <a href="https://github.com/bcicen/ctop">ctop</a> &middot; <a href="https://github.com/mrjackwills/oxker">oxker</a></p>
+
+<h2>Dozzle &mdash; logi na zywo w przegladarce</h2>
+<p><strong>Dozzle</strong> to lekka przegladarka logow w czasie rzeczywistym &mdash; bez bazy, bez gromadzenia historii (czyta logi Dockera w locie). Swietne do szybkiego debugowania. Obsluguje tez <strong>wiele hostow</strong> (tryb agenta) i wyszukiwanie.</p>
+<pre><code>docker run -d \
+  --name dozzle \
+  --restart=unless-stopped \
+  -p 8080:8080 \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  amir20/dozzle:latest
+
+# Panel: http://localhost:8080</code></pre>
+<p>Socket podpiety jako <code>:ro</code> (read-only) &mdash; Dozzle tylko czyta logi, nie potrzebuje zapisu. Obraz: <a href="https://hub.docker.com/r/amir20/dozzle">hub.docker.com/r/amir20/dozzle</a></p>
+<p><strong>Logi na zywo vs archiwizacja:</strong> Dozzle pokazuje strumien "tu i teraz". Jesli potrzebujesz <strong>przechowywac i przeszukiwac historie</strong> logow, zbuduj stack <strong>Grafana Loki + Promtail/Alloy + Grafana</strong> &mdash; to logowy odpowiednik Prometheusa.</p>
+
+<h2>Glances &mdash; monitoring hosta i kontenerow</h2>
+<p><strong>Glances</strong> pokazuje pelny obraz systemu (CPU, RAM, dyski, siec, procesy) <strong>oraz</strong> kontenery Dockera. Dziala w terminalu albo jako serwer web.</p>
+<pre><code>docker run -d \
+  --name glances \
+  --restart=unless-stopped \
+  -p 61208:61208 \
+  -e GLANCES_OPT="-w" \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  --pid host \
+  nicolargo/glances:latest
+
+# Panel web: http://localhost:61208</code></pre>
+<p>Obraz: <a href="https://hub.docker.com/r/nicolargo/glances">hub.docker.com/r/nicolargo/glances</a></p>
+
+<h2>Pelny monitoring: cAdvisor + Prometheus + Grafana</h2>
+<p>Standardowy, produkcyjny stack metryk. <strong>cAdvisor</strong> (Google) zbiera metryki kontenerow, <strong>Prometheus</strong> je przechowuje i odpytuje, <strong>Grafana</strong> rysuje dashboardy i wysyla alerty.</p>
+<pre><code># compose.yaml
+services:
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  prometheus_data:
+  grafana_data:</code></pre>
+<pre><code># prometheus.yml &mdash; skad zbierac metryki
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]</code></pre>
+<p>Grafana na <code>http://localhost:3000</code> (login <code>admin</code> / <code>admin</code>). Dodaj zrodlo Prometheus (<code>http://prometheus:9090</code>) i zaimportuj gotowy dashboard (np. ID <strong>193</strong> "Docker monitoring"). Obrazy: <a href="https://github.com/google/cadvisor">cAdvisor</a> &middot; <a href="https://hub.docker.com/r/prom/prometheus">Prometheus</a> &middot; <a href="https://hub.docker.com/r/grafana/grafana">Grafana</a></p>
+
+<h2>Lzejszy monitoring: Beszel i Netdata</h2>
+<p>Pelny stack Prometheus+Grafana bywa przerostem formy dla kilku serwerow. Dwie popularne alternatywy w 2026:</p>
+
+<h3>Beszel &mdash; ultralekki (homelab)</h3>
+<p><strong>Beszel</strong> to lekki monitor: jeden binarny <strong>hub</strong> (dashboard web) + <strong>agent</strong> na kazdym hoscie. Agent zuzywa <strong>~10 MB RAM</strong> (dla porownania Netdata 200&ndash;500 MB, Prometheus 300 MB+). Zbiera CPU, RAM, dysk, siec i <strong>statystyki kontenerow Docker</strong>, ma alerty i historie. Idealny dla 1&ndash;20 serwerow.</p>
+<pre><code># Hub (dashboard) &mdash; compose.yaml
+services:
+  beszel:
+    image: henrygd/beszel
+    container_name: beszel
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./beszel_data:/beszel_data
+# Panel: http://localhost:8090 (gotowy compose agenta skopiujesz z UI przy dodawaniu hosta)</code></pre>
+<pre><code># Agent na monitorowanym hoscie
+services:
+  beszel-agent:
+    image: henrygd/beszel-agent
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      LISTEN: 45876
+      KEY: "ssh-ed25519 AAAA...."   # klucz z hub UI</code></pre>
+<p>Obrazy: <a href="https://hub.docker.com/r/henrygd/beszel">henrygd/beszel</a> &middot; <a href="https://hub.docker.com/r/henrygd/beszel-agent">henrygd/beszel-agent</a> &middot; <a href="https://beszel.dev/">beszel.dev</a></p>
+
+<h3>Netdata &mdash; pelna obserwowalnosc</h3>
+<p><strong>Netdata</strong> to bogata platforma: rozdzielczosc <strong>1 sekundy</strong>, 2000+ metryk out-of-the-box, wykrywanie anomalii (ML), gotowe dashboardy &mdash; przy wiekszym zuzyciu zasobow. Dobry dla zlozonej infrastruktury i gdy chcesz natychmiast "wszystko widziec" bez budowania dashboardow.</p>
+<pre><code>docker run -d \
+  --name netdata \
+  --restart=unless-stopped \
+  -p 19999:19999 \
+  --cap-add SYS_PTRACE --cap-add SYS_ADMIN \
+  --security-opt apparmor=unconfined \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v netdataconfig:/etc/netdata \
+  -v netdatalib:/var/lib/netdata \
+  netdata/netdata
+# Panel: http://localhost:19999</code></pre>
+<p>Obraz: <a href="https://hub.docker.com/r/netdata/netdata">hub.docker.com/r/netdata/netdata</a></p>
+
+<h2>Uptime i status: Uptime Kuma</h2>
+<p><strong>Uptime Kuma</strong> (tez autorstwa Louisa Lama) monitoruje <strong>dostepnosc</strong>: HTTP(s), TCP, ping, DNS, kontenery Docker. Wysyla alerty (90+ kanalow: e-mail, Telegram, Discord, ntfy...) i publikuje publiczne <strong>status pages</strong>. Uzupelnia metryki (Beszel/Netdata) o pytanie "czy usluga w ogole odpowiada?".</p>
+<pre><code>docker run -d \
+  --name uptime-kuma \
+  --restart=unless-stopped \
+  -p 3001:3001 \
+  -v uptime-kuma:/app/data \
+  louislam/uptime-kuma:1
+# Panel: http://localhost:3001</code></pre>
+<p>Obraz: <a href="https://hub.docker.com/r/louislam/uptime-kuma">hub.docker.com/r/louislam/uptime-kuma</a></p>
+
+<h2>Analiza obrazow: Dive</h2>
+<p><strong>Dive</strong> nie zarzadza kontenerami &mdash; <strong>analizuje warstwy obrazu</strong>: co kazda warstwa dodaje, gdzie marnujesz miejsce, jaka jest "efficiency". Nieoceniony przy optymalizacji rozmiaru obrazow (zobacz tez rozdzial <a href="06-dockerfile-best-practices.html">06. Dockerfile</a>).</p>
+<pre><code>docker run --rm -it \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  wagoodman/dive:latest \
+  &lt;obraz-do-analizy&gt;            # np. node:20-alpine</code></pre>
+<p>Repo: <a href="https://github.com/wagoodman/dive">github.com/wagoodman/dive</a></p>
+
+<h2>Automatyczne aktualizacje obrazow</h2>
+<div class="card" style="border-color:var(--orange)">
+<p><strong>Wazne (2026):</strong> oryginalny <strong>Watchtower</strong> (<code>containrrr/watchtower</code>) zostal <strong>zarchiwizowany 17.12.2025</strong> &mdash; repozytorium jest tylko-do-odczytu, brak nowych poprawek i lat bezpieczenstwa. Aktywnie utrzymywany <strong>fork spolecznosci to <code>nickfedor/watchtower</code></strong> (Nicholas Fedor) &mdash; <strong>drop-in replacement</strong>: w <code>compose.yaml</code> wystarczy zmienic nazwe obrazu, konfiguracja zostaje ta sama.</p>
+</div>
+
+<h3>Watchtower (fork) &mdash; auto-update kontenerow</h3>
+<p><strong>Watchtower</strong> sprawdza co jakis czas, czy jest nowsza wersja obrazu i podmienia kontener automatycznie (z zachowaniem tych samych opcji uruchomienia).</p>
+<pre><code>docker run -d \
+  --name watchtower \
+  --restart=unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  nickfedor/watchtower \
+  --interval 86400        # sprawdzaj raz na dobe (w sekundach)
+
+# Tylko powiadom, nie aktualizuj automatycznie:
+#   --monitor-only
+# Aktualizuj wybrane kontenery: dodaj label na kontenerze
+#   com.centurylinklabs.watchtower.enable=true  + flaga --label-enable</code></pre>
+<div class="card" style="border-color:var(--red)">
+<p><strong>Uwaga &mdash; auto-update w produkcji.</strong> Watchtower podmieni obraz bez Twojej wiedzy &mdash; jesli upstream wypusci zepsuta wersje, polozy Ci usluge. W produkcji wybieraj raczej <strong>kontrolowany deploy przez CI/CD</strong> i pinowane wersje (<code>:1.27.3</code> zamiast <code>:latest</code>). Auto-update zostaw dla homelabu albo polacz z trybem <code>--monitor-only</code> + powiadomienia.</p>
+</div>
+<h3>Diun &mdash; tylko powiadomienia</h3>
+<p><strong>Diun</strong> (Docker Image Update Notifier) nic nie aktualizuje &mdash; tylko sledzi obrazy i wysyla powiadomienie (e-mail, Discord, Telegram, Slack, ntfy...), gdy pojawi sie nowy tag. Bezpieczniejsze niz auto-update.</p>
+<pre><code>docker run -d \
+  --name diun \
+  --restart=unless-stopped \
+  -e "TZ=Europe/Warsaw" \
+  -e "DIUN_WATCH_SCHEDULE=0 */6 * * *" \
+  -e "DIUN_PROVIDERS_DOCKER=true" \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v diun_data:/data \
+  crazymax/diun:latest</code></pre>
+<p>Obraz: <a href="https://hub.docker.com/r/crazymax/diun">hub.docker.com/r/crazymax/diun</a> &middot; alternatywa z UI: <strong>What's up Docker</strong> (<a href="https://github.com/getwud/wud">github.com/getwud/wud</a>)</p>
+
+<h2>Aplikacje desktopowe</h2>
+<table>
+<thead><tr><th>Narzedzie</th><th>Platforma</th><th>Uwagi</th></tr></thead>
+<tbody>
+<tr><td><strong>Docker Desktop</strong></td><td>Win / Mac / Linux</td><td>Oficjalny GUI Docker Inc. + Extensions, Scout, K8s. Free dla maly biznes (patrz rozdzialy 02&ndash;03)</td></tr>
+<tr><td><strong>Podman Desktop</strong></td><td>Win / Mac / Linux</td><td>Free OSS (Red Hat), zarzadza Podman i Dockerem, dobry zamiennik Docker Desktop</td></tr>
+<tr><td><strong>VS Code + Container Tools</strong></td><td>Win / Mac / Linux</td><td>Rozszerzenie: panel kontenerow/obrazow, logi, exec, Dev Containers</td></tr>
+<tr><td><strong>JetBrains (IDEA/PyCharm...)</strong></td><td>Win / Mac / Linux</td><td>Wbudowana zakladka Services &mdash; kontenery, compose, logi z poziomu IDE</td></tr>
+</tbody>
+</table>
+
+<h2>Konfiguracja per platforma</h2>
+<p>Wszystkie narzedzia laczace sie z daemonem potrzebuja <strong>socketu Dockera</strong>. Jego sciezka zalezy od platformy i backendu:</p>
+<table>
+<thead><tr><th>Platforma / backend</th><th>Sciezka socketu</th><th>Uwagi</th></tr></thead>
+<tbody>
+<tr><td>Linux (root)</td><td><code>/var/run/docker.sock</code></td><td>Standard. Dodaj usera do grupy <code>docker</code></td></tr>
+<tr><td>Linux (rootless)</td><td><code>$XDG_RUNTIME_DIR/docker.sock</code><br>(np. <code>/run/user/1000/docker.sock</code>)</td><td>Bezpieczniejsze. Ustaw <code>DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock</code></td></tr>
+<tr><td>Windows + Docker Desktop (WSL2)</td><td><code>/var/run/docker.sock</code> (w WSL2)<br><code>//var/run/docker.sock</code> (w PowerShell)</td><td>Kontenery narzedzi uruchamiaj z WSL2</td></tr>
+<tr><td>macOS + Docker Desktop</td><td><code>/var/run/docker.sock</code></td><td>Symlink do socketu w VM</td></tr>
+<tr><td>macOS + Colima</td><td><code>~/.colima/default/docker.sock</code></td><td>Uzyj <code>docker context use colima</code> lub ustaw <code>DOCKER_HOST</code></td></tr>
+<tr><td>macOS + OrbStack</td><td><code>/var/run/docker.sock</code></td><td>Podpiety automatycznie; ma tez wlasny natywny panel</td></tr>
+</tbody>
+</table>
+
+<h3>Windows</h3>
+<ul>
+<li>Uruchamiaj kontenery narzedzi z <strong>terminala WSL2</strong> &mdash; socket dziala natywnie, a dane trzymaj w <strong>named volumes</strong> (nie bind z <code>C:\</code> &mdash; wolne).</li>
+<li>W <code>docker run</code> z PowerShell uzyj <code>//var/run/docker.sock</code> (podwojny ukosnik) i backticka <code>`</code> do lamania linii.</li>
+<li>Panele otwierasz w przegladarce Windows pod <code>localhost</code> &mdash; Docker Desktop forwarduje porty z WSL2.</li>
+<li>Dodaj <code>--restart=always</code>, zeby panel wstawal po restarcie Docker Desktop.</li>
+</ul>
+
+<h3>macOS</h3>
+<ul>
+<li>Docker Desktop i OrbStack: socket pod <code>/var/run/docker.sock</code> &mdash; komendy jak na Linux.</li>
+<li>Colima: socket jest w <code>~/.colima/...</code>. Jesli narzedzie montuje sztywno <code>/var/run/docker.sock</code>, ustaw kontekst (<code>docker context use colima</code>) albo zrob symlink.</li>
+<li>Bind mounty na macOS sa wolne (VM) &mdash; dane paneli trzymaj w <strong>named volumes</strong>.</li>
+</ul>
+
+<h3>Linux</h3>
+<ul>
+<li>Najprostsza i najszybsza platforma &mdash; daemon dziala natywnie.</li>
+<li>Tryb rootless: socket w <code>/run/user/&lt;uid&gt;/docker.sock</code>; w compose podaj go w <code>volumes</code> i ustaw <code>DOCKER_HOST</code>.</li>
+<li>Przy SELinux (Fedora/RHEL) dodaj sufiks <code>:z</code> lub <code>:ro,z</code> do montowanego socketu/wolumenu.</li>
+<li>Uzyj <code>--restart=unless-stopped</code> + ewentualnie jednostki systemd, zeby panel startowal z systemem.</li>
+</ul>
+
+<h2 id="bezpieczenstwo">Bezpieczenstwo zarzadzania</h2>
+<div class="card" style="border-color:var(--red)">
+<p><strong>Socket Dockera = root na hoscie.</strong> Kontener z <code>/var/run/docker.sock</code> moze uruchomic uprzywilejowany kontener montujacy caly system plikow hosta &mdash; czyli przejac maszyne. Traktuj kazdy panel z dostepem do socketu jak konto root.</p>
+</div>
+<ul>
+<li><strong>Nie wystawiaj paneli do internetu</strong> bez uwierzytelnienia. Domyslnie binduj do <code>127.0.0.1</code> (np. <code>-p 127.0.0.1:9443:9443</code>) i wchodz przez VPN/SSH tunnel.</li>
+<li><strong>Reverse proxy + auth</strong> &mdash; Traefik/Caddy/Nginx z HTTPS, a przed panelem warstwa logowania (Authelia, Authentik) i najlepiej 2FA.</li>
+<li><strong>Montuj socket read-only</strong> tam, gdzie narzedzie tylko czyta (Dozzle, ctop, Diun, Glances, Beszel): <code>/var/run/docker.sock:/var/run/docker.sock:ro</code>. Uwaga: <code>:ro</code> ogranicza ryzyko, ale nie jest pelna izolacja &mdash; przez Docker API i tak da sie sporo.</li>
+<li><strong>Socket proxy</strong> &mdash; zamiast dawac surowy socket, wystaw tylko potrzebne endpointy przez <code>docker-socket-proxy</code> (blokujac np. <code>POST</code>, <code>exec</code>):</li>
+</ul>
+<pre><code># compose.yaml &mdash; proxy filtrujace Docker API
+services:
+  dockerproxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: dockerproxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1      # pozwol czytac liste kontenerow
+      IMAGES: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      POST: 0            # zablokuj operacje zapisu (start/stop/exec/create)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:2375:2375"
+
+  dozzle:
+    image: amir20/dozzle:latest
+    environment:
+      - DOZZLE_REMOTE_HOST=tcp://dockerproxy:2375
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - dockerproxy</code></pre>
+<ul>
+<li><strong>Silne haslo admina</strong> przy pierwszym uruchomieniu (Portainer wymusza to w ~5 min od startu &mdash; nie zwlekaj).</li>
+<li><strong>Aktualizuj same panele</strong> &mdash; to oprogramowanie wystawione na ruch; trzymaj je na biezaco i obserwuj CVE. Nie uzywaj zarchiwizowanych projektow (jak stary <code>containrrr/watchtower</code>) do zadan bezpieczenstwa.</li>
+<li>Wiecej o utwardzaniu Dockera (rootless, capabilities, secrets, skanowanie obrazow) w rozdziale <a href="10-bezpieczenstwo-docker.html">10. Bezpieczenstwo Docker</a>.</li>
+</ul>
+
+<h2>Linki do obrazow</h2>
+<table>
+<thead><tr><th>Narzedzie</th><th>Obraz</th><th>Strona</th></tr></thead>
+<tbody>
+<tr><td>Portainer CE</td><td><code>portainer/portainer-ce</code></td><td><a href="https://hub.docker.com/r/portainer/portainer-ce">Docker Hub</a></td></tr>
+<tr><td>Portainer Agent</td><td><code>portainer/agent</code></td><td><a href="https://hub.docker.com/r/portainer/agent">Docker Hub</a></td></tr>
+<tr><td>Dockge</td><td><code>louislam/dockge</code></td><td><a href="https://hub.docker.com/r/louislam/dockge">Docker Hub</a></td></tr>
+<tr><td>Arcane</td><td><code>ghcr.io/getarcaneapp/manager</code></td><td><a href="https://github.com/getarcaneapp/arcane">GitHub</a></td></tr>
+<tr><td>Yacht</td><td><code>selfhostedpro/yacht</code></td><td><a href="https://hub.docker.com/r/selfhostedpro/yacht">Docker Hub</a></td></tr>
+<tr><td>Coolify</td><td><code>ghcr.io/coollabsio/coolify</code></td><td><a href="https://github.com/coollabsio/coolify">GitHub</a></td></tr>
+<tr><td>Dokploy</td><td><code>dokploy/dokploy</code></td><td><a href="https://hub.docker.com/r/dokploy/dokploy">Docker Hub</a></td></tr>
+<tr><td>CapRover</td><td><code>caprover/caprover</code></td><td><a href="https://hub.docker.com/r/caprover/caprover">Docker Hub</a></td></tr>
+<tr><td>Cosmos</td><td><code>azukaar/cosmos-server</code></td><td><a href="https://hub.docker.com/r/azukaar/cosmos-server">Docker Hub</a></td></tr>
+<tr><td>Komodo</td><td><code>ghcr.io/moghtech/komodo-core</code></td><td><a href="https://github.com/moghtech/komodo">GitHub</a></td></tr>
+<tr><td>Lazydocker</td><td><code>lazyteam/lazydocker</code></td><td><a href="https://github.com/jesseduffield/lazydocker">GitHub</a></td></tr>
+<tr><td>ctop</td><td><code>quay.io/vektorlab/ctop</code></td><td><a href="https://github.com/bcicen/ctop">GitHub</a></td></tr>
+<tr><td>Oxker</td><td><code>mrjackwills/oxker</code></td><td><a href="https://github.com/mrjackwills/oxker">GitHub</a></td></tr>
+<tr><td>Dozzle</td><td><code>amir20/dozzle</code></td><td><a href="https://hub.docker.com/r/amir20/dozzle">Docker Hub</a></td></tr>
+<tr><td>Beszel (hub)</td><td><code>henrygd/beszel</code></td><td><a href="https://hub.docker.com/r/henrygd/beszel">Docker Hub</a></td></tr>
+<tr><td>Beszel (agent)</td><td><code>henrygd/beszel-agent</code></td><td><a href="https://hub.docker.com/r/henrygd/beszel-agent">Docker Hub</a></td></tr>
+<tr><td>Netdata</td><td><code>netdata/netdata</code></td><td><a href="https://hub.docker.com/r/netdata/netdata">Docker Hub</a></td></tr>
+<tr><td>Glances</td><td><code>nicolargo/glances</code></td><td><a href="https://hub.docker.com/r/nicolargo/glances">Docker Hub</a></td></tr>
+<tr><td>cAdvisor</td><td><code>gcr.io/cadvisor/cadvisor</code></td><td><a href="https://github.com/google/cadvisor">GitHub</a></td></tr>
+<tr><td>Prometheus</td><td><code>prom/prometheus</code></td><td><a href="https://hub.docker.com/r/prom/prometheus">Docker Hub</a></td></tr>
+<tr><td>Grafana</td><td><code>grafana/grafana</code></td><td><a href="https://hub.docker.com/r/grafana/grafana">Docker Hub</a></td></tr>
+<tr><td>Uptime Kuma</td><td><code>louislam/uptime-kuma</code></td><td><a href="https://hub.docker.com/r/louislam/uptime-kuma">Docker Hub</a></td></tr>
+<tr><td>Watchtower (fork)</td><td><code>nickfedor/watchtower</code></td><td><a href="https://hub.docker.com/r/nickfedor/watchtower">Docker Hub</a></td></tr>
+<tr><td>Diun</td><td><code>crazymax/diun</code></td><td><a href="https://hub.docker.com/r/crazymax/diun">Docker Hub</a></td></tr>
+<tr><td>What's up Docker</td><td><code>ghcr.io/getwud/wud</code></td><td><a href="https://github.com/getwud/wud">GitHub</a></td></tr>
+<tr><td>Dive</td><td><code>wagoodman/dive</code></td><td><a href="https://github.com/wagoodman/dive">GitHub</a></td></tr>
+<tr><td>docker-socket-proxy</td><td><code>tecnativa/docker-socket-proxy</code></td><td><a href="https://github.com/Tecnativa/docker-socket-proxy">GitHub</a></td></tr>
+</tbody>
+</table>
+
+<h2>Co wybrac? &mdash; rekomendacje 2026</h2>
+<div class="card">
+<ul>
+<li><strong>Pojedynczy host, chce wygodny panel web</strong> &rarr; <strong>Portainer CE</strong></li>
+<li><strong>Glownie stacki compose, lekko i przenosnie</strong> &rarr; <strong>Dockge</strong></li>
+<li><strong>Nowoczesny panel web z GitOps</strong> &rarr; <strong>Arcane</strong></li>
+<li><strong>Deploy aplikacji prosto z gita (jak Heroku)</strong> &rarr; <strong>Coolify</strong> (najwiecej funkcji) lub <strong>Dokploy</strong> (lekko)</li>
+<li><strong>Domowy serwer "all-in-one"</strong> &rarr; <strong>CasaOS</strong> lub <strong>Cosmos</strong></li>
+<li><strong>Build + deploy + wiele hostow</strong> &rarr; <strong>Komodo</strong> lub <strong>Portainer Business</strong></li>
+<li><strong>Szybki podglad z terminala / SSH</strong> &rarr; <strong>Lazydocker</strong> (zarzadzanie) lub <strong>ctop</strong>/<strong>Oxker</strong> (metryki)</li>
+<li><strong>Tylko logi na zywo</strong> &rarr; <strong>Dozzle</strong> (historia logow &rarr; Grafana Loki)</li>
+<li><strong>Lekki monitoring homelabu</strong> &rarr; <strong>Beszel</strong></li>
+<li><strong>Pelna obserwowalnosc / metryki / alerty</strong> &rarr; <strong>Netdata</strong> lub <strong>cAdvisor + Prometheus + Grafana</strong></li>
+<li><strong>Status i uptime uslug + alerty</strong> &rarr; <strong>Uptime Kuma</strong></li>
+<li><strong>Powiadomienia o aktualizacjach</strong> &rarr; <strong>Diun</strong> (homelab auto-update: <strong>nickfedor/watchtower</strong>; produkcja: CI/CD)</li>
+<li><strong>Optymalizacja rozmiaru obrazu</strong> &rarr; <strong>Dive</strong></li>
+<li><strong>Praca w IDE</strong> &rarr; <strong>VS Code Container Tools</strong> lub zakladka <strong>Services</strong> w JetBrains</li>
+</ul>
+</div>
+
+<div class="nav-bottom">
+<a href="10-bezpieczenstwo-docker.html">&larr; Bezpieczenstwo Docker</a>
+<a href="index.html">Spis tresci &rarr;</a>
+</div>
+</div>
+</body>
+</html>
