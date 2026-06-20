@@ -24,6 +24,10 @@ public static class Sections
         ["Kryptowaluty"]= new("Kryptowaluty", "🪙", "#f59e0b", 15, new[]{"krypto","blockchain","bitcoin"}),
         ["Terapia"]     = new("Terapia i rozwój", "🧠", "#e879f9", 16, new[]{"terapia","psychologia","rozwój"}),
         ["Dokumentacje"]= new("Dokumentacje urządzeń", "📄", "#94a3b8", 17, new[]{"router","instrukcja","sprzęt"}),
+        ["praca-it"]    = new("Praca w IT i kariera", "💼", "#14b8a6", 18, new[]{"cv","rozmowa kwalifikacyjna","architekt","wynagrodzenie","kariera"}),
+        ["angielski"]   = new("Język angielski", "🇬🇧", "#6366f1", 19, new[]{"gramatyka","czasy","angielski w it","wymowa","rozmowa o pracę"}),
+        ["grafika2d"]   = new("Grafika 2D — Photoshop i GIMP", "🎨", "#60a5fa", 20, new[]{"photoshop","gimp","warstwy","filtry","retusz"}),
+        ["budowa-domu"] = new("Budowa domu", "🏗️", "#f59e0b", 21, new[]{"pozwolenie","warunki techniczne","nadbudowa","odległości","koszty"}),
     };
 
     public static Meta For(string topDir) =>

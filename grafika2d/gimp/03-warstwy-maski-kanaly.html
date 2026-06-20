@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warstwy, maski i kanały — GIMP 2.10</title>
+<style>
+:root{--bg:#0f0a14;--surface:#1d1526;--surface-hover:#2a1f38;--border:#3b2f4a;--text:#ece6f0;--text-muted:#a394b3;--accent:#cd8b3f;--accent-hover:#e6a85a;--green:#4ade80;--purple:#c084fc;--orange:#fb923c;--blue:#60a5fa;--yellow:#fbbf24;--red:#f87171;--code-bg:#150f1d}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:880px;margin:0 auto;padding:38px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:6px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:36px;opacity:.8}
+h2{font-size:1.4rem;font-weight:600;color:var(--accent);margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.12rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:var(--surface-hover)}
+.callout{background:rgba(205,139,63,.08);border-left:3px solid var(--accent);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:54px;padding-top:22px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+kbd{background:var(--code-bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:'Cascadia Code',monospace;font-size:.82rem;color:var(--text);white-space:nowrap}
+/* Layers dialog mockup */
+.layers-mockup{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:20px 0 28px;width:100%;max-width:340px}
+.lm-header{background:#1a1028;border-bottom:1px solid var(--border);padding:7px 12px;display:flex;align-items:center;justify-content:space-between}
+.lm-title{font-size:.75rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+.lm-controls{display:flex;gap:6px}
+.lm-btn{width:22px;height:22px;background:var(--surface);border:1px solid var(--border);border-radius:4px;font-size:.7rem;display:flex;align-items:center;justify-content:center;color:var(--text-muted);cursor:default}
+.lm-mode-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:.75rem;color:var(--text-muted)}
+.lm-select{background:var(--surface-hover);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.72rem;padding:2px 6px}
+.lm-opacity{flex:1;height:4px;background:var(--border);border-radius:2px;position:relative}
+.lm-opacity-fill{position:absolute;left:0;top:0;height:100%;width:100%;background:var(--accent);border-radius:2px}
+.lm-layer{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border);cursor:default;transition:background .1s}
+.lm-layer:hover{background:var(--surface-hover)}
+.lm-layer.active{background:rgba(205,139,63,.12)}
+.lm-eye{width:14px;font-size:.8rem;color:var(--text-muted);text-align:center}
+.lm-chain{width:10px;font-size:.65rem;color:var(--border);text-align:center}
+.lm-thumb{width:28px;height:22px;border:1px solid var(--border);border-radius:2px;flex-shrink:0;overflow:hidden}
+.lm-mask-thumb{width:22px;height:22px;border:1px solid var(--border);border-radius:2px;flex-shrink:0;background:linear-gradient(135deg,#fff 50%,#000 50%)}
+.lm-name{flex:1;font-size:.75rem;color:var(--text)}
+.lm-group{padding-left:18px}
+.lm-footer{padding:8px 12px;display:flex;gap:6px}
+.lm-foot-btn{height:22px;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:4px;font-size:.68rem;color:var(--text-muted);cursor:default;display:flex;align-items:center;gap:3px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">📚 Kompendium</a><span class="sep">/</span>
+  <a href="../index.html">🖼️ Grafika 2D</a><span class="sep">/</span>
+  <a href="index.html">🦊 GIMP</a><span class="sep">/</span>
+  <span class="title">Warstwy, maski i kanały</span>
+</div>
+<div class="container">
+<h1>Warstwy, maski i kanały</h1>
+<p class="subtitle">GIMP 2.10 — praca z warstwami, trybami mieszania, maskami, kanałami i ścieżkami</p>
+<p class="updated">Aktualizacja: 2026-06</p>
+
+<p>Warstwy to fundament pracy w GIMP-ie. Pozwalają na niezależne edytowanie poszczególnych elementów obrazu bez niszczenia pozostałych. Okno <strong>Warstwy</strong> (<kbd>Ctrl</kbd>+<kbd>L</kbd>) to centralny panel zarządzania warstwami.</p>
+
+<h2 id="warstwy">Warstwy</h2>
+
+<!-- Layers dialog mockup -->
+<div class="layers-mockup" aria-label="Mockup okna Warstwy GIMP">
+  <div class="lm-header">
+    <span class="lm-title">Warstwy</span>
+    <div class="lm-controls">
+      <div class="lm-btn">+</div>
+      <div class="lm-btn">−</div>
+      <div class="lm-btn">⧉</div>
+    </div>
+  </div>
+  <div class="lm-mode-row">
+    <span>Tryb:</span>
+    <select class="lm-select"><option>Normalny</option></select>
+    <span style="margin-left:8px">Krycie:</span>
+    <div class="lm-opacity"><div class="lm-opacity-fill"></div></div>
+    <span style="font-size:.7rem;color:var(--text)">100</span>
+  </div>
+  <!-- Group layer -->
+  <div class="lm-layer">
+    <span class="lm-eye">👁</span>
+    <span class="lm-chain">🔗</span>
+    <div class="lm-thumb" style="background:linear-gradient(135deg,var(--accent),var(--yellow));display:flex;align-items:center;justify-content:center;font-size:.55rem;color:#000;font-weight:700">GR</div>
+    <span class="lm-name">▼ Grupa: Tekst</span>
+  </div>
+  <!-- Text layer inside group -->
+  <div class="lm-layer lm-group active">
+    <span class="lm-eye">👁</span>
+    <span class="lm-chain"></span>
+    <div class="lm-thumb" style="background:#fff;display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#333;font-weight:700">T</div>
+    <span class="lm-name">Warstwa tekstu</span>
+    <div class="lm-mask-thumb"></div>
+  </div>
+  <!-- Adjustment layer -->
+  <div class="lm-layer">
+    <span class="lm-eye">👁</span>
+    <span class="lm-chain">🔗</span>
+    <div class="lm-thumb" style="background:linear-gradient(to right,#000,#fff)"></div>
+    <span class="lm-name">Gradient korekcyjny</span>
+    <div class="lm-mask-thumb" style="background:#fff"></div>
+  </div>
+  <!-- Photo layer -->
+  <div class="lm-layer">
+    <span class="lm-eye">👁</span>
+    <span class="lm-chain">🔗</span>
+    <div class="lm-thumb" style="background:linear-gradient(135deg,#5ab,#8ec)"></div>
+    <span class="lm-name">Zdjęcie tła</span>
+  </div>
+  <div class="lm-footer">
+    <div class="lm-foot-btn">➕ Nowa</div>
+    <div class="lm-foot-btn">⧉ Duplikuj</div>
+    <div class="lm-foot-btn">🗑 Usuń</div>
+    <div class="lm-foot-btn">⬆ W górę</div>
+  </div>
+</div>
+
+<h3>Podstawowe operacje na warstwach</h3>
+<table>
+  <thead><tr><th>Operacja</th><th>Skrót / menu</th><th>Opis</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Nowa warstwa</strong></td><td><kbd>Shift</kbd>+<kbd>Ctrl</kbd>+<kbd>N</kbd></td><td>Tworzy pustą warstwę nad aktywną. W oknie dialogowym określ nazwę, rozmiar i wypełnienie (przezroczyste, kolor pierwszego planu, tło, biała).</td></tr>
+    <tr><td><strong>Duplikuj warstwę</strong></td><td><kbd>Shift</kbd>+<kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Kopiuje aktywną warstwę razem z zawartością i maską.</td></tr>
+    <tr><td><strong>Scal w dół</strong></td><td><kbd>Ctrl</kbd>+<kbd>M</kbd></td><td>Scala aktywną warstwę z warstwą bezpośrednio pod nią.</td></tr>
+    <tr><td><strong>Spłaszcz obraz</strong></td><td>Obraz &gt; Spłaszcz obraz</td><td>Scala wszystkie warstwy w jedną. Nieodwracalne — rób kopię XCF przed spłaszczeniem.</td></tr>
+    <tr><td><strong>Zmień kolejność</strong></td><td>Przeciągnij w liście</td><td>Przeciągnij warstwę w górę lub dół listy lub użyj <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>↑/↓</kbd>.</td></tr>
+    <tr><td><strong>Właściwości warstwy</strong></td><td>Dwuklik na nazwie</td><td>Zmień nazwę warstwy. Krycie i tryb mieszania — bezpośrednio w górnej części panelu Warstwy.</td></tr>
+    <tr><td><strong>Dodaj kanał alfa</strong></td><td>Warstwa &gt; Przezroczystość &gt; Dodaj kanał alfa</td><td>Konieczne przed użyciem gumki jako przezroczystości lub przed operacjami wymagającymi kanału alfa.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tryby">Tryby mieszania (Blending Modes)</h2>
+<p>Tryb mieszania warstwy określa, jak jej piksele oddziałują na piksele warstw poniżej. Wybierany z listy rozwijanej w górnej części panelu Warstwy.</p>
+<table>
+  <thead><tr><th>Tryb</th><th>Efekt</th><th>Typowe zastosowanie</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Normalny</strong></td><td>Warstwa pokrywa warstwy poniżej zgodnie z kryciem</td><td>Domyślny tryb dla nowych warstw</td></tr>
+    <tr><td><strong>Rozjaśnianie</strong></td><td>Wybiera jaśniejszy piksel z aktywnej lub dolnej warstwy</td><td>Łączenie ekspozycji, efekty świetlne</td></tr>
+    <tr><td><strong>Mnożenie</strong></td><td>Ciemni wynik — biały = przezroczysty, czarny = czarny</td><td>Cienie, zaciemnienia, nadrukowywanie cieni</td></tr>
+    <tr><td><strong>Ekran</strong></td><td>Rozjaśnia — czarny = przezroczysty</td><td>Efekty świetlne, błyski, flary</td></tr>
+    <tr><td><strong>Nakładka (Overlay)</strong></td><td>Kontrastuje: ciemne ciemnieje, jasne jaśnieje</td><td>Zwiększanie kontrastu, kolorowanie</td></tr>
+    <tr><td><strong>Miękkie światło</strong></td><td>Delikatniejsza wersja Nakładki</td><td>Subtelne rozjaśnianie/przyciemnianie</td></tr>
+    <tr><td><strong>Mocne światło</strong></td><td>Intensywna wersja Nakładki / Ekranu</td><td>Dramatyczne efekty świetlne</td></tr>
+    <tr><td><strong>Różnica</strong></td><td>Odejmuje wartości kolorów</td><td>Sprawdzanie wyrównania warstw, efekty psychodeliczne</td></tr>
+    <tr><td><strong>Barwa / Nasycenie / Kolor</strong></td><td>Przenosi tylko wybrany składnik HSL</td><td>Kolorowanie czarno-białych zdjęć, zmiana odcienia</td></tr>
+  </tbody>
+</table>
+
+<h2 id="krycie">Krycie warstwy</h2>
+<p>Suwak <strong>Krycie</strong> (0–100%) w górnej części panelu Warstwy reguluje przezroczystość całej warstwy. <strong>0%</strong> = całkowicie przezroczysta, <strong>100%</strong> = całkowicie nieprzezroczysta.</p>
+<div class="tip">✅ Krycie warstwy i krycie narzędzia malarskiego to dwie różne rzeczy. Krycie warstwy dotyczy całej warstwy; krycie narzędzia dotyczy tylko nakładanego pociągnięcia.</div>
+
+<h2 id="maski">Maski warstwy</h2>
+<p>Maska warstwy to czarno-biała kanwa dołączona do warstwy. <strong>Biały</strong> = obszar warstwy widoczny, <strong>Czarny</strong> = obszar niewidoczny, <strong>Szary</strong> = częściowo przezroczysty. Maski są <em>nieniszczące</em> — możesz malować po masce bez uszkadzania pikseli warstwy.</p>
+
+<h3>Dodawanie maski warstwy</h3>
+<ol>
+  <li>Kliknij prawym przyciskiem myszy na warstwę w panelu Warstwy.</li>
+  <li>Wybierz <strong>Dodaj maskę warstwy…</strong></li>
+  <li>Wybierz punkt startowy maski: biała (wszystko widoczne), czarna (wszystko ukryte), alfa kanał, bieżące zaznaczenie.</li>
+  <li>Kliknij OK — przy warstwie pojawi się dodatkowy miniaturowy kwadrat maski.</li>
+</ol>
+
+<h3>Praca z maską</h3>
+<ul>
+  <li><strong>Kliknij miniaturkę maski</strong> w panelu Warstwy — aktywujesz maskę do edycji (obramowanie na miniaturce).</li>
+  <li>Maluj <strong>czarnym</strong> pędzlem, by ukryć fragmenty warstwy; <strong>białym</strong>, by je odsłonić.</li>
+  <li><kbd>Shift</kbd>+klik na miniaturce maski — tymczasowo wyłącza maskę (czerwony krzyżyk).</li>
+  <li>Prawym przyciskiem na miniaturce maski: Zastosuj maskę (połączenie trwałe), Usuń maskę, Pokaż maskę.</li>
+</ul>
+
+<div class="callout">💡 Maski warstwy to najważniejsza technika nieniszczącej edycji w GIMP-ie. Zawsze preferuj maskę zamiast gumki — łatwo ją poprawić lub usunąć.</div>
+
+<h2 id="grupy">Grupy warstw</h2>
+<p>Grupy warstw (<em>Layer Groups</em>) pozwalają organizować warstwy w foldery. Tryb mieszania i krycie grupy wpływają na wszystkie warstwy wewnątrz.</p>
+<ul>
+  <li>Utwórz grupę: <strong>Warstwa &gt; Nowa grupa warstw</strong> lub ikona folderu w dole panelu Warstwy.</li>
+  <li>Przeciągnij warstwy do grupy.</li>
+  <li>Kliknij strzałkę obok grupy, by zwinąć/rozwinąć.</li>
+  <li>Maska zastosowana do grupy wpływa na wszystkie warstwy wewnątrz.</li>
+</ul>
+
+<h2 id="kanaly">Kanały</h2>
+<p>Zakładka <strong>Kanały</strong> w tym samym doku co Warstwy pokazuje składniki kolorowe obrazu (Czerwony, Zielony, Niebieski) i kanał Alfa (przezroczystość), a także niestandardowe kanały służące jako zapamiętane zaznaczenia.</p>
+<table>
+  <thead><tr><th>Kanał</th><th>Opis</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Czerwony / Zielony / Niebieski</strong></td><td>Składniki kolorowe w trybie RGB. Klikaj ikony widoczności, by obejrzeć pojedyncze kanały w skali szarości.</td></tr>
+    <tr><td><strong>Alfa</strong></td><td>Kanał przezroczystości. Biały = nieprzezroczysty, czarny = przezroczysty. Widoczny tylko jeśli warstwa ma kanał alfa.</td></tr>
+    <tr><td><strong>Kanał niestandardowy</strong></td><td>Zapamiętane zaznaczenie jako maska. Utwórz przez: Zaznaczenie &gt; Zapisz do kanału lub klikając „+" w zakładce Kanały.</td></tr>
+  </tbody>
+</table>
+<div class="tip">✅ Kanały niestandardowe to świetny sposób na zapisanie skomplikowanego zaznaczenia i przywrócenie go później: <strong>Zaznaczenie &gt; Zapisz do kanału</strong> / <strong>Utwórz zaznaczenie z kanału</strong>.</div>
+
+<h2 id="sciezki">Ścieżki (Paths)</h2>
+<p>Ścieżki to wektorowe krzywe Béziera w GIMP-ie — odpowiednik Paths z Photoshopa. Są przechowywane w zakładce <strong>Ścieżki</strong> w doku i mogą być konwertowane na zaznaczenia lub odwrotnie.</p>
+<ul>
+  <li>Rysuj ścieżkę narzędziem <strong>Ścieżki</strong> (<kbd>B</kbd>) — klikaj węzły, przeciągaj uchwyty.</li>
+  <li>Zamknij ścieżkę klikając punkt startowy.</li>
+  <li>Konwersja ścieżki na zaznaczenie: <strong>Zaznaczenie &gt; Z ścieżki</strong> lub kliknij przycisk w zakładce Ścieżki.</li>
+  <li>Konwersja zaznaczenia na ścieżkę: <strong>Zaznaczenie &gt; Na ścieżkę</strong>.</li>
+  <li>Ścieżkę można obrysować pędzlem (<strong>Edycja &gt; Obrysuj ścieżkę</strong>).</li>
+</ul>
+
+<div class="nav-bottom">
+  <a href="02-narzedzia.html">⟵ Narzędzia</a>
+  <a href="04-zaznaczenia.html">Zaznaczenia →</a>
+</div>
+</div>
+<!-- KOMPENDIUM:START -->
+<link rel="stylesheet" href="../../values/assets/kompendium.css">
+<script>window.KOMP={"page":"grafika2d/gimp/03-warstwy-maski-kanaly.html","home":"../../","title":"Warstwy, maski i kanały — GIMP 2.10","section":"grafika2d","sectionLabel":"\uD83C\uDFA8 Grafika 2D — Photoshop i GIMP","rel":[{"u":"../../grafika2d/gimp/02-narzedzia.html","t":"Narzędzia — GIMP 2.10","s":"\uD83C\uDFA8","r":"Powiązany w treści"},{"u":"../../grafika2d/gimp/04-zaznaczenia.html","t":"Zaznaczenia — GIMP 2.10","s":"\uD83C\uDFA8","r":"Powiązany w treści"},{"u":"../../grafika2d/gimp/01-podstawy-i-interfejs.html","t":"Podstawy i interfejs — GIMP 2.10","s":"\uD83C\uDFA8","r":"Ta sama sekcja"},{"u":"../../grafika2d/gimp/05-kolor-i-korekcja.html","t":"Kolor i korekcja — GIMP 2.10","s":"\uD83C\uDFA8","r":"Ta sama sekcja"},{"u":"../../grafika2d/gimp/06-filtry-i-script-fu.html","t":"Filtry i Script-Fu — GIMP 2.10","s":"\uD83C\uDFA8","r":"Ta sama sekcja"},{"u":"../../grafika2d/gimp/07-tekst.html","t":"Tekst — GIMP 2.10","s":"\uD83C\uDFA8","r":"Ta sama sekcja"}]}</script>
+<script src="../../values/assets/kompendium.js" defer></script>
+<!-- KOMPENDIUM:END -->
+</body>
+</html>

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Core Web Vitals — SEO</title>
+<style>
+:root{--bg:#0f1a10;--surface:#152015;--surface-hover:#1c2e1c;--border:#234023;--text:#e6f0e6;--text-muted:#86a886;--accent:#22c55e;--accent-hover:#4ade80;--green:#4ade80;--purple:#c084fc;--orange:#fb923c;--blue:#60a5fa;--yellow:#fbbf24;--red:#f87171;--code-bg:#0a120a}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:880px;margin:0 auto;padding:38px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:6px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:36px;opacity:.8}
+h2{font-size:1.4rem;font-weight:600;color:var(--accent);margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.12rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+code{font-family:'Cascadia Code','Fira Code',monospace;font-size:.85rem;background:var(--code-bg);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--green)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:var(--surface-hover)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:54px;padding-top:22px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+kbd{background:var(--code-bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:'Cascadia Code',monospace;font-size:.82rem;color:var(--text);white-space:nowrap}
+
+/* CWV gauge cards */
+.cwv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin:24px 0 36px}
+.cwv-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 18px;text-align:center}
+.cwv-card svg{display:block;margin:0 auto 12px}
+.cwv-card h3{font-size:1rem;margin:0 0 4px;color:var(--text)}
+.cwv-card .metric-name{font-size:.75rem;color:var(--text-muted);margin-bottom:12px}
+.cwv-card .thresholds{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.threshold-pill{font-size:.72rem;padding:3px 8px;border-radius:12px;font-weight:600}
+.t-good{background:rgba(34,197,94,.18);color:var(--green)}
+.t-needs{background:rgba(251,191,36,.18);color:var(--yellow)}
+.t-poor{background:rgba(248,113,113,.18);color:var(--red)}
+
+/* Timeline visual for LCP */
+.timeline{margin:16px 0 24px;position:relative}
+.tl-track{height:8px;background:var(--surface);border:1px solid var(--border);border-radius:4px;margin:8px 0;position:relative;overflow:visible}
+.tl-good{position:absolute;left:0;top:0;height:100%;background:rgba(34,197,94,.5);border-radius:4px 0 0 4px;width:45%}
+.tl-needs{position:absolute;left:45%;top:0;height:100%;background:rgba(251,191,36,.5);width:30%}
+.tl-poor{position:absolute;left:75%;top:0;height:100%;background:rgba(248,113,113,.5);border-radius:0 4px 4px 0;width:25%}
+.tl-labels{display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-muted);margin-top:4px}
+.tl-title{font-size:.82rem;font-weight:600;color:var(--text-muted);margin-bottom:2px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">📚 Kompendium</a><span class="sep">/</span>
+  <a href="../index.html">💻 Software</a><span class="sep">/</span>
+  <a href="index.html">SEO</a><span class="sep">/</span>
+  <span class="title">Core Web Vitals</span>
+</div>
+<div class="container">
+<h1>Core Web Vitals</h1>
+<p class="subtitle">LCP, INP, CLS — definicje, progi Google, pomiar i optymalizacja wydajności</p>
+<p class="updated">Aktualizacja: 2026-06</p>
+
+<p>Core Web Vitals (CWV) to zestaw trzech metryk wydajności zdefiniowanych przez Google, które mierzą realne doświadczenie użytkownika na stronie: szybkość ładowania, responsywność na interakcje i stabilność wizualną. Od maja 2021 roku są oficjalnym sygnałem rankingowym Google (Page Experience signal).</p>
+
+<div class="callout">💡 CWV to <em>tie-breaker</em> — przy podobnej jakości treści i autorytecie strona z lepszymi Core Web Vitals będzie rankować wyżej. Nie zastąpi świetnej treści, ale może decydować o kilku pozycjach w silnej konkurencji.</div>
+
+<!-- SVG gauge cards for all three metrics -->
+<div class="cwv-grid">
+
+  <!-- LCP gauge -->
+  <div class="cwv-card">
+    <svg width="110" height="70" viewBox="0 0 110 70">
+      <path d="M10 60 A45 45 0 0 1 100 60" fill="none" stroke="#234023" stroke-width="10" stroke-linecap="round"/>
+      <path d="M10 60 A45 45 0 0 1 100 60" fill="none" stroke="url(#lcp-grad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="141" stroke-dashoffset="42"/>
+      <defs>
+        <linearGradient id="lcp-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#22c55e"/>
+          <stop offset="60%" stop-color="#fbbf24"/>
+          <stop offset="100%" stop-color="#f87171"/>
+        </linearGradient>
+      </defs>
+      <text x="55" y="58" text-anchor="middle" font-size="16" font-weight="700" fill="#4ade80">LCP</text>
+    </svg>
+    <h3>Largest Contentful Paint</h3>
+    <div class="metric-name">Czas ładowania największego elementu</div>
+    <div class="thresholds">
+      <span class="threshold-pill t-good">Dobry ≤ 2.5s</span>
+      <span class="threshold-pill t-needs">Wymaga pracy ≤ 4s</span>
+      <span class="threshold-pill t-poor">Słaby &gt; 4s</span>
+    </div>
+  </div>
+
+  <!-- INP gauge -->
+  <div class="cwv-card">
+    <svg width="110" height="70" viewBox="0 0 110 70">
+      <path d="M10 60 A45 45 0 0 1 100 60" fill="none" stroke="#234023" stroke-width="10" stroke-linecap="round"/>
+      <path d="M10 60 A45 45 0 0 1 100 60" fill="none" stroke="url(#inp-grad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="141" stroke-dashoffset="56"/>
+      <defs>
+        <linearGradient id="inp-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#22c55e"/>
+          <stop offset="50%" stop-color="#fbbf24"/>
+          <stop offset="100%" stop-color="#f87171"/>
+        </linearGradient>
+      </defs>
+      <text x="55" y="58" text-anchor="middle" font-size="16" font-weight="700" fill="#4ade80">INP</text>
+    </svg>
+    <h3>Interaction to Next Paint</h3>
+    <div class="metric-name">Responsywność na interakcje użytkownika</div>
+    <div class="thresholds">
+      <span class="threshold-pill t-good">Dobry ≤ 200ms</span>
+      <span class="threshold-pill t-needs">Wymaga pracy ≤ 500ms</span>
+      <span class="threshold-pill t-poor">Słaby &gt; 500ms</span>
+    </div>
+  </div>
+
+  <!-- CLS gauge -->
+  <div class="cwv-card">
+    <svg width="110" height="70" viewBox="0 0 110 70">
+      <path d="M10 60 A45 45 0 0 1 100 60" fill="none" stroke="#234023" stroke-width="10" stroke-linecap="round"/>
+      <path d="M10 60 A45 45 0 0 1 100 60" fill="none" stroke="url(#cls-grad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="141" stroke-dashoffset="70"/>
+      <defs>
+        <linearGradient id="cls-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#22c55e"/>
+          <stop offset="40%" stop-color="#fbbf24"/>
+          <stop offset="100%" stop-color="#f87171"/>
+        </linearGradient>
+      </defs>
+      <text x="55" y="58" text-anchor="middle" font-size="16" font-weight="700" fill="#4ade80">CLS</text>
+    </svg>
+    <h3>Cumulative Layout Shift</h3>
+    <div class="metric-name">Stabilność wizualna — przesunięcia układu</div>
+    <div class="thresholds">
+      <span class="threshold-pill t-good">Dobry ≤ 0.1</span>
+      <span class="threshold-pill t-needs">Wymaga pracy ≤ 0.25</span>
+      <span class="threshold-pill t-poor">Słaby &gt; 0.25</span>
+    </div>
+  </div>
+</div>
+
+<h2 id="lcp">LCP — Largest Contentful Paint</h2>
+<p>LCP mierzy czas od nawigacji (kliknięcia linku / wczytania strony) do momentu, gdy <strong>największy element widoczny w oknie przeglądarki</strong> zostaje w pełni wyrenderowany. Typowo jest to hero image, duże zdjęcie w tle, wideo lub duży blok tekstu.</p>
+
+<div class="timeline">
+  <div class="tl-title">LCP — skala czasu</div>
+  <div class="tl-track">
+    <div class="tl-good"></div>
+    <div class="tl-needs"></div>
+    <div class="tl-poor"></div>
+  </div>
+  <div class="tl-labels">
+    <span>0s</span><span style="color:var(--green)">2.5s — dobry</span><span style="color:var(--yellow)">4s — wymaga pracy</span><span style="color:var(--red)">4s+</span>
+  </div>
+</div>
+
+<h3>Najczęstsze przyczyny słabego LCP</h3>
+<ul>
+  <li><strong>Niespriorytetyzowany obraz hero</strong> — brak <code>&lt;link rel="preload"&gt;</code> lub <code>fetchpriority="high"</code> na LCP image.</li>
+  <li><strong>Lazy loading na LCP image</strong> — <code>loading="lazy"</code> celowo opóźnia ładowanie; usuń go z LCP elementu.</li>
+  <li><strong>Wolny serwer / TTFB</strong> — jeśli Time To First Byte wynosi &gt; 600ms, poprawa LCP zaczyna się od hostingu lub CDN.</li>
+  <li><strong>CSS blokujący render</strong> — wielkie pliki CSS ładowane synchronicznie w <code>&lt;head&gt;</code>.</li>
+  <li><strong>Czcionki webfont bez font-display: swap</strong> — tekst niewidoczny, dopóki czcionka nie dotrze.</li>
+  <li><strong>Ciężki obraz bez kompresji</strong> — JPEG 2 MB zamiast WebP 200 KB.</li>
+</ul>
+
+<h3>Jak poprawić LCP</h3>
+<ul>
+  <li>Dodaj <code>&lt;link rel="preload" as="image" href="hero.webp" fetchpriority="high"&gt;</code> w <code>&lt;head&gt;</code>.</li>
+  <li>Używaj <code>fetchpriority="high"</code> bezpośrednio na tagu <code>&lt;img&gt;</code> LCP elementu.</li>
+  <li>Zoptymalizuj TTFB: szybszy hosting, cache HTTP, CDN (Cloudflare, Bunny CDN).</li>
+  <li>Przenieś krytyczny CSS inline do <code>&lt;head&gt;</code> i opóźnij resztę przez <code>&lt;link rel="stylesheet" media="print" onload&gt;</code>.</li>
+  <li>Kompresja obrazów: WebP / AVIF, rozmiary srcset.</li>
+  <li>Włącz Brotli / Gzip na serwerze.</li>
+</ul>
+
+<h2 id="inp">INP — Interaction to Next Paint</h2>
+<p>INP (zastąpiło FID w marcu 2024) mierzy opóźnienie wszystkich interakcji użytkownika ze stroną (kliknięcia, dotknięcia, naciśnięcia klawiszy) w czasie całej wizyty — od interakcji do momentu, gdy przeglądarka wyrenderuje wizualną odpowiedź. Raportuje <strong>najgorzej wypadającą interakcję</strong> (z odjęciem pewnego percentyla górnego, żeby ignorować aberracje).</p>
+
+<h3>Przyczyny wysokiego INP</h3>
+<ul>
+  <li><strong>Długie zadania JavaScript</strong> (Long Tasks &gt; 50ms) blokujące główny wątek przeglądarki.</li>
+  <li><strong>Event handlery synchroniczne</strong> — duże obliczenia w obsłudze kliknięcia bez podziału na mniejsze części.</li>
+  <li><strong>Przeładowanie DOM</strong> — tysiące węzłów DOM spowalniają operacje layoutu i renderowania.</li>
+  <li><strong>Duże Third-Party scripts</strong> — Google Tag Manager z 20 tagami, reklamy, chatboty.</li>
+  <li><strong>Animacje CSS/JS blokujące main thread</strong> — zamiast kompozytora GPU.</li>
+</ul>
+
+<h3>Jak poprawić INP</h3>
+<ul>
+  <li>Rozbij długie zadania JS: <code>setTimeout(fn, 0)</code>, <code>scheduler.yield()</code>, <code>requestIdleCallback</code>.</li>
+  <li>Użyj <code>Web Workers</code> dla obliczeń CPU-intensive poza głównym wątkiem.</li>
+  <li>Ogranicz rozmiar DOM — mniej węzłów = szybszy layout recalculation.</li>
+  <li>Audytuj third-party scripts w Chrome DevTools → Performance → Bottom-Up.</li>
+  <li>Preferuj animacje CSS <code>transform</code> i <code>opacity</code> (GPU compositor) zamiast <code>top/left/width</code> (main thread).</li>
+</ul>
+
+<h2 id="cls">CLS — Cumulative Layout Shift</h2>
+<p>CLS mierzy nieoczekiwane przesunięcia elementów na stronie podczas ładowania i użytkowania. Wartość CLS to suma <em>impact fraction × distance fraction</em> dla każdego przesunięcia. Użytkownik klika w przycisk, reklama się ładuje i przesuwa layout — klika w nieodpowiednie miejsce. To jest CLS.</p>
+
+<h3>Najczęstsze przyczyny wysokiego CLS</h3>
+<table>
+<thead><tr><th>Przyczyna</th><th>Rozwiązanie</th></tr></thead>
+<tbody>
+<tr><td>Obrazy bez zdefiniowanego wymiaru <code>width</code>/<code>height</code></td><td>Zawsze podaj <code>width</code> i <code>height</code> w tagu <code>&lt;img&gt;</code> — przeglądarka zarezerwuje miejsce</td></tr>
+<tr><td>Reklamy / embedy bez zdefiniowanego rozmiaru kontenera</td><td>Zarezerwuj <code>min-height</code> dla kontenera reklamy</td></tr>
+<tr><td>Czcionki webfont powodujące FOUT/FOIT</td><td><code>font-display: swap</code> + preload fontu w <code>&lt;head&gt;</code></td></tr>
+<tr><td>Dynamicznie wstrzykiwana treść ponad widocznym contentem</td><td>Rezerwuj miejsce lub wstrzykuj poniżej fold</td></tr>
+<tr><td>Animacje nie używające <code>transform</code></td><td>Zamień <code>top/height</code> na <code>transform: translateY()</code></td></tr>
+</tbody>
+</table>
+
+<h2 id="pomiar">Pomiar Core Web Vitals</h2>
+<h3>Dane Field (RUM) vs. Lab</h3>
+<table>
+<thead><tr><th>Typ</th><th>Źródło</th><th>Do czego</th></tr></thead>
+<tbody>
+<tr><td><strong>Field data (RUM)</strong></td><td>Chrome UX Report (CrUX) — prawdziwi użytkownicy Chrome</td><td>To Google używa do rankowania. Zmiany widoczne po 28 dniach zbierania danych.</td></tr>
+<tr><td><strong>Lab data</strong></td><td>Lighthouse, WebPageTest — symulowany pomiar</td><td>Szybkie debugowanie i testowanie zmian — wyniki natychmiastowe.</td></tr>
+</tbody>
+</table>
+
+<h3>Narzędzia pomiarowe</h3>
+<ul>
+  <li><strong>PageSpeed Insights</strong> (<a href="https://pagespeed.web.dev" target="_blank" rel="noopener noreferrer">pagespeed.web.dev</a>) — łączy dane field (CrUX) i lab (Lighthouse). Punkt wyjścia dla audytu.</li>
+  <li><strong>Google Search Console</strong> → Kluczowe wskaźniki → Core Web Vitals — raport dla całego serwisu, segmentacja mobile/desktop.</li>
+  <li><strong>Lighthouse</strong> — wbudowany w Chrome DevTools (<kbd>F12</kbd> → Lighthouse). Lab data, szczegółowe rekomendacje.</li>
+  <li><strong>Chrome DevTools → Performance</strong> — głęboka analiza: Long Tasks, main thread blocking, layout shifts.</li>
+  <li><strong>WebPageTest</strong> (<a href="https://webpagetest.org" target="_blank" rel="noopener noreferrer">webpagetest.org</a>) — zaawansowane testy z różnych lokalizacji i urządzeń, filmik z ładowania.</li>
+  <li><strong>web-vitals.js</strong> — biblioteka JS do mierzenia CWV po stronie klienta i wysyłania do własnej analityki.</li>
+</ul>
+
+<div class="tip">✅ Zacznij od PageSpeed Insights dla reprezentatywnej podstrony (nie tylko strony głównej!) — stron produktowych, artykułów blogowych, stron kategorii. To one generują ruch i mają zazwyczaj gorsze CWV niż strona główna.</div>
+
+<div class="tip">✅ Google Search Console → Core Web Vitals wskazuje konkretne URL z problemami, pogrupowane według typu błędu. To najszybsza ścieżka do ustalenia priorytetów napraw na dużym serwisie.</div>
+
+<h2 id="priorytety">Priorytety optymalizacji</h2>
+<ol>
+  <li><strong>LCP jako pierwszy</strong> — najczęściej krytyczny, największy wpływ na postrzeganie szybkości.</li>
+  <li><strong>CLS jako drugi</strong> — frustrujące dla użytkownika, często proste do naprawy (wymiary obrazów).</li>
+  <li><strong>INP jako trzeci</strong> — trudniejsze do optymalizacji, wymaga analizy JS.</li>
+  <li>Nie optymalizuj tylko dla Lighthouse — sprawdź field data z Search Console.</li>
+  <li>Mierz na prawdziwym urządzeniu mobilnym w sieci 4G — nie na desktopie przez fiber.</li>
+</ol>
+
+<div class="nav-bottom">
+  <a href="07-seo-lokalne.html">⟵ SEO lokalne</a>
+  <a href="09-narzedzia-i-analityka.html">Narzędzia i analityka →</a>
+</div>
+</div>
+<!-- KOMPENDIUM:START -->
+<link rel="stylesheet" href="../../values/assets/kompendium.css">
+<script>window.KOMP={"page":"software/seo/08-core-web-vitals.html","home":"../../","title":"Core Web Vitals — SEO","section":"software","sectionLabel":"\uD83D\uDCBB Software i programowanie","rel":[{"u":"../../software/seo/07-seo-lokalne.html","t":"SEO lokalne — SEO","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/seo/09-narzedzia-i-analityka.html","t":"Narzędzia i analityka SEO — SEO","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/seo/01-jak-dzialaja-wyszukiwarki.html","t":"Jak działają wyszukiwarki — SEO","s":"\uD83D\uDCBB","r":"Ta sama sekcja"},{"u":"../../software/seo/02-seo-techniczne.html","t":"SEO techniczne — SEO","s":"\uD83D\uDCBB","r":"Ta sama sekcja"},{"u":"../../software/seo/03-on-page-seo.html","t":"On-page SEO — SEO","s":"\uD83D\uDCBB","r":"Ta sama sekcja"},{"u":"../../software/seo/04-slowa-kluczowe.html","t":"Badanie słów kluczowych — SEO","s":"\uD83D\uDCBB","r":"Ta sama sekcja"}]}</script>
+<script src="../../values/assets/kompendium.js" defer></script>
+<!-- KOMPENDIUM:END -->
+</body>
+</html>

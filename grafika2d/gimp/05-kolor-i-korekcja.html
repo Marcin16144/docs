@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kolor i korekcja — GIMP 2.10</title>
+<style>
+:root{--bg:#0f0a14;--surface:#1d1526;--surface-hover:#2a1f38;--border:#3b2f4a;--text:#ece6f0;--text-muted:#a394b3;--accent:#cd8b3f;--accent-hover:#e6a85a;--green:#4ade80;--purple:#c084fc;--orange:#fb923c;--blue:#60a5fa;--yellow:#fbbf24;--red:#f87171;--code-bg:#150f1d}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:880px;margin:0 auto;padding:38px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:6px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:36px;opacity:.8}
+h2{font-size:1.4rem;font-weight:600;color:var(--accent);margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.12rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:var(--surface-hover)}
+.callout{background:rgba(205,139,63,.08);border-left:3px solid var(--accent);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:54px;padding-top:22px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+kbd{background:var(--code-bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:'Cascadia Code',monospace;font-size:.82rem;color:var(--text);white-space:nowrap}
+/* Curves / Levels SVG diagrams */
+.diagram-row{display:flex;gap:20px;flex-wrap:wrap;margin:20px 0 28px}
+.diagram-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;flex:1;min-width:200px;text-align:center}
+.diagram-box svg{display:block;margin:0 auto 8px}
+.diagram-label{font-size:.8rem;color:var(--text-muted)}
+.diagram-title{font-size:.9rem;font-weight:600;color:var(--accent);margin-bottom:6px}
+.mode-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin:16px 0 24px}
+.mode-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.mode-card-title{font-size:.88rem;font-weight:600;color:var(--accent);margin-bottom:4px}
+.mode-card-desc{font-size:.78rem;color:var(--text-muted)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="../../index.html">📚 Kompendium</a><span class="sep">/</span>
+  <a href="../index.html">🖼️ Grafika 2D</a><span class="sep">/</span>
+  <a href="index.html">🦊 GIMP</a><span class="sep">/</span>
+  <span class="title">Kolor i korekcja</span>
+</div>
+<div class="container">
+<h1>Kolor i korekcja</h1>
+<p class="subtitle">GIMP 2.10 — menu Kolory: Poziomy, Krzywe, Barwa-Nasycenie, tryby obrazu</p>
+<p class="updated">Aktualizacja: 2026-06</p>
+
+<p>Menu <strong>Kolory</strong> zawiera wszystkie narzędzia do korekcji tonalnej i kolorystycznej obrazu. W GIMP 2.10 silnik GEGL umożliwia korekcję w wysokiej głębi bitowej (16- i 32-bit). Narzędzia działają na aktywnej warstwie lub, jeśli jest zaznaczenie, tylko na zaznaczonym obszarze.</p>
+
+<div class="callout">💡 Operacje z menu Kolory są <strong>niszczące</strong> — modyfikują piksele trwale. Przed korekcją zduplikuj warstwę (<kbd>Shift</kbd>+<kbd>Ctrl</kbd>+<kbd>D</kbd>) lub pracuj na kopii obrazu, by zachować możliwość cofnięcia.</div>
+
+<h2 id="poziomy">Poziomy (Levels)</h2>
+<p>Polecenie <strong>Kolory &gt; Poziomy…</strong> umożliwia korekcję jasności i kontrastu przez przesunięcie punktów czerni, bieli i szarości wejściowych oraz wyjściowych.</p>
+
+<div class="diagram-row">
+  <div class="diagram-box">
+    <div class="diagram-title">Poziomy — schemat</div>
+    <svg width="200" height="100" viewBox="0 0 200 100" aria-label="Schemat okna Poziomy">
+      <!-- histogram background -->
+      <rect x="20" y="10" width="160" height="60" rx="3" fill="#150f1d" stroke="#3b2f4a"/>
+      <!-- fake histogram bars -->
+      <rect x="24" y="55" width="6" height="15" fill="#3b2f4a"/>
+      <rect x="32" y="40" width="6" height="30" fill="#3b2f4a"/>
+      <rect x="40" y="25" width="6" height="45" fill="#4a3b5a"/>
+      <rect x="48" y="18" width="6" height="52" fill="#5a4b6a"/>
+      <rect x="56" y="22" width="6" height="48" fill="#5a4b6a"/>
+      <rect x="64" y="30" width="6" height="40" fill="#4a3b5a"/>
+      <rect x="72" y="38" width="6" height="32" fill="#3b2f4a"/>
+      <rect x="80" y="48" width="6" height="22" fill="#3b2f4a"/>
+      <rect x="88" y="55" width="6" height="15" fill="#2a2030"/>
+      <rect x="96" y="60" width="6" height="10" fill="#2a2030"/>
+      <rect x="104" y="63" width="6" height="7" fill="#2a2030"/>
+      <rect x="112" y="65" width="6" height="5" fill="#2a2030"/>
+      <rect x="120" y="66" width="6" height="4" fill="#2a2030"/>
+      <!-- gradient bar -->
+      <defs>
+        <linearGradient id="gbar" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#000"/>
+          <stop offset="1" stop-color="#fff"/>
+        </linearGradient>
+      </defs>
+      <rect x="20" y="74" width="160" height="10" rx="2" fill="url(#gbar)"/>
+      <!-- triangles (input sliders) -->
+      <polygon points="20,84 26,92 14,92" fill="#fff" opacity=".9"/>
+      <polygon points="90,84 96,92 84,92" fill="#888" opacity=".9"/>
+      <polygon points="180,84 186,92 174,92" fill="#cd8b3f"/>
+      <text x="20" y="99" font-size="8" fill="#a394b3">0</text>
+      <text x="85" y="99" font-size="8" fill="#a394b3">128</text>
+      <text x="170" y="99" font-size="8" fill="#cd8b3f">255</text>
+    </svg>
+    <div class="diagram-label">Trójkąty: czarny punkt, szarość (gamma), biały punkt wejściowy</div>
+  </div>
+  <div class="diagram-box">
+    <div class="diagram-title">Krzywe — schemat</div>
+    <svg width="200" height="100" viewBox="0 0 200 100" aria-label="Schemat okna Krzywe">
+      <rect x="20" y="10" width="160" height="80" rx="3" fill="#150f1d" stroke="#3b2f4a"/>
+      <!-- grid lines -->
+      <line x1="60" y1="10" x2="60" y2="90" stroke="#2a2030" stroke-width="1"/>
+      <line x1="100" y1="10" x2="100" y2="90" stroke="#2a2030" stroke-width="1"/>
+      <line x1="140" y1="10" x2="140" y2="90" stroke="#2a2030" stroke-width="1"/>
+      <line x1="20" y1="36" x2="180" y2="36" stroke="#2a2030" stroke-width="1"/>
+      <line x1="20" y1="63" x2="180" y2="63" stroke="#2a2030" stroke-width="1"/>
+      <!-- diagonal reference -->
+      <line x1="20" y1="90" x2="180" y2="10" stroke="#3b2f4a" stroke-width="1" stroke-dasharray="3 2"/>
+      <!-- S-curve -->
+      <path d="M20,90 C50,80 70,70 100,50 C130,30 150,20 180,10" fill="none" stroke="#cd8b3f" stroke-width="2"/>
+      <!-- control points -->
+      <circle cx="80" cy="62" r="4" fill="none" stroke="#cd8b3f" stroke-width="1.5"/>
+      <circle cx="130" cy="28" r="4" fill="none" stroke="#cd8b3f" stroke-width="1.5"/>
+      <text x="22" y="99" font-size="8" fill="#a394b3">Cienie</text>
+      <text x="80" y="99" font-size="8" fill="#a394b3">Półcienie</text>
+      <text x="152" y="99" font-size="8" fill="#a394b3">Światła</text>
+    </svg>
+    <div class="diagram-label">Krzywa S — klasyczna korekcja: głębsze cienie, jaśniejsze światła</div>
+  </div>
+</div>
+
+<h3>Jak używać Poziomów</h3>
+<ol>
+  <li>Otwórz: <strong>Kolory &gt; Poziomy…</strong></li>
+  <li>Wybierz kanał: <em>Wartość</em> (jasność), Czerwony, Zielony lub Niebieski.</li>
+  <li><strong>Trójkąt czarny</strong> (lewy) — przesuń w prawo, by przyciemnić cienie i zwiększyć kontrast.</li>
+  <li><strong>Trójkąt szary</strong> (środkowy) — gamma, reguluje jasność półcieni bez zmiany czerni i bieli.</li>
+  <li><strong>Trójkąt biały</strong> (prawy) — przesuń w lewo, by rozjaśnić światła.</li>
+  <li>Suwaki wyjściowe (dolny pasek) ograniczają zakres wyjściowy — przydatne przy przygotowaniu do druku.</li>
+  <li>Pipety (czarna/szara/biała) — kliknij na obszar obrazu, by ustawić punkt czerni, szarości lub bieli automatycznie.</li>
+</ol>
+
+<h2 id="krzywe">Krzywe (Curves)</h2>
+<p>Polecenie <strong>Kolory &gt; Krzywe…</strong> to najpotężniejsze narzędzie korekcji tonalnej. Pozwala na niezależną kontrolę każdego zakresu tonalnego (cienie, półcienie, światła) i każdego kanału koloru.</p>
+<ul>
+  <li>Kliknij na krzywej, by dodać punkt kontrolny; przeciągnij go, by wygiąć krzywą.</li>
+  <li><strong>Krzywa S</strong> (górna część w lewo, dolna w prawo) zwiększa kontrast.</li>
+  <li>Kliknij punkt kontrolny i naciśnij <kbd>Delete</kbd>, by go usunąć.</li>
+  <li>Tryb <strong>Rysowanie</strong> pozwala narysować krzywą odręcznie myszą.</li>
+  <li>Wybierz kanał R, G lub B, by korygować balans kolorów selektywnie.</li>
+</ul>
+
+<h2 id="barwa-nasycenie">Barwa-Nasycenie (Hue-Saturation)</h2>
+<p>Polecenie <strong>Kolory &gt; Barwa-Nasycenie…</strong> pozwala modyfikować odcień, nasycenie i jasność całego obrazu lub wybranego zakresu kolorów.</p>
+<table>
+  <thead><tr><th>Parametr</th><th>Zakres</th><th>Efekt</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Barwa (Hue)</strong></td><td>−180° do +180°</td><td>Przesuwa odcień na kole kolorów. +180° obraca kolory o pół obrotu.</td></tr>
+    <tr><td><strong>Nasycenie</strong></td><td>−100 do +100</td><td>Zmniejszenie do −100 daje obraz czarno-biały; zwiększenie intensyfikuje kolory.</td></tr>
+    <tr><td><strong>Jasność</strong></td><td>−100 do +100</td><td>Rozjaśnia lub przyciemnia obraz (różni się od Krzywych — prostoliniowa zmiana).</td></tr>
+  </tbody>
+</table>
+<p>Zaznacz konkretny zakres kolorów (R, G, B, C, M, Y lub „Wszystkie"), by korygować tylko wybrany kolor — np. zmień tylko niebieski kanał nieba bez wpływu na resztę zdjęcia.</p>
+
+<h2 id="balans">Balans kolorów (Color Balance)</h2>
+<p>Polecenie <strong>Kolory &gt; Balans kolorów…</strong> pozwala przesuwać balans kolorów niezależnie w zakresie Cieni, Półcieni i Świateł, przesuwając suwaki między parami dopełniających kolorów: Cyjan–Czerwony, Magenta–Zielony, Żółty–Niebieski.</p>
+<div class="tip">✅ Balans kolorów jest intuicyjny do korygowania zabarwień: np. zdjęcie jest zbyt niebieskie w cieniach → przesuń suwak Żółty–Niebieski w kierunku Żółtego w sekcji Cienie.</div>
+
+<h2 id="jasnosc-kontrast">Jasność-Kontrast</h2>
+<p>Polecenie <strong>Kolory &gt; Jasność-Kontrast…</strong> to najprostsze narzędzie globalnej korekcji ekspozycji i kontrastu. Dwa suwaki: Jasność i Kontrast, każdy w zakresie −127 do +127.</p>
+<div class="warning">⚠ Jasność-Kontrast jest mniej precyzyjna niż Poziomy lub Krzywe. Do profesjonalnej korekcji używaj Krzywych — dają pełną kontrolę nad każdym zakresem tonalnym.</div>
+
+<h2 id="progowanie">Progowanie (Threshold)</h2>
+<p>Polecenie <strong>Kolory &gt; Progowanie…</strong> zamienia obraz na czarno-biały przez binaryzację: piksele jaśniejsze od progu stają się białe, ciemniejsze — czarne. Przydatne do tworzenia szablonów, efektów graficznych i analizy kontrastu.</p>
+
+<h2 id="szarosc">Odcienie szarości (Desaturate)</h2>
+<p>Polecenie <strong>Kolory &gt; Odcienie szarości…</strong> usuwa nasycenie z obrazu RGB, zamieniając go wizualnie w czarno-biały (obraz pozostaje w trybie RGB). Dostępne metody desaturacji:</p>
+<ul>
+  <li><strong>Luminancja</strong> — ważone wg ludzkiej percepcji jasności (R:0.213, G:0.715, B:0.072). Naturalnie wyglądające czarno-białe.</li>
+  <li><strong>Luma</strong> — podobna do luminancji, obliczana w przestrzeni liniowej.</li>
+  <li><strong>Średnia</strong> — prosta średnia kanałów R+G+B÷3.</li>
+</ul>
+<div class="callout">💡 Aby zmienić tryb obrazu na prawdziwe odcienie szarości (jeden kanał): <strong>Obraz &gt; Tryb &gt; Skala szarości</strong>. Pamiętaj, że tryb Skala szarości nie obsługuje kolorów — nie można go pomalować na kolor bez zmiany trybu z powrotem na RGB.</div>
+
+<h2 id="tryby-obrazu">Tryby obrazu</h2>
+<p>Tryb koloru obrazu (<strong>Obraz &gt; Tryb</strong>) definiuje przestrzeń barwną i liczbę kanałów.</p>
+<div class="mode-grid">
+  <div class="mode-card">
+    <div class="mode-card-title">RGB</div>
+    <div class="mode-card-desc">Tryb domyślny. Trzy kanały: Czerwony, Zielony, Niebieski. Pełna paleta kolorów. Wymagany do wydruku i ekranu.</div>
+  </div>
+  <div class="mode-card">
+    <div class="mode-card-title">Skala szarości</div>
+    <div class="mode-card-desc">Jeden kanał jasności. Mniejszy plik. Brak kolorów — przydatne do zdjęć czarno-białych i masek.</div>
+  </div>
+  <div class="mode-card">
+    <div class="mode-card-title">Indeksowany</div>
+    <div class="mode-card-desc">Ograniczona paleta (maks. 256 kolorów). Używany w formacie GIF i starych PNG z paletą. Ograniczone narzędzia edycji.</div>
+  </div>
+</div>
+<div class="tip">✅ Zawsze pracuj w trybie <strong>RGB</strong>. Zmień na Indeksowany dopiero przy eksporcie GIF, jeśli to konieczne — w trybie Indeksowanym większość narzędzi i filtrów jest niedostępna.</div>
+
+<div class="nav-bottom">
+  <a href="04-zaznaczenia.html">⟵ Zaznaczenia</a>
+  <a href="06-filtry-i-script-fu.html">Filtry i Script-Fu →</a>
+</div>
+</div>
+<!-- KOMPENDIUM:START -->
+<link rel="stylesheet" href="../../values/assets/kompendium.css">
+<script>window.KOMP={"page":"grafika2d/gimp/05-kolor-i-korekcja.html","home":"../../","title":"Kolor i korekcja — GIMP 2.10","section":"grafika2d","sectionLabel":"\uD83C\uDFA8 Grafika 2D — Photoshop i GIMP","rel":[{"u":"../../grafika2d/gimp/04-zaznaczenia.html","t":"Zaznaczenia — GIMP 2.10","s":"\uD83C\uDFA8","r":"Powiązany w treści"},{"u":"../../grafika2d/gimp/06-filtry-i-script-fu.html","t":"Filtry i Script-Fu — GIMP 2.10","s":"\uD83C\uDFA8","r":"Powiązany w treści"},{"u":"../../grafika2d/gimp/01-podstawy-i-interfejs.html","t":"Podstawy i interfejs — GIMP 2.10","s":"\uD83C\uDFA8","r":"Ta sama sekcja"},{"u":"../../grafika2d/gimp/02-narzedzia.html","t":"Narzędzia — GIMP 2.10","s":"\uD83C\uDFA8","r":"Ta sama sekcja"},{"u":"../../grafika2d/gimp/03-warstwy-maski-kanaly.html","t":"Warstwy, maski i kanały — GIMP 2.10","s":"\uD83C\uDFA8","r":"Ta sama sekcja"},{"u":"../../grafika2d/gimp/07-tekst.html","t":"Tekst — GIMP 2.10","s":"\uD83C\uDFA8","r":"Ta sama sekcja"}]}</script>
+<script src="../../values/assets/kompendium.js" defer></script>
+<!-- KOMPENDIUM:END -->
+</body>
+</html>
