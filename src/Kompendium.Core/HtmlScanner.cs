@@ -8,6 +8,11 @@ public static partial class HtmlScanner
 {
     public static readonly string[] SkipDirs = { ".git", ".claude", ".vs", "node_modules", "__pycache__", "obj", "bin", "publish" };
 
+    // Excluded only when they sit directly under the docs root (the C# solution, the
+    // web bundle, and the build scripts) — never when the same name appears as real
+    // content deeper in the tree (e.g. software/tools/vscode).
+    private static readonly string[] RootOnlySkip = { "src", "dist", "tools" };
+
     // Stopwords (PL + EN) to keep keyword sets meaningful.
     private static readonly HashSet<string> Stop = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -41,6 +46,16 @@ public static partial class HtmlScanner
     private static partial Regex WsRx();
     [GeneratedRegex(@"[\p{L}\p{Nd}]{3,}", RegexOptions.IgnoreCase)]
     private static partial Regex WordRx();
+    [GeneratedRegex(@"fetch\(\s*[""']([^""']+\.md)[""']", RegexOptions.IgnoreCase)]
+    private static partial Regex MdFetchRx();
+    [GeneratedRegex(@"http-equiv\s*=\s*[""']refresh[""']|location\.replace\s*\(", RegexOptions.IgnoreCase)]
+    private static partial Regex RedirectRx();
+    [GeneratedRegex(@"<(script|style)\b[^>]*>.*?</\1>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex ScriptStyleRx();
+    [GeneratedRegex(@"class\s*=\s*[""'][^""']*\btoc(-sub|-item|-grid|-card)?\b", RegexOptions.IgnoreCase)]
+    private static partial Regex TocRx();
+    [GeneratedRegex(@"^(#{1,4})\s+(.+?)\s*#*\s*$", RegexOptions.Multiline)]
+    private static partial Regex MdHeadingRx();
 
     public static List<string> EnumeratePages(string root)
     {
@@ -51,10 +66,12 @@ public static partial class HtmlScanner
 
     private static void Walk(string root, string dir, List<string> acc)
     {
+        bool atRoot = string.Equals(Path.GetFullPath(dir), Path.GetFullPath(root), StringComparison.OrdinalIgnoreCase);
         foreach (var sub in Directory.EnumerateDirectories(dir))
         {
             var name = Path.GetFileName(sub);
             if (SkipDirs.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
+            if (atRoot && RootOnlySkip.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
             Walk(root, sub, acc);
         }
         foreach (var f in Directory.EnumerateFiles(dir, "*.html"))
@@ -105,12 +122,29 @@ public static partial class HtmlScanner
         if (string.IsNullOrEmpty(page.Excerpt) && !string.IsNullOrEmpty(page.Subtitle))
             page.Excerpt = page.Subtitle;
 
-        // Word count from stripped text.
-        var plain = Clean(TagRx().Replace(html, " "));
-        page.Words = plain.Length == 0 ? 0 : WsRx().Split(plain).Count(s => s.Length > 0);
+        page.IsRedirect = RedirectRx().IsMatch(html);
+        page.IsHub = TocRx().IsMatch(html);
+
+        // Many pages are thin HTML shells that fetch a sibling .md and render it
+        // client-side. Pull the real content out of that markdown so the index,
+        // search and relations see it — not just the loader boilerplate.
+        var mdText = TryReadMarkdown(fullPath, html);
+        if (mdText is not null)
+        {
+            page.MdBacked = true;
+            EnrichFromMarkdown(page, mdText, slugSeen);
+        }
+        else
+        {
+            // Word count from visible text only (scripts/styles stripped).
+            var visible = ScriptStyleRx().Replace(html, " ");
+            var plain = Clean(TagRx().Replace(visible, " "));
+            page.Words = plain.Length == 0 ? 0 : WsRx().Split(plain).Count(s => s.Length > 0);
+        }
 
         // Keywords from title + headings + subtitle.
         AddKeywords(page.Keywords, page.Title);
+        AddKeywords(page.Keywords, page.Heading);
         AddKeywords(page.Keywords, page.Subtitle);
         foreach (var h in page.Headings) AddKeywords(page.Keywords, h.Text);
 
@@ -155,6 +189,63 @@ public static partial class HtmlScanner
             var w = m.Value.ToLowerInvariant();
             if (!Stop.Contains(w)) set.Add(w);
         }
+    }
+
+    private static string? TryReadMarkdown(string fullPath, string html)
+    {
+        var m = MdFetchRx().Match(html);
+        if (!m.Success) return null;
+        try
+        {
+            var name = WebUtility.UrlDecode(m.Groups[1].Value);
+            var mdPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(fullPath)!, name));
+            return File.Exists(mdPath) ? File.ReadAllText(mdPath) : null;
+        }
+        catch { return null; }
+    }
+
+    private static void EnrichFromMarkdown(DocPage page, string md, HashSet<string> slugSeen)
+    {
+        // Headings (#…####). The first level-1 heading is the page H1.
+        foreach (Match m in MdHeadingRx().Matches(md))
+        {
+            var level = m.Groups[1].Value.Length;
+            var text = MdInline(m.Groups[2].Value);
+            if (text.Length == 0) continue;
+            if (level == 1 && string.IsNullOrEmpty(page.Heading)) { page.Heading = text; continue; }
+            var id = Slug(text); var baseId = id; int n = 2; while (!slugSeen.Add(id)) id = $"{baseId}-{n++}";
+            page.Headings.Add(new Heading { Level = Math.Clamp(level, 2, 3), Id = id, Text = text });
+        }
+
+        // Strip fenced/inline code for clean excerpt + word count.
+        var prose = Regex.Replace(md, "```[\\s\\S]*?```", " ");
+        prose = Regex.Replace(prose, "`[^`]*`", " ");
+
+        if (string.IsNullOrEmpty(page.Excerpt))
+        {
+            foreach (var raw in prose.Split('\n'))
+            {
+                var line = raw.Trim();
+                if (line.Length < 40) continue;
+                if (line.StartsWith('#') || line.StartsWith('>') || line.StartsWith('|') ||
+                    line.StartsWith("- ") || line.StartsWith("* ") || Regex.IsMatch(line, @"^\d+\.")) continue;
+                var t = MdInline(line);
+                if (t.Length >= 40) { page.Excerpt = t.Length > 240 ? t[..240].TrimEnd() + "…" : t; break; }
+            }
+        }
+
+        var plain = MdInline(Regex.Replace(prose, @"[#>*_~|]", " "));
+        page.Words = plain.Length == 0 ? 0 : WsRx().Split(plain).Count(s => s.Length > 0);
+    }
+
+    private static string MdInline(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        s = Regex.Replace(s, @"!\[[^\]]*\]\([^)]*\)", " ");      // images
+        s = Regex.Replace(s, @"\[([^\]]+)\]\([^)]*\)", "$1");    // links → label
+        s = s.Replace("**", "").Replace("__", "").Replace("~~", "").Replace("`", "");
+        s = WebUtility.HtmlDecode(s);
+        return WsRx().Replace(s, " ").Trim();
     }
 
     private static string Clean(string s)

@@ -110,6 +110,7 @@ if (inject)
         string html;
         try { html = File.ReadAllText(full); } catch { continue; }
 
+        if (p.IsRedirect) { skipped++; continue; }
         bool docPage = topbarRx.IsMatch(html) || p.IsIndex;
         if (!docPage) { skipped++; continue; }
 
@@ -149,22 +150,27 @@ foreach (var p in pages)
         if (!existing.Contains(link))
             broken.Add(new { from = p.Path, to = link, promised = p.IsIndex });
 
-var orphans = sections.Where(s => s.Id is "services" or "Kryptowaluty" or "Terapia" or "Dokumentacje")
-                      .Select(s => s.Id).ToList();
+var orphans = sections
+    .Where(s => s.Index is null && !string.Equals(s.Id, "values", StringComparison.OrdinalIgnoreCase))
+    .Select(s => s.Id).ToList();
 
-var thin = pages.Where(p => !p.IsIndex && p.Words < 200)
+var thin = pages.Where(p => !p.IsIndex && !p.IsHub && !p.IsRedirect && p.Words < 200
+                            && !p.Path.StartsWith("values/", StringComparison.OrdinalIgnoreCase))
                .OrderBy(p => p.Words)
                .Select(p => new { p.Path, p.Words, p.Title })
                .ToList();
+int mdBacked = pages.Count(p => p.MdBacked);
 
 CatalogStore.Write(Path.Combine(dataDir, "_report.json"), new
 {
     generated = catalog.Generated,
     pageCount = pages.Count,
     sections = sections.Count,
+    mdBackedPages = mdBacked,
     brokenLinks = broken,
     orphanSections = orphans,
     thinPages = thin,
 });
+Console.WriteLine($"📑 Markdown-backed pages indexed from .md: {mdBacked}");
 Console.WriteLine($"🧭 Gap report: {broken.Count} broken links, {orphans.Count} orphan sections, {thin.Count} thin pages (<200 words)");
 Console.WriteLine("✅ Done.");

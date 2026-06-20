@@ -40,6 +40,12 @@
     window.scrollTo({ top: max * pct, behavior: "smooth" });
   }
 
+  // ---------- desktop host bridge ----------
+  function postHost(msg) {
+    try { if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage(msg); } catch (e) {}
+  }
+  function postProgress(pct) { postHost({ t: "progress", pct: pct, path: K.page, title: K.title }); }
+
   // ---------- progress bar ----------
   var bar = document.createElement("div"); bar.className = "komp-progress";
   document.body.appendChild(bar);
@@ -48,7 +54,12 @@
   var ticking = false, saveTimer = null;
   function onScroll() {
     if (!ticking) {
-      requestAnimationFrame(function () { bar.style.width = (scrollPct() * 100).toFixed(1) + "%"; ticking = false; });
+      requestAnimationFrame(function () {
+        var p = scrollPct();
+        bar.style.width = (p * 100).toFixed(1) + "%";
+        postProgress(p);
+        ticking = false;
+      });
       ticking = true;
     }
     clearTimeout(saveTimer);
@@ -236,9 +247,13 @@
     else if (e.key === "/" && !/^(input|textarea|select)$/i.test((document.activeElement || {}).tagName || "")) { e.preventDefault(); openSearch(); }
   });
 
+  // ---------- desktop integration ----------
+  window.kompOpenSearch = openSearch;   // invoked by Kompendium.Desktop toolbar / Ctrl+K
+
   // ---------- init ----------
   recordVisit(savedPct);
   buildRelated();
   bar.style.width = (scrollPct() * 100).toFixed(1) + "%";
+  postProgress(scrollPct());
   maybeResume();
 })();

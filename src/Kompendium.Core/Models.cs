@@ -43,6 +43,9 @@ public sealed class DocPage
     public List<string> Tags { get; set; } = new();
     public List<string> Breadcrumb { get; set; } = new();
 
+    [JsonIgnore] public bool IsRedirect { get; set; }                  // meta-refresh / location.replace stub
+    [JsonIgnore] public bool IsHub { get; set; }                       // sub-TOC navigation page
+    [JsonIgnore] public bool MdBacked { get; set; }                    // content loaded from a sibling .md
     [JsonIgnore] public List<string> OutLinks { get; set; } = new();   // resolved internal links (for relations)
     [JsonIgnore] public HashSet<string> Keywords { get; set; } = new();
 }
