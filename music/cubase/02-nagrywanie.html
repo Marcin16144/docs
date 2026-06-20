@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nagrywanie audio i MIDI — Cubase</title>
+<style>
+:root{--bg:#0f0a14;--surface:#1d1526;--surface-hover:#2a1f38;--border:#3b2f4a;--text:#ece6f0;--text-muted:#a394b3;--accent:#f43f5e;--accent-hover:#fb7185;--green:#4ade80;--purple:#c084fc;--orange:#fb923c;--blue:#60a5fa;--yellow:#fbbf24;--red:#f87171;--code-bg:#150f1d}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:880px;margin:0 auto;padding:38px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:6px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:36px;opacity:.8}
+h2{font-size:1.4rem;font-weight:600;color:var(--accent);margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.12rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:var(--surface-hover)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:54px;padding-top:22px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+kbd{background:var(--code-bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:'Cascadia Code',monospace;font-size:.82rem;color:var(--text);white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">📚 Kompendium</a><span class="sep">/</span><a href="index.html">🎼 Cubase</a><span class="sep">/</span><span class="title">Nagrywanie audio i MIDI</span></div>
+<div class="container">
+<h1>Nagrywanie audio i MIDI</h1>
+<p class="subtitle">Konfiguracja ASIO, wejścia, monitoring, cycle recording, lanes, comping i MIDI</p>
+<p class="updated">Aktualizacja: 2026-06</p>
+
+<p>Udane nagranie w Cubase zaczyna się od poprawnie skonfigurowanego <strong>sterownika ASIO</strong> oraz przypisanych <strong>wejść (Audio Connections)</strong>. Pamiętaj, by najpierw zapisać projekt (<kbd>Ctrl</kbd>+<kbd>S</kbd>) — nagrania trafiają do podfolderu <em>Audio</em> w katalogu projektu.</p>
+
+<h2 id="audio">Konfiguracja audio (ASIO)</h2>
+<p>Otwórz <strong>Studio → Studio Setup → Audio System</strong> i wybierz sterownik ASIO swojego interfejsu. ASIO to standard opracowany przez Steinberg — zapewnia najniższe opóźnienie na Windows.</p>
+<table>
+<thead><tr><th>Sterownik</th><th>Kiedy używać</th></tr></thead>
+<tbody>
+<tr><td><strong>ASIO (interfejsu)</strong></td><td>Zalecany — dedykowany sterownik karty/interfejsu audio, najniższa latencja.</td></tr>
+<tr><td><strong>Generic Low Latency ASIO</strong></td><td>Wbudowany w Cubase, gdy interfejs nie ma własnego ASIO (korzysta z WASAPI).</td></tr>
+<tr><td><strong>ASIO4ALL</strong></td><td>Darmowy uniwersalny sterownik dla wbudowanych kart dźwiękowych.</td></tr>
+<tr><td><strong>Core Audio</strong></td><td>macOS — natywny, niska latencja bez dodatków.</td></tr>
+</tbody>
+</table>
+<div class="tip">✅ <strong>Buffer Size</strong> (rozmiar bufora) to kompromis: mniejszy = niższe opóźnienie, ale większe obciążenie CPU i ryzyko trzasków. Na żywo celuj w 128–256 sampli; przy miksie zwiększ do 512–1024, by odciążyć procesor.</div>
+
+<h2 id="wejscia">Wejścia i monitoring</h2>
+<p>Fizyczne wejścia i wyjścia interfejsu mapujesz na magistrale w oknie <strong>Studio → Audio Connections</strong> (<kbd>F4</kbd>), w zakładce <em>Inputs</em>. Następnie:</p>
+<ol>
+<li>Utwórz ścieżkę audio (<strong>Project → Add Track → Audio</strong>), wybierz konfigurację mono/stereo.</li>
+<li>W Inspectorze ustaw <strong>Input Routing</strong> na właściwą magistralę wejściową (np. mikrofon na <em>Mono In 1</em>).</li>
+<li>Włącz <strong>Record Enable</strong> (record-arm) na ścieżce.</li>
+<li>Włącz <strong>Monitor</strong> (ikona głośnika), aby słyszeć sygnał wejścia przez Cubase.</li>
+</ol>
+<table>
+<thead><tr><th>Tryb monitoringu</th><th>Zachowanie</th></tr></thead>
+<tbody>
+<tr><td><strong>Manual</strong></td><td>Monitoring włączasz/wyłączasz ręcznie przyciskiem na ścieżce.</td></tr>
+<tr><td><strong>While Record Enabled</strong></td><td>Słychać wejście, gdy ścieżka jest uzbrojona.</td></tr>
+<tr><td><strong>While Record Running</strong></td><td>Słychać wejście tylko w trakcie nagrywania.</td></tr>
+<tr><td><strong>Tapemachine Style</strong></td><td>Jak magnetofon — wejście przy stopie i nagrywaniu, playback przy odtwarzaniu.</td></tr>
+</tbody>
+</table>
+<div class="warning">⚠ Monitoring programowy dodaje opóźnienie bufora. Jeśli interfejs ma <strong>monitoring sprzętowy (direct/zero-latency)</strong>, wyłącz monitor w Cubase, by uniknąć podwójnego słyszenia i echa.</div>
+
+<h2 id="cycle">Cycle recording i lanes</h2>
+<p>Włącz <strong>Cycle</strong> (pętla) na Transporcie i ustaw locatory L–R wokół fragmentu. Przy każdym przejściu pętli Cubase nagrywa kolejny <strong>take</strong> i układa go na osobnej <strong>ścieżce-lane</strong> w obrębie tej samej ścieżki. To idealne do nagrania kilku wersji wokalu czy solówki, z których potem złożysz najlepszą.</p>
+<table>
+<thead><tr><th>Tryb cyklicznego nagrywania audio</th><th>Co robi</th></tr></thead>
+<tbody>
+<tr><td><strong>Keep History</strong></td><td>Zachowuje wszystkie przejścia jako kolejne taki w lanes.</td></tr>
+<tr><td><strong>Stacked</strong></td><td>Każde przejście ląduje na osobnej lane, gotowe do compingu.</td></tr>
+<tr><td><strong>Mix (MIDI)</strong></td><td>Dla MIDI — łączy wszystkie przejścia w jeden part (warstwowo).</td></tr>
+<tr><td><strong>Overwrite (MIDI)</strong></td><td>Dla MIDI — ostatnie przejście nadpisuje poprzednie.</td></tr>
+</tbody>
+</table>
+
+<h2 id="comping">Comping (składanie taków)</h2>
+<p>Gdy masz kilka taków w lanes, rozwiń ich widok (przycisk <em>Show Lanes</em> na ścieżce) i przełącz się na <strong>Comp Tool</strong>. Klikając na fragmenty poszczególnych lane, wybierasz, który take ma być słyszalny w danym miejscu — Cubase automatycznie wycisza pozostałe. W ten sposób z dziesięciu przejść budujesz jedną idealną frazę.</p>
+<ol>
+<li>Rozwiń lanes i odsłuchaj taki.</li>
+<li>Narzędziem Comp przeciągnij po najlepszym fragmencie danej lane — staje się aktywny.</li>
+<li>Powtarzaj dla kolejnych fraz; granice (punkty cięcia) możesz przesuwać precyzyjnie.</li>
+<li>Na koniec scal wynik (<em>Bounce Selection</em>) w jeden czysty event.</li>
+</ol>
+<div class="tip">✅ Comping nie niszczy oryginałów — to edycja nieniszcząca. Możesz wrócić do dowolnego take, dopóki nie usuniesz lanes. Po złożeniu warto je ukryć, by oczyścić widok.</div>
+
+<h2 id="punch">Auto Punch (punch-in / punch-out)</h2>
+<p>Punch pozwala wejść z nagrywaniem tylko w wybranym zakresie (np. poprawka jednej frazy), nie ruszając reszty:</p>
+<ol>
+<li>Włącz na Transporcie <strong>Punch In</strong> i <strong>Punch Out</strong>.</li>
+<li>Ustaw locatory L–R na fragment do poprawki — to granice „wejścia" i „wyjścia".</li>
+<li>Dodaj <strong>pre-roll</strong> (odtwarzanie kilka taktów wcześniej), by wczuć się w utwór.</li>
+<li>Uruchom odtwarzanie przed locatorem L — Cubase sam wejdzie w nagrywanie na L i wyjdzie na R.</li>
+</ol>
+
+<h2 id="midi">Nagrywanie MIDI</h2>
+<p>Aby nagrać partię z klawiatury MIDI, najwygodniej użyć <strong>ścieżki instrumentu (Instrument Track)</strong>:</p>
+<ol>
+<li>Dodaj ścieżkę instrumentu i wybierz VSTi (np. <em>HALion Sonic</em> — patrz <a href="06-instrumenty-i-efekty.html">Instrumenty i efekty</a>).</li>
+<li>Upewnij się, że MIDI Input jest ustawione na Twój kontroler (lub <em>All MIDI Inputs</em>), uzbrój ścieżkę.</li>
+<li>Nagrywaj (<kbd>Num *</kbd>) — powstanie part MIDI; dwuklik otwiera <strong>Key Editor</strong> (patrz <a href="03-edycja-midi.html">Edytory MIDI</a>).</li>
+</ol>
+<table>
+<thead><tr><th>Funkcja</th><th>Co robi</th></tr></thead>
+<tbody>
+<tr><td><strong>Input Quantize</strong></td><td>Kwantyzuje nuty „w locie" już podczas nagrywania.</td></tr>
+<tr><td><strong>Retrospective Record</strong></td><td>Odzyskuje frazę zagraną „przed" naciśnięciem nagrywania (Cubase trzyma bufor MIDI w tle).</td></tr>
+<tr><td><strong>MIDI Merge / Replace</strong></td><td>Dokłada nuty do partu lub nadpisuje istniejące przy nagrywaniu na istniejący part.</td></tr>
+</tbody>
+</table>
+<div class="callout">ℹ️ <strong>Retrospective Record</strong> to jedna z najbardziej lubianych funkcji Cubase: jeśli zagrałeś świetną frazę „na próbę", a nie nagrywałeś — i tak ją odzyskasz, bo program nieustannie buforuje przychodzące MIDI.</div>
+
+<h3 id="wiele">Nagrywanie wielu ścieżek naraz</h3>
+<p>Cubase nagra dowolnie wiele ścieżek jednocześnie (zespół, perkusja wielomikrofonowa) — wystarczy uzbroić kilka ścieżek i przypisać każdej osobne wejście interfejsu. Liczbę dostępnych wejść określa Twoja karta audio.</p>
+
+<div class="nav-bottom">
+<a href="01-podstawy.html">⟵ Podstawy i interfejs</a>
+<a href="03-edycja-midi.html">Edytory MIDI i nutacja →</a>
+</div>
+</div>
+</body>
+</html>

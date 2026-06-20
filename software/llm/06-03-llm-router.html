@@ -138,15 +138,42 @@ PGR = 0 → tak slabo jak sam weak
 PGR = 1 → tak dobrze jak sam strong</code></pre>
 <p><strong>APGR (Average PGR)</strong> — pole pod krzywa PGR(% wywolan do strong). Im wyzej nad przekatna (= losowym routerem), tym lepiej.</p>
 <p><strong>CPT(x%) (Call-Performance Threshold)</strong> — ile wywolan do strong potrzeba, by osiagnac x% gap recovered. Np. CPT(50%) = 18% → polowe luki odzyskujesz wysylajac tylko 18% ruchu do mocnego modelu.</p>
-<pre><code>PGR
-1.0 ┤                          ╭───── strong-only
-    │                    ╭─────╯
-    │              ╭────╯   ← dobry router (nad przekatna)
-    │         ╭───╯
-0.5 ┤      ╭─╯- - - - - - - - - losowy router (przekatna)
-    │   ╭─╯
-0.0 ┼─╯──────────────────────────────▶
-    0%         % wywolan do strong      100%</code></pre>
+<div style="margin:16px 0 24px;">
+<svg viewBox="0 0 480 220" width="480" height="220" style="display:block;font-family:'Segoe UI',system-ui,sans-serif;">
+  <!-- background -->
+  <rect width="480" height="220" fill="#0d1117" rx="8"/>
+  <!-- axes -->
+  <line x1="60" y1="20" x2="60" y2="175" stroke="#334155" stroke-width="1.5"/>
+  <line x1="60" y1="175" x2="440" y2="175" stroke="#334155" stroke-width="1.5"/>
+  <!-- arrowhead right -->
+  <polygon points="440,171 448,175 440,179" fill="#334155"/>
+  <!-- arrowhead up -->
+  <polygon points="56,20 60,12 64,20" fill="#334155"/>
+  <!-- Y axis label -->
+  <text x="30" y="100" fill="#94a3b8" font-size="13" text-anchor="middle" transform="rotate(-90,30,100)">PGR</text>
+  <!-- Y ticks -->
+  <line x1="56" y1="175" x2="60" y2="175" stroke="#94a3b8" stroke-width="1"/>
+  <text x="50" y="179" fill="#94a3b8" font-size="11" text-anchor="end">0.0</text>
+  <line x1="56" y1="97" x2="60" y2="97" stroke="#94a3b8" stroke-width="1"/>
+  <text x="50" y="101" fill="#94a3b8" font-size="11" text-anchor="end">0.5</text>
+  <line x1="56" y1="20" x2="60" y2="20" stroke="#94a3b8" stroke-width="1"/>
+  <text x="50" y="24" fill="#94a3b8" font-size="11" text-anchor="end">1.0</text>
+  <!-- X axis labels -->
+  <text x="60" y="192" fill="#94a3b8" font-size="11" text-anchor="middle">0%</text>
+  <text x="250" y="192" fill="#94a3b8" font-size="11" text-anchor="middle">% wywolan do strong</text>
+  <text x="435" y="192" fill="#94a3b8" font-size="11" text-anchor="middle">100%</text>
+  <!-- diagonal: losowy router (przekatna) -->
+  <line x1="60" y1="175" x2="435" y2="20" stroke="#475569" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <text x="310" y="115" fill="#94a3b8" font-size="11">losowy router (przekatna)</text>
+  <!-- strong-only flat top line -->
+  <line x1="60" y1="20" x2="435" y2="20" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="300" y="15" fill="#4ade80" font-size="11">strong-only</text>
+  <!-- good router curve (cubic bezier, rising steeply then flattening) -->
+  <path d="M60,175 C100,160 140,90 200,55 S330,22 435,20" stroke="#a78bfa" stroke-width="2.5" fill="none"/>
+  <!-- label: dobry router -->
+  <text x="168" y="70" fill="#a78bfa" font-size="11">dobry router (nad przekatna)</text>
+</svg>
+</div>
 <p>Zawsze porownuj z <strong>losowym routerem</strong> (przekatna) — to dolna granica sensu.</p>
 
 <h2>Trening wlasnego routera — pelny workflow</h2>
@@ -235,15 +262,39 @@ model = MODEL_FOR.get(choice, "llama3.2:3b")          # fallback na lekki</code>
 
 <h2>Architektura: gdzie siedzi router (gateway)</h2>
 <p>W produkcji router zwykle zyje w <strong>gateway</strong> — jednym wejsciu, ktore centralizuje routing, auth, limity, logowanie i fallback:</p>
-<pre><code>                    ┌──────────── GATEWAY ────────────┐
-  klient ──────────▶│  auth · rate-limit · ROUTER ·    │
-                    │  logging · fallback · retry      │
-                    └───┬──────────┬──────────┬────────┘
-                        ▼          ▼          ▼
-                   ┌────────┐ ┌────────┐ ┌─────────┐
-                   │ weak   │ │ strong │ │ domena/ │
-                   │ lokalny│ │ cloud  │ │ vision  │
-                   └────────┘ └────────┘ └─────────┘</code></pre>
+<div style="margin:16px 0 24px;font-family:'Segoe UI',system-ui,sans-serif;font-size:.87rem;">
+  <div style="display:flex;align-items:center;gap:0;margin-bottom:8px;">
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 16px;color:#94a3b8;white-space:nowrap;">klient</div>
+    <div style="color:#a78bfa;padding:0 8px;font-size:1.1rem;">&#9654;</div>
+    <div style="background:#1e293b;border:2px solid #a78bfa;border-radius:8px;padding:12px 24px;flex:1;">
+      <div style="color:#a78bfa;font-weight:700;margin-bottom:4px;">GATEWAY</div>
+      <div style="color:#94a3b8;font-size:.8rem;">auth &nbsp;&#183;&nbsp; rate-limit &nbsp;&#183;&nbsp; ROUTER &nbsp;&#183;&nbsp; logging &nbsp;&#183;&nbsp; fallback &nbsp;&#183;&nbsp; retry</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;padding-left:200px;margin-top:4px;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div style="color:#a78bfa;">&#9660;</div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px;text-align:center;">
+        <div style="color:#4ade80;font-weight:600;">weak</div>
+        <div style="color:#94a3b8;font-size:.8rem;">lokalny</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div style="color:#a78bfa;">&#9660;</div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px;text-align:center;">
+        <div style="color:#f472b6;font-weight:600;">strong</div>
+        <div style="color:#94a3b8;font-size:.8rem;">cloud</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div style="color:#a78bfa;">&#9660;</div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px;text-align:center;">
+        <div style="color:#fb923c;font-weight:600;">domena/</div>
+        <div style="color:#fb923c;font-weight:600;">vision</div>
+      </div>
+    </div>
+  </div>
+</div>
 <p>Logi z gatewaya to <strong>paliwo do trenowania routera</strong> — zamknij petle: loguj (pytanie, wybor, wynik, czy trzeba bylo eskalowac) → trenuj → wdrazaj → powtarzaj.</p>
 
 <h2>Pulapki specyficzne dla routerow</h2>

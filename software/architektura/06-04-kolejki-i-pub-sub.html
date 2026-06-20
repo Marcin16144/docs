@@ -152,14 +152,45 @@ NACK &rarr; requeue=true  → ponowne dostarczenie
         <p>Rozproszona platforma streamingowa. W przeciwienstwie do tradycyjnych kolejek, Kafka przechowuje wiadomosci na dysku i pozwala na wielokrotne czytanie.</p>
 
         <h3>Architektura</h3>
-<pre><code>Producer &rarr; Topic &rarr; Partition &rarr; Consumer Group &rarr; Consumer
-
-Topic: "orders" (3 partycje)
-┌──────────────────────────────────────────────────┐
-│ Partition 0: [msg0] [msg3] [msg6] [msg9]         │
-│ Partition 1: [msg1] [msg4] [msg7] [msg10]        │
-│ Partition 2: [msg2] [msg5] [msg8] [msg11]        │
-└──────────────────────────────────────────────────┘</code></pre>
+        <style>
+        .kafka-arch{margin:16px 0 24px}
+        .kafka-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;font-size:.83rem;color:var(--text-muted)}
+        .kafka-flow .kbox{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 12px;color:var(--text)}
+        .kafka-flow .karr{color:var(--accent)}
+        .kafka-topic{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px 18px;font-family:'Cascadia Code','Fira Code','Consolas',monospace;font-size:.82rem}
+        .kafka-topic .ktitle{color:var(--accent);font-weight:700;margin-bottom:10px}
+        .kafka-partition{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+        .kafka-partition .kpart-label{color:var(--text-muted);min-width:88px;font-size:.78rem}
+        .kafka-msg{display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 7px;margin:1px 2px;color:var(--text);font-size:.76rem}
+        </style>
+        <div class="kafka-arch">
+          <div class="kafka-flow">
+            <span class="kbox">Producer</span>
+            <span class="karr">&#8594;</span>
+            <span class="kbox">Topic</span>
+            <span class="karr">&#8594;</span>
+            <span class="kbox">Partition</span>
+            <span class="karr">&#8594;</span>
+            <span class="kbox">Consumer Group</span>
+            <span class="karr">&#8594;</span>
+            <span class="kbox">Consumer</span>
+          </div>
+          <div class="kafka-topic">
+            <div class="ktitle">Topic: "orders" (3 partycje)</div>
+            <div class="kafka-partition">
+              <span class="kpart-label">Partition 0:</span>
+              <span class="kafka-msg">msg0</span><span class="kafka-msg">msg3</span><span class="kafka-msg">msg6</span><span class="kafka-msg">msg9</span>
+            </div>
+            <div class="kafka-partition">
+              <span class="kpart-label">Partition 1:</span>
+              <span class="kafka-msg">msg1</span><span class="kafka-msg">msg4</span><span class="kafka-msg">msg7</span><span class="kafka-msg">msg10</span>
+            </div>
+            <div class="kafka-partition">
+              <span class="kpart-label">Partition 2:</span>
+              <span class="kafka-msg">msg2</span><span class="kafka-msg">msg5</span><span class="kafka-msg">msg8</span><span class="kafka-msg">msg11</span>
+            </div>
+          </div>
+        </div>
 
         <div class="card">
             <h3>Partycje i klucze</h3>
@@ -258,15 +289,34 @@ while (true) {
 
         <h2>Dead Letter Queue (DLQ)</h2>
         <p>Kolejka, do ktorej trafiaja wiadomosci, ktorych nie udalo sie przetworzyc po wyczerpaniu prob.</p>
-<pre><code>Normalna kolejka               Dead Letter Queue
-┌───────────────────────┐       ┌───────────────────────┐
-│ [msg1] [msg2] [msg3]  │ ───&rarr; │ [msg_failed_1]        │
-└───────────────────────┘       │ [msg_failed_2]        │
-  Consumer przetwarza           └───────────────────────┘
-  msg2 &rarr; blad!                  DLQ Consumer analizuje
-  Retry 1 &rarr; blad                i naprawia problemy
-  Retry 2 &rarr; blad
-  Retry 3 &rarr; DLQ</code></pre>
+        <style>
+        .dlq-diagram{display:flex;align-items:flex-start;gap:0;margin:16px 0 24px;font-size:.82rem;font-family:'Cascadia Code','Fira Code','Consolas',monospace}
+        .dlq-queue{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;min-width:200px}
+        .dlq-queue .dlq-title{font-size:.75rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+        .dlq-msg{display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 8px;margin:2px 2px;color:var(--text);font-size:.78rem}
+        .dlq-msg.failed{border-color:#f87171;color:#f87171;background:#1a0808}
+        .dlq-connector{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:0 8px;padding-top:52px;gap:4px;min-width:130px}
+        .dlq-connector .dlq-arrow{color:var(--accent);font-size:1rem}
+        .dlq-connector .dlq-steps{color:var(--text-muted);font-size:.72rem;line-height:1.8;text-align:center}
+        .dlq-note{margin-top:6px;font-size:.75rem;color:var(--text-muted);font-family:'Segoe UI',system-ui,sans-serif}
+        </style>
+        <div class="dlq-diagram">
+          <div class="dlq-queue">
+            <div class="dlq-title">Normalna kolejka</div>
+            <div><span class="dlq-msg">msg1</span><span class="dlq-msg">msg2</span><span class="dlq-msg">msg3</span></div>
+            <div class="dlq-note" style="margin-top:10px">Consumer przetwarza msg2 &#8594; blad!<br>Retry 1 &#8594; blad<br>Retry 2 &#8594; blad<br>Retry 3 &#8594; DLQ</div>
+          </div>
+          <div class="dlq-connector">
+            <span class="dlq-arrow">&#10230;</span>
+            <span class="dlq-steps">po 3 nieudanych<br>probach</span>
+          </div>
+          <div class="dlq-queue">
+            <div class="dlq-title">Dead Letter Queue</div>
+            <div><span class="dlq-msg failed">msg_failed_1</span></div>
+            <div><span class="dlq-msg failed">msg_failed_2</span></div>
+            <div class="dlq-note" style="margin-top:10px">DLQ Consumer analizuje<br>i naprawia problemy</div>
+          </div>
+        </div>
 
 <pre><code># RabbitMQ — deklaracja kolejki z DLQ
 channel.queue_declare(

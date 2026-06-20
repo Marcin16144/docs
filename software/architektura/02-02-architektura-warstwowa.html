@@ -36,6 +36,22 @@
         .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
         .nav-bottom a:hover{color:var(--accent-hover)}
         @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+        /* diagram styles */
+        .d-layers{display:flex;flex-direction:column;gap:0;margin:16px 0 24px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+        .d-layer{background:var(--surface);padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:.88rem}
+        .d-layer:last-child{border-bottom:none;background:#0d1117}
+        .d-layer-label{font-weight:500;color:var(--text)}
+        .d-layer-note{color:var(--text-muted);font-size:.78rem;font-style:italic}
+        .d-box{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.83rem;text-align:center;white-space:nowrap}
+        .d-box.accent{border-color:var(--accent);color:var(--accent)}
+        .d-arr{color:var(--text-muted);font-size:.95rem}
+        .d-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0}
+        .d-flow{display:flex;flex-direction:column;gap:4px;margin:16px 0 24px}
+        .d-tier{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+        .d-tier-label{color:var(--text-muted);font-size:.78rem;min-width:80px;flex-shrink:0}
+        .d-dip{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0 24px}
+        .d-dip-col{display:flex;flex-direction:column;gap:6px;align-items:center}
+        .d-dip-title{font-size:.8rem;font-weight:600;color:var(--text-muted);margin-bottom:4px;text-align:center}
     </style>
 </head>
 <body>
@@ -53,15 +69,12 @@
         <h2>Czym jest architektura warstwowa?</h2>
         <p>Architektura warstwowa to jeden z najstarszych i najczesciej stosowanych wzorcow architektonicznych. Polega na <strong>podziale aplikacji na poziome warstwy</strong>, z ktorych kazda odpowiada za okreslony aspekt funkcjonalnosci. Warstwy komunikuja sie ze soba w zdefiniowanym kierunku — zazwyczaj od gory do dolu.</p>
 
-<pre><code>┌──────────────────────────────────────┐
-│        Warstwa prezentacji           │  &lt;-- UI, API controllers
-├──────────────────────────────────────┤
-│        Warstwa logiki biznesowej     │  &lt;-- Reguly, walidacja, procesy
-├──────────────────────────────────────┤
-│        Warstwa dostepu do danych     │  &lt;-- Repozytoria, ORM
-├──────────────────────────────────────┤
-│        Baza danych                   │  &lt;-- SQL, NoSQL
-└──────────────────────────────────────┘</code></pre>
+<div class="d-layers">
+    <div class="d-layer"><span class="d-layer-label">Warstwa prezentacji</span><span class="d-layer-note">UI, API controllers</span></div>
+    <div class="d-layer"><span class="d-layer-label">Warstwa logiki biznesowej</span><span class="d-layer-note">Reguly, walidacja, procesy</span></div>
+    <div class="d-layer"><span class="d-layer-label">Warstwa dostepu do danych</span><span class="d-layer-note">Repozytoria, ORM</span></div>
+    <div class="d-layer"><span class="d-layer-label" style="color:var(--purple)">Baza danych</span><span class="d-layer-note">SQL, NoSQL</span></div>
+</div>
 
         <h2>Rodzaje warstwowania</h2>
 
@@ -80,42 +93,51 @@
             </div>
         </div>
 
-<pre><code>Strict:   Prezentacja --► Logika biz. --► Dostep do danych --► BD
-          (nie mozna pominac warstwy)
-
-Relaxed:  Prezentacja --► Logika biz. --► Dostep do danych --► BD
-               │                                  ↑
-               └──────────────────────────────────┘
-               (dozwolone pominiecie warstwy)</code></pre>
+<div class="d-flow">
+    <div style="font-size:.8rem;font-weight:600;color:var(--text-muted);margin-bottom:2px">Strict — nie mozna pominac warstwy:</div>
+    <div class="d-row">
+        <div class="d-box">Prezentacja</div>
+        <span class="d-arr">&#8594;</span>
+        <div class="d-box">Logika biz.</div>
+        <span class="d-arr">&#8594;</span>
+        <div class="d-box">Dostep do danych</div>
+        <span class="d-arr">&#8594;</span>
+        <div class="d-box" style="border-color:var(--purple);color:var(--purple)">BD</div>
+    </div>
+    <div style="font-size:.8rem;font-weight:600;color:var(--text-muted);margin:10px 0 2px">Relaxed — dozwolone pominiecie warstwy:</div>
+    <div class="d-row">
+        <div class="d-box accent">Prezentacja</div>
+        <span class="d-arr">&#8594;</span>
+        <div class="d-box">Logika biz.</div>
+        <span class="d-arr">&#8594;</span>
+        <div class="d-box">Dostep do danych</div>
+        <span class="d-arr">&#8594;</span>
+        <div class="d-box" style="border-color:var(--purple);color:var(--purple)">BD</div>
+    </div>
+    <div style="font-size:.78rem;color:var(--accent);padding-left:8px">&#8627; Prezentacja moze rowniez wywolac Dostep do danych bezposrednio</div>
+</div>
 
         <h2>Typowe warstwy w aplikacji webowej</h2>
 
         <h3>4-warstwowy model klasyczny</h3>
-<pre><code>┌─────────────────────────────────────────────┐
-│  PRESENTATION LAYER                         │
-│  - Controllery HTTP (REST/GraphQL)          │
-│  - Walidacja wejscia (request DTO)          │
-│  - Serializacja/deserializacja              │
-│  - Obsluga bledow HTTP                      │
-├─────────────────────────────────────────────┤
-│  APPLICATION LAYER (Service Layer)          │
-│  - Orkiestracja procesow biznesowych        │
-│  - Koordynacja miedzy serwisami domenowymi  │
-│  - Transakcje                               │
-│  - Autoryzacja                              │
-├─────────────────────────────────────────────┤
-│  DOMAIN LAYER                               │
-│  - Encje biznesowe i Value Objects          │
-│  - Reguly biznesowe                         │
-│  - Interfejsy repozytoriow                  │
-│  - Zdarzenia domenowe                       │
-├─────────────────────────────────────────────┤
-│  INFRASTRUCTURE LAYER                       │
-│  - Implementacje repozytoriow               │
-│  - ORM / klient bazy danych                 │
-│  - Integracje zewnetrzne (HTTP, SMTP)       │
-│  - Konfiguracja, logowanie                  │
-└─────────────────────────────────────────────┘</code></pre>
+<div class="d-layers">
+    <div class="d-layer" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <span class="d-layer-label" style="color:var(--accent)">PRESENTATION LAYER</span>
+        <span class="d-layer-note">Controllery HTTP (REST/GraphQL) &bull; Walidacja wejscia (request DTO) &bull; Serializacja/deserializacja &bull; Obsluga bledow HTTP</span>
+    </div>
+    <div class="d-layer" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <span class="d-layer-label" style="color:var(--green)">APPLICATION LAYER (Service Layer)</span>
+        <span class="d-layer-note">Orkiestracja procesow biznesowych &bull; Koordynacja miedzy serwisami domenowymi &bull; Transakcje &bull; Autoryzacja</span>
+    </div>
+    <div class="d-layer" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <span class="d-layer-label" style="color:var(--purple)">DOMAIN LAYER</span>
+        <span class="d-layer-note">Encje biznesowe i Value Objects &bull; Reguly biznesowe &bull; Interfejsy repozytoriow &bull; Zdarzenia domenowe</span>
+    </div>
+    <div class="d-layer" style="flex-direction:column;align-items:flex-start;gap:4px;background:#0d1117">
+        <span class="d-layer-label" style="color:var(--orange)">INFRASTRUCTURE LAYER</span>
+        <span class="d-layer-note">Implementacje repozytoriow &bull; ORM / klient bazy danych &bull; Integracje zewnetrzne (HTTP, SMTP) &bull; Konfiguracja, logowanie</span>
+    </div>
+</div>
 
         <h3>Przyklad implementacji w .NET</h3>
 <pre><code>// === PRESENTATION LAYER ===
@@ -184,15 +206,24 @@ public class OrderRepository : IOrderRepository
         <h2>Reguly zaleznosci</h2>
 
         <h3>Zasada odwrocenia zaleznosci (DIP)</h3>
-<pre><code>Klasyczne zaleznosci:          Z DIP (odwrocone):
-
-Prezentacja                   Prezentacja
-    │                             │
-    ▼                             ▼
-Logika biz.                   Logika biz. (definiuje interfejsy)
-    │                             ↑
-    ▼                             │
-Infrastruktura                Infrastruktura (implementuje)</code></pre>
+<div class="d-dip">
+    <div class="d-dip-col">
+        <div class="d-dip-title">Klasyczne zaleznosci</div>
+        <div class="d-box">Prezentacja</div>
+        <span style="color:var(--text-muted)">&#8595;</span>
+        <div class="d-box">Logika biz.</div>
+        <span style="color:var(--text-muted)">&#8595;</span>
+        <div class="d-box">Infrastruktura</div>
+    </div>
+    <div class="d-dip-col">
+        <div class="d-dip-title">Z DIP (odwrocone)</div>
+        <div class="d-box">Prezentacja</div>
+        <span style="color:var(--text-muted)">&#8595;</span>
+        <div class="d-box accent">Logika biz.<br><span style="font-size:.75rem;color:var(--text-muted)">(definiuje interfejsy)</span></div>
+        <span style="color:var(--accent)">&#8593;</span>
+        <div class="d-box">Infrastruktura<br><span style="font-size:.75rem;color:var(--text-muted)">(implementuje)</span></div>
+    </div>
+</div>
 
         <p><strong>Kluczowa zasada:</strong> warstwy wyzsze definiuja interfejsy (porty), warstwy nizsze je implementuja. Dzieki temu warstwa domenowa nie zalezy od infrastruktury.</p>
 
@@ -211,23 +242,32 @@ public class SqlOrderRepository : IOrderRepository
 
         <h2>Fizyczny deployment — warianty N-Tier</h2>
 
-<pre><code>2-Tier (klient-serwer):
-┌───────────┐        ┌──────────────┐
-│  Klient   │──TCP──►│   Serwer BD  │
-│  (gruby)  │        │              │
-└───────────┘        └──────────────┘
-
-3-Tier (klasyczny web):
-┌──────────┐      ┌──────────────┐      ┌──────────┐
-│Przegla-  │ HTTP │   Serwer     │ SQL  │   Baza   │
-│darka     │─────►│   aplikacji  │─────►│  danych  │
-└──────────┘      └──────────────┘      └──────────┘
-
-4-Tier (z reverse proxy):
-┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────┐
-│Przegla-  │─►│  Nginx/  │─►│ App      │─►│  BD  │
-│darka     │  │  CDN     │  │ Server   │  │      │
-└──────────┘  └──────────┘  └──────────┘  └──────┘</code></pre>
+<div class="d-flow" style="margin:16px 0 24px">
+    <div style="font-size:.8rem;font-weight:600;color:var(--text-muted);margin-bottom:4px">2-Tier (klient-serwer):</div>
+    <div class="d-row">
+        <div class="d-box">Klient<br><span style="font-size:.75rem;color:var(--text-muted)">(gruby)</span></div>
+        <span class="d-arr"><span style="font-size:.72rem;color:var(--text-muted)">TCP</span> &#8594;</span>
+        <div class="d-box" style="border-color:var(--purple);color:var(--purple)">Serwer BD</div>
+    </div>
+    <div style="font-size:.8rem;font-weight:600;color:var(--text-muted);margin:10px 0 4px">3-Tier (klasyczny web):</div>
+    <div class="d-row">
+        <div class="d-box">Przegladarka</div>
+        <span class="d-arr"><span style="font-size:.72rem;color:var(--text-muted)">HTTP</span> &#8594;</span>
+        <div class="d-box accent">Serwer aplikacji</div>
+        <span class="d-arr"><span style="font-size:.72rem;color:var(--text-muted)">SQL</span> &#8594;</span>
+        <div class="d-box" style="border-color:var(--purple);color:var(--purple)">Baza danych</div>
+    </div>
+    <div style="font-size:.8rem;font-weight:600;color:var(--text-muted);margin:10px 0 4px">4-Tier (z reverse proxy):</div>
+    <div class="d-row">
+        <div class="d-box">Przegladarka</div>
+        <span class="d-arr">&#8594;</span>
+        <div class="d-box" style="border-color:var(--green);color:var(--green)">Nginx / CDN</div>
+        <span class="d-arr">&#8594;</span>
+        <div class="d-box accent">App Server</div>
+        <span class="d-arr">&#8594;</span>
+        <div class="d-box" style="border-color:var(--purple);color:var(--purple)">BD</div>
+    </div>
+</div>
 
         <h2>Anty-wzorce architektury warstwowej</h2>
 

@@ -112,17 +112,41 @@ Lateral movement = latwy</code></pre>
         <div class="card">
             <h3>3. Mikrosegmentacja sieci</h3>
             <p>Siec podzielona na male segmenty z kontrola dostepu. Ograniczenie lateral movement.</p>
-<pre><code>┌──────────────────────────────────────────┐
-│                  Siec                     │
-│  ┌──────────┐    ┌──────────┐            │
-│  │ Frontend │-X-→│ Database │ BLOCKED    │
-│  └────┬─────┘    └────┬─────┘            │
-│       │               ↑                  │
-│       ↓          ┌────┴─────┐            │
-│  ┌──────────┐    │ Backend  │←──mTLS──→  │
-│  │ Backend  │────┘          │  Payments  │
-│  └──────────┘               └────────────│
-└──────────────────────────────────────────┘</code></pre>
+            <style>
+            .seg-diagram{margin:16px 0 8px;font-size:.82rem;font-family:'Segoe UI',system-ui,sans-serif}
+            .seg-outer{background:var(--code-bg);border:2px solid var(--border);border-radius:10px;padding:18px 20px;position:relative}
+            .seg-label{position:absolute;top:-11px;left:16px;background:var(--code-bg);padding:0 8px;color:var(--text-muted);font-size:.75rem;font-weight:600;letter-spacing:.5px}
+            .seg-row{display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap}
+            .seg-box{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 14px;color:var(--text);font-weight:600;text-align:center;min-width:88px}
+            .seg-box.db{border-color:var(--purple);color:var(--purple)}
+            .seg-box.pay{border-color:var(--green);color:var(--green)}
+            .seg-arrow{color:var(--accent);font-size:1.1rem}
+            .seg-blocked{display:flex;align-items:center;gap:6px;color:#f87171;font-size:.78rem;font-weight:700}
+            .seg-blocked .seg-x{font-size:1.1rem}
+            .seg-mtls{color:var(--green);font-size:.75rem;font-weight:600;background:#0d1f0d;border:1px solid var(--green);border-radius:4px;padding:2px 7px}
+            </style>
+            <div class="seg-diagram">
+              <div class="seg-outer">
+                <span class="seg-label">Siec — mikrosegmentacja</span>
+                <div class="seg-row">
+                  <div class="seg-box">Frontend</div>
+                  <div class="seg-blocked"><span class="seg-x">&#10008;</span> BLOCKED</div>
+                  <div class="seg-box db">Database</div>
+                </div>
+                <div class="seg-row">
+                  <div class="seg-box">Frontend</div>
+                  <span class="seg-arrow">&#8594;</span>
+                  <div class="seg-box">Backend</div>
+                  <span class="seg-arrow">&#8594;</span>
+                  <div class="seg-box db">Database</div>
+                </div>
+                <div class="seg-row">
+                  <div class="seg-box">Backend</div>
+                  <span class="seg-mtls">mTLS</span>
+                  <div class="seg-box pay">Payments</div>
+                </div>
+              </div>
+            </div>
         </div>
 
         <div class="card">
@@ -185,23 +209,51 @@ Lateral movement = latwy</code></pre>
 
         <div class="card">
             <h3>Service Mesh jako enforcement layer</h3>
-<pre><code>┌──────────────────────────────────┐
-│           Service Mesh           │
-│                                  │
-│  ┌─────┐  mTLS  ┌─────┐        │
-│  │Proxy│←──────→│Proxy│        │
-│  │(A)  │        │(B)  │        │
-│  └──┬──┘        └──┬──┘        │
-│     │               │           │
-│  ┌──┴──┐        ┌──┴──┐        │
-│  │Svc A│        │Svc B│        │
-│  └─────┘        └─────┘        │
-│                                  │
-│  Polityki:                       │
-│  - Svc A → Svc B: dozwolone     │
-│  - Svc B → Svc A: zablokowane   │
-│  - Rate limit: 100 req/s        │
-└──────────────────────────────────┘</code></pre>
+            <style>
+            .mesh-diagram{background:var(--code-bg);border:2px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0 8px;font-size:.83rem;font-family:'Segoe UI',system-ui,sans-serif}
+            .mesh-title{color:var(--accent);font-weight:700;text-align:center;margin-bottom:16px;font-size:.85rem;letter-spacing:.5px}
+            .mesh-row{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px}
+            .mesh-node{display:flex;flex-direction:column;align-items:center;gap:4px}
+            .mesh-proxy{background:var(--surface);border:1px solid var(--accent);border-radius:6px;padding:5px 14px;color:var(--accent);font-size:.78rem;font-weight:600}
+            .mesh-svc{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 14px;color:var(--text);font-size:.78rem;font-weight:600}
+            .mesh-connector{display:flex;flex-direction:column;align-items:center;gap:2px}
+            .mesh-line-v{width:2px;height:20px;background:var(--border)}
+            .mesh-mtls{display:flex;align-items:center;gap:6px}
+            .mesh-mtls-line{flex:1;height:2px;background:var(--green)}
+            .mesh-mtls-label{color:var(--green);font-size:.72rem;font-weight:700;background:#0d1f0d;border:1px solid var(--green);border-radius:4px;padding:1px 6px}
+            .mesh-policies{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:.78rem}
+            .mesh-policies .pol-title{color:var(--text-muted);font-weight:600;margin-bottom:6px}
+            .mesh-policy{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+            .mesh-policy .pol-ok{color:var(--green)}
+            .mesh-policy .pol-no{color:#f87171}
+            .mesh-policy .pol-info{color:var(--text-muted)}
+            </style>
+            <div class="mesh-diagram">
+              <div class="mesh-title">Service Mesh</div>
+              <div class="mesh-row">
+                <div class="mesh-node">
+                  <div class="mesh-proxy">Proxy (A)</div>
+                  <div class="mesh-line-v"></div>
+                  <div class="mesh-svc">Svc A</div>
+                </div>
+                <div class="mesh-mtls" style="flex:1;max-width:120px">
+                  <div class="mesh-mtls-line"></div>
+                  <div class="mesh-mtls-label">mTLS</div>
+                  <div class="mesh-mtls-line"></div>
+                </div>
+                <div class="mesh-node">
+                  <div class="mesh-proxy">Proxy (B)</div>
+                  <div class="mesh-line-v"></div>
+                  <div class="mesh-svc">Svc B</div>
+                </div>
+              </div>
+              <div class="mesh-policies">
+                <div class="pol-title">Polityki:</div>
+                <div class="mesh-policy"><span class="pol-ok">&#10003;</span><span>Svc A &#8594; Svc B: dozwolone</span></div>
+                <div class="mesh-policy"><span class="pol-no">&#10007;</span><span>Svc B &#8594; Svc A: zablokowane</span></div>
+                <div class="mesh-policy"><span class="pol-info">&#8776;</span><span>Rate limit: 100 req/s</span></div>
+              </div>
+            </div>
             <p><strong>Narzedzia:</strong> Istio, Linkerd, Consul Connect, SPIFFE/SPIRE</p>
         </div>
 

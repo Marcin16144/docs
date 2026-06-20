@@ -36,6 +36,36 @@
         .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
         .nav-bottom a:hover{color:var(--accent-hover)}
         @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+        /* diagram styles */
+        .d-box{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:.83rem;text-align:center;white-space:nowrap}
+        .d-box.accent{border-color:var(--accent);color:var(--accent)}
+        .d-box.broker{border-color:var(--green);color:var(--green)}
+        .d-arr{color:var(--text-muted);font-size:.95rem}
+        .d-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0}
+        .d-col{display:flex;flex-direction:column;align-items:center;gap:4px}
+        .d-eda{display:flex;align-items:stretch;gap:0;margin:16px 0 24px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+        .d-eda-prod{background:var(--surface);padding:14px 16px;display:flex;align-items:center;justify-content:center;font-size:.83rem;border-right:1px solid var(--border)}
+        .d-eda-broker{background:#0a1f12;padding:14px 16px;display:flex;align-items:center;justify-content:center;font-size:.83rem;color:var(--green);flex:1;border-right:1px solid var(--border);text-align:center}
+        .d-eda-consumers{display:flex;flex-direction:column;gap:0}
+        .d-eda-consumer{background:var(--surface);padding:10px 16px;font-size:.82rem;border-bottom:1px solid var(--border)}
+        .d-eda-consumer:last-child{border-bottom:none}
+        .d-es-box{border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin:8px 0;font-size:.82rem}
+        .d-es-box.trad{background:var(--surface)}
+        .d-es-box.events{background:#0a1420;border-color:var(--accent)}
+        .d-es-row{display:flex;align-items:center;padding:3px 0;gap:8px}
+        .d-es-num{color:var(--accent);min-width:18px;font-weight:600}
+        .d-timeline{margin:16px 0 24px;font-size:.82rem}
+        .d-tl-row{display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:start;margin:4px 0}
+        .d-tl-label{color:var(--accent);font-weight:600;text-align:right;padding-top:6px;font-size:.78rem}
+        .d-tl-events{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+        .d-tl-event{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:.78rem}
+        .d-tl-arr{color:var(--text-muted)}
+        .d-tl-window{border-top:1px dashed var(--orange);margin:6px 0 2px;font-size:.75rem;color:var(--orange);padding-top:4px}
+        .d-storm{display:flex;flex-direction:column;gap:10px;margin:16px 0 24px}
+        .d-storm-row{display:flex;gap:8px;flex-wrap:wrap}
+        .d-storm-card{border-radius:6px;padding:8px 12px;font-size:.8rem;min-width:100px;text-align:center}
+        .d-storm-card.orange{background:#2d1a00;border:1px solid var(--orange);color:var(--orange)}
+        .d-storm-card.blue{background:#001a2d;border:1px solid var(--accent);color:var(--accent)}
     </style>
 </head>
 <body>
@@ -53,14 +83,15 @@
         <h2>Czym jest architektura zdarzeniowa?</h2>
         <p>Architektura Event-Driven (EDA) to wzorzec, w ktorym <strong>zdarzenia (events) sa glownym mechanizmem komunikacji</strong> miedzy komponentami systemu. Zamiast bezposrednich wywolan, komponenty publikuja zdarzenia i reaguja na zdarzenia innych komponentow.</p>
 
-<pre><code>┌──────────┐  event   ┌──────────────┐  event   ┌──────────┐
-│ Producent │────────►│ Event Broker  │────────►│ Konsument │
-│           │         │ (Kafka/RMQ)   │────────►│ B         │
-└──────────┘         └──────────────┘  event   └──────────┘
-                                       ────────►┌──────────┐
-                                                │ Konsument │
-                                                │ C         │
-                                                └──────────┘</code></pre>
+<div class="d-eda">
+    <div class="d-eda-prod">Producent<br><span style="font-size:.72rem;color:var(--text-muted)">&#8594; event</span></div>
+    <div class="d-eda-broker">Event Broker<br><span style="font-size:.75rem;color:var(--text-muted)">(Kafka / RMQ)</span></div>
+    <div class="d-eda-consumers">
+        <div class="d-eda-consumer">Konsument B</div>
+        <div class="d-eda-consumer">Konsument C</div>
+        <div class="d-eda-consumer" style="color:var(--text-muted);font-style:italic">Konsument D&hellip;</div>
+    </div>
+</div>
 
         <h2>Rodzaje zdarzen</h2>
 
@@ -105,22 +136,27 @@
         <h2>Event Sourcing</h2>
         <p>Zamiast przechowywac biezacy stan, zapisujemy <strong>sekwencje wszystkich zdarzen</strong>:</p>
 
-<pre><code>Tradycyjne podejscie (CRUD):
-┌─────────────────────────────────────┐
-│ Order #123                          │
-│ status: shipped                     │
-│ total: 109.97                       │
-│ updated_at: 2024-01-16              │
-└─────────────────────────────────────┘
-
-Event Sourcing:
-┌─────────────────────────────────────┐
-│ 1. OrderCreated    { total: 109.97 }│
-│ 2. PaymentReceived { amount: 109.97}│
-│ 3. OrderApproved   { approver: "A" }│
-│ 4. ItemShipped     { tracking: "X" }│
-└─────────────────────────────────────┘
-Stan = replay wszystkich zdarzen</code></pre>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0 24px">
+    <div>
+        <div style="font-size:.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px">Tradycyjne podejscie (CRUD):</div>
+        <div class="d-es-box trad">
+            <div class="d-es-row"><span style="color:var(--text-muted)">Order #123</span></div>
+            <div class="d-es-row">status: <span style="color:var(--green)">shipped</span></div>
+            <div class="d-es-row">total: 109.97</div>
+            <div class="d-es-row">updated_at: 2024-01-16</div>
+        </div>
+    </div>
+    <div>
+        <div style="font-size:.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px">Event Sourcing:</div>
+        <div class="d-es-box events">
+            <div class="d-es-row"><span class="d-es-num">1.</span>OrderCreated <span style="color:var(--text-muted);font-size:.75rem">{ total: 109.97 }</span></div>
+            <div class="d-es-row"><span class="d-es-num">2.</span>PaymentReceived <span style="color:var(--text-muted);font-size:.75rem">{ amount: 109.97 }</span></div>
+            <div class="d-es-row"><span class="d-es-num">3.</span>OrderApproved <span style="color:var(--text-muted);font-size:.75rem">{ approver: "A" }</span></div>
+            <div class="d-es-row"><span class="d-es-num">4.</span>ItemShipped <span style="color:var(--text-muted);font-size:.75rem">{ tracking: "X" }</span></div>
+        </div>
+        <div style="font-size:.75rem;color:var(--accent);margin-top:4px">Stan = replay wszystkich zdarzen</div>
+    </div>
+</div>
 
         <h3>Implementacja Event Store</h3>
 <pre><code>class EventStore:

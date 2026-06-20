@@ -74,52 +74,51 @@ pre code{color:var(--text-muted)}
 </ul>
 
 <h2>Mapa procesu — co trzeba zrobic</h2>
-<pre><code>┌─────────────────────────────┐
-│  1. PLANOWANIE               │  Tygodnie - miesiace
-│   - Definicja celu           │
-│   - Architektura             │
-│   - Skala (params, tokens)   │
-│   - Budzet hardware          │
-└────────────┬────────────────┘
-             ▼
-┌─────────────────────────────┐
-│  2. DANE                     │  Miesiace
-│   - Zbieranie                │
-│   - Cleaning                 │
-│   - Filtering                │
-│   - Tokenizacja              │
-│   - Deduplication            │
-└────────────┬────────────────┘
-             ▼
-┌─────────────────────────────┐
-│  3. INFRASTRUKTURA           │  Tygodnie - miesiace
-│   - GPU cluster              │
-│   - Storage (PB+)            │
-│   - Networking (InfiniBand)  │
-│   - Monitoring               │
-└────────────┬────────────────┘
-             ▼
-┌─────────────────────────────┐
-│  4. PRE-TRAINING             │  Tygodnie - miesiace
-│   - Initialization           │
-│   - Training loop            │
-│   - Checkpointing            │
-│   - Loss debugging           │
-└────────────┬────────────────┘
-             ▼
-┌─────────────────────────────┐
-│  5. POST-TRAINING            │  Tygodnie
-│   - SFT                      │
-│   - DPO/RLHF                 │
-│   - Safety tuning            │
-└────────────┬────────────────┘
-             ▼
-┌─────────────────────────────┐
-│  6. EWALUACJA                │  Ciagle
-│   - Benchmarki               │
-│   - Red teaming              │
-│   - Custom evals             │
-└─────────────────────────────┘</code></pre>
+<div style="margin:16px 0 24px;display:flex;flex-direction:column;align-items:flex-start;gap:0;font-family:'Segoe UI',system-ui,sans-serif;font-size:.87rem;">
+  <style>
+    .train-step{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 18px;min-width:320px;position:relative;}
+    .train-step .ts-title{font-weight:700;color:#a78bfa;margin-bottom:4px;}
+    .train-step .ts-time{position:absolute;right:14px;top:14px;color:#94a3b8;font-size:.78rem;white-space:nowrap;}
+    .train-step ul{margin:0 0 0 16px;padding:0;color:#94a3b8;font-size:.82rem;}
+    .train-step ul li{margin-bottom:2px;}
+    .train-arrow{color:#a78bfa;font-size:1.2rem;padding:2px 0 2px 24px;line-height:1;}
+  </style>
+  <div class="train-step">
+    <div class="ts-time">Tygodnie - miesiace</div>
+    <div class="ts-title">1. PLANOWANIE</div>
+    <ul><li>Definicja celu</li><li>Architektura</li><li>Skala (params, tokens)</li><li>Budzet hardware</li></ul>
+  </div>
+  <div class="train-arrow">&#9660;</div>
+  <div class="train-step">
+    <div class="ts-time">Miesiace</div>
+    <div class="ts-title">2. DANE</div>
+    <ul><li>Zbieranie</li><li>Cleaning</li><li>Filtering</li><li>Tokenizacja</li><li>Deduplication</li></ul>
+  </div>
+  <div class="train-arrow">&#9660;</div>
+  <div class="train-step">
+    <div class="ts-time">Tygodnie - miesiace</div>
+    <div class="ts-title">3. INFRASTRUKTURA</div>
+    <ul><li>GPU cluster</li><li>Storage (PB+)</li><li>Networking (InfiniBand)</li><li>Monitoring</li></ul>
+  </div>
+  <div class="train-arrow">&#9660;</div>
+  <div class="train-step">
+    <div class="ts-time">Tygodnie - miesiace</div>
+    <div class="ts-title">4. PRE-TRAINING</div>
+    <ul><li>Initialization</li><li>Training loop</li><li>Checkpointing</li><li>Loss debugging</li></ul>
+  </div>
+  <div class="train-arrow">&#9660;</div>
+  <div class="train-step">
+    <div class="ts-time">Tygodnie</div>
+    <div class="ts-title">5. POST-TRAINING</div>
+    <ul><li>SFT</li><li>DPO/RLHF</li><li>Safety tuning</li></ul>
+  </div>
+  <div class="train-arrow">&#9660;</div>
+  <div class="train-step">
+    <div class="ts-time">Ciagle</div>
+    <div class="ts-title">6. EWALUACJA</div>
+    <ul><li>Benchmarki</li><li>Red teaming</li><li>Custom evals</li></ul>
+  </div>
+</div>
 
 <h2>1. Planowanie</h2>
 
@@ -181,58 +180,78 @@ Z 64 GPU: ~5 godzin</code></pre>
 <p><strong>Najwazniejszy element. Lepsze dane &gt; wiecej parametrow.</strong></p>
 
 <h3>Pipeline danych</h3>
-<pre><code>┌──────────────────────────┐
-│  Common Crawl (PB)       │  Web pages
-│  Books, Wikipedia, ArXiv │
-│  Code (GitHub)           │
-│  Q&A (Reddit, SO)        │
-└────────┬─────────────────┘
-         ▼
-┌──────────────────────────┐
-│  Format conversion       │  HTML→text, PDF→text
-│  Encoding fixing          │
-└────────┬─────────────────┘
-         ▼
-┌──────────────────────────┐
-│  Language filtering      │  fastText classifier
-│  PII removal             │  emails, IDs, phones
-│  NSFW filtering          │  toxic content
-└────────┬─────────────────┘
-         ▼
-┌──────────────────────────┐
-│  Quality filtering       │  Heuristics + classifier
-│  - perplexity            │
-│  - quality scorer        │
-│  - duplicate removal     │
-└────────┬─────────────────┘
-         ▼
-┌──────────────────────────┐
-│  Deduplication           │  MinHash, suffix arrays
-│  - exact dups            │
-│  - near dups             │
-└────────┬─────────────────┘
-         ▼
-┌──────────────────────────┐
-│  Decontamination         │  Remove eval data
-│  - MMLU, GSM8K, ...      │
-└────────┬─────────────────┘
-         ▼
-┌──────────────────────────┐
-│  Mixing                  │  Optimal data mix
-│  Web: 70%                │
-│  Code: 15%               │
-│  Math: 8%                │
-│  Books: 5%               │
-│  Reasoning: 2%           │
-└────────┬─────────────────┘
-         ▼
-┌──────────────────────────┐
-│  Tokenization            │  BPE/SentencePiece
-└────────┬─────────────────┘
-         ▼
-┌──────────────────────────┐
-│  Sharding for training   │  N×M parquet files
-└──────────────────────────┘</code></pre>
+<div style="margin:16px 0 24px;display:flex;flex-direction:column;align-items:flex-start;gap:0;font-family:'Segoe UI',system-ui,sans-serif;font-size:.86rem;">
+  <style>
+    .dp-step{display:flex;align-items:stretch;gap:0;}
+    .dp-box{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 16px;min-width:220px;flex:0 0 auto;}
+    .dp-note{display:flex;align-items:center;padding-left:14px;color:#94a3b8;font-size:.8rem;font-style:italic;}
+    .dp-arrow{color:#4ade80;font-size:1.1rem;padding:2px 0 2px 20px;line-height:1;}
+    .dp-box .dp-title{font-weight:700;color:#4ade80;margin-bottom:3px;}
+    .dp-box .dp-items{color:#94a3b8;font-size:.8rem;}
+  </style>
+  <div class="dp-step">
+    <div class="dp-box">
+      <div class="dp-title">Surowe dane (RAW)</div>
+      <div class="dp-items">Common Crawl (PB) — Web pages<br>Books, Wikipedia, ArXiv<br>Code (GitHub)<br>Q&amp;A (Reddit, SO)</div>
+    </div>
+  </div>
+  <div class="dp-arrow">&#9660;</div>
+  <div class="dp-step">
+    <div class="dp-box">
+      <div class="dp-title">Format conversion</div>
+      <div class="dp-items">HTML&#8594;text, PDF&#8594;text<br>Encoding fixing</div>
+    </div>
+  </div>
+  <div class="dp-arrow">&#9660;</div>
+  <div class="dp-step">
+    <div class="dp-box">
+      <div class="dp-title">Filtrowanie</div>
+      <div class="dp-items">Language filtering — fastText classifier<br>PII removal — emails, IDs, phones<br>NSFW filtering — toxic content</div>
+    </div>
+  </div>
+  <div class="dp-arrow">&#9660;</div>
+  <div class="dp-step">
+    <div class="dp-box">
+      <div class="dp-title">Quality filtering</div>
+      <div class="dp-items">Heuristics + classifier<br>- perplexity<br>- quality scorer<br>- duplicate removal</div>
+    </div>
+  </div>
+  <div class="dp-arrow">&#9660;</div>
+  <div class="dp-step">
+    <div class="dp-box">
+      <div class="dp-title">Deduplication</div>
+      <div class="dp-items">MinHash, suffix arrays<br>- exact dups<br>- near dups</div>
+    </div>
+  </div>
+  <div class="dp-arrow">&#9660;</div>
+  <div class="dp-step">
+    <div class="dp-box">
+      <div class="dp-title">Decontamination</div>
+      <div class="dp-items">Remove eval data<br>- MMLU, GSM8K, ...</div>
+    </div>
+  </div>
+  <div class="dp-arrow">&#9660;</div>
+  <div class="dp-step">
+    <div class="dp-box">
+      <div class="dp-title">Mixing</div>
+      <div class="dp-items">Optimal data mix:<br>Web: 70% &nbsp;|&nbsp; Code: 15% &nbsp;|&nbsp; Math: 8%<br>Books: 5% &nbsp;|&nbsp; Reasoning: 2%</div>
+    </div>
+  </div>
+  <div class="dp-arrow">&#9660;</div>
+  <div class="dp-step">
+    <div class="dp-box">
+      <div class="dp-title">Tokenization</div>
+      <div class="dp-items">BPE / SentencePiece</div>
+    </div>
+  </div>
+  <div class="dp-arrow">&#9660;</div>
+  <div class="dp-step">
+    <div class="dp-box">
+      <div class="dp-title">Sharding for training</div>
+      <div class="dp-items">N&#215;M parquet files</div>
+    </div>
+  </div>
+</div>
 
 <h3>Public datasety dla treningu od zera</h3>
 <table>
