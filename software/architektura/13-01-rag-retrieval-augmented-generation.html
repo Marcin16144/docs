@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>13-01 — RAG (Retrieval-Augmented Generation)</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="13-architektura-ai-llm.html">13 — AI/LLM</a>
+        <span class="sep">/</span>
+        <span class="title">RAG (Retrieval-Augmented Generation)</span>
+    </div>
+    <div class="container">
+        <h1>RAG (Retrieval-Augmented Generation)</h1>
+        <p class="subtitle">Najtanszy i najbezpieczniejszy sposob, by model odpowiadal na podstawie Twoich danych — a nie tylko wiedzy z treningu.</p>
+
+        <h2>Czym jest RAG i po co go stosowac</h2>
+        <p>RAG (generacja wspomagana wyszukiwaniem) to wzorzec, w ktorym przed wygenerowaniem odpowiedzi system <strong>wyszukuje istotne fragmenty wiedzy</strong> i wstrzykuje je do promptu. Model nie odpowiada wiec wylacznie z pamieci parametrycznej, lecz na podstawie dostarczonego, aktualnego kontekstu.</p>
+        <p>Trzy glowne powody, dla ktorych RAG stal sie domyslnym wzorcem aplikacji LLM:</p>
+        <ul>
+            <li><strong>Ograniczanie halucynacji</strong> — model ma jawne zrodla, wiec rzadziej zmysla fakty; mozna tez wymusic odpowiedz "nie wiem", gdy brak kontekstu.</li>
+            <li><strong>Wiedza spoza modelu</strong> — dokumenty firmowe, baza wiedzy, regulaminy, kod — dane, ktorych model nigdy nie widzial w treningu.</li>
+            <li><strong>Aktualnosc</strong> — wiedza zmienia sie codziennie; aktualizujesz indeks, a nie model. Brak kosztownego fine-tuningu i retreningu.</li>
+        </ul>
+
+        <div class="card">
+            <h3>RAG vs. fine-tuning vs. dlugi kontekst</h3>
+            <p><strong>RAG</strong> dostarcza wiedzy (fakty, dokumenty). <strong>Fine-tuning</strong> uczy stylu, formatu i zachowania, ale slabo nadaje sie do "wkuwania" zmiennych faktow. <strong>Dlugi kontekst</strong> (model z oknem 200k+ tokenow) bywa alternatywa dla malych zbiorow, ale jest drozszy i wolniejszy niz wyszukanie kilku trafnych fragmentow. W praktyce 2026 czesto laczy sie RAG z umiarkowanie dlugim kontekstem.</p>
+        </div>
+
+        <h2>Pipeline RAG</h2>
+        <p>RAG dzieli sie na dwie fazy: <strong>indeksowanie</strong> (offline, jednorazowo lub cyklicznie) oraz <strong>zapytanie</strong> (online, dla kazdego pytania uzytkownika).</p>
+
+<pre><code>FAZA INDEKSOWANIA (offline)
+Dokumenty ─→ Ladowanie ─→ Chunking ─→ Embedding ─→ Indeks wektorowy
+
+FAZA ZAPYTANIA (online)
+Pytanie ─→ Embedding ─→ Retrieval ─→ (Re-ranking) ─→ Prompt + kontekst ─→ LLM ─→ Odpowiedz + zrodla</code></pre>
+
+        <h3>1. Ladowanie (ingestion)</h3>
+        <p>Pobranie tresci ze zrodel: PDF, HTML, Markdown, bazy danych, Confluence, repozytoria kodu, tickety. Na tym etapie wydobywa sie czysty tekst i <strong>metadane</strong> (tytul, autor, data, URL, sekcja), ktore pozniej posluza do filtrowania i cytowania.</p>
+
+        <h3>2. Dzielenie na fragmenty (chunking)</h3>
+        <p>Dokumenty sa dzielone na mniejsze fragmenty, bo: (a) embedding ma sens dla spojnego kawalka tekstu, (b) do promptu wstrzykujemy tylko trafne fragmenty, a nie cale dokumenty. Dobor rozmiaru chunka to kompromis: za male — gubia kontekst; za duze — rozmywaja znaczenie i podnosza koszty.</p>
+
+        <h3>3. Embeddingi</h3>
+        <p>Kazdy chunk zamieniany jest na wektor liczb (embedding) reprezentujacy jego znaczenie. Ten sam model embeddingowy musi byc uzyty przy indeksowaniu i przy zapytaniu. Szczegoly w podstronie <a href="13-03-bazy-wektorowe-i-embeddingi.html">13-03 Bazy wektorowe i embeddingi</a>.</p>
+
+        <h3>4. Indeks wektorowy</h3>
+        <p>Wektory laduja w bazie wektorowej (pgvector, Qdrant, Milvus, Weaviate, FAISS, Chroma) razem z tekstem i metadanymi. Indeks ANN (np. HNSW) umozliwia szybkie wyszukiwanie najblizszych wektorow.</p>
+
+        <h3>5. Wyszukiwanie (retrieval)</h3>
+        <p>Pytanie uzytkownika jest embeddowane i porownywane z wektorami w indeksie. Zwracane jest top-K najbardziej podobnych chunkow (typowo K = 3-10), opcjonalnie z filtrem po metadanych (np. tylko dokumenty danego dzialu lub jezyka).</p>
+
+        <h3>6. Wstrzykniecie kontekstu do promptu</h3>
+        <p>Pobrane fragmenty trafiaja do promptu wraz z instrukcja systemowa. Typowy szablon:</p>
+<pre><code>System: Odpowiadaj wylacznie na podstawie kontekstu ponizej.
+        Jesli odpowiedzi nie ma w kontekscie, napisz "Nie wiem".
+        Na koncu podaj zrodla [1], [2].
+
+Kontekst:
+[1] {chunk_1}  (zrodlo: regulamin.pdf, s. 4)
+[2] {chunk_2}  (zrodlo: faq.md)
+
+Pytanie: {pytanie_uzytkownika}</code></pre>
+
+        <h3>7. Generacja</h3>
+        <p>LLM generuje odpowiedz ugruntowana w dostarczonym kontekscie i — jesli wymusi to prompt — dolacza odwolania do zrodel. Odpowiedz mozna jeszcze zwalidowac (czy faktycznie opiera sie na kontekscie).</p>
+
+        <h2>Strategie chunkingu</h2>
+        <table>
+            <thead><tr><th>Strategia</th><th>Opis</th><th>Kiedy</th></tr></thead>
+            <tbody>
+                <tr><td>Staly rozmiar + overlap</td><td>Np. 500-1000 tokenow, 10-20% nakladki, by nie ucinac zdan na granicy</td><td>Domyslna, prosta i skuteczna</td></tr>
+                <tr><td>Rekurencyjny (po strukturze)</td><td>Dzielenie po akapitach, naglowkach, zdaniach z zachowaniem granic</td><td>Dokumenty o wyraznej strukturze</td></tr>
+                <tr><td>Semantyczny</td><td>Granice wyznaczane tam, gdzie zmienia sie temat (na podstawie embeddingow)</td><td>Dluzsze, niejednorodne teksty</td></tr>
+                <tr><td>Po dokumencie/sekcji</td><td>Chunk = logiczna sekcja (np. artykul FAQ, funkcja w kodzie)</td><td>Gdy struktura jest naturalna</td></tr>
+                <tr><td>Hierarchiczny / parent-child</td><td>Wyszukujemy male chunki, do promptu wstrzykujemy wiekszy rodzic</td><td>Gdy potrzebny szerszy kontekst</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Dobra praktyka:</strong> przechowuj razem z chunkiem jego metadane (zrodlo, naglowek, pozycja) oraz, dla parent-child, odnosnik do wiekszego bloku. To poprawia zarowno trafnosc, jak i jakosc cytowan.</p>
+
+        <h2>Hybrydowe wyszukiwanie</h2>
+        <p>Samo wyszukiwanie wektorowe (semantyczne) gubi czasem dokladne dopasowania: numery katalogowe, nazwy wlasne, kody bledow, rzadkie terminy. Dlatego laczy sie dwa podejscia:</p>
+        <ul>
+            <li><strong>Wyszukiwanie wektorowe</strong> — rozumie znaczenie i parafrazy ("jak zwrocic towar" znajdzie "polityka zwrotow").</li>
+            <li><strong>Wyszukiwanie po slowach kluczowych (BM25 / pelnotekstowe)</strong> — precyzyjnie trafia w konkretne tokeny ("ERR_2041", "model X-500").</li>
+        </ul>
+        <p>Wyniki obu metod laczy sie, najczesciej algorytmem <strong>RRF (Reciprocal Rank Fusion)</strong>, ktory sumuje odwrotnosci pozycji w rankingach. Wiele baz (Qdrant, Weaviate, Elasticsearch/OpenSearch, pgvector + tsvector) wspiera hybryde natywnie.</p>
+
+<pre><code>Wektorowe  ─→ ranking A ─┐
+                         ├─→ RRF (fuzja) ─→ wspolny ranking ─→ top-K
+BM25 / FTS ─→ ranking B ─┘</code></pre>
+
+        <h2>Re-ranking</h2>
+        <p>Po wstepnym pobraniu (np. top-50 tanim wyszukiwaniem) stosuje sie <strong>re-ranker</strong> — model typu cross-encoder, ktory ocenia trafnosc pary (pytanie, chunk) i przestawia wyniki. Cross-encoder jest dokladniejszy niz porownanie wektorow, bo "czyta" pytanie i fragment razem, ale jest wolniejszy — dlatego stosuje sie go tylko na waskiej liscie kandydatow.</p>
+        <ul>
+            <li>Przyklady: Cohere Rerank, modele BGE-reranker, Jina Reranker, Voyage rerank.</li>
+            <li>Schemat dwuetapowy: <strong>retrieve (szybko, szeroko) &rarr; rerank (dokladnie, wasko) &rarr; top-K do promptu</strong>.</li>
+        </ul>
+
+        <h2>Cytowania i zrodla</h2>
+        <p>Cytowania to nie ozdoba — to mechanizm zaufania i audytu. Pozwalaja uzytkownikowi zweryfikowac odpowiedz i ujawniaja, gdy model wyszedl poza dostarczony kontekst.</p>
+        <ul>
+            <li>Numeruj fragmenty w prompcie i wymagaj odwolan <code>[n]</code> w odpowiedzi.</li>
+            <li>Przechowuj URL/identyfikator zrodla w metadanych chunka i renderuj jako klikalny link.</li>
+            <li>Rozwazaj walidacje: sprawdz, czy cytowane zdania faktycznie wystepuja w przywolanym chunku (ograniczanie "cytowan-halucynacji").</li>
+        </ul>
+
+        <h2>Typowe problemy i jak im zaradzic</h2>
+        <div class="two-col">
+            <div class="card">
+                <h3>Jakosc chunkow</h3>
+                <ul>
+                    <li>Zle ciecia gubia kontekst — dobierz rozmiar i overlap, testuj na realnych pytaniach</li>
+                    <li>Smieci w danych (naglowki, stopki, nawigacja) zaszumiaja embeddingi — czysc tekst</li>
+                    <li>Duplikaty zawyzaja jedno zrodlo — deduplikuj</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Okno kontekstu</h3>
+                <ul>
+                    <li>Za duzo chunkow rozciencza uwage modelu ("lost in the middle")</li>
+                    <li>Limit tokenow ogranicza K — priorytetyzuj re-rankingiem</li>
+                    <li>Ukladaj najwazniejsze fragmenty na poczatku i koncu</li>
+                </ul>
+            </div>
+        </div>
+        <div class="two-col">
+            <div class="card">
+                <h3>Trafnosc retrievalu</h3>
+                <ul>
+                    <li>Pytanie inne slowami niz dokument — dodaj hybryde i re-ranking</li>
+                    <li>Wieloczesciowe pytania — rozbij (query decomposition) lub przepisz zapytanie</li>
+                    <li>Brak trafien — pozwol modelowi powiedziec "nie wiem"</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Koszty i latencja</h3>
+                <ul>
+                    <li>Embedding calego korpusu kosztuje — rob to wsadowo i tylko dla zmian</li>
+                    <li>Re-ranker i duze K podnosza latencje — ogranicz liste kandydatow</li>
+                    <li>Cache odpowiedzi i embeddingow czestych zapytan</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Ewaluacja RAG</h2>
+        <p>RAG ocenia sie dwuwarstwowo: jakosc <strong>retrievalu</strong> (czy znaleziono wlasciwe fragmenty) i jakosc <strong>generacji</strong> (czy odpowiedz jest poprawna i ugruntowana).</p>
+        <ul>
+            <li><strong>Metryki retrievalu:</strong> recall@k, precision@k, MRR, hit rate.</li>
+            <li><strong>Metryki generacji:</strong> faithfulness (czy odpowiedz wynika z kontekstu), answer relevancy, context precision/recall.</li>
+            <li><strong>Narzedzia (2026):</strong> Ragas, TruLens, DeepEval, LangSmith, promptfoo; coraz czesciej ewaluacja typu "LLM-as-a-judge" na zbiorze pytan referencyjnych.</li>
+        </ul>
+
+        <h2>Warianty i rozszerzenia (2026)</h2>
+        <ul>
+            <li><strong>Agentic RAG</strong> — agent sam decyduje, kiedy i czego szukac, moze iterowac zapytania (zob. <a href="13-02-agenty-i-narzedzia.html">13-02 Agenty i narzedzia</a>).</li>
+            <li><strong>GraphRAG</strong> — laczenie wyszukiwania z grafem wiedzy, dobre do pytan wymagajacych laczenia faktow.</li>
+            <li><strong>Multimodalny RAG</strong> — retrieval po obrazach, tabelach, wykresach (embeddingi multimodalne).</li>
+            <li><strong>Contextual retrieval</strong> — wzbogacanie chunkow o krotki opis kontekstu calego dokumentu przed embeddingiem, co zauwazalnie poprawia trafnosc.</li>
+        </ul>
+
+        <h2>Podsumowanie</h2>
+        <p>RAG to <strong>fundament wiekszosci powaznych aplikacji LLM</strong>. Zaczynaj prosto (staly chunking + wyszukiwanie wektorowe + jasny prompt z wymuszonym "nie wiem"), a komplikuj swiadomie: hybryda i re-ranking, gdy retrieval zawodzi; parent-child, gdy brakuje kontekstu; ewaluacja od pierwszego dnia, bo bez metryk nie poprawisz jakosci. Warstwe danych dla RAG opisuje <a href="13-03-bazy-wektorowe-i-embeddingi.html">13-03</a>, a infrastrukture serwowania — <a href="13-04-serwowanie-i-llmops.html">13-04</a>.</p>
+
+        <div class="nav-bottom">
+            <a href="13-architektura-ai-llm.html">&larr; 13 — Architektura systemow AI/LLM</a>
+            <a href="13-02-agenty-i-narzedzia.html">13-02 Agenty i narzedzia &rarr;</a>
+        </div>
+    </div>
+<!-- KOMPENDIUM:START -->
+<link rel="stylesheet" href="../../values/assets/kompendium.css">
+<script>window.KOMP={"page":"software/architektura/13-01-rag-retrieval-augmented-generation.html","home":"../../","title":"13-01 — RAG (Retrieval-Augmented Generation)","section":"software","sectionLabel":"\uD83D\uDCBB Software i programowanie","rel":[{"u":"../../software/llm/09-rag.html","t":"09 — RAG (Retrieval Augmented Generation)","s":"\uD83D\uDCBB","r":"RAG — przewodnik praktyczny"},{"u":"../../software/architektura/13-03-bazy-wektorowe-i-embeddingi.html","t":"13-03 — Bazy wektorowe i embeddingi","s":"\uD83D\uDCBB","r":"Bazy wektorowe"},{"u":"../../software/architektura/13-architektura-ai-llm.html","t":"13 — Architektura systemow AI/LLM","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/13-02-agenty-i-narzedzia.html","t":"13-02 — Agenty i narzedzia (tool use)","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/13-04-serwowanie-i-llmops.html","t":"13-04 — Serwowanie modeli i LLMOps","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/01-01-podejmowanie-decyzji-technicznych.html","t":"01-01 — Podejmowanie decyzji technicznych","s":"\uD83D\uDCBB","r":"Ta sama sekcja"},{"u":"../../software/architektura/01-02-balansowanie-wymagan.html","t":"01-02 — Balansowanie wymagan","s":"\uD83D\uDCBB","r":"Ta sama sekcja"}]}</script>
+<script src="../../values/assets/kompendium.js" defer></script>
+<!-- KOMPENDIUM:END -->
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>13-04 — Serwowanie modeli i LLMOps</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="13-architektura-ai-llm.html">13 — AI/LLM</a>
+        <span class="sep">/</span>
+        <span class="title">Serwowanie modeli i LLMOps</span>
+    </div>
+    <div class="container">
+        <h1>Serwowanie modeli i LLMOps</h1>
+        <p class="subtitle">Gdzie i jak uruchomic model, ile to kosztuje, jak to monitorowac i zabezpieczyc — od malego GPU po wdrozenie produkcyjne.</p>
+
+        <h2>Inferencja lokalna vs. API w chmurze</h2>
+        <p>Pierwsza decyzja architektoniczna: czy hostujesz model sam, czy korzystasz z gotowego API. To kompromis miedzy kontrola/prywatnoscia a wygoda/jakoscia.</p>
+        <div class="two-col">
+            <div class="card">
+                <h3>API w chmurze</h3>
+                <ul>
+                    <li>Dostep do najlepszych modeli (Claude, GPT, Gemini) bez wlasnego sprzetu</li>
+                    <li>Zero utrzymania, automatyczne skalowanie</li>
+                    <li>Platnosc za tokeny — koszt rosnie z ruchem</li>
+                    <li>Dane wychodza na zewnatrz (kwestia prywatnosci/compliance)</li>
+                    <li>Zaleznosc od dostawcy i limitow</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Inferencja lokalna / self-hosted</h3>
+                <ul>
+                    <li>Pelna prywatnosc — dane nie opuszczaja srodowiska</li>
+                    <li>Staly koszt sprzetu zamiast za-token</li>
+                    <li>Brak limitow zewnetrznych, dzialanie offline</li>
+                    <li>Wymaga GPU i utrzymania; modele zwykle slabsze niz topowe API</li>
+                    <li>Ty odpowiadasz za skalowanie i dostepnosc</li>
+                </ul>
+            </div>
+        </div>
+        <p>Czesty wybor 2026 to <strong>podejscie hybrydowe</strong>: lokalny model do prostych/wrazliwych zadan, API do najtrudniejszych (zob. router/kaskada nizej).</p>
+
+        <h2>Silniki serwujace</h2>
+        <table>
+            <thead><tr><th>Silnik</th><th>Charakter</th><th>Kiedy uzywac</th></tr></thead>
+            <tbody>
+                <tr><td><strong>vLLM</strong></td><td>Wysokowydajny serwer GPU</td><td>Produkcja, duza przepustowosc; PagedAttention i continuous batching, API zgodne z OpenAI. Domyslny wybor do serwowania na serwerze GPU.</td></tr>
+                <tr><td><strong>Ollama</strong></td><td>Lokalny runtime (na llama.cpp)</td><td>Stacja robocza, dev, maly serwer; bardzo proste uruchamianie modeli GGUF jedna komenda, API lokalne. Idealny na laptopa/maly GPU.</td></tr>
+                <tr><td><strong>llama.cpp</strong></td><td>Silnik C/C++ (CPU+GPU)</td><td>Maksymalna przenosnosc i kontrola; dziala na CPU, Apple Silicon, skromnym GPU; format GGUF, offload warstw CPU/GPU.</td></tr>
+                <tr><td><strong>TGI (Text Generation Inference)</strong></td><td>Serwer Hugging Face</td><td>Produkcyjne serwowanie modeli z ekosystemu HF; dobre wsparcie, kwantyzacje, tensor parallelism.</td></tr>
+                <tr><td><strong>SGLang</strong></td><td>Wydajny serwer GPU</td><td>Wysoka przepustowosc i zaawansowane cache'owanie prefiksow; rosnaca alternatywa dla vLLM w 2026.</td></tr>
+                <tr><td><strong>LM Studio</strong></td><td>Aplikacja desktop (na llama.cpp)</td><td>GUI do lokalnego uruchamiania modeli i serwer lokalny; wygodne dla eksploracji bez terminala.</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Kwantyzacja i wymagania VRAM</h2>
+        <p><strong>Kwantyzacja</strong> zmniejsza precyzje wag (np. z 16-bit do 4-bit), drastycznie obnizajac zapotrzebowanie na pamiec i przyspieszajac inferencje, kosztem niewielkiej utraty jakosci. To kluczowa technika, by uruchamiac modele na skromnym sprzecie.</p>
+        <table>
+            <thead><tr><th>Format</th><th>Gdzie</th><th>Opis</th></tr></thead>
+            <tbody>
+                <tr><td><strong>GGUF</strong></td><td>llama.cpp, Ollama, LM Studio</td><td>Standard kwantyzacji dla inferencji lokalnej (CPU/GPU). Warianty Q4_K_M, Q5_K_M, Q6_K, Q8_0 — kompromis rozmiar/jakosc. Q4_K_M to popularny "sweet spot".</td></tr>
+                <tr><td><strong>AWQ</strong></td><td>vLLM, TGI</td><td>Kwantyzacja 4-bit zachowujaca wazne wagi (activation-aware); dobra jakosc na GPU.</td></tr>
+                <tr><td><strong>GPTQ</strong></td><td>vLLM, TGI</td><td>Popularna kwantyzacja 4-bit po treningu (post-training).</td></tr>
+                <tr><td><strong>FP8 / INT8</strong></td><td>vLLM, TensorRT-LLM</td><td>8-bit na nowszych GPU — wieksza przepustowosc przy minimalnej stracie jakosci.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Szacowanie VRAM</h3>
+        <p>Zgrubnie: pamiec na same wagi modelu to <strong>liczba parametrow × bajty na parametr</strong>. Do tego dochodzi cache KV (rosnie z dlugoscia kontekstu i liczba rownoleglych zapytan) oraz narzut.</p>
+<pre><code>VRAM_wagi ≈ parametry × bajty_na_param
+  FP16  : 2 B/param   |  8B → ~16 GB
+  INT8  : 1 B/param   |  8B → ~8 GB
+  4-bit : ~0,5 B/param|  8B → ~4-5 GB
++ cache KV (kontekst × warstwy × batch) + narzut</code></pre>
+
+        <div class="card">
+            <h3>Realia malego GPU (np. 8 GB VRAM)</h3>
+            <p>Na karcie z <strong>8 GB VRAM</strong> (typowy laptop z RTX) nie zmiescisz duzego modelu w FP16. Praktyczne podejscie:</p>
+            <ul>
+                <li><strong>Modele 7-9B w kwantyzacji 4-bit (GGUF Q4_K_M)</strong> mieszcza sie z zapasem na kontekst — to glowny target dla 8 GB.</li>
+                <li><strong>Modele 12-14B</strong> bywaja na granicy — pomaga nizsza kwantyzacja i offload czesci warstw na CPU (llama.cpp/Ollama).</li>
+                <li><strong>Krotszy kontekst</strong> zmniejsza cache KV — nie ustawiaj 32k, jesli wystarczy 4-8k.</li>
+                <li><strong>Ollama / llama.cpp</strong> to naturalny wybor: automatyczny podzial warstw GPU/CPU, format GGUF, proste uruchomienie.</li>
+                <li>Gdy lokalny model nie wystarcza — eskaluj zapytanie do wiekszego modelu (kaskada, patrz nizej).</li>
+            </ul>
+        </div>
+
+        <h2>Batching i streaming</h2>
+        <ul>
+            <li><strong>Continuous batching</strong> — serwer (vLLM, TGI, SGLang) laczy zapytania wielu uzytkownikow w locie, maksymalizujac wykorzystanie GPU i przepustowosc.</li>
+            <li><strong>PagedAttention</strong> (vLLM) — efektywne zarzadzanie cache KV jak pamiecia stronicowana, mniej marnotrawstwa VRAM.</li>
+            <li><strong>Streaming (SSE)</strong> — token po tokenie do klienta; drastycznie poprawia odczuwalna responsywnosc (liczy sie TTFT — czas do pierwszego tokenu). Patrz <a href="06-komunikacja-i-integracja.html">06 — Komunikacja i integracja</a> (Server-Sent Events).</li>
+        </ul>
+
+        <h2>Koszty i latencja</h2>
+        <p>Kluczowe metryki wydajnosci serwowania:</p>
+        <ul>
+            <li><strong>TTFT (Time To First Token)</strong> — jak szybko zaczyna sie odpowiedz; zalezy m.in. od dlugosci promptu (faza prefill).</li>
+            <li><strong>TPOT / tok/s</strong> — tempo generacji kolejnych tokenow (faza decode).</li>
+            <li><strong>Przepustowosc</strong> — laczna liczba tokenow/s przy wielu zapytaniach (rosnie z batchingiem).</li>
+            <li><strong>Koszt na 1000 tokenow</strong> (API) lub koszt GPU/godz. (self-host).</li>
+        </ul>
+        <p>Jak obnizac koszty i latencje: krotsze prompty (mniej kontekstu), mniejszy/kwantyzowany model do prostych zadan, <strong>cache promptow</strong>, batching, ograniczanie <code>max_tokens</code>, oraz router kierujacy ruch do najtanszego wystarczajacego modelu.</p>
+
+        <h2>Cache promptow</h2>
+        <p><strong>Prompt caching</strong> ponownie wykorzystuje obliczenia dla powtarzalnego prefiksu promptu (np. dluga instrukcja systemowa, staly kontekst), zamiast liczyc je od nowa przy kazdym zapytaniu. Efekt: <strong>nizszy TTFT i nizszy koszt</strong>.</p>
+        <ul>
+            <li><strong>API:</strong> Anthropic, OpenAI i inni oferuja cache promptow (czesto z duza znizka na tokeny z cache).</li>
+            <li><strong>Self-host:</strong> vLLM i SGLang robia automatyczne <em>prefix caching</em> wspoldzielonych prefiksow miedzy zapytaniami.</li>
+            <li><strong>Dobra praktyka:</strong> umieszczaj stale tresci (system prompt, dokumenty) na poczatku promptu, a zmienne (pytanie) na koncu — by prefiks dalo sie cache'owac.</li>
+        </ul>
+
+        <h2>Obserwowalnosc (LLMOps)</h2>
+        <p>LLM jest niedeterministyczny i kosztowny, wiec obserwowalnosc jest niezbedna — nie wystarcza klasyczne logi aplikacji.</p>
+        <ul>
+            <li><strong>Logi i tracing</strong> — pelne slady zapytan: prompt, odpowiedz, uzyte narzedzia, tokeny, koszt, latencja. Dla agentow — cala trajektoria krokow.</li>
+            <li><strong>Narzedzia (2026):</strong> LangSmith, Langfuse (open-source), Helicone, Phoenix (Arize), Traceloop/OpenLLMetry. Coraz czesciej oparte o <strong>OpenTelemetry</strong> (semantyka GenAI), co spina je z reszta observability.</li>
+            <li><strong>Ewaluacja jakosci</strong> — zbiory testowe pytan referencyjnych, metryki (faithfulness, trafnosc), "LLM-as-a-judge", testy regresji jakosci przy zmianie modelu/promptu. Narzedzia: Ragas, DeepEval, promptfoo, Evals.</li>
+            <li><strong>Monitoring produkcyjny</strong> — koszt/uzytkownik, wskazniki odmow, sygnaly o halucynacjach, feedback uzytkownikow, dryf jakosci w czasie.</li>
+        </ul>
+
+        <h2>Bezpieczenstwo</h2>
+        <ul>
+            <li><strong>Guardraile</strong> — walidacja wejscia i wyjscia: filtrowanie tresci niedozwolonych, wykrywanie danych wrazliwych (PII), wymuszanie formatu/schematu odpowiedzi. Narzedzia: Llama Guard, NeMo Guardrails, Guardrails AI, moderacja API.</li>
+            <li><strong>Prompt injection</strong> — najpowazniejsze ryzyko aplikacji LLM (OWASP Top 10 for LLM). Traktuj kazda tresc z zewnatrz (dokumenty RAG, wynik narzedzi, wejscie uzytkownika) jako <strong>niezaufana</strong>; izoluj instrukcje systemowe od danych, nie pozwalaj danym sterowac akcjami.</li>
+            <li><strong>Wyciek danych</strong> — uwazaj, co trafia do promptu i do logow; egzekwuj uprawnienia juz na poziomie retrievalu (filtrowanie metadanych w bazie wektorowej, <a href="13-03-bazy-wektorowe-i-embeddingi.html">13-03</a>).</li>
+            <li><strong>Najmniejsze uprawnienia narzedzi</strong> i human-in-the-loop dla akcji wrazliwych (zob. <a href="13-02-agenty-i-narzedzia.html">13-02 Agenty</a>).</li>
+            <li><strong>Rate limiting i kontrola kosztu</strong> — ochrona przed naduzyciem i "denial of wallet".</li>
+        </ul>
+        <p>Szersze tlo bezpieczenstwa: dzial <a href="08-bezpieczenstwo.html">08 — Bezpieczenstwo</a>.</p>
+
+        <h2>Wzorce wdrozen</h2>
+        <div class="two-col">
+            <div class="card">
+                <h3>Router modeli</h3>
+                <p>Klasyfikator kieruje zapytanie do wlasciwego modelu wedlug trudnosci/kosztu: proste &rarr; maly/lokalny, trudne &rarr; duzy. Optymalizuje koszt przy zachowaniu jakosci.</p>
+            </div>
+            <div class="card">
+                <h3>Kaskada</h3>
+                <p>Najpierw tanszy model; jesli niepewny lub wynik nie przejdzie walidacji — eskalacja do wiekszego. Maly model obsluguje wiekszosc ruchu.</p>
+            </div>
+        </div>
+        <div class="two-col">
+            <div class="card">
+                <h3>Fallback</h3>
+                <p>Gdy glowny model/dostawca jest niedostepny lub przekroczy limit — automatyczne przelaczenie na zapasowy (inny model, inny region, inny provider). Zwieksza dostepnosc.</p>
+            </div>
+            <div class="card">
+                <h3>Hybryda lokalne + chmura</h3>
+                <p>Lokalny model (prywatnosc, koszt) dla wiekszosci zadan; API (jakosc) dla najtrudniejszych. Naturalne polaczenie routera/kaskady z fallbackiem.</p>
+            </div>
+        </div>
+        <p>Dla malego GPU to spojny scenariusz: <strong>lokalny model kwantyzowany na 8 GB VRAM jako pierwsza linia</strong>, a kaskada/fallback do wiekszego modelu (w LAN lub chmurze) tylko gdy lokalny jest niepewny. Mechanike decyzji "kiedy eskalowac" omawia <a href="13-02-agenty-i-narzedzia.html">13-02</a>.</p>
+
+        <h2>Podsumowanie</h2>
+        <p>Serwowanie LLM to inzynieria kompromisow: <strong>jakosc kontra koszt kontra latencja kontra prywatnosc</strong>. Wybierz model serwowania (lokalnie vs. API), dobierz silnik (vLLM dla produkcji GPU, Ollama/llama.cpp dla malego sprzetu), zastosuj kwantyzacje pod swoj budzet VRAM, wlacz batching, streaming i cache promptow dla wydajnosci, a od pierwszego dnia zadbaj o obserwowalnosc, ewaluacje i guardraile. Router, kaskada i fallback pozwalaja laczyc tani lokalny model z mocnym API — i sa szczegolnie sensowne, gdy dysponujesz tylko skromnym GPU.</p>
+
+        <div class="nav-bottom">
+            <a href="13-03-bazy-wektorowe-i-embeddingi.html">&larr; 13-03 Bazy wektorowe i embeddingi</a>
+            <a href="13-architektura-ai-llm.html">13 — Architektura AI/LLM &rarr;</a>
+        </div>
+    </div>
+<!-- KOMPENDIUM:START -->
+<link rel="stylesheet" href="../../values/assets/kompendium.css">
+<script>window.KOMP={"page":"software/architektura/13-04-serwowanie-i-llmops.html","home":"../../","title":"13-04 — Serwowanie modeli i LLMOps","section":"software","sectionLabel":"\uD83D\uDCBB Software i programowanie","rel":[{"u":"../../software/architektura/13-architektura-ai-llm.html","t":"13 — Architektura systemow AI/LLM","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/06-komunikacja-i-integracja.html","t":"06 — Komunikacja i integracja","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/13-03-bazy-wektorowe-i-embeddingi.html","t":"13-03 — Bazy wektorowe i embeddingi","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/13-02-agenty-i-narzedzia.html","t":"13-02 — Agenty i narzedzia (tool use)","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/08-bezpieczenstwo.html","t":"08 — Bezpieczenstwo w architekturze","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/01-01-podejmowanie-decyzji-technicznych.html","t":"01-01 — Podejmowanie decyzji technicznych","s":"\uD83D\uDCBB","r":"Ta sama sekcja"}]}</script>
+<script src="../../values/assets/kompendium.js" defer></script>
+<!-- KOMPENDIUM:END -->
+</body>
+</html>

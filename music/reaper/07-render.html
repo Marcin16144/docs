@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Render i eksport — REAPER</title>
+<style>
+:root{--bg:#0f0a14;--surface:#1d1526;--surface-hover:#2a1f38;--border:#3b2f4a;--text:#ece6f0;--text-muted:#a394b3;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#c084fc;--orange:#fb923c;--blue:#60a5fa;--yellow:#fbbf24;--red:#f87171;--code-bg:#150f1d}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:880px;margin:0 auto;padding:38px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:6px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:36px;opacity:.8}
+h2{font-size:1.4rem;font-weight:600;color:var(--accent);margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.12rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:var(--surface-hover)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:54px;padding-top:22px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+kbd{background:var(--code-bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:'Cascadia Code',monospace;font-size:.82rem;color:var(--text);white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">📚 Kompendium</a><span class="sep">/</span><a href="index.html">🎛 REAPER</a><span class="sep">/</span><span class="title">Render i eksport</span></div>
+<div class="container">
+<h1>Render i eksport</h1>
+<p class="subtitle">Render dialog, formaty, stemy, normalizacja LUFS i dither</p>
+<p class="updated">Aktualizacja: 2026-06</p>
+
+<p>Gdy miks jest gotowy, „wypalasz" go do pliku audio przez <strong>render</strong>. Otwórz okno: <strong>File → Render</strong> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd>).</p>
+
+<h2 id="zakres">Zakres renderu (Bounds)</h2>
+<table>
+<thead><tr><th>Opcja „Bounds"</th><th>Co renderuje</th></tr></thead>
+<tbody>
+<tr><td><strong>Entire project</strong></td><td>Cały projekt od początku do końca ostatniego itemu.</td></tr>
+<tr><td><strong>Time selection</strong></td><td>Tylko zaznaczony zakres czasu.</td></tr>
+<tr><td><strong>Project regions</strong></td><td>Każdy region jako osobny plik (świetne do eksportu wielu utworów/loopów naraz).</td></tr>
+<tr><td><strong>Selected media items</strong></td><td>Tylko wybrane itemy (np. „spłaszczenie" jednej ścieżki).</td></tr>
+</tbody>
+</table>
+
+<h2 id="zrodlo">Źródło (Source)</h2>
+<ul>
+<li><strong>Master mix</strong> — gotowy miks stereo (najczęstszy wybór).</li>
+<li><strong>Stems (selected tracks)</strong> — osobny plik dla każdej zaznaczonej ścieżki, zachowując pozycję w czasie (do dalszego miksu/masteringu).</li>
+<li><strong>Master mix + stems</strong> — jednocześnie miks i stemy.</li>
+<li><strong>Selected tracks (stems)</strong> z opcją <em>via master</em> — uwzględnia efekty masteru w stemach.</li>
+</ul>
+<div class="tip">✅ Eksportując stemy do współpracy, renderuj je <strong>od zera projektu</strong> (ten sam start), tak by wszystkie pliki idealnie się nakładały po wczytaniu do innego DAW.</div>
+
+<h2 id="formaty">Formaty i jakość</h2>
+<table>
+<thead><tr><th>Format</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td><strong>WAV</strong></td><td>Bezstratny — 16-bit (CD), 24-bit (produkcja), 32-bit float (max headroom). Mastering: 24-bit.</td></tr>
+<tr><td><strong>FLAC</strong></td><td>Bezstratny, skompresowany — archiwum, dystrybucja w jakości studyjnej.</td></tr>
+<tr><td><strong>MP3</strong></td><td>Stratny — wersje robocze, podgląd. 320 kbps lub V0 (VBR).</td></tr>
+<tr><td><strong>OGG / Opus</strong></td><td>Stratny, otwarty — web, gry.</td></tr>
+</tbody>
+</table>
+<p>Ustaw też <strong>Sample rate</strong> (zwykle taki jak projekt, np. 44 100 lub 48 000 Hz) oraz liczbę kanałów (Stereo / Mono / wielokanał).</p>
+<div class="warning">⚠ Konwersję sample rate (np. 48k → 44.1k) wykonuj na renderze, nie zmieniając projektu. W <em>Resample mode</em> wybierz wysoką jakość (np. „Better/Best") dla finalnych plików.</div>
+
+<h2 id="normalizacja">Normalizacja i dither</h2>
+<ul>
+<li><strong>Normalize</strong> — wyrównanie poziomu do celu: <em>peak</em> (np. −1 dBTP) lub <em>loudness</em> (LUFS). Do streamingu zwykle <strong>−14 LUFS</strong> integrated; do klubu/CD głośniej.</li>
+<li><strong>Dither</strong> — włącz przy redukcji rozdzielczości (np. 24-bit → 16-bit), by zamaskować błąd kwantyzacji szumem. Przy 32-bit float dither nie jest potrzebny.</li>
+<li><strong>Brickwall limit / True Peak</strong> — zabezpieczenie przed przesterowaniem międzypróbkowym (intersample peaks).</li>
+</ul>
+
+<h2 id="presety">Presety i kolejka</h2>
+<ul>
+<li><strong>Render presets</strong> — zapisz typowe ustawienia (np. „Master 24-bit WAV", „MP3 320 podgląd") i wybieraj je jednym kliknięciem.</li>
+<li><strong>Queue</strong> — dodaj wiele zadań renderu do kolejki i wykonaj je hurtem (różne formaty/zakresy).</li>
+<li><strong>Render online vs offline:</strong> domyślnie REAPER renderuje <em>offline</em> (szybciej niż real-time); część wtyczek wymaga trybu „1x" (real-time) — wtedy renderuj online.</li>
+</ul>
+<div class="callout">💡 Wzorzec nazwy pliku możesz zbudować ze zmiennych (np. <em>$project</em>, <em>$region</em>, <em>$tracknumber</em>) — bardzo przydatne przy renderze regionów lub stemów wsadowo.</div>
+
+<div class="nav-bottom">
+<a href="06-skroty.html">⟵ Skróty klawiszowe</a>
+<a href="08-rozszerzenia.html">Rozszerzenia →</a>
+</div>
+</div>
+<!-- KOMPENDIUM:START -->
+<link rel="stylesheet" href="../../values/assets/kompendium.css">
+<script>window.KOMP={"page":"music/reaper/07-render.html","home":"../../","title":"Render i eksport — REAPER","section":"music","sectionLabel":"\uD83C\uDFB5 Muzyka — nauka i produkcja","rel":[{"u":"../../music/reaper/06-skroty.html","t":"Skróty klawiszowe — REAPER","s":"\uD83C\uDFB5","r":"Powiązany w treści"},{"u":"../../music/reaper/08-rozszerzenia.html","t":"Rozszerzenia — REAPER","s":"\uD83C\uDFB5","r":"Powiązany w treści"},{"u":"../../music/reaper/01-podstawy.html","t":"Podstawy i interfejs — REAPER","s":"\uD83C\uDFB5","r":"Ta sama sekcja"},{"u":"../../music/reaper/02-nagrywanie.html","t":"Nagrywanie audio i MIDI — REAPER","s":"\uD83C\uDFB5","r":"Ta sama sekcja"},{"u":"../../music/reaper/03-edycja.html","t":"Edycja — REAPER","s":"\uD83C\uDFB5","r":"Ta sama sekcja"},{"u":"../../music/reaper/04-miksowanie.html","t":"Miksowanie i routing — REAPER","s":"\uD83C\uDFB5","r":"Ta sama sekcja"}]}</script>
+<script src="../../values/assets/kompendium.js" defer></script>
+<!-- KOMPENDIUM:END -->
+</body>
+</html>

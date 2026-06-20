@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>13-03 — Bazy wektorowe i embeddingi</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .card h3{margin-top:4px}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <a href="13-architektura-ai-llm.html">13 — AI/LLM</a>
+        <span class="sep">/</span>
+        <span class="title">Bazy wektorowe i embeddingi</span>
+    </div>
+    <div class="container">
+        <h1>Bazy wektorowe i embeddingi</h1>
+        <p class="subtitle">Warstwa danych dla RAG i pamieci agentow — jak reprezentowac znaczenie liczbami i szybko je wyszukiwac.</p>
+
+        <h2>Czym sa embeddingi</h2>
+        <p>Embedding to <strong>wektor liczb zmiennoprzecinkowych</strong>, ktory reprezentuje znaczenie tekstu (lub obrazu, audio) w przestrzeni wielowymiarowej. Model embeddingowy uczy sie tak rozmieszczac dane, by <strong>rzeczy podobne znaczeniowo lezaly blisko siebie</strong>, a rozne — daleko.</p>
+<pre><code>"pies"      → [ 0.82, -0.11,  0.44, ... ]  ┐
+"szczeniak" → [ 0.79, -0.08,  0.49, ... ]  ├─ blisko (podobne znaczenie)
+"kot"       → [ 0.71, -0.20,  0.38, ... ]  ┘
+"faktura"   → [-0.33,  0.61, -0.12, ... ]     daleko (inny temat)</code></pre>
+        <p>Dzieki temu wyszukiwanie semantyczne dziala mimo roznych slow: zapytanie "jak zwrocic produkt" odnajdzie dokument "polityka zwrotow towaru", bo ich wektory sa blisko. To fundament RAG (<a href="13-01-rag-retrieval-augmented-generation.html">13-01</a>) i pamieci agentow (<a href="13-02-agenty-i-narzedzia.html">13-02</a>).</p>
+
+        <h3>Modele embeddingowe (2026)</h3>
+        <ul>
+            <li><strong>Chmurowe API:</strong> OpenAI <code>text-embedding-3</code>, Cohere Embed v3, Voyage AI, Google Gemini Embedding, Mistral Embed.</li>
+            <li><strong>Open-source / lokalne:</strong> rodzina BGE (BAAI), E5, GTE, Nomic Embed, Jina Embeddings, <code>multilingual-e5</code> dla wielu jezykow (w tym polskiego).</li>
+            <li><strong>Matryoshka (MRL):</strong> embeddingi, ktore mozna skrocic (np. z 1024 do 256 wymiarow) bez retreningu, wymieniajac nieco jakosci za mniejsza pamiec i szybsze wyszukiwanie.</li>
+        </ul>
+        <p><strong>Zasada zelazna:</strong> ten sam model embeddingowy musi byc uzyty do indeksowania i do zapytan. Zmiana modelu wymaga przeliczenia (re-embed) calego korpusu.</p>
+
+        <h2>Podobienstwo wektorow</h2>
+        <p>By znalezc "najblizsze" wektory, trzeba zmierzyc podobienstwo. Najczestsze miary:</p>
+        <table>
+            <thead><tr><th>Miara</th><th>Co liczy</th><th>Uwagi</th></tr></thead>
+            <tbody>
+                <tr><td>Kosinusowa</td><td>Kat miedzy wektorami (kierunek, nie dlugosc)</td><td>Najpopularniejsza dla tekstu; odporna na dlugosc wektora</td></tr>
+                <tr><td>Iloczyn skalarny (dot)</td><td>Kierunek i dlugosc</td><td>Szybka; rownowazna kosinusowej dla wektorow znormalizowanych</td></tr>
+                <tr><td>Euklidesowa (L2)</td><td>Odleglosc w linii prostej</td><td>Wrazliwa na skale; rzadziej dla tekstu</td></tr>
+            </tbody>
+        </table>
+        <p>W praktyce: jesli embeddingi sa znormalizowane (dlugosc 1), kosinusowa i iloczyn skalarny daja ten sam ranking, a dot jest szybszy. Wiekszosc baz pozwala wybrac miare przy tworzeniu kolekcji.</p>
+
+        <h2>Wyszukiwanie ANN</h2>
+        <p>Dokladne porownanie zapytania z kazdym wektorem (brute force, k-NN) jest dokladne, ale przy milionach wektorow zbyt wolne. Dlatego uzywa sie <strong>ANN (Approximate Nearest Neighbor)</strong> — wyszukiwania przyblizonego, ktore oddaje odrobine dokladnosci (recall) za ogromny zysk szybkosci.</p>
+
+        <h3>HNSW (Hierarchical Navigable Small World)</h3>
+        <p>Najpopularniejszy indeks ANN. Buduje wielowarstwowy graf, po ktorym nawigacja szybko zbliza sie do najblizszych sasiadow. Bardzo dobry recall i niska latencja, kosztem wiekszego zuzycia pamieci i wolniejszego budowania.</p>
+        <ul>
+            <li><strong>M</strong> — liczba polaczen na wezel (wieksze = lepszy recall, wiecej pamieci).</li>
+            <li><strong>ef_construction</strong> — dokladnosc budowy indeksu.</li>
+            <li><strong>ef_search</strong> — dokladnosc w czasie zapytania (wieksze = lepszy recall, wolniej).</li>
+        </ul>
+
+        <h3>IVF (Inverted File Index)</h3>
+        <p>Dzieli przestrzen na klastry (komorki Woronoja). Zapytanie przeszukuje tylko kilka najblizszych klastrow (parametr <code>nprobe</code>), zamiast calego zbioru. Mniej pamieci niz HNSW, szybkie budowanie; czesto laczony z kompresja <strong>PQ (Product Quantization)</strong>, by drastycznie zmniejszyc rozmiar (IVF-PQ).</p>
+
+        <div class="card">
+            <h3>HNSW vs. IVF — skrot</h3>
+            <ul>
+                <li><strong>HNSW</strong> — najlepszy recall i latencja; wiecej RAM. Domyslny wybor dla wiekszosci zastosowan.</li>
+                <li><strong>IVF / IVF-PQ</strong> — oszczedny pamieciowo, skaluje sie do ogromnych zbiorow; nieco nizszy recall.</li>
+            </ul>
+        </div>
+
+        <h2>Bazy i silniki wektorowe</h2>
+        <table>
+            <thead><tr><th>Rozwiazanie</th><th>Typ</th><th>Kiedy uzywac</th></tr></thead>
+            <tbody>
+                <tr><td><strong>pgvector</strong></td><td>Rozszerzenie PostgreSQL</td><td>Masz juz Postgresa i chcesz wektory obok danych relacyjnych; transakcje, filtrowanie SQL, jeden system do utrzymania. Swietny domyslny wybor dla malych/srednich zbiorow.</td></tr>
+                <tr><td><strong>Qdrant</strong></td><td>Dedykowana baza (Rust)</td><td>Produkcyjny RAG z bogatym filtrowaniem metadanych i hybryda; dobra wydajnosc, latwy self-hosting, tryb embedded.</td></tr>
+                <tr><td><strong>Milvus</strong></td><td>Dedykowana, rozproszona</td><td>Bardzo duza skala (miliardy wektorow), wdrozenia rozproszone; wiele typow indeksow. Lzejszy wariant: Milvus Lite.</td></tr>
+                <tr><td><strong>Weaviate</strong></td><td>Dedykowana baza</td><td>Hybryda i moduly wbudowane (wektoryzacja, re-ranking, generacja); wygodne, gdy chcesz "baterie w zestawie".</td></tr>
+                <tr><td><strong>FAISS</strong></td><td>Biblioteka (Meta)</td><td>Maksymalna kontrola i wydajnosc ANN w kodzie (C++/Python); to biblioteka, nie baza — sam dokladasz trwalosc, metadane, API.</td></tr>
+                <tr><td><strong>Chroma</strong></td><td>Lekka baza/embedded</td><td>Prototypy, lokalne aplikacje, nauka; bardzo proste API, dziala in-process. Latwy start dla malego projektu.</td></tr>
+            </tbody>
+        </table>
+        <p>Inne warte uwagi (2026): <strong>OpenSearch / Elasticsearch</strong> (k-NN + pelny tekst w jednym, naturalna hybryda), <strong>Redis</strong> (wektory + cache), <strong>pgvectorscale</strong> (przyspieszenie pgvector), oraz uslugi zarzadzane (Pinecone, Vertex AI Vector Search, Azure AI Search).</p>
+
+        <div class="card">
+            <h3>Jak wybrac (heurystyka)</h3>
+            <ul>
+                <li><strong>Masz Postgresa, zbior do kilku mln wektorow</strong> &rarr; pgvector (mniej ruchomych czesci).</li>
+                <li><strong>Powazny RAG, duzo filtrowania i hybrydy</strong> &rarr; Qdrant lub Weaviate.</li>
+                <li><strong>Miliardy wektorow, skala rozproszona</strong> &rarr; Milvus.</li>
+                <li><strong>Prototyp / aplikacja lokalna</strong> &rarr; Chroma lub FAISS.</li>
+                <li><strong>Chcesz semantyke i pelny tekst razem</strong> &rarr; OpenSearch/Elasticsearch.</li>
+            </ul>
+        </div>
+
+        <h2>Wymiarowosc</h2>
+        <p>Liczba wymiarow embeddingu (np. 384, 768, 1024, 1536, 3072) to kompromis: wiecej wymiarow zwykle = lepsze rozroznianie znaczen, ale <strong>wieksze zuzycie pamieci i wolniejsze wyszukiwanie</strong>. Modele Matryoshka pozwalaja skrocic wektor do mniejszej liczby wymiarow, gdy zalezy nam na oszczednosci. Dobierz wymiarowosc do jakosci i budzetu pamieci, nie "na zapas".</p>
+
+        <h2>Metadane i filtrowanie</h2>
+        <p>Wektor to nie wszystko — obok niego przechowuje sie <strong>metadane</strong> (zrodlo, data, jezyk, dzial, uprawnienia, typ dokumentu). Pozwalaja one:</p>
+        <ul>
+            <li><strong>Filtrowac wyszukiwanie</strong> — np. tylko dokumenty danego klienta, tylko po polsku, tylko nowsze niz rok.</li>
+            <li><strong>Egzekwowac dostep</strong> — odsiewac tresci, do ktorych uzytkownik nie ma uprawnien (krytyczne dla bezpieczenstwa RAG).</li>
+            <li><strong>Budowac cytowania</strong> — zrodlo i URL do pokazania uzytkownikowi.</li>
+        </ul>
+        <p><strong>Pre- vs post-filtering:</strong> pre-filtering zaweza zbior przed ANN (dokladniejsze, ale moze byc wolniejsze), post-filtering odsiewa po wyszukaniu (szybsze, ale moze zwrocic za malo wynikow). Dobre bazy (Qdrant, Weaviate, Milvus) optymalizuja filtrowanie z indeksem ANN.</p>
+
+        <h2>Aktualizacja indeksu</h2>
+        <ul>
+            <li><strong>Upsert</strong> — dodawanie/aktualizacja wektorow po identyfikatorze; pozwala odswiezac tylko zmienione dokumenty.</li>
+            <li><strong>Usuwanie i wersjonowanie</strong> — gdy dokument znika lub sie zmienia, usun stare chunki, by uniknac "duchow" w wynikach.</li>
+            <li><strong>Re-embedding</strong> — zmiana modelu embeddingowego wymaga przeliczenia calego korpusu; planuj migracje (np. budowa nowej kolekcji obok starej i przelaczenie).</li>
+            <li><strong>Spojnosc z RAG</strong> — pipeline ingestii (<a href="13-01-rag-retrieval-augmented-generation.html">13-01</a>) powinien aktualizowac indeks przy kazdej zmianie zrodel.</li>
+        </ul>
+
+        <h2>Koszty pamieci</h2>
+        <p>Pamiec to glowny koszt baz wektorowych. Zgrubne oszacowanie surowych wektorow (float32):</p>
+<pre><code>rozmiar ≈ liczba_wektorow × wymiary × 4 bajty
+
+Przyklad: 1 000 000 wektorow × 768 wym. × 4 B ≈ 3,07 GB (same wektory)
++ narzut indeksu HNSW (czesto +50-100%) i metadane</code></pre>
+        <p>Jak ograniczyc koszt pamieci:</p>
+        <ul>
+            <li><strong>Kwantyzacja wektorow</strong> — scalar (float32 &rarr; int8, ok. 4x mniej) lub binarna (do ~32x mniej), z niewielka strata recall; wspierana m.in. przez Qdrant i Milvus.</li>
+            <li><strong>Product Quantization (PQ)</strong> — silna kompresja w IVF-PQ dla ogromnych zbiorow.</li>
+            <li><strong>Nizsza wymiarowosc</strong> (Matryoshka) — mniej wymiarow = liniowo mniej pamieci.</li>
+            <li><strong>Indeksy na dysku</strong> — czesc baz trzyma indeks na SSD zamiast w RAM, gdy zbior jest bardzo duzy.</li>
+        </ul>
+
+        <h2>Podsumowanie</h2>
+        <p>Baza wektorowa to <strong>silnik wyszukiwania znaczeniowego</strong> stojacy za RAG i pamiecia agentow. Kluczowe decyzje to: model embeddingowy (i jego wymiarowosc), miara podobienstwa, typ indeksu ANN (zwykle HNSW), strategia metadanych/filtrowania oraz kompromis pamiec-recall. Dla wiekszosci projektow rozsadny start to <strong>pgvector albo Qdrant</strong>; po dedykowane, rozproszone rozwiazania (Milvus) siegaj dopiero przy naprawde duzej skali.</p>
+
+        <div class="nav-bottom">
+            <a href="13-02-agenty-i-narzedzia.html">&larr; 13-02 Agenty i narzedzia</a>
+            <a href="13-04-serwowanie-i-llmops.html">13-04 Serwowanie i LLMOps &rarr;</a>
+        </div>
+    </div>
+<!-- KOMPENDIUM:START -->
+<link rel="stylesheet" href="../../values/assets/kompendium.css">
+<script>window.KOMP={"page":"software/architektura/13-03-bazy-wektorowe-i-embeddingi.html","home":"../../","title":"13-03 — Bazy wektorowe i embeddingi","section":"software","sectionLabel":"\uD83D\uDCBB Software i programowanie","rel":[{"u":"../../software/llm/09-rag.html","t":"09 — RAG (Retrieval Augmented Generation)","s":"\uD83D\uDCBB","r":"Wektory w RAG"},{"u":"../../software/architektura/13-architektura-ai-llm.html","t":"13 — Architektura systemow AI/LLM","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/13-01-rag-retrieval-augmented-generation.html","t":"13-01 — RAG (Retrieval-Augmented Generation)","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/13-02-agenty-i-narzedzia.html","t":"13-02 — Agenty i narzedzia (tool use)","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/13-04-serwowanie-i-llmops.html","t":"13-04 — Serwowanie modeli i LLMOps","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/01-01-podejmowanie-decyzji-technicznych.html","t":"01-01 — Podejmowanie decyzji technicznych","s":"\uD83D\uDCBB","r":"Ta sama sekcja"},{"u":"../../software/architektura/01-02-balansowanie-wymagan.html","t":"01-02 — Balansowanie wymagan","s":"\uD83D\uDCBB","r":"Ta sama sekcja"}]}</script>
+<script src="../../values/assets/kompendium.js" defer></script>
+<!-- KOMPENDIUM:END -->
+</body>
+</html>

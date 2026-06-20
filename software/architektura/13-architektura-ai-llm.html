@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>13 — Architektura systemow AI/LLM</title>
+    <style>
+        :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#a78bfa;--orange:#fb923c;--code-bg:#0d1117}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+        .topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+        .topbar a:hover{color:var(--accent-hover)}
+        .topbar .sep{color:var(--border)}
+        .topbar .title{color:var(--text-muted);font-size:.9rem}
+        .container{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+        h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:var(--text-muted);margin-bottom:40px;font-size:1rem}
+        h2{font-size:1.35rem;font-weight:600;color:var(--accent);margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+        h3{font-size:1.1rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+        p{margin-bottom:14px}
+        ul,ol{margin:0 0 16px 24px}
+        li{margin-bottom:6px}
+        strong{color:var(--accent-hover)}
+        table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+        th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+        td{padding:10px 14px;border:1px solid var(--border)}
+        pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;overflow-x:auto;margin:16px 0 24px;font-size:.85rem;line-height:1.6}
+        code{font-family:'Cascadia Code','Fira Code','Consolas',monospace;color:var(--green)}
+        pre code{color:var(--text-muted)}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+        .two-col .card{margin:0}
+        .sub-list{display:grid;gap:14px;margin:16px 0}
+        .sub-link{display:block;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 22px;text-decoration:none;color:var(--text);transition:all 0.2s ease}
+        .sub-link:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px rgba(56,189,248,0.1)}
+        .sub-link h3{margin:0 0 4px;color:var(--accent)}
+        .sub-link p{margin:0;color:var(--text-muted);font-size:.9rem}
+        .sub-link .num{color:var(--text-muted);font-size:.8rem;font-weight:600;letter-spacing:.5px}
+        .nav-bottom{display:flex;justify-content:space-between;margin-top:60px;padding-top:24px;border-top:1px solid var(--border)}
+        .nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+        .nav-bottom a:hover{color:var(--accent-hover)}
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <a href="index.html">Spis tresci</a>
+        <span class="sep">/</span>
+        <span class="title">13 — Architektura systemow AI/LLM</span>
+    </div>
+    <div class="container">
+        <h1>Architektura systemow AI/LLM</h1>
+        <p class="subtitle">Jak osadzac modele jezykowe w architekturze aplikacji — RAG, agenty, bazy wektorowe, serwowanie i LLMOps.</p>
+        <p class="subtitle"><strong>Aktualizacja: 2026</strong> — RAG i agenty jako standardowe wzorce aplikacyjne, MCP (Model Context Protocol) jako protokol integracji narzedzi, dojrzale silniki serwujace (vLLM, Ollama, TGI) i tanie modele lokalne kwantyzowane uruchamiane nawet na 8 GB VRAM.</p>
+
+        <h2>O czym jest ten dzial</h2>
+        <p>Modele jezykowe (LLM) przestaly byc ciekawostka badawcza i staly sie <strong>komponentem architektonicznym</strong> — takim samym jak baza danych, kolejka czy cache. Wymagaja jednak innego sposobu myslenia: sa niedeterministyczne, kosztowne, podatne na halucynacje i prompt injection, a ich jakosc trudno mierzyc klasycznymi testami.</p>
+        <p>Ten dzial pokazuje, jak <strong>poprawnie wpiac LLM w system</strong>: jak dostarczyc modelowi wiedze (RAG), jak pozwolic mu dzialac (agenty i narzedzia), gdzie trzymac reprezentacje znaczeniowe (bazy wektorowe) oraz jak to wszystko serwowac, monitorowac i zabezpieczyc (LLMOps).</p>
+
+        <div class="card">
+            <h3>Typowa architektura aplikacji z LLM (2026)</h3>
+<pre><code>┌──────────┐   ┌─────────────────┐   ┌──────────────┐
+│ Klient   │──→│  Warstwa aplik.  │──→│   Orkiestr.   │
+│ (UI/API) │   │ (API, auth, RBAC)│   │ (RAG / agent) │
+└──────────┘   └─────────────────┘   └──────┬───────┘
+                                            │
+            ┌───────────────┬───────────────┼───────────────┐
+            ▼               ▼               ▼               ▼
+     ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐
+     │ Baza       │  │ Narzedzia  │  │  LLM       │  │ Guardraile │
+     │ wektorowa  │  │ (API/MCP)  │  │ (serwer/   │  │ + logi     │
+     │ (retrieval)│  │            │  │  chmura)   │  │ (LLMOps)   │
+     └────────────┘  └────────────┘  └────────────┘  └────────────┘</code></pre>
+        </div>
+
+        <h2>Spis podstron</h2>
+        <div class="sub-list">
+            <a href="13-01-rag-retrieval-augmented-generation.html" class="sub-link">
+                <span class="num">13-01</span>
+                <h3>RAG (Retrieval-Augmented Generation)</h3>
+                <p>Dostarczanie modelowi wiedzy spoza treningu: chunking, embeddingi, indeks wektorowy, retrieval, hybrydowe wyszukiwanie, re-ranking, cytowania i ograniczanie halucynacji.</p>
+            </a>
+            <a href="13-02-agenty-i-narzedzia.html" class="sub-link">
+                <span class="num">13-02</span>
+                <h3>Agenty i narzedzia (tool use)</h3>
+                <p>Petla ReAct, function/tool calling, planowanie, pamiec krotko- i dlugoterminowa, orkiestracja wielu agentow, MCP, ryzyka (petle, koszty, prompt injection) i wzorce kontroli.</p>
+            </a>
+            <a href="13-03-bazy-wektorowe-i-embeddingi.html" class="sub-link">
+                <span class="num">13-03</span>
+                <h3>Bazy wektorowe i embeddingi</h3>
+                <p>Wektory znaczeniowe, podobienstwo kosinusowe, wyszukiwanie ANN (HNSW, IVF), porownanie silnikow (pgvector, Qdrant, Milvus, Weaviate, FAISS, Chroma), metadane i koszty pamieci.</p>
+            </a>
+            <a href="13-04-serwowanie-i-llmops.html" class="sub-link">
+                <span class="num">13-04</span>
+                <h3>Serwowanie modeli i LLMOps</h3>
+                <p>Inferencja lokalna vs. chmura, silniki serwujace (vLLM, Ollama, llama.cpp, TGI), kwantyzacja i VRAM, batching/streaming, cache promptow, obserwowalnosc, guardraile i wzorce wdrozen.</p>
+            </a>
+        </div>
+
+        <h2>Jak czytac ten dzial</h2>
+        <p>Podstrony tworza logiczna sciezke: <strong>13-01</strong> pokazuje, jak nakarmic model wiedza, <strong>13-02</strong> jak pozwolic mu dzialac, <strong>13-03</strong> dostarcza warstwy danych dla obu, a <strong>13-04</strong> domyka temat infrastruktura, kosztami i bezpieczenstwem. Jesli budujesz pierwszy system z LLM, zacznij od RAG — to najtanszy i najbezpieczniejszy sposob uzyskania trafnych, ugruntowanych odpowiedzi.</p>
+
+        <div class="nav-bottom">
+            <a href="12-dokumentacja-i-diagramy.html">&larr; Dokumentacja i diagramy</a>
+            <a href="13-01-rag-retrieval-augmented-generation.html">13-01 RAG &rarr;</a>
+        </div>
+    </div>
+<!-- KOMPENDIUM:START -->
+<link rel="stylesheet" href="../../values/assets/kompendium.css">
+<script>window.KOMP={"page":"software/architektura/13-architektura-ai-llm.html","home":"../../","title":"13 — Architektura systemow AI/LLM","section":"software","sectionLabel":"\uD83D\uDCBB Software i programowanie","rel":[{"u":"../../software/llm/index.html","t":"LLM — kompendium wiedzy o duzych modelach jezykowych","s":"\uD83D\uDCBB","r":"Dział: modele LLM w praktyce"},{"u":"../../software/llm/09-rag.html","t":"09 — RAG (Retrieval Augmented Generation)","s":"\uD83D\uDCBB","r":"RAG — implementacja"},{"u":"../../software/architektura/13-01-rag-retrieval-augmented-generation.html","t":"13-01 — RAG (Retrieval-Augmented Generation)","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/13-02-agenty-i-narzedzia.html","t":"13-02 — Agenty i narzedzia (tool use)","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/13-03-bazy-wektorowe-i-embeddingi.html","t":"13-03 — Bazy wektorowe i embeddingi","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/13-04-serwowanie-i-llmops.html","t":"13-04 — Serwowanie modeli i LLMOps","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/12-dokumentacja-i-diagramy.html","t":"12 — Dokumentacja i diagramy architektoniczne","s":"\uD83D\uDCBB","r":"Powiązany w treści"},{"u":"../../software/architektura/01-01-podejmowanie-decyzji-technicznych.html","t":"01-01 — Podejmowanie decyzji technicznych","s":"\uD83D\uDCBB","r":"Ta sama sekcja"}]}</script>
+<script src="../../values/assets/kompendium.js" defer></script>
+<!-- KOMPENDIUM:END -->
+</body>
+</html>

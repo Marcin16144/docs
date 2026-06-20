@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Indeks i wyszukiwarka — Kompendium</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--surface-hi:#273549;--border:#334155;--text:#e2e8f0;--muted:#94a3b8;--accent:#22d3ee;--accent2:#a78bfa}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+.top{position:sticky;top:0;z-index:20;background:rgba(15,23,42,.97);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:16px 20px}
+.top-inner{max-width:1080px;margin:0 auto}
+.crumbs{font-size:.85rem;margin-bottom:12px}
+.crumbs a{color:var(--accent);text-decoration:none}
+.searchrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.searchbox{flex:1;min-width:240px;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 16px}
+.searchbox input{flex:1;background:none;border:0;outline:none;color:var(--text);font-size:1.05rem;font-family:inherit}
+.btn{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 16px;font-size:.9rem;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:#fff}
+.btn.primary{border-color:var(--accent);color:var(--accent)}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}
+.chip{background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:16px;padding:5px 13px;font-size:.78rem;cursor:pointer;transition:all .14s}
+.chip:hover{color:var(--text)}
+.chip.on{background:rgba(34,211,238,.15);color:var(--accent);border-color:var(--accent)}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 80px}
+.muted{color:var(--muted)}
+.resume{background:linear-gradient(135deg,rgba(167,139,250,.13),rgba(34,211,238,.08));border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.resume .grow{flex:1;min-width:200px}
+.resume .lbl{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.resume .ttl{font-size:1.05rem;font-weight:600;margin-top:2px}
+.sec{margin-bottom:30px}
+.sec h2{font-size:1.05rem;display:flex;align-items:center;gap:9px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.sec h2 .cnt{font-size:.74rem;color:var(--muted);font-weight:400;margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.card{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:11px;text-decoration:none;color:var(--text);transition:transform .14s,border-color .14s,background .14s;position:relative}
+.card:hover{transform:translateY(-2px);border-color:var(--accent);background:var(--surface-hi)}
+.card .ico{font-size:1.4rem;flex:none;line-height:1.2}
+.card .t{font-size:.9rem;font-weight:600;line-height:1.3}
+.card .s{font-size:.74rem;color:var(--muted);margin-top:2px}
+.card mark{background:rgba(34,211,238,.28);color:#fff;border-radius:3px}
+.pbadge{position:absolute;right:9px;top:9px;font-size:.64rem;color:var(--accent);border:1px solid var(--border);border-radius:20px;padding:1px 7px;background:var(--bg)}
+.empty{padding:50px 20px;text-align:center;color:var(--muted)}
+.stats{display:flex;gap:18px;margin-top:12px;font-size:.78rem;color:var(--muted);flex-wrap:wrap}
+.stats b{color:var(--accent);font-size:1rem}
+</style>
+</head>
+<body>
+<div class="top"><div class="top-inner">
+  <div class="crumbs"><a href="../index.html">📚 Kompendium</a> <span class="muted">/</span> Indeks i wyszukiwarka</div>
+  <div class="searchrow">
+    <div class="searchbox"><span style="font-size:1.15rem">🔎</span>
+      <input id="q" type="text" placeholder="Szukaj stron, tematów, działów… (np. RAG, fotowoltaika, REAPER)" autocomplete="off" autofocus></div>
+    <button class="btn primary" id="resumeBtn" style="display:none">⤴️ Wznów</button>
+    <a class="btn" href="../index.html">🏠 Start</a>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="stats" id="stats"></div>
+</div></div>
+
+<div class="wrap">
+  <div id="resume"></div>
+  <div id="out"><div class="empty">Ładowanie indeksu…</div></div>
+</div>
+
+<script>
+var HOME="../", catalog=[], sections=[], secMap={}, scroll={}, activeSec="all", q="";
+try{scroll=JSON.parse(localStorage.getItem("komp:scroll"))||{}}catch(e){}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function hl(s,terms){s=esc(s);terms.forEach(function(t){if(t)s=s.replace(new RegExp("("+t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","ig"),"<mark>$1</mark>")});return s}
+function icon(id){return (secMap[id]||{}).icon||"📄"}
+function secLabel(id){var s=secMap[id];return s?s.icon+" "+s.title:id}
+
+Promise.all([
+  fetch("data/catalog.json",{cache:"no-cache"}).then(function(r){return r.json()}),
+]).then(function(res){
+  var c=res[0]; catalog=c.pages||[]; sections=(c.sections||[]).slice();
+  sections.forEach(function(s){secMap[s.id]=s});
+  document.getElementById("stats").innerHTML=
+    "<span><b>"+catalog.length+"</b> stron</span><span><b>"+sections.length+"</b> działów</span>"+
+    "<span>zindeksowano: "+(c.generated||"").slice(0,10)+"</span>";
+  renderChips(); renderResume(); render();
+}).catch(function(){
+  document.getElementById("out").innerHTML='<div class="empty">⚠ Nie udało się wczytać indeksu.<br>Ta strona wymaga uruchomienia przez <b>serwer WWW</b> (http://) lub aplikację <b>Kompendium.Desktop</b> — bezpośrednie otwarcie pliku (file://) blokuje wczytywanie danych w przeglądarce.</div>';
+});
+
+function renderChips(){
+  var el=document.getElementById("chips");
+  var html='<button class="chip on" data-s="all">Wszystko</button>';
+  sections.forEach(function(s){html+='<button class="chip" data-s="'+s.id+'">'+s.icon+" "+esc(s.title.split(" — ")[0].split(" i ")[0])+'</button>'});
+  el.innerHTML=html;
+  el.querySelectorAll(".chip").forEach(function(b){b.onclick=function(){activeSec=b.dataset.s;el.querySelectorAll(".chip").forEach(function(x){x.classList.toggle("on",x===b)});render()}});
+}
+function renderResume(){
+  var last=null;try{last=JSON.parse(localStorage.getItem("komp:last"))}catch(e){}
+  var box=document.getElementById("resume"), btn=document.getElementById("resumeBtn");
+  if(!last||!last.path){box.innerHTML="";return}
+  btn.style.display=""; btn.onclick=function(){location.href=HOME+last.path};
+  box.innerHTML='<div class="resume"><span style="font-size:1.8rem">⤴️</span><div class="grow">'+
+    '<div class="lbl">Kontynuuj czytanie ('+Math.round((last.pct||0)*100)+'%)</div>'+
+    '<div class="ttl">'+esc(last.title||last.path)+'</div>'+
+    '<div class="muted" style="font-size:.8rem">'+esc(last.label||last.section||"")+'</div></div>'+
+    '<a class="btn primary" href="'+HOME+last.path+'">Otwórz →</a></div>';
+}
+document.getElementById("q").addEventListener("input",function(){q=this.value.trim();render()});
+
+function render(){
+  var terms=q.toLowerCase().split(/\s+/).filter(Boolean);
+  var list=catalog.filter(function(p){return activeSec==="all"||p.section===activeSec});
+  if(terms.length){
+    list=list.map(function(p){
+      var hay=(p.title+" "+(p.subtitle||"")+" "+p.section+" "+(p.headings||[]).map(function(h){return h.text}).join(" ")).toLowerCase();
+      var sc=0,ok=true;
+      terms.forEach(function(t){var i=hay.indexOf(t);if(i<0)ok=false;else sc+=(p.title.toLowerCase().indexOf(t)>=0?10:1)});
+      p._s=sc;return ok?p:null;
+    }).filter(Boolean).sort(function(a,b){return b._s-a._s});
+  }
+  var out=document.getElementById("out");
+  if(!list.length){out.innerHTML='<div class="empty">Brak wyników.</div>';return}
+  if(terms.length){
+    out.innerHTML='<div class="sec"><h2>🔎 Wyniki <span class="cnt">'+list.length+'</span></h2><div class="grid">'+
+      list.slice(0,120).map(function(p){return cardHtml(p,terms)}).join("")+'</div></div>';
+  }else{
+    var groups={};list.forEach(function(p){(groups[p.section]=groups[p.section]||[]).push(p)});
+    var html="";
+    sections.forEach(function(s){
+      var g=groups[s.id];if(!g)return;
+      g.sort(function(a,b){return a.path.localeCompare(b.path)});
+      html+='<div class="sec"><h2>'+s.icon+" "+esc(s.title)+'<span class="cnt">'+g.length+' stron</span></h2><div class="grid">'+
+        g.map(function(p){return cardHtml(p,[])}).join("")+'</div></div>';
+    });
+    out.innerHTML=html;
+  }
+}
+function cardHtml(p,terms){
+  var pct=(scroll[p.path]||{}).pct||0;
+  var badge=pct>0.02?'<span class="pbadge">'+Math.round(pct*100)+'%</span>':"";
+  return '<a class="card" href="'+HOME+p.path+'"><span class="ico">'+icon(p.section)+'</span>'+
+    '<span><span class="t">'+(terms.length?hl(p.title,terms):esc(p.title))+'</span>'+
+    '<span class="s">'+esc(secLabel(p.section))+(p.subtitle?" · "+esc(p.subtitle):"")+'</span></span>'+badge+'</a>';
+}
+</script>
+</body>
+</html>

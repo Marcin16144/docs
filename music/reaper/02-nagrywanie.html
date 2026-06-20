@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nagrywanie audio i MIDI — REAPER</title>
+<style>
+:root{--bg:#0f0a14;--surface:#1d1526;--surface-hover:#2a1f38;--border:#3b2f4a;--text:#ece6f0;--text-muted:#a394b3;--accent:#38bdf8;--accent-hover:#7dd3fc;--green:#4ade80;--purple:#c084fc;--orange:#fb923c;--blue:#60a5fa;--yellow:#fbbf24;--red:#f87171;--code-bg:#150f1d}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar a{color:var(--accent);text-decoration:none;font-size:.9rem;font-weight:500}
+.topbar a:hover{color:var(--accent-hover)}
+.topbar .sep{color:var(--border)}
+.topbar .title{color:var(--text-muted);font-size:.9rem}
+.container{max-width:880px;margin:0 auto;padding:38px 20px 80px}
+h1{font-size:2rem;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:var(--text-muted);margin-bottom:6px;font-size:1rem}
+.updated{color:var(--text-muted);font-size:.78rem;margin-bottom:36px;opacity:.8}
+h2{font-size:1.4rem;font-weight:600;color:var(--accent);margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h3{font-size:1.12rem;font-weight:600;color:var(--text);margin:24px 0 10px}
+p{margin-bottom:14px}
+ul,ol{margin:0 0 16px 24px}
+li{margin-bottom:6px}
+strong{color:var(--accent-hover)}
+em{color:var(--purple)}
+table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:.9rem}
+th{background:var(--surface);color:var(--accent);padding:10px 14px;text-align:left;border:1px solid var(--border);font-weight:600}
+td{padding:10px 14px;border:1px solid var(--border)}
+tr:hover td{background:var(--surface-hover)}
+.callout{background:rgba(96,165,250,.08);border-left:3px solid var(--blue);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.tip{background:rgba(74,222,128,.08);border-left:3px solid var(--green);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.warning{background:rgba(248,113,113,.08);border-left:3px solid var(--red);padding:12px 16px;margin:16px 0;border-radius:6px;font-size:.92rem}
+.nav-bottom{display:flex;justify-content:space-between;margin-top:54px;padding-top:22px;border-top:1px solid var(--border);gap:12px;flex-wrap:wrap}
+.nav-bottom a{color:var(--accent);text-decoration:none;font-size:.9rem}
+kbd{background:var(--code-bg);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:'Cascadia Code',monospace;font-size:.82rem;color:var(--text);white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="topbar"><a href="../../index.html">📚 Kompendium</a><span class="sep">/</span><a href="index.html">🎛 REAPER</a><span class="sep">/</span><span class="title">Nagrywanie audio i MIDI</span></div>
+<div class="container">
+<h1>Nagrywanie audio i MIDI</h1>
+<p class="subtitle">Wejścia, monitoring, tryby nagrywania, punch-in i rejestracja MIDI</p>
+<p class="updated">Aktualizacja: 2026-06</p>
+
+<p>Nagrywanie w REAPER zaczyna się od poprawnie skonfigurowanego <strong>urządzenia audio</strong> i wybranego <strong>wejścia</strong> na ścieżce. Pamiętaj, by najpierw <strong>zapisać projekt</strong> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) — nagrania trafiają do folderu projektu.</p>
+
+<h2 id="audio">Konfiguracja urządzenia audio</h2>
+<p>Otwórz <strong>Options → Preferences → Audio → Device</strong> i wybierz sterownik:</p>
+<table>
+<thead><tr><th>Sterownik</th><th>Kiedy używać</th></tr></thead>
+<tbody>
+<tr><td><strong>ASIO</strong></td><td>Zalecany na Windows — najniższe opóźnienie (latencja). Karty zewnętrzne mają własny sterownik ASIO; bez niego użyj <em>ASIO4ALL</em>.</td></tr>
+<tr><td><strong>WASAPI</strong></td><td>Wbudowany w Windows, niezła latencja bez dodatkowego sterownika.</td></tr>
+<tr><td><strong>WDM / DirectSound</strong></td><td>Awaryjnie — większe opóźnienie.</td></tr>
+<tr><td><strong>Core Audio</strong></td><td>macOS — natywny, niska latencja.</td></tr>
+</tbody>
+</table>
+<div class="tip">✅ <strong>Block size</strong> (rozmiar bufora) to kompromis: mniejszy = niższe opóźnienie, ale większe obciążenie CPU i ryzyko trzasków. Przy nagrywaniu na żywo celuj w 128–256 sampli; przy miksie możesz zwiększyć do 512–1024.</div>
+
+<h2 id="wejscia">Wejścia i record-arm</h2>
+<ol>
+<li>Utwórz ścieżkę (<kbd>Ctrl</kbd>+<kbd>T</kbd>).</li>
+<li>Kliknij ikonę <strong>record-arm</strong> (czerwone kółko w TCP) — ścieżka jest uzbrojona.</li>
+<li>Kliknij rozwijaną listę przy record-arm i wybierz <strong>wejście</strong>: <em>Audio → Mono → wejście 1</em> (np. mikrofon) lub <em>Stereo</em> (np. syntezator), albo <em>MIDI → All channels</em>.</li>
+<li>Włącz <strong>monitoring wejścia</strong> (ikona głośnika), aby słyszeć sygnał na żywo.</li>
+</ol>
+<table>
+<thead><tr><th>Tryb monitoringu</th><th>Zachowanie</th></tr></thead>
+<tbody>
+<tr><td><strong>Off</strong></td><td>Nie słychać wejścia (np. gdy monitorujesz sprzętowo z interfejsu — zero latencji).</td></tr>
+<tr><td><strong>Input</strong></td><td>Zawsze słychać wejście przez REAPER (z efektami na ścieżce).</td></tr>
+<tr><td><strong>Auto</strong></td><td>Słychać wejście tylko podczas nagrywania/uzbrojenia, w innym czasie playback.</td></tr>
+</tbody>
+</table>
+<div class="warning">⚠ Monitoring programowy dodaje opóźnienie bufora. Jeśli interfejs audio ma <strong>monitoring sprzętowy (direct monitor)</strong>, wyłącz monitoring w REAPER, by uniknąć echa i latencji.</div>
+
+<h2 id="tryby">Tryby nagrywania</h2>
+<p>Tryb wybierzesz prawym klikiem na przycisku <strong>Record</strong> na transporcie (<em>Record mode</em>):</p>
+<table>
+<thead><tr><th>Tryb</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td><strong>Normal</strong></td><td>Standardowe nagrywanie — nowe itemy na uzbrojonych ścieżkach.</td></tr>
+<tr><td><strong>Time selection / auto-punch</strong></td><td>Nagrywa wyłącznie w zaznaczonym zakresie czasu (patrz punch-in).</td></tr>
+<tr><td><strong>Selected items (MIDI overdub/replace)</strong></td><td>Edycja istniejącego itemu MIDI bez tworzenia nowego.</td></tr>
+</tbody>
+</table>
+
+<h3 id="loop">Nagrywanie pętli i warstwy (takes)</h3>
+<p>Włącz zapętlenie (<kbd>R</kbd>) i zaznacz fragment na linijce czasu. Przy każdym przejściu pętli REAPER nagra <strong>nowy take</strong> w tym samym itemie — idealne do nagrania kilku wersji solówki czy wokalu, z których później wybierzesz najlepszą (comping — patrz <a href="03-edycja.html">Edycja</a>).</p>
+<div class="callout">ℹ️ Zachowanie warstw ustawisz w <strong>Preferences → Recording</strong>: „When recording over an existing media item" oraz „Loop recording" (czy tworzyć nowe takes, czy nadpisywać).</div>
+
+<h2 id="punch">Punch-in / punch-out</h2>
+<p>Punch pozwala wejść z nagrywaniem tylko w wybranym fragmencie (np. poprawka jednej frazy), nie ruszając reszty nagrania:</p>
+<ol>
+<li>Ustaw tryb nagrywania na <strong>Auto-punch (time selection)</strong>.</li>
+<li>Zaznacz na linijce czasu zakres do poprawienia.</li>
+<li>Włącz <strong>pre-roll</strong> (Preferences → Recording) — odtwarzanie startuje kilka taktów wcześniej, byś „wszedł w klimat".</li>
+<li>Naciśnij <kbd>Ctrl</kbd>+<kbd>R</kbd> — REAPER nagrywa wyłącznie wewnątrz zaznaczenia.</li>
+</ol>
+
+<h2 id="metronom">Metronom i count-in</h2>
+<p>Metronom włączysz ikoną na transporcie (prawy klik = ustawienia). W <strong>Metronome settings</strong> ustawisz:</p>
+<ul>
+<li><strong>Count-in</strong> — np. 1 takt „odliczenia" przed startem nagrywania.</li>
+<li>Brzmienie i głośność kliknięcia, akcent na „raz".</li>
+<li>Pracę tylko podczas nagrywania albo również przy odtwarzaniu.</li>
+</ul>
+
+<h2 id="midi">Nagrywanie MIDI</h2>
+<p>Aby nagrać partię z klawiatury MIDI:</p>
+<ol>
+<li>Na ścieżce dodaj instrument wirtualny (np. <strong>ReaSynth</strong> lub VSTi — patrz <a href="05-pluginy.html">Pluginy</a>).</li>
+<li>Ustaw wejście na <strong>MIDI</strong> → Twój kontroler / All channels, uzbrój ścieżkę i włącz monitoring.</li>
+<li>Nagrywaj (<kbd>Ctrl</kbd>+<kbd>R</kbd>) — powstanie item MIDI; podwójny klik otwiera edytor (Piano Roll).</li>
+</ol>
+<table>
+<thead><tr><th>Opcja</th><th>Co robi</th></tr></thead>
+<tbody>
+<tr><td><strong>Input quantize</strong></td><td>Kwantyzuje nuty „w locie" podczas nagrywania (wyrównanie do siatki).</td></tr>
+<tr><td><strong>Overdub</strong></td><td>Dokłada nowe nuty do istniejącego itemu (np. warstwa po warstwie).</td></tr>
+<tr><td><strong>Replace</strong></td><td>Nadpisuje nuty w obszarze, przez który przejedzie kursor.</td></tr>
+</tbody>
+</table>
+<div class="tip">✅ Nagrywaj MIDI „na surowo" bez input quantize, a kwantyzację zastosuj później w edytorze — zachowasz kontrolę nad groove i będziesz mógł cofnąć.</div>
+
+<h2 id="wiele">Nagrywanie wielu ścieżek naraz</h2>
+<p>REAPER nagra dowolnie wiele ścieżek jednocześnie (zespół, perkusja wielomikrofonowa) — wystarczy uzbroić kilka ścieżek i przypisać każdej osobne wejście interfejsu (1, 2, 3…). Liczbę dostępnych wejść określa Twoja karta audio.</p>
+
+<div class="nav-bottom">
+<a href="01-podstawy.html">⟵ Podstawy i interfejs</a>
+<a href="03-edycja.html">Edycja →</a>
+</div>
+</div>
+<!-- KOMPENDIUM:START -->
+<link rel="stylesheet" href="../../values/assets/kompendium.css">
+<script>window.KOMP={"page":"music/reaper/02-nagrywanie.html","home":"../../","title":"Nagrywanie audio i MIDI — REAPER","section":"music","sectionLabel":"\uD83C\uDFB5 Muzyka — nauka i produkcja","rel":[{"u":"../../music/reaper/03-edycja.html","t":"Edycja — REAPER","s":"\uD83C\uDFB5","r":"Powiązany w treści"},{"u":"../../music/reaper/05-pluginy.html","t":"Pluginy i efekty — REAPER","s":"\uD83C\uDFB5","r":"Powiązany w treści"},{"u":"../../music/reaper/01-podstawy.html","t":"Podstawy i interfejs — REAPER","s":"\uD83C\uDFB5","r":"Powiązany w treści"},{"u":"../../music/reaper/04-miksowanie.html","t":"Miksowanie i routing — REAPER","s":"\uD83C\uDFB5","r":"Ta sama sekcja"},{"u":"../../music/reaper/06-skroty.html","t":"Skróty klawiszowe — REAPER","s":"\uD83C\uDFB5","r":"Ta sama sekcja"},{"u":"../../music/reaper/07-render.html","t":"Render i eksport — REAPER","s":"\uD83C\uDFB5","r":"Ta sama sekcja"}]}</script>
+<script src="../../values/assets/kompendium.js" defer></script>
+<!-- KOMPENDIUM:END -->
+</body>
+</html>
